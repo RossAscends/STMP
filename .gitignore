@@ -131,7 +131,7 @@ dist
 
 #STMP-specific files
 secrets.json
-characters/
-chats/
-api-presets/
+public/characters/
+public/chats/
+public/api-presets/
 cloudflared.exe

@@ -20,6 +20,7 @@ ECHO ===========================
 :StartServer
 ECHO -- Checking/Installing Node Modules
 call npm install --no-audit
+title STMP
 ECHO ===========================
 ECHO -- Starting STMP server
 node server.js

@@ -1,0 +1,23 @@
+{
+  "name": "stmp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "client.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.5.0",
+    "fs": "0.0.1-security",
+    "path": "^0.12.7",
+    "jquery": "3.6.0",
+    "openssl-nodejs": "1.0.5",
+    "png-chunk-text": "^1.0.0",
+    "png-chunks-encode": "^1.0.0",
+    "png-chunks-extract": "^1.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

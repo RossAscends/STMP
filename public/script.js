@@ -1,13 +1,25 @@
-//setup ws connection for both host and guest
-//console.log(window.location)
-var hostname = window.location.hostname;
-var port = window.location?.port;
-var wsType = window.location.hostname === (`localhost` || `127.0.0.1`) ? 'ws' : 'wss'
-var serverUrl = `${wsType}://${hostname}:${port}`
-var storedUsername = localStorage.getItem('username');
-var username = storedUsername !== null && storedUsername !== '' ? storedUsername : 'A New User';
-var storedAIChatUsername = localStorage.getItem('AIChatUsername');
-var AIChatUsername = storedAIChatUsername !== null && storedAIChatUsername !== '' ? storedAIChatUsername : 'A New User';
+var username, storedUsername, AIChatUsername, storedAIChatUsername
+
+async function startupUsernames() {
+    storedUsername = localStorage.getItem('username');
+    storedAIChatUsername = localStorage.getItem('AIChatUsername');
+
+    username = storedUsername !== null && storedUsername !== '' ? storedUsername : await initializeUsername();
+    AIChatUsername = storedAIChatUsername !== null && storedAIChatUsername !== '' ? storedAIChatUsername : username;
+    console.log(`[localStorage] username:${username}, AIChatUsername:${AIChatUsername}`)
+}
+
+async function initializeUsername() {
+    var userInput = prompt("Enter your username:");
+    if (userInput !== null && userInput !== "") {
+        localStorage.setItem('username', userInput);
+        console.log(`set localStorage 'username' to ${userInput}`)
+        return String(userInput)
+    } else {
+        initializeUsername()
+    }
+}
+
 var sanitizeExtension = {
     type: 'output',
     filter: function (text) {
@@ -26,12 +38,20 @@ var converter = new showdown.Converter({
     backslashEscapesHTMLTags: true,
     extensions: [sanitizeExtension]
 });
+
+//routine to check if we are on an iOS device or not
 var dummyElement = $('<div>').css('-webkit-touch-callout', 'none');
 var isIOS = dummyElement.css('-webkit-touch-callout') === 'none';
+dummyElement.remove();
+
+var hostname = window.location.hostname;
+var port = window.location?.port;
+var wsType = window.location.hostname === (`localhost` || `127.0.0.1`) ? 'ws' : 'wss'
+var serverUrl = `${wsType}://${hostname}:${port}`
+
 var socket
 var userRole = (hostname === 'localhost' || hostname === '127.0.0.1') ? 'Host' : 'Guest';
 var isHost = (userRole === 'Host') ? true : false;
-dummyElement.remove();
 
 function clearChatDiv() {
     $("#chat").empty()
@@ -100,7 +120,17 @@ function connectWebSocket() {
             oldName: username
         }
         username = $("#usernameInput").val()
+        localStorage.setItem('username', username)
+        console.log(`Set localstorage "username" key to ${username}`)
         socket.send(JSON.stringify(nameChangeMessage))
+    }
+
+    //Just update Localstorage, no need to send anything to server for this.
+    //but possibly add it in the future if we want to let users track which user is speaking as which entity in AI Chat.
+    function updateAIChatUserName() {
+        username = $("#AIUsernameInput").val()
+        localStorage.setItem('AIChatUsername', username)
+        console.log(`Set localstorage "AIChatUsername" key to ${username}`)
     }
 
     function setWSStatus(type) {
@@ -132,8 +162,7 @@ function connectWebSocket() {
 
     // Send a message to the user chat
     $("#sendButton").off('click').on("click", function () {
-        var usernameInput = $("#usernameInput");
-        if (usernameInput.val().trim() === '') {
+        if ($("#usernameInput").val().trim() === '') {
             alert("Can't send chat message with no username!");
             return;
         }
@@ -142,7 +171,7 @@ function connectWebSocket() {
             alert("Can't send empty message!");
             return;
         }
-        username = usernameInput.val();
+        username = $("#usernameInput").val();
         var markdownContent = `${username}: ${messageInput.val()}`;
         var htmlContent = converter.makeHtml(markdownContent);
         var messageObj = {
@@ -173,14 +202,19 @@ function connectWebSocket() {
     })
 
     $("#usernameInput").on('blur', function () {
-        $("#usernameInput").trigger('change')
+        //$("#usernameInput").trigger('change')
         updateUserName()
+    })
+
+    $("#AIUsernameInput").on('blur', function () {
+        //$("#usernameInput").trigger('change')
+        updateAIChatUserName()
     })
 
     $("#AISendButton").off('click').on('click', function () {
         //hordeAPICallParams.params.stop_sequence = stoppingStrings;
-        var usernameInput = $("#AIUsernameInput");
-        if (usernameInput.val().trim() === '') {
+
+        if ($("#AIUsernameInput").val().trim() === '') {
             alert("Can't send chat message with no username!");
             return;
         }
@@ -190,7 +224,7 @@ function connectWebSocket() {
             alert("Can't send empty message!");
             return;
         }
-        username = usernameInput.val()
+        username = $("#AIUsernameInput").val()
         console.log(username)
         let charDisplayName = $('#characters option:selected').text();
         //API_PARAMS_FOR_TABBY
@@ -341,7 +375,7 @@ function connectWebSocket() {
     // Handle incoming messages from the server
     socket.addEventListener('message', function (event) {
         var message = event.data;
-        console.log('Received message:', message);
+        //console.log('Received message:', message);
         let parsedMessage = JSON.parse(message)
         const userList = parsedMessage.userList;
         //console.log(userList)
@@ -398,7 +432,7 @@ function connectWebSocket() {
     }
 
     async function populateCardSelector(cardList) {
-        console.log(cardList)
+        //console.log(cardList)
         let cardSelectElement = $("#characters");
         cardSelectElement.empty()
         for (const card of cardList) {
@@ -423,34 +457,25 @@ function connectWebSocket() {
 }
 
 $(document).ready(async function () {
+
     var isPhone = /Mobile/.test(navigator.userAgent);
 
     $("#userRole").text(userRole)
-    console.log(isHost)
+    console.log(`Host? ${isHost}`)
     if (!isHost) {
         $(".hostControls").remove()
     }
 
+    await startupUsernames()
+    $("#usernameInput").val(username)
+    $("#AIUsernameInput").val(AIChatUsername)
 
-    //var serverInput = $("#serverInput");
-    var connectButton = $("#connectButton");
-    var disconnectButton = $("#disconnectButton");
-
-
-    if (storedUsername !== null && storedUsername !== undefined) {
-        $("#usernameInput").val(storedUsername)
-    } else {
-        var userInput = await prompt("Please enter your username:");
-        if (userInput !== null && userInput !== "") {
-            localStorage.setItem('username', userInput);
-            $("#usernameInput").val(userInput);
-        }
-    }
-    if (storedAIChatUsername !== null && storedAIChatUsername !== undefined) {
-        $("#AIUsernameInput").val(storedAIChatUsername)
-    } else {
-        $("#AIUsernameInput").val(localStorage.getItem('username'));
-    }
+    $('#clearLocalStorage').on('click', function () {
+        $("#usernameInput").val('')
+        $("#AIUsernameInput").val('')
+        localStorage.clear();
+        alert('Deleted saved usernames!');
+    });
 
     if (window.matchMedia("(orientation: landscape)").matches && /Mobile/.test(navigator.userAgent)) {
         if (isIOS) {
@@ -507,4 +532,4 @@ $(document).ready(async function () {
     });
 
     connectWebSocket();
-}); //end of document on ready listeners
+});

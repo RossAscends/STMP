@@ -22,9 +22,9 @@ const color = {
     white: (mess) => color.byNum(mess, 37),
 };
 
-// Create an HTTP server
-const wsPort = 8181;
-const wssPort = 8182;
+// Create an HTTP servers
+const wsPort = 8181; //WS for host
+const wssPort = 8182; //WSS for guests
 
 const localServer = http.createServer((req, res) => {
     // Serve the client HTML file
@@ -71,6 +71,9 @@ const guestServer = http.createServer((req, res) => {
         res.end('Not found');
     }
 });
+
+const TabbyURL = 'http://127.0.0.1:5000';
+const TabbyGenEndpoint = '/v1/completions';
 
 //message templates
 var sysMessage = {
@@ -237,7 +240,7 @@ function handleConnections(ws) {
                         }
                     }
                 })
-                //request to horde if chat wasw made into AIChat
+                //request to AI API if user Input was made into AIChat
                 if (chatID === 'AIChat') {
                     try {
                         let charFile = parsedMessage.char
@@ -245,6 +248,7 @@ function handleConnections(ws) {
                         let cardJSON = JSON.parse(cardData)
                         let charName = cardJSON.name
                         var prompt = JSON.stringify(`${parsedMessage.content.prompt}\n${charName}:`);
+                        //strips out HTML tags
                         var fixedPrompt = JSON.parse(prompt.replace(/<[^>]+>/g, ''));
                         await (async function () {
 
@@ -255,7 +259,7 @@ function handleConnections(ws) {
                             //const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.content);
 
                             console.log(parsedMessage.content)
-                            const tabbyResponse = await requestToOoba(parsedMessage.content)
+                            const tabbyResponse = await requestToTabby(parsedMessage.content)
                             //parsedMessage.content = `${charName}:${hordeResponse}`;
                             parsedMessage.content = `${charName}:${tabbyResponse}`;
                             parsedMessage.username = 'AI';
@@ -284,9 +288,9 @@ async function addCharDefsToPrompt(charFile, userInputString, username) {
 
     try {
         let charData = await charaRead(charFile, 'png')
-        //const data = await fsp.readFile('Hivemind.json', 'utf8');
         const jsonData = JSON.parse(charData)
         const jsonString = JSON.stringify(jsonData);
+        //resolve {user} macros in data (depcreciated, was used for hivemind.json file from discord imp)
         const replacedString = jsonString.replace(/\${user}/g, username);
         const replacedData = JSON.parse(replacedString);
         console.log(replacedData)
@@ -311,7 +315,7 @@ async function requestToHorde(stringToSend, stoppingStrings = '') {
     var headers = {
         'Content-Type': 'application/json',
         'Cache': 'no-cache',
-        'Authorization': 'Basic ' + btoa('ra:arc'),
+        'Authorization': 'Basic ' + btoa(''),
         "Client-Agent": "SillyTavern:UNKNOWN:Cohee#1207"
     };
 
@@ -373,13 +377,11 @@ async function requestToHorde(stringToSend, stoppingStrings = '') {
     };
 }
 
-async function requestToOoba(message, stringToSend, stoppingStrings) {
+async function requestToTabby(message, stringToSend, stoppingStrings) {
     try {
-        console.log('Sending Ooba request..');
+        console.log('Sending Tabby request..');
 
-        const OobaURL = 'http://127.0.0.1:5000';
-        const OobaGenEndpoint = '/v1/completions';
-        const url = OobaURL + OobaGenEndpoint;
+        const url = TabbyURL + TabbyGenEndpoint;
 
         const headers = {
             'Content-Type': 'application/json',
@@ -388,9 +390,13 @@ async function requestToOoba(message, stringToSend, stoppingStrings) {
             'Authorization': `Bearer ${tabbyAPIkey}`,
         };
 
-        //const oobaAPICallParams = JSON.parse(fs.readFileSync('oobaAPICall.json', 'utf-8'));
-        //oobaAPICallParams['prompt'] = stringToSend;
-        //oobaAPICallParams['stopping_strings'] = stoppingStrings;
+
+        //old code for pulling from an external JSON file to get gen params, currently these are provided by client.html WS messages
+        //TODO: revert to external JSON and only pull necessary variables from client.html WS pings.
+
+        //const TabbyAPICallParams = JSON.parse(fs.readFileSync('TabbyAPICall.json', 'utf-8'));
+        //TabbyAPICallParams['prompt'] = stringToSend;
+        //TabbyAPICallParams['stopping_strings'] = stoppingStrings;
 
         const body = JSON.stringify(message);
 
@@ -406,7 +412,7 @@ async function requestToOoba(message, stringToSend, stoppingStrings) {
 
         return text;
     } catch (error) {
-        console.log('Error while requesting ST-Ooba');
+        console.log('Error while requesting ST-Tabby');
         const line = error.stack.split('\n').pop().split(':').pop();
         console.log(line);
         console.log(error);

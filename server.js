@@ -6,6 +6,22 @@ const WebSocket = require('ws');
 const $ = require('jquery');
 const characterCardParser = require('./character-card-parser.js');
 
+const color = {
+    byNum: (mess, fgNum) => {
+        mess = mess || '';
+        fgNum = fgNum === undefined ? 31 : fgNum;
+        return '\u001b[' + fgNum + 'm' + mess + '\u001b[39m';
+    },
+    black: (mess) => color.byNum(mess, 30),
+    red: (mess) => color.byNum(mess, 31),
+    green: (mess) => color.byNum(mess, 32),
+    yellow: (mess) => color.byNum(mess, 33),
+    blue: (mess) => color.byNum(mess, 34),
+    magenta: (mess) => color.byNum(mess, 35),
+    cyan: (mess) => color.byNum(mess, 36),
+    white: (mess) => color.byNum(mess, 37),
+};
+
 // Create an HTTP server
 const wsPort = 8181;
 const wssPort = 8182;
@@ -400,13 +416,13 @@ async function requestToOoba(message, stringToSend, stoppingStrings) {
 // Start the server
 localServer.listen(wsPort, () => {
     console.log('===========================')
-    console.log(`Host Server is listening on http://localhost:${wsPort}`);
+    console.log(color.yellow(`Host Server is listening on http://localhost:${wsPort}`));
     console.log('The Host User (you) should connect to this address.')
     console.log('===========================')
 });
 guestServer.listen(wssPort, () => {
     console.log(`The Guest Server is listening on port ${wssPort}`);
-    console.log('Run the Remote-Link.cmd file in the STMP directory')
+    console.log(`Run the ${color.yellow('Remote-Link.cmd')} file in the STMP directory`)
     console.log('to setup a Cloudflare tunnel for remote Guest connections.')
     console.log('===========================')
 });

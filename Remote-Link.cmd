@@ -5,7 +5,7 @@ echo ===========================================================================
 echo This script will: 
 echo 1. Download and run the latest cloudflared.exe (57MB) from Cloudflare's github
 echo 2. Generate a randomly-named HTTPS tunnel to your SillyTavern Multiplayer (STMP) host server.
-echo 
+echo.
 echo Anyone who knows the tunnel URL will be able to access your STMP server.
 echo.
 echo By continuing you confirm that you're aware of the potential dangers of having a tunnel open 

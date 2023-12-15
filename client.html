@@ -385,7 +385,8 @@
                 username = usernameInput.val()
                 console.log(username)
                 let charDisplayName = $('#characters option:selected').text();
-                //for tabby
+                //API_PARAMS_FOR_TABBY
+                //uncomment the code below to send Tabby-compliant API parameters
                 var APICallParams = {
                     "prompt": "",
                     "max_new_tokens": 200,
@@ -430,7 +431,10 @@
                     "custom_token_bans": "",
                     "stream": false
                 }
-                //for horde
+                //END_OF_TABBY_PARAMETERS
+
+                //API_PARAMS_FOR_HORDE
+                //uncomment the code below to enable API for Horde
                 /* var APICallParams = {
                     "prompt": "",
                     "params": {
@@ -496,6 +500,8 @@
                     "disuedmodels": [
                     ]
                 } */
+                //END_OF_HORDE_PAREMETERS
+
                 var markdownContent = `${username}: ${messageInput.val()}`;
                 var htmlContent = converter.makeHtml(markdownContent);
                 var char = $('#characters').val();
@@ -637,8 +643,6 @@
             } else {
                 $("#AIUsernameInput").val(localStorage.getItem('username'));
             }
-
-
 
             if (window.matchMedia("(orientation: landscape)").matches && /Mobile/.test(navigator.userAgent)) {
                 if (isIOS) {

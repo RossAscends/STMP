@@ -231,8 +231,13 @@ function handleConnections(ws) {
                         var prompt = JSON.stringify(`${parsedMessage.content.prompt}\n${charName}:`);
                         var fixedPrompt = JSON.parse(prompt.replace(/<[^>]+>/g, ''));
                         await (async function () {
+
+                            // AI_API_SELECTION_CODE
+                            // UNCOMMENT THIS LINE IF YOU WANT TO USE TABBY FOR AI RESPONSES
                             [parsedMessage.content.prompt, charName] = await addCharDefsToPrompt(charFile, fixedPrompt, parsedMessage.username);
+                            // UNCOMMENT THIS LINE IF YOU WANT TO USE HORDE FOR AI RESPONSES
                             //const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.content);
+
                             console.log(parsedMessage.content)
                             const tabbyResponse = await requestToOoba(parsedMessage.content)
                             //parsedMessage.content = `${charName}:${hordeResponse}`;

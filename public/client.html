@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <base href="/">
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="viewport" content="width=device-width, viewport-fit=cover, initial-scale=1, maximum-scale=1.0, user-scalable=no">
+    <title>SillyTavern Multiplayer</title>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.3.0/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/showdown@latest/dist/showdown.min.js"></script>
+    <script src="script.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+
+<body>
+    <div id="bodywrap" class="flexbox flexFlowCol">
+        <div id="chatsWrapper" class="flexbox Hcentered">
+            <div id="LLMChatWrapper" class="flexbox flexFlowCol">
+                <div class="padding5 Hcentered Vcentered flexbox">
+                    <select id="characters"></select>
+                    AI Chat <input type="text" id="AIUsernameInput" placeholder="Username">
+                </div>
+                <div id="AIchat" data-chat-id="AIChat"></div>
+                <div id="AIInputBlock">
+                    <textarea id="AIMessageInput" placeholder="Type a message"></textarea>
+                    <button id="AISendButton">Send</button>
+                </div>
+            </div>
+
+            <div id="OOCChatWrapper" class="flexbox flexFlowCol">
+                <div class="padding5 Hcentered Vcentered flexbox">
+                    User Chat <input type="text" id="usernameInput" placeholder="Username">
+                    <div id="userRole"></div>
+                    <div class="hostControls">
+                        <button id="clearUserChat">ClearChat</button>
+                    </div>
+                    <div id="universalControls">
+                        <button id="reconnectButton">Reconnect</button>
+                        <button id="disconnectButton">Disconnect</button>
+                    </div>
+                </div>
+                <div id="userChatAndUserList" class="flexbox">
+                    <div id="chat" data-chat-id="UserChat"></div>
+                    <div id="userList">
+                        <ul></ul>
+                    </div>
+                </div>
+                <div id="inputBlock">
+                    <textarea id="messageInput" placeholder="Type a message"></textarea>
+                    <button id="sendButton">Send</button>
+                </div>
+            </div>
+        </div>
+        <div id="footer" class="flexbox Hcentered Vcentered"></div>
+    </div>
+</body>
+
+</html>

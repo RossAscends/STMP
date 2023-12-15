@@ -5,6 +5,11 @@ const path = require('path');
 const WebSocket = require('ws');
 const $ = require('jquery');
 const characterCardParser = require('./character-card-parser.js');
+const express = require('express');
+const localApp = express();
+const remoteApp = express();
+localApp.use(express.static('public'));
+remoteApp.use(express.static('public'));
 
 const color = {
     byNum: (mess, fgNum) => {
@@ -26,51 +31,39 @@ const color = {
 const wsPort = 8181; //WS for host
 const wssPort = 8182; //WSS for guests
 
-const localServer = http.createServer((req, res) => {
-    // Serve the client HTML file
-    if (req.url === '/') {
-        //console.log('__dirname inside IF :', __dirname); // Add this line
-        const filePath = path.join(__dirname, 'client.html');
-        //console.log(`trying to read the file at ${filePath}`)
-        fs.readFile(filePath, 'utf8', (err, data) => {
-            if (err) {
-                res.writeHead(500);
-                res.end('Error loading the client HTML file');
-            } else {
-                //console.log('saw no problem with finding the client.html file')
-                //console.log(`serving: ${filePath}`)
-                res.writeHead(200, { 'Content-Type': 'text/html' });
-                res.end(data);
-            }
-        });
-    } else {
-        res.writeHead(404);
-        res.end('Not found');
-    }
+localApp.get('/', (req, res) => {
+    const filePath = path.join(__dirname, '/public/client.html');
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            res.status(500).send('Error loading the client HTML file');
+        } else {
+            res.status(200).send(data);
+        }
+    });
 });
 
-const guestServer = http.createServer((req, res) => {
-    // Serve the client HTML file
-    if (req.url === '/') {
-        //console.log('__dirname inside IF :', __dirname); // Add this line
-        const filePath = path.join(__dirname, 'client.html');
-        //console.log(`trying to read the file at ${filePath}`)
-        fs.readFile(filePath, 'utf8', (err, data) => {
-            if (err) {
-                res.writeHead(500);
-                res.end('Error loading the client HTML file');
-            } else {
-                //console.log('saw no problem with finding the client.html file')
-                //console.log(`serving: ${filePath}`)
-                res.writeHead(200, { 'Content-Type': 'text/html' });
-                res.end(data);
-            }
-        });
-    } else {
-        res.writeHead(404);
-        res.end('Not found');
-    }
+remoteApp.get('/', (req, res) => {
+    const filePath = path.join(__dirname, '/public/client.html');
+    fs.readFile(filePath, 'utf8', (err, data) => {
+        if (err) {
+            res.status(500).send('Error loading the client HTML file');
+        } else {
+            res.status(200).send(data);
+        }
+    });
 });
+
+// Handle 404 Not Found
+localApp.use((req, res) => {
+    res.status(404).send('Not found');
+});
+
+remoteApp.use((req, res) => {
+    res.status(404).send('Not found');
+});
+
+const localServer = http.createServer(localApp);
+const guestServer = http.createServer(remoteApp);
 
 const TabbyURL = 'http://127.0.0.1:5000';
 const TabbyGenEndpoint = '/v1/completions';
@@ -112,7 +105,7 @@ async function charaRead(img_url, input_format) {
 
 async function getCardList() {
     console.log('getting card list')
-    const path = './characters'
+    const path = 'public/characters'
     const files = await fs.promises.readdir(path);
     console.log(files)
     var cards = []

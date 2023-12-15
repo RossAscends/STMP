@@ -6,14 +6,14 @@ ECHO SillyTavern MultiPlayer
 ECHO ===========================
 
 REM Check and create 'chats' folder if it doesn't exist
-IF NOT EXIST "chats" (
-    mkdir chats
+IF NOT EXIST "public/chats" (
+    mkdir public/chats
     ECHO -- Created 'chats' folder.
 )
 
 REM Check and create 'api-presets' folder if it doesn't exist
-IF NOT EXIST "api-presets" (
-    mkdir api-presets
+IF NOT EXIST "public/api-presets" (
+    mkdir public/api-presets
     ECHO -- Created 'api-presets' folder.
 )
 

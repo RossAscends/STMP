@@ -1,0 +1,179 @@
+body {
+    background-color: #111;
+    width: 100svw;
+    height: 100svh;
+    color: #ccc;
+    margin: 0;
+    padding: 0;
+    /* overflow: hidden; */
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 1em;
+}
+
+#bodywrap {
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    /* gap: 15px; */
+    height: 100%;
+    /* justify-content: center; */
+}
+
+#chatsWrapper {
+    flex-grow: 1;
+    overflow-y: auto;
+    max-height: 97%;
+    width: 100%;
+}
+
+#footer {
+    height: 1.5em
+}
+
+#LLMChatWrapper,
+#OOCChatWrapper {
+    flex-basis: calc(50% - 25px);
+    height: 100%;
+    overflow: hidden;
+
+}
+
+#OOCChatWrapper img,
+#LLMChatWrapper img {
+    max-height: 80%;
+    max-width: 80%
+}
+
+@media (max-width: 800px) {
+
+    #LLMChatWrapper,
+    #OOCChatWrapper {
+        flex-basis: 100%;
+        height: calc(50% - 15px);
+        box-sizing: border-box;
+    }
+}
+
+#inputBlock,
+#AIInputBlock {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    align-content: center;
+    justify-content: center;
+    width: 100%;
+    gap: 5px;
+}
+
+input,
+textarea,
+button {
+    border-radius: 5px;
+    border: 1px solid #666;
+    background-color: #333;
+    color: #999;
+    width: min-content;
+}
+
+code {
+    font-family: monospace;
+}
+
+pre {
+    border: 1px solid white;
+    padding: 3px;
+    background: black;
+    margin: 0;
+    border-radius: 5px;
+}
+
+#messageInput,
+#AIMessageInput {
+    height: 3em;
+    width: 80%;
+}
+
+#messageInput::placeholder,
+#AIMessageInput::placeholder {
+    text-align: center;
+}
+
+input::placeholder {
+    color: #666
+}
+
+#chat,
+#AIchat,
+#userChatAndUserList {
+    background: #333;
+    margin: 5px;
+    border-radius: 5px;
+    padding: 5px;
+    flex: 1;
+
+}
+
+#userChatAndUserList {
+    overflow-y: hidden;
+}
+
+#chat,
+#AIchat {
+    overflow-y: auto;
+    max-height: 100%;
+}
+
+#userList {
+    overflow: hidden;
+}
+
+#userList ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100px;
+}
+
+#userList ul li {
+    padding: 3px;
+    font-size: 0.8em;
+}
+
+#chat {
+    border-radius: 0;
+    border-right: 1px solid black;
+}
+
+hr {
+    background-image: linear-gradient(90deg, rgba(128, 128, 128, 100), rgba(0, 0, 0, 0));
+    margin: 5px 0;
+    height: 1px;
+    min-height: 1px;
+    border: 0;
+    opacity: 0.2;
+}
+
+.padding5 {
+    padding: 5px;
+}
+
+.Hcentered {
+    /* text-align: center; */
+    justify-content: center;
+}
+
+.Vcentered {
+    align-items: center;
+    align-self: center;
+    align-content: center;
+}
+
+.flexbox {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.flexFlowCol {
+    flex-flow: column;
+}

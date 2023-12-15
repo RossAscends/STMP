@@ -311,7 +311,11 @@ ${userInputString}`;
 
 async function requestToHorde(stringToSend, stoppingStrings = '') {
     console.log('Sending Horde request...');
+    //the ST server must be running with CSRF turned off in order for this to work.
     var url = 'http://127.0.0.1:8000/api/horde/generate-text';
+    //these headers assume there is basicAuth enabled on your ST server
+    //replace the btoa('') with your credentials in a user:pass format within the single quotes
+    //alternatively remove that line if you are not using AUTH
     var headers = {
         'Content-Type': 'application/json',
         'Cache': 'no-cache',

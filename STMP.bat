@@ -5,12 +5,29 @@ ECHO ===========================
 ECHO SillyTavern MultiPlayer
 ECHO ===========================
 
+REM Check and create 'chats' folder if it doesn't exist
+IF NOT EXIST "chats" (
+    mkdir chats
+    ECHO -- Created 'chats' folder.
+)
+
+REM Check and create 'api-presets' folder if it doesn't exist
+IF NOT EXIST "api-presets" (
+    mkdir api-presets
+    ECHO -- Created 'api-presets' folder.
+)
+
 ECHO -- Looking for secrets.json....
 
-IF EXIST secrets.json ECHO Found secrets.json!
-ECHO ===========================
-IF EXIST secrets.json GOTO StartServer
-CALL :CreateNewIfMissing secrets.json
+IF EXIST secrets.json (
+    ECHO -- Found secrets.json!
+    ECHO ===========================
+    GOTO StartServer
+) ELSE (
+    CALL :CreateNewIfMissing secrets.json
+)
+
+
 
 :CreateNewIfMissing
 echo {"api_key_tabby":"_YOUR_API_KEY_HERE_"} > secrets.json

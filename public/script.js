@@ -360,11 +360,11 @@ function connectWebSocket() {
         localStorage.setItem('AIChatUsername', username);
         socket.send(JSON.stringify(websocketRequest));
         messageInput.val('');
-        messageInput.focus();
+        messageInput.trigger('focus');
     })
 
     $("#clearUserChat").off('click').on('click', function () {
-        console.log('saw clear chat click')
+        console.log('Clearing OOC Chat')
         const clearMessage = {
             type: 'clearChat'
         };

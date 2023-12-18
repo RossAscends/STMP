@@ -90,6 +90,8 @@ function connectWebSocket() {
         console.log("WebSocket connected to server:", serverUrl);
         $("#reconnectButton").hide()
         $("#disconnectButton").show()
+        $("#messageInput").prop("disabled", false).prop('placeholder', 'Type a message').removeClass('disconnected')
+        $("#AIMessageInput").prop("disabled", false).prop('placeholder', 'Type a message').removeClass('disconnected')
         const connectionMessage = {
             type: 'connect',
             username: username
@@ -104,6 +106,8 @@ function connectWebSocket() {
             $("#reconnectButton").show()
             $("#disconnectButton").hide()
             $("#userList ul").empty()
+            $("#messageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
+            $("#AIMessageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
             const disconnectMessage = {
                 type: 'disconnect',
                 username: username
@@ -133,22 +137,8 @@ function connectWebSocket() {
         console.log(`Set localstorage "AIChatUsername" key to ${username}`)
     }
 
-    function setWSStatus(type) {
-        let footer = $("#footer")
-        if (type === 'serverOffline') {
-            footer.text('--- Server Offline ---')
-        }
-        if (type === 'disconnected') {
-            footer.text('--- Disconnected ---')
-        }
-        if (type === 'connectionConfirmed') {
-            footer.text('')
-        }
-    }
-
     socket.onclose = function (event) {
         disconnectWebSocket()
-        setWSStatus('disconnected')
     };
 
     //handle disconnect and reconnect
@@ -157,7 +147,6 @@ function connectWebSocket() {
     })
     $("#disconnectButton").off('click').on('click', function () {
         disconnectWebSocket()
-        setWSStatus('disconnected')
     })
 
     // Send a message to the user chat
@@ -397,11 +386,37 @@ function connectWebSocket() {
         }
         else if (parsedMessage?.type === 'forceDisconnect') {
             disconnectWebSocket()
-            setWSStatus('serverOffline')
         }
         else if (parsedMessage?.type === 'connectionConfirmed') {
-            setWSStatus('connectionConfirmed')
+            const chatHistoryString = parsedMessage.chatHistory
+            //trim whitespace to make it parseable
+            const trimmedChatHistoryString = chatHistoryString.trim();
+            //parse teh trimmed string into JSON
+            const chatHistory = JSON.parse(trimmedChatHistoryString);
+            $("#chat").empty()
+            //add each message object as div into the chat display
+            chatHistory.forEach((obj) => {
+                let message = obj.content
+                let newDiv = $(`<div></div>`)
+                newDiv.html(`${message}`).append('<hr>')
+                $("#chat").append(newDiv)
+            })
+            //scroll to the bottom of chat after it's all loaded up
+            $("#chat").scrollTop($("#chat").prop("scrollHeight"));
         }
+
+        else if (parsedMessage.type === 'userChangedName') {
+            console.log('saw notification of user name change')
+            var { type, content } = JSON.parse(message)
+            const HTMLizedMessage = converter.makeHtml(content);
+            const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
+            console.log(sanitizedMessage)
+            let newChatItem = $('<div>');
+            newChatItem.html(`<i>${sanitizedMessage}</i>`);
+            newChatItem.append('<hr>');
+            $("#chat").append(newChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
+        }
+
         else if (parsedMessage?.type === 'changeCharacter') {
             if (isHost) {
                 return

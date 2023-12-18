@@ -66,9 +66,9 @@ Search server.js for `AI_API_SELECTION_CODE` and comment/uncomment the appropria
 # Planned Features
 
 - Proper chat history for the AI (currently no chat history is sent, and AI response are based only on the latest user input)
-- Saving chat history for persistence across sessions
+- ~~Saving user chat history for persistence across sessions~~
 - Better generation parameter adjustments (likely via preset files, not individual sliders)
 - API swapping in UI without server restart
 - Multiple AI characters active at once (group chats)
-- in-chat notification of when a user changes their username
+- ~~in-chat notification of when a user changes their username~~
 - unique colors for usernames in chat to make the chat easier to read at a glance.

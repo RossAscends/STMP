@@ -129,12 +129,22 @@ async function getCardList() {
 function handleConnections(ws) {
     // Store the connected client in the appropriate array based on the server
     clientsArray.push(ws);
-    //broadcast the full userlist to all clients
+    var userChatJSON
 
-    let connectionConfirmedMessage = {
-        type: 'connectionConfirmed'
-    }
-    ws.send(JSON.stringify(connectionConfirmedMessage))
+    //gather the userchat history to send to the new user
+    fs.readFile('public/chats/UserChat.json', 'utf8', (err, data) => {
+        if (err) {
+            console.error('An error occurred:', err);
+            return;
+        }
+        userChatJSON = data;
+        let connectionConfirmedMessage = {
+            type: 'connectionConfirmed',
+            chatHistory: userChatJSON
+        }
+        //send connection confirmation along with chat history
+        ws.send(JSON.stringify(connectionConfirmedMessage))
+    })
 
     broadcastUserList()
 
@@ -157,6 +167,7 @@ function handleConnections(ws) {
         let parsedMessage;
         try {
             parsedMessage = JSON.parse(message);
+            stringifiedMessage = JSON.stringify(message)
             console.log('Received message from client:', parsedMessage);
 
             if (parsedMessage.type === 'clearChat') {
@@ -165,6 +176,14 @@ function handleConnections(ws) {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(JSON.stringify(parsedMessage));
                     }
+                });
+                //clear the UserChat.json file
+                fs.writeFile('public/chats/UserChat.json', '[]', 'utf8', (err) => {
+                    if (err) {
+                        console.error('An error occurred:', err);
+                        return;
+                    }
+                    console.log('UserChat.json has been cleared.');
                 });
             }
             else if (parsedMessage.type === 'cardListQuery') {
@@ -191,6 +210,17 @@ function handleConnections(ws) {
                 connectedUserNames = connectedUserNames.filter(username => username !== oldName);
                 ws.username = parsedMessage.newName
                 connectedUserNames.push(parsedMessage.newName)
+                const nameChangeNotification = {
+                    type: 'userChangedName',
+                    content: `[System]: ${oldName} >>> ${parsedMessage.newName}`
+                }
+                console.log(nameChangeNotification)
+                console.log('sending notification of username change')
+                clientsArray.forEach(function (client) {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify(nameChangeNotification));
+                    }
+                });
                 broadcastUserList()
             }
 
@@ -220,6 +250,37 @@ function handleConnections(ws) {
                         'content': parsedMessage.rawContent
                     }
                 }
+                //read the current userChat file
+                fs.readFile('public/chats/userChat.json', 'utf8', (err, data) => {
+                    if (err) {
+                        console.error('An error occurred while reading the file:', err);
+                        return;
+                    }
+
+                    let jsonArray = [];
+
+                    try {
+                        // Parse the existing contents as a JSON array
+                        jsonArray = JSON.parse(data);
+                    } catch (parseError) {
+                        console.error('An error occurred while parsing the JSON:', parseError);
+                        return;
+                    }
+
+                    // Add the new object to the array
+                    jsonArray.push(parsedMessage);
+                    const updatedData = JSON.stringify(jsonArray, null, 2);
+
+                    // Write the updated array back to the file
+                    fs.writeFile('public/chats/userChat.json', updatedData, 'utf8', (writeErr) => {
+                        if (writeErr) {
+                            console.error('An error occurred while writing to the file:', writeErr);
+                            return;
+                        }
+                        console.log('UserChat.json updated.');
+                    });
+                });
+
 
                 // Broadcast the parsed message to all connected clients
                 clientsArray.forEach(async function (client) {

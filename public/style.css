@@ -84,14 +84,25 @@ textarea:focus {
 
 code {
     font-family: monospace;
+    background: black;
+    border-radius: 5px;
+    padding: 3px;
+    margin: 5px;
+    line-height: 1.3em;
 }
 
 pre {
     border: 1px solid white;
     padding: 3px;
     background: black;
-    margin: 0;
+    margin: 5px;
     border-radius: 5px;
+    width: min-content;
+}
+
+#chat div p {
+    margin: 0;
+    padding: 0;
 }
 
 #messageInput,

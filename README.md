@@ -7,12 +7,13 @@ A minimal AI chat interface with multiuser capabilities via websockets created f
 1. make sure Node JS is installed on your system and has access through your windows Firewall.
 2. clone this github repo
 3. Setup the API (see below)
-4. run STMP.bat to install the required node modules and start the server.
+4. run `STMP.bat` to install the required node modules and start the server.
 5. open `localhost:8181` in your web browser.
 
 ## API Setup
 
 Currently STMP supports Tabby and HordeAI, and has Tabby active by default.
+
 **NOTE:** The API parameters are set in `client.html`.
 
 ### Using Tabby
@@ -25,15 +26,15 @@ Currently STMP supports Tabby and HordeAI, and has Tabby active by default.
 ### Using Horde
 
 - Using Horde requires a SillyTavern server to be running on your local machine to handle the Horde requests.
-- **IMPORTANT:** ST must be running with CSRF turned off.
-- **IMPORTANT:** STMP assumes you have BasicAuthentication enabled on your ST server, and requires you to input your `username:pass` into the server.js code.
+- **IMPORTANT: ST must be running with CSRF turned off.**
+- **IMPORTANT:** STMP assumes you have BasicAuthentication enabled on your ST server, and requires you to input your `username:pass` into the `server.js` code.
 - STMP assumes the default ST server URL of `http://127.0.0.1:8000/api/horde/generate-text` for Horde requests.
 - If you have a HordeID set in SillyTavern, those credentials and kudos will be used.
 
 ### Changing API
 
-Currently the host must edit server.json to swap which API is used to generate responses in the AI Chat.
-Search server.js for `AI_API_SELECTION_CODE` and comment/uncomment the appropriate line, and restart server.
+Currently the host must edit `server.js` to swap which API is used to generate responses in the AI Chat.
+Search `server.js` for `AI_API_SELECTION_CODE` and comment/uncomment the appropriate line, and restart server.
 
 - **NOTE:** The API Selected in `server.js` must match the API parameters sent by `client.html`, or the requests will not work.
 - Search `client.html` for `API_PARAMS_FOR_HORDE` or `API_PARAMS_FOR_TABBY` to find them, and comment/uncomment the one that matches the API Selected in `server.js`

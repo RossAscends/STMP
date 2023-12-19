@@ -73,4 +73,4 @@ You can have a different name for the User Chat and AI Chat.
 - API swapping in UI without server restart
 - Multiple AI characters active at once (group chats)
 - ~~in-chat notification of when a user changes their username~~
-- unique colors for usernames in chat to make the chat easier to read at a glance.
+- ~~unique colors for usernames in chat to make the chat easier to read at a glance.~~

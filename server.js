@@ -27,6 +27,17 @@ const color = {
     white: (mess) => color.byNum(mess, 37),
 };
 
+const usernameColors = [
+    '#FF5C5C',  // Red
+    '#FFB54C',  // Orange
+    '#FFED4C',  // Yellow
+    '#4CFF69',  // Green
+    '#4CCAFF',  // Blue
+    '#AD4CFF',  // Purple
+    '#FF4CC3',  // Magenta
+    '#FF4C86',  // Pink
+];
+
 // Create an HTTP servers
 const wsPort = 8181; //WS for host
 const wssPort = 8182; //WSS for guests
@@ -128,7 +139,12 @@ async function getCardList() {
 
 function handleConnections(ws) {
     // Store the connected client in the appropriate array based on the server
-    clientsArray.push(ws);
+    const thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
+    clientsArray.push({
+        socket: ws,
+        color: thisUserColor
+    });
+
     var userChatJSON
 
     //gather the userchat history to send to the new user
@@ -140,7 +156,8 @@ function handleConnections(ws) {
         userChatJSON = data;
         let connectionConfirmedMessage = {
             type: 'connectionConfirmed',
-            chatHistory: userChatJSON
+            chatHistory: userChatJSON,
+            color: thisUserColor
         }
         //send connection confirmation along with chat history
         ws.send(JSON.stringify(connectionConfirmedMessage))
@@ -155,26 +172,29 @@ function handleConnections(ws) {
             userList: connectedUserNames.sort()
         };
         clientsArray.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify(userListMessage));
+            if (client.socket.readyState === WebSocket.OPEN) {
+                client.socket.send(JSON.stringify(userListMessage));
             }
         });
     }
 
     // Handle incoming messages from clients
     ws.on('message', async function (message) {
+
         // Parse the incoming message as JSON
         let parsedMessage;
         try {
             parsedMessage = JSON.parse(message);
+            parsedMessage.userColor = thisUserColor
+            console.log(parsedMessage)
             stringifiedMessage = JSON.stringify(message)
             console.log('Received message from client:', parsedMessage);
 
             if (parsedMessage.type === 'clearChat') {
                 // Broadcast the clear chat message to all connected clients
                 clientsArray.forEach(function (client) {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify(parsedMessage));
+                    if (client.socket.readyState === WebSocket.OPEN) {
+                        client.socket.send(JSON.stringify(parsedMessage));
                     }
                 });
                 //clear the UserChat.json file
@@ -217,8 +237,8 @@ function handleConnections(ws) {
                 console.log(nameChangeNotification)
                 console.log('sending notification of username change')
                 clientsArray.forEach(function (client) {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify(nameChangeNotification));
+                    if (client.socket.readyState === WebSocket.OPEN) {
+                        client.socket.send(JSON.stringify(nameChangeNotification));
                     }
                 });
                 broadcastUserList()
@@ -230,16 +250,19 @@ function handleConnections(ws) {
                     char: parsedMessage.newChar
                 }
                 clientsArray.forEach(async function (client) {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify(changeCharMessage));
+                    if (client.socket.readyState === WebSocket.OPEN) {
+                        client.socket.send(JSON.stringify(changeCharMessage));
                     }
                 })
             }
 
             else { //handle normal chat messages
                 const chatID = parsedMessage.chatID;
+                const username = parsedMessage.username
+                const userColor = thisUserColor
                 const userInput = parsedMessage.content
                 const hordePrompt = parsedMessage.content?.prompt
+
 
                 //setup the userPrompt arrayin order to send the input into the AIChat box
                 if (chatID === 'AIChat') {
@@ -247,50 +270,53 @@ function handleConnections(ws) {
                         'chatID': chatID,
                         'username': parsedMessage.username,
                         //send the HTML-ized message into the AI chat
-                        'content': parsedMessage.rawContent
+                        'content': parsedMessage.rawContent,
+                        'userColor': userColor
                     }
                 }
                 //read the current userChat file
-                fs.readFile('public/chats/userChat.json', 'utf8', (err, data) => {
-                    if (err) {
-                        console.error('An error occurred while reading the file:', err);
-                        return;
-                    }
-
-                    let jsonArray = [];
-
-                    try {
-                        // Parse the existing contents as a JSON array
-                        jsonArray = JSON.parse(data);
-                    } catch (parseError) {
-                        console.error('An error occurred while parsing the JSON:', parseError);
-                        return;
-                    }
-
-                    // Add the new object to the array
-                    jsonArray.push(parsedMessage);
-                    const updatedData = JSON.stringify(jsonArray, null, 2);
-
-                    // Write the updated array back to the file
-                    fs.writeFile('public/chats/userChat.json', updatedData, 'utf8', (writeErr) => {
-                        if (writeErr) {
-                            console.error('An error occurred while writing to the file:', writeErr);
+                if (chatID === 'UserChat') {
+                    fs.readFile('public/chats/userChat.json', 'utf8', (err, data) => {
+                        if (err) {
+                            console.error('An error occurred while reading the file:', err);
                             return;
                         }
-                        console.log('UserChat.json updated.');
+
+                        let jsonArray = [];
+
+                        try {
+                            // Parse the existing contents as a JSON array
+                            jsonArray = JSON.parse(data);
+                        } catch (parseError) {
+                            console.error('An error occurred while parsing the JSON:', parseError);
+                            return;
+                        }
+
+                        // Add the new object to the array
+                        jsonArray.push(parsedMessage);
+                        const updatedData = JSON.stringify(jsonArray, null, 2);
+
+                        // Write the updated array back to the file
+                        fs.writeFile('public/chats/userChat.json', updatedData, 'utf8', (writeErr) => {
+                            if (writeErr) {
+                                console.error('An error occurred while writing to the file:', writeErr);
+                                return;
+                            }
+                            console.log('UserChat.json updated.');
+                        });
                     });
-                });
+                }
 
 
                 // Broadcast the parsed message to all connected clients
                 clientsArray.forEach(async function (client) {
                     //send the manual input user message to chat
-                    if (client.readyState === WebSocket.OPEN) {
+                    if (client.socket.readyState === WebSocket.OPEN) {
                         if (chatID === 'AIChat') {
                             console.log(userPrompt)
-                            client.send(JSON.stringify(userPrompt))
+                            client.socket.send(JSON.stringify(userPrompt))
                         } else {
-                            client.send(JSON.stringify(parsedMessage));
+                            client.socket.send(JSON.stringify(parsedMessage));
                         }
                     }
                 })
@@ -315,8 +341,8 @@ function handleConnections(ws) {
                             console.log(parsedMessage.content)
                             const tabbyResponse = await requestToTabby(parsedMessage.content)
                             //parsedMessage.content = `${charName}:${hordeResponse}`;
-                            parsedMessage.content = `${charName}:${tabbyResponse}`;
-                            parsedMessage.username = 'AI';
+                            parsedMessage.content = tabbyResponse;
+                            parsedMessage.username = charName;
                             parsedMessage.type = 'AIResponse'
                             const clientsArray = [...wsServer.clients, ...wssServer.clients]; // Convert clients set to an array
                             await Promise.all(clientsArray.map(client => client.send(JSON.stringify(parsedMessage))));
@@ -500,8 +526,8 @@ process.on('SIGINT', () => {
         type: 'forceDisconnect',
     };
     clientsArray.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(serverShutdownMessage));
+        if (client.socket.readyState === WebSocket.OPEN) {
+            client.socket.send(JSON.stringify(serverShutdownMessage));
         }
     });
 

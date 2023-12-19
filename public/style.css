@@ -100,7 +100,8 @@ pre {
     width: min-content;
 }
 
-#chat div p {
+#chat div p,
+#AIchat div p {
     margin: 0;
     padding: 0;
 }

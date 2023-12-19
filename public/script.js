@@ -161,7 +161,7 @@ function connectWebSocket() {
             return;
         }
         username = $("#usernameInput").val();
-        var markdownContent = `${username}: ${messageInput.val()}`;
+        var markdownContent = `${messageInput.val()}`;
         var htmlContent = converter.makeHtml(markdownContent);
         var messageObj = {
             chatID: "UserChat",
@@ -172,7 +172,7 @@ function connectWebSocket() {
         localStorage.setItem('username', username);
         socket.send(messageObj);
         messageInput.val('');
-        messageInput.focus();
+        messageInput.trigger('focus');
     });
 
 
@@ -214,7 +214,6 @@ function connectWebSocket() {
             return;
         }
         username = $("#AIUsernameInput").val()
-        console.log(username)
         let charDisplayName = $('#characters option:selected').text();
         //API_PARAMS_FOR_TABBY
         //uncomment the code below to send Tabby-compliant API parameters
@@ -333,10 +332,9 @@ function connectWebSocket() {
         } */
         //END_OF_HORDE_PAREMETERS
 
-        var markdownContent = `${username}: ${messageInput.val()}`;
+        var markdownContent = `${messageInput.val()}`;
         var htmlContent = converter.makeHtml(markdownContent);
         var char = $('#characters').val();
-        console.log(char)
         var stringToSend = markdownContent
         APICallParams.prompt = stringToSend;
         var websocketRequest = {
@@ -396,9 +394,11 @@ function connectWebSocket() {
             $("#chat").empty()
             //add each message object as div into the chat display
             chatHistory.forEach((obj) => {
+                let username = obj.username
+                let userColor = obj.userColor
                 let message = obj.content
                 let newDiv = $(`<div></div>`)
-                newDiv.html(`${message}`).append('<hr>')
+                newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>')
                 $("#chat").append(newDiv)
             })
             //scroll to the bottom of chat after it's all loaded up
@@ -410,7 +410,6 @@ function connectWebSocket() {
             var { type, content } = JSON.parse(message)
             const HTMLizedMessage = converter.makeHtml(content);
             const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
-            console.log(sanitizedMessage)
             let newChatItem = $('<div>');
             newChatItem.html(`<i>${sanitizedMessage}</i>`);
             newChatItem.append('<hr>');
@@ -425,12 +424,12 @@ function connectWebSocket() {
         }
         else {
             // Parse the message into username and content
-            var { chatID, username, content, workerName, hordeModel, kudosCost } = JSON.parse(message);
+            var { chatID, username, content, userColor, workerName, hordeModel, kudosCost } = JSON.parse(message);
             // Add the message to the message list
             const HTMLizedMessage = converter.makeHtml(content);
             const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
             let newChatItem = $('<div>');
-            newChatItem.html(sanitizedMessage);
+            newChatItem.html(`<span style="color:${userColor};">${username}</span>: ${sanitizedMessage}`);
             newChatItem.append('<hr>');
             if (workerName !== undefined && hordeModel !== undefined && kudosCost !== undefined) {
                 $(newChatItem).prop('title', `${workerName} - ${hordeModel} (Kudos: ${kudosCost})`)

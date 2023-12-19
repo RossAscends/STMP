@@ -58,11 +58,11 @@ If new characters are added while the server is running, the Host must refresh t
 
 ### Host Controls
 
-The host has controls for changing the AI character and clearing the chat.
+The host will see controls at the top of the screen for changing the AI character and clearing the user chat.
 
 ### Changing usernames
 
-Use the boxes at the top to change your username at any time.
+Use the text boxes at the top of the screen to change your username(s) at any time.
 You can have a different name for the User Chat and AI Chat.
 
 ## Planned Features

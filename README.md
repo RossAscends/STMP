@@ -80,3 +80,4 @@ You can have a different name for the User Chat and AI Chat.
 - add host control toggle for "Host Approval" mode (host must approve messages from users before they are sent to AI)
 - add host control toggle for locking AI chat entirely
 - add host control to set User Turn Order for AI chatting (drag-sort list)
+- add AI chat clear button

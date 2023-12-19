@@ -67,10 +67,14 @@ You can have a different name for the User Chat and AI Chat.
 
 ## Planned Features
 
-- Proper chat history for the AI (currently no chat history is sent, and AI response are based only on the latest user input)
+- ~~Proper chat history for the AI (currently no chat history is sent, and AI response are based only on the latest user input)~~
 - ~~Saving user chat history for persistence across sessions~~
 - Better generation parameter adjustments (likely via preset files, not individual sliders)
 - API swapping in UI without server restart
 - Multiple AI characters active at once (group chats)
 - ~~in-chat notification of when a user changes their username~~
 - ~~unique colors for usernames in chat to make the chat easier to read at a glance.~~
+- set and respect API context limits
+- add host control toggle for "Host Approval" mode (host must approve messages from users before they are sent to AI)
+- add host control toggle for locking AI chat entirely
+- add host control to set User Turn Order for AI chatting (drag-sort list)

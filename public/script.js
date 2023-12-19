@@ -340,8 +340,9 @@ function connectWebSocket() {
         var websocketRequest = {
             chatID: 'AIChat',
             username: username,
-            content: APICallParams,
-            rawContent: htmlContent,
+            APICallParams: APICallParams,
+            userInput: markdownContent,
+            htmlContent: htmlContent,
             char: char
         }
         localStorage.setItem('AIChatUsername', username);
@@ -387,11 +388,15 @@ function connectWebSocket() {
         }
         else if (parsedMessage?.type === 'connectionConfirmed') {
             const chatHistoryString = parsedMessage.chatHistory
+            const AIChatHistoryString = parsedMessage.AIChatHistory
             //trim whitespace to make it parseable
             const trimmedChatHistoryString = chatHistoryString.trim();
-            //parse teh trimmed string into JSON
+            const trimmedAIChatHistoryString = AIChatHistoryString.trim();
+            //parse the trimmed string into JSON
             const chatHistory = JSON.parse(trimmedChatHistoryString);
+            const AIChatHistory = JSON.parse(trimmedAIChatHistoryString)
             $("#chat").empty()
+            $("#AIchat").empty()
             //add each message object as div into the chat display
             chatHistory.forEach((obj) => {
                 let username = obj.username
@@ -401,6 +406,15 @@ function connectWebSocket() {
                 newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>')
                 $("#chat").append(newDiv)
             })
+            AIChatHistory.forEach((obj) => {
+                let username = obj.username
+                let userColor = obj.userColor
+                let message = converter.makeHtml(obj.content)
+                let newDiv = $(`<div></div>`)
+                newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>')
+                $("#AIchat").append(newDiv)
+            })
+
             //scroll to the bottom of chat after it's all loaded up
             $("#chat").scrollTop($("#chat").prop("scrollHeight"));
         }

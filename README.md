@@ -16,9 +16,6 @@ Currently STMP supports Tabby and HordeAI, and has Tabby active by default.
 
 **NOTE:** The API parameters are set in `client.html`.
 
-- If you wish to use Horde instead, you must comment/uncomment the appropriate lines in `client.html`
-- Search `client.html` for `API_PARAMS_FOR_HORDE` or `API_PARAMS_FOR_TABBY` to find them.
-
 ## Using Tabby
 
 - `server.js` and `client.html` are both set to use Tabby by default.
@@ -59,9 +56,11 @@ You can have a different name for the User Chat and AI Chat.
 # Changing API
 
 Currently the host must edit server.json to swap which API is used to generate responses in the AI Chat.
-Search server.js for `AI_API_SELECTION_CODE` and comment/uncomment the appropriate line, and restart server if needed.
+Search server.js for `AI_API_SELECTION_CODE` and comment/uncomment the appropriate line, and restart server.
 
-- **NOTE:** The API Selected in server.js must match the API parameters sent by client.html, or the requests will not work.
+- **NOTE:** The API Selected in `server.js` must match the API parameters sent by `client.html`, or the requests will not work.
+- Search `client.html` for `API_PARAMS_FOR_HORDE` or `API_PARAMS_FOR_TABBY` to find them, and comment/uncomment the one that matches the API Selected in `server.js`
+- User will need to refresh their browser page after this change takes place.
 
 # Planned Features
 

@@ -56,6 +56,10 @@ Place any SillyTavern compatible character card into the `/characters/` folder a
 Character can be selected at the top left of the AI Chat panel.
 If new characters are added while the server is running, the Host must refresh their browser page to see them in the selection.
 
+### Changing Characters
+
+- the AI character can be changed at any time without resetting the chat.
+
 ### Chatting
 
 - Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button, or pressing Enter
@@ -94,3 +98,5 @@ You can have a different name for the User Chat and AI Chat.
 - ~~add AI chat clear button~~
 - smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
 - ability to remove individual chat messages (at first this will be deleting from the bottom.)
+- ability to save chat files when clearing the chat
+- ability to load past chat files

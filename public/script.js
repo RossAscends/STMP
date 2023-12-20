@@ -433,11 +433,13 @@ async function populateCardSelector(cardList) {
 function setEngineMode(mode){
     if (mode === 'horde'){
         $("#toggleMode").removeClass('tabbyMode').addClass('hordeMode').text('🧟');
+        $("#toggleMode").attr('title', 'Click to switch to Tabby Mode');
         //copy the horde parameters into the APICallParams object
         APICallParams = JSON.parse(JSON.stringify(HordeAPICallParams));
         console.log('Switching to Horde Mode')
     } else {
         $("#toggleMode").removeClass('hordeMode').addClass('tabbyMode').text('🐈');
+        $("#toggleMode").attr('title', 'Click to switch to Horde Mode');
         //copy the tabby parameters into the APICallParams object
         APICallParams = JSON.parse(JSON.stringify(TabbyAPICallParams));
         console.log('Switching to Tabby Mode')

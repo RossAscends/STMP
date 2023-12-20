@@ -56,6 +56,13 @@ Place any SillyTavern compatible character card into the `/characters/` folder a
 Character can be selected at the top left of the AI Chat panel.
 If new characters are added while the server is running, the Host must refresh their browser page to see them in the selection.
 
+### Chatting
+
+- Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button, or pressing Enter
+- Shift+enter can be used to add newlines to the input.
+- markdown formatting is respected
+- pressing the retry button will remove the last chat message and prompt the AI character to give a new response.
+
 ### Host Controls
 
 The host will see controls at the top of the screen for:
@@ -82,6 +89,8 @@ You can have a different name for the User Chat and AI Chat.
 - selected character persistence across sessions
 - ~~push selected character to user on connection~~
 - add host control toggle for "Host Approval" mode (host must approve messages from users before they are sent to AI)
-- add host control toggle for locking AI chat entirely
+- add host control toggle for locking AI chat for users
 - add host control to set User Turn Order for AI chatting (drag-sort list)
 - ~~add AI chat clear button~~
+- smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
+- ability to remove individual chat messages (at first this will be deleting from the bottom.)

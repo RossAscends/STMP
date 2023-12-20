@@ -413,19 +413,33 @@ async function handleConnections(ws) {
     });
 };
 
+/**
+ * Reads AI chat data from a JSON file. If the file doesn't exist, creates it.
+ * @returns {Promise<string>} A promise that resolves with the file content.
+ */
 async function readAIChat() {
     return new Promise((resolve, reject) => {
         fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
             if (err) {
-                console.error('An error occurred while reading the file:', err);
-                reject(err);
+                if (err.code === 'ENOENT') {
+                    console.log('AIChat.json not found, creating it now.');
+                    writeAIChat('{}').then(() => {
+                        resolve('{}');
+                    }).catch(writeErr => {
+                        console.error('An error occurred while creating the file:', writeErr);
+                        reject(writeErr);
+                    });
+                } else {
+                    console.error('An error occurred while reading the file:', err);
+                    reject(err);
+                }
+            } else {
+                resolve(data);
             }
-            //console.log(`--- readAIChat() results:`)
-            //console.log(data)
-            resolve(data)
-        })
-    })
+        });
+    });
 }
+
 
 async function writeAIChat(data) {
     fs.writeFile('public/chats/AIChat.json', data, 'utf8', (writeErr) => {
@@ -437,19 +451,33 @@ async function writeAIChat(data) {
     });
 }
 
+/**
+ * Reads user chat data from a JSON file. If the file doesn't exist, creates it.
+ * @returns {Promise<string>} A promise that resolves with the file content.
+ */
 async function readUserChat() {
     return new Promise((resolve, reject) => {
         fs.readFile('public/chats/UserChat.json', 'utf8', (err, data) => {
             if (err) {
-                console.error('An error occurred while reading the file:', err);
-                reject(err);
+                if (err.code === 'ENOENT') {
+                    console.log('UserChat.json not found, creating it now.');
+                    writeUserChat('{}').then(() => {
+                        resolve('{}');
+                    }).catch(writeErr => {
+                        console.error('An error occurred while creating the file:', writeErr);
+                        reject(writeErr);
+                    });
+                } else {
+                    console.error('An error occurred while reading the file:', err);
+                    reject(err);
+                }
+            } else {
+                resolve(data);
             }
-            //console.log(`--- readUserChat() results:`)
-            //console.log(data)
-            resolve(data)
-        })
-    })
+        });
+    });
 }
+
 
 async function writeUserChat(data) {
     fs.writeFile('public/chats/UserChat.json', data, 'utf8', (writeErr) => {

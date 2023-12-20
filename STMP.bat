@@ -11,15 +11,25 @@ ECHO SillyTavern MultiPlayer
 ECHO ===========================
 
 REM Check and create 'chats' folder if it doesn't exist
-IF NOT EXIST "public/chats" (
-    mkdir public/chats
-    ECHO -- Created 'chats' folder.
+IF NOT EXIST "public\chats" (
+    mkdir "public\chats"
+    IF ERRORLEVEL 1 (
+        ECHO Failed to create 'chats' folder. Check permissions or path.
+        EXIT /B 1
+    ) ELSE (
+        ECHO -- Created 'chats' folder.
+    )
 )
 
 REM Check and create 'api-presets' folder if it doesn't exist
-IF NOT EXIST "public/api-presets" (
-    mkdir public/api-presets
-    ECHO -- Created 'api-presets' folder.
+IF NOT EXIST "public\api-presets" (
+    mkdir "public\api-presets"
+    IF ERRORLEVEL 1 (
+        ECHO Failed to create 'api-presets' folder. Check permissions or path.
+        EXIT /B 1
+    ) ELSE (
+        ECHO -- Created 'api-presets' folder.
+    )
 )
 
 ECHO -- Looking for secrets.json....

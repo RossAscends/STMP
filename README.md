@@ -8,11 +8,12 @@ A minimal AI chat interface with multiuser capabilities via websockets created f
 2. clone this github repo
 3. Setup the API (see below)
 4. run `STMP.bat` to install the required node modules and start the server.
-5. open `localhost:8181` in your web browser.
+5. On the first run the batch file will create an empty `secrets.json` as well as the `/api-presets/` and `/chats/` folders.
+6. open `htttp://localhost:8181/` in your web browser.
 
 ## API Setup
 
-Currently STMP supports Tabby and HordeAI, and has Tabby active by default.
+Currently STMP supports Tabby and HordeAI, with Tabby active by default.
 
 **NOTE:** The API parameters are set in `client.html`.
 
@@ -21,7 +22,7 @@ Currently STMP supports Tabby and HordeAI, and has Tabby active by default.
 - `server.js` and `client.html` are both set to use Tabby by default.
 - Obviously, the host must have Tabby installed and working on their device. Instructions for this can be found on the [TabbyAPI Github](https://github.com/theroyallab/tabbyAPI).
 - STMP assumes the default server URL of `http://127.0.0.1:5000/v1/completions` for Tabby requests.
-- Copy the TabbyAPI key from the Tabby console and paste it into secrets.json
+- Copy the TabbyAPI key from the Tabby console and paste it into `secrets.json`
 
 ### Using Horde
 

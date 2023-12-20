@@ -158,6 +158,19 @@ async function broadcastUserList() {
     broadcast(userListMessage);
 }
 
+async function removeLastAIChatMessage() {
+    const data = await readAIChat()
+    let jsonArray = JSON.parse(data)
+    jsonArray.pop();
+    const formattedData = JSON.stringify(jsonArray, null, 2);
+    await writeAIChat(formattedData)
+    let chatUpdateMessage = {
+        type: 'chatUpdate',
+        chatHistory: jsonArray
+    }
+    console.log('sending AI Chat Update instruction to clients')
+    broadcast(chatUpdateMessage);
+}
 
 
 async function handleConnections(ws) {
@@ -218,7 +231,7 @@ async function handleConnections(ws) {
                 broadcast(parsedMessage);
             }
             else if (parsedMessage.type === 'deleteLast') {
-
+                removeLastAIChatMessage()
             }
             else if (parsedMessage.type === 'cardListQuery') {
                 let cards = await getCardList()
@@ -260,38 +273,17 @@ async function handleConnections(ws) {
             else if (parsedMessage.type === 'AIRetry') {
                 // Read the AIChat file
                 try {
-                    // Parse the existing contents as a JSON array
-                    let chatData = await readAIChat();
-                    console.log(chatData)
-                    let jsonArray = JSON.parse(chatData)
-                    // Remove the last object from the array
-                    console.log('removing last AI Chat item..')
-                    jsonArray.pop();
-                    // Convert the modified array back to a JSON string
-                    const updatedData = JSON.stringify(jsonArray, null, 2);
-                    // Write the updated JSON string back to the file
-                    await writeAIChat(updatedData)
+                    removeLastAIChatMessage()
                     userPrompt = {
                         'chatID': parsedMessage.chatID,
                         'username': parsedMessage.username,
-                        //send the HTML-ized message into the AI chat
                         'content': '',
-                        //'userColor': userColor
                     }
-
-                    let retryResetMessage = {
-                        type: 'retryReset',
-                        chatHistory: jsonArray
-                    }
-                    console.log('sending AI Retry instruction to clients')
-                    broadcast(retryResetMessage);
-                    getAIResponse('retry')
+                    getAIResponse()
                 } catch (parseError) {
                     console.error('An error occurred while parsing the JSON:', parseError);
                     return;
                 }
-
-
             }
 
             else { //handle normal chat messages
@@ -306,7 +298,7 @@ async function handleConnections(ws) {
                 if (chatID === 'AIChat') {
                     userPrompt = {
                         'chatID': chatID,
-                        'username': parsedMessage.username,
+                        'username': username,
                         //send the HTML-ized message into the AI chat
                         'content': parsedMessage.userInput,
                         'userColor': userColor
@@ -330,7 +322,6 @@ async function handleConnections(ws) {
                 }
             }
             async function getAIResponse(type) {
-                let isRetry = type === 'retry' ? true : false
                 try {
                     let jsonArray = [];
                     let isEmptyTrigger = userPrompt.content.length == 0 ? true : false

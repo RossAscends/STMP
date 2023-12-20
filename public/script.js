@@ -264,8 +264,8 @@ function connectWebSocket() {
             case 'clearAIChat':
                 clearAIChatDiv();
                 break;
-            case 'retryReset':
-                console.log('saw retry reset instruction');
+            case 'chatUpdate':
+                console.log('saw chat update instruction');
                 $("#AIchat").empty();
                 let resetChatHistory = parsedMessage.chatHistory;
                 resetChatHistory.forEach((obj) => {

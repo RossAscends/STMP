@@ -423,8 +423,8 @@ async function readAIChat() {
             if (err) {
                 if (err.code === 'ENOENT') {
                     console.log('AIChat.json not found, creating it now.');
-                    writeAIChat('{}').then(() => {
-                        resolve('{}');
+                    writeAIChat('[]').then(() => {
+                        resolve('[]');
                     }).catch(writeErr => {
                         console.error('An error occurred while creating the file:', writeErr);
                         reject(writeErr);
@@ -461,8 +461,8 @@ async function readUserChat() {
             if (err) {
                 if (err.code === 'ENOENT') {
                     console.log('UserChat.json not found, creating it now.');
-                    writeUserChat('{}').then(() => {
-                        resolve('{}');
+                    writeUserChat('[]').then(() => {
+                        resolve('[]');
                     }).catch(writeErr => {
                         console.error('An error occurred while creating the file:', writeErr);
                         reject(writeErr);

@@ -104,8 +104,9 @@ You can have a different name for the User Chat and AI Chat.
 - ~~add AI chat clear button~~
 - ability to remove individual chat messages (at first this will be deleting from the bottom.)
 
-### Nice-to-have Features
+### Low-priority but Nice-to-have Features
 
 - Multiple AI characters active at once (group chats)
 - ability to load past chat files
 - exporting chat files as text or JSON
+- UI themes

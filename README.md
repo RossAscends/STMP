@@ -89,7 +89,7 @@ You can have a different name for the User Chat and AI Chat.
 - ~~Saving user chat history for persistence across sessions~~
 - ~~in-chat notification of when a user changes their username~~
 - ~~unique colors for usernames in chat to make the chat easier to read at a glance.~~
-- set and respect API context limits
+- ~~set and respect API context limits~~
 - selected character persists across sessions
 - smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
 - ability to save chat files when clearing the chat

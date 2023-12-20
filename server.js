@@ -43,6 +43,9 @@ const usernameColors = [
 const wsPort = 8181; //WS for host
 const wssPort = 8182; //WSS for guests
 
+//set the engine mode to either 'tabby' or 'horde'
+let engineMode = 'tabby'
+
 localApp.get('/', (req, res) => {
     const filePath = path.join(__dirname, '/public/client.html');
     fs.readFile(filePath, 'utf8', (err, data) => {
@@ -193,7 +196,8 @@ async function handleConnections(ws) {
         color: thisUserColor,
         cardList: cardList,
         selectedCharacter: selectedCharacter,
-        userList: connectedUserNames
+        userList: connectedUserNames,
+        engineMode: 'tabby'
     }
     //send connection confirmation along with chat history
     ws.send(JSON.stringify(connectionConfirmedMessage))
@@ -285,6 +289,14 @@ async function handleConnections(ws) {
                     return;
                 }
             }
+            else if (parsedMessage.type === 'modeChange') {
+                engineMode = parsedMessage.newMode
+                const modeChangeMessage = {
+                    type: 'modeChange',
+                    engineMode: engineMode
+                }
+                broadcast(modeChangeMessage);
+            }
 
             else { //handle normal chat messages
                 const chatID = parsedMessage.chatID;
@@ -371,9 +383,16 @@ async function handleConnections(ws) {
 
                     // AI_API_SELECTION_CODE
                     // UNCOMMENT THIS LINE IF YOU WANT TO USE HORDE FOR AI RESPONSES
-                    //const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.content);
-                    // UNCOMMENT THIS LINE IF YOU WANT TO USE TABBY FOR AI RESPONSES
-                    var AIResponse = trimIncompleteSentences(await requestToTabby(parsedMessage.APICallParams))
+                    parsedMessage.APICallParams.engine = 'horde';
+                    var AIResponse = '';
+                    if(engineMode === 'horde'){
+                        const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.APICallParams);
+                        AIResponse = hordeResponse;
+                    }
+                    else{
+                        AIResponse = trimIncompleteSentences(await requestToTabby(parsedMessage.APICallParams))
+                    }
+
                     const AIResponseForChatJSON = {
                         username: charName,
                         content: AIResponse.trim(),
@@ -423,8 +442,8 @@ async function readAIChat() {
             if (err) {
                 if (err.code === 'ENOENT') {
                     console.log('AIChat.json not found, creating it now.');
-                    writeAIChat('{}').then(() => {
-                        resolve('{}');
+                    writeAIChat('[]').then(() => {
+                        resolve('[]');
                     }).catch(writeErr => {
                         console.error('An error occurred while creating the file:', writeErr);
                         reject(writeErr);
@@ -461,8 +480,8 @@ async function readUserChat() {
             if (err) {
                 if (err.code === 'ENOENT') {
                     console.log('UserChat.json not found, creating it now.');
-                    writeUserChat('{}').then(() => {
-                        resolve('{}');
+                    writeUserChat('[]').then(() => {
+                        resolve('[]');
                     }).catch(writeErr => {
                         console.error('An error occurred while creating the file:', writeErr);
                         reject(writeErr);

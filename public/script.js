@@ -58,7 +58,7 @@ var isHost = (userRole === 'Host') ? true : false;
 
 //API_PARAMS_FOR_TABBY
 //uncomment the code below to send Tabby-compliant API parameters
-var APICallParams = {
+var TabbyAPICallParams = {
     "prompt": "",
     "max_new_tokens": 200,
     "do_sample": true,
@@ -99,7 +99,7 @@ var APICallParams = {
 
 //API_PARAMS_FOR_HORDE
 //uncomment the code below to enable API for Horde
-/* var APICallParams = {
+var HordeAPICallParams = {
     "prompt": "",
     "params": {
         "gui_settings": false,
@@ -163,8 +163,10 @@ var APICallParams = {
     ],
     "disuedmodels": [
     ]
-} */
+}
 //END_OF_HORDE_PAREMETERS
+
+var APICallParams = TabbyAPICallParams;
 
 
 function clearChatDiv() {
@@ -185,8 +187,8 @@ function updateUserList(username) {
 }
 
 function updateUIUserList(userList) {
-    //console.log(userList)
-    //console.log('starting initial userlist population')
+    console.log(userList)
+    console.log('starting initial userlist population')
     const userListElement = $('#userList ul');
     userListElement.empty() // Clear the existing user list
     userList.forEach(username => {
@@ -203,13 +205,15 @@ function updateSelectedChar(char, type) {
 
 function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
-    const { selectedCharacter, chatHistory, AIChatHistory, cardList, userList } = parsedMessage;
+    const { selectedCharacter, chatHistory, AIChatHistory, cardList, userList, engineMode } = parsedMessage;
     $("#chat").empty();
     $("#AIchat").empty();
 
     populateCardSelector(cardList);
     console.debug(`selecting character as defined from server: ${selectedCharacter}`);
     updateSelectedChar(selectedCharacter, 'forced');
+
+    setEngineMode(engineMode);
 
     if (chatHistory) {
         const trimmedChatHistoryString = chatHistory.trim();
@@ -282,6 +286,9 @@ function connectWebSocket() {
             case 'cardList':
                 let JSONCardData = parsedMessage.cards;
                 await populateCardSelector(JSONCardData);
+                break;
+            case 'modeChange':
+                setEngineMode(parsedMessage.engineMode);
                 break;
             case 'userList':
             case 'userConnect':
@@ -422,6 +429,21 @@ async function populateCardSelector(cardList) {
     }
 }
 
+// set the engine mode to either horde or tabby based on a value from the websocket
+function setEngineMode(mode){
+    if (mode === 'horde'){
+        $("#toggleMode").removeClass('tabbyMode').addClass('hordeMode').text('🧟');
+        //copy the horde parameters into the APICallParams object
+        APICallParams = JSON.parse(JSON.stringify(HordeAPICallParams));
+        console.log('Switching to Horde Mode')
+    } else {
+        $("#toggleMode").removeClass('hordeMode').addClass('tabbyMode').text('🐈');
+        //copy the tabby parameters into the APICallParams object
+        APICallParams = JSON.parse(JSON.stringify(TabbyAPICallParams));
+        console.log('Switching to Tabby Mode')
+    }
+}
+
 let isDisconnecting = false;
 window.addEventListener('beforeunload', () => {
     if (!isDisconnecting) {
@@ -491,6 +513,21 @@ $(document).ready(async function () {
                 newChar: newChar
             }
             socket.send(JSON.stringify(changeCharacterMessage));
+        }
+    })
+
+    //A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.
+    $("#toggleMode").off('click').on('click', function () {
+        if (!isHost) {
+            return
+        }//A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI to reflect the change.
+        else {
+            let newMode = $("#toggleMode").hasClass('hordeMode') ? 'tabby' : 'horde';
+            let modeChangeMessage = {
+                type: 'modeChange',
+                newMode: newMode
+            }
+            socket.send(JSON.stringify(modeChangeMessage));
         }
     })
 

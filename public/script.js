@@ -1,4 +1,4 @@
-var username, storedUsername, AIChatUsername, storedAIChatUsername
+var username, storedUsername, AIChatUsername, storedAIChatUsername, isAutoResponse
 
 async function startupUsernames() {
     storedUsername = localStorage.getItem('username');
@@ -61,13 +61,14 @@ var isHost = (userRole === 'Host') ? true : false;
 var APICallParams = {
     "prompt": "",
     "max_new_tokens": 200,
+    "max_tokens": 200,
     "do_sample": true,
     "temperature": 2,
     "top_p": 1,
     "typical_p": 1,
     "min_p": 0.2,
-    "repetition_penalty": 1,
-    "repetition_penalty_range": 0,
+    "repetition_penalty": 1.1,
+    "repetition_penalty_range": 400,
     "encoder_repetition_penalty": 1,
     "top_k": 0,
     "min_length": 0,
@@ -203,7 +204,10 @@ function updateSelectedChar(char, type) {
 
 function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
-    const { selectedCharacter, chatHistory, AIChatHistory, cardList, userList } = parsedMessage;
+    const { selectedCharacter, chatHistory, AIChatHistory, cardList, userList, isAutoResponse, contextSize, responseLength } = parsedMessage;
+    $("#AIAutoResponse").prop('checked', isAutoResponse)
+    $("#maxContext").find(`option[value="${contextSize}"]`).prop('selected', true)
+    $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
     $("#chat").empty();
     $("#AIchat").empty();
 
@@ -431,7 +435,6 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-
 $(document).ready(async function () {
     console.log('--- document is ready, processing entry....')
 
@@ -444,6 +447,34 @@ $(document).ready(async function () {
     })
     $("#disconnectButton").off('click').on('click', function () {
         disconnectWebSocket()
+    })
+
+    $("#AIAutoResponse").on('input', function () {
+        isAutoResponse = $(this).prop('checked')
+        console.log(isAutoResponse)
+        const autoResponseStateMessage = {
+            type: 'toggleAutoResponse',
+            value: isAutoResponse
+        }
+        socket.send(JSON.stringify(autoResponseStateMessage));
+    })
+    $("#maxContext").on('input', function () {
+        contextSize = $(this).find(`option:selected`).val()
+        console.log(contextSize)
+        const adjustCtxMes = {
+            type: 'adjustContextSize',
+            value: contextSize
+        }
+        socket.send(JSON.stringify(adjustCtxMes));
+    })
+    $("#responseLength").on('input', function () {
+        responseLength = $(this).find(`option:selected`).val()
+        console.log(responseLength)
+        const adjustResponseLength = {
+            type: 'adjustResponseLength',
+            value: responseLength
+        }
+        socket.send(JSON.stringify(adjustResponseLength));
     })
 
     // Send a message to the user chat

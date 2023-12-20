@@ -32,7 +32,7 @@ body {
 
 #LLMChatWrapper,
 #OOCChatWrapper {
-    flex-basis: calc(50% - 25px);
+    flex-basis: calc(45% - 25px);
     height: 100%;
     overflow: hidden;
 

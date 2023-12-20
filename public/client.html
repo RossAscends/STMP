@@ -18,18 +18,42 @@
     <div id="bodywrap" class="flexbox flexFlowCol">
         <div id="chatsWrapper" class="flexbox Hcentered">
 
+            <div id="controlPanel" class="flexbox flexFlowCol">
+                <div class="flexbox flexFlowCol">
+                    Context
+                    <select id="maxContext">
+                        <option value="1024">1024</option>
+                        <option value="2048">2048</option>
+                        <option value="4096">4096</option>
+                        <option value="8196">8192</option>
+                    </select>
+                </div>
+                <div class="flexbox flexFlowCol">
+                    Response
+                    <select id="responseLength">
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                        <option value="200">200</option>
+                        <option value="300">300</option>
+                        <option value="400">400</option>
+                    </select>
+                </div>
+                <div class="hostControls flexbox flexFlowCol">
+                    <label for="AIAutoResponse">AutoResponse
+                        <input type="checkbox" id="AIAutoResponse">
+                    </label>
+                    <button id="clearAIChat">Clear Chat</button>
+                    <button id="triggerAIResponse">Trigger AI</button>
+                    <button id="deleteLastMessageButton">Delete Last</button>
+
+                </div>
+            </div>
+
             <div id="LLMChatWrapper" class="flexbox flexFlowCol">
                 <div class="padding5 Hcentered Vcentered flexbox">
                     <select id="characters"></select>
                     AI Chat <input type="text" id="AIUsernameInput" placeholder="Username">
-                    <div class="hostControls">
-                        <button id="clearAIChat">Clear Chat</button>
-                        <button id="triggerAIResponse">Trigger AI</button>
-                        <label for="lockAIChatToggle">Lock Users
-                            <input type="checkbox" id="lockAIChatToggle" value="Lock">
-                        </label>
 
-                    </div>
                 </div>
                 <div id="AIchat" data-chat-id="AIChat"></div>
                 <div id="AIInputBlock" class="flexbox noWrap">
@@ -37,7 +61,7 @@
                     <div class="flexbox flex1 Hcentered">
                         <button id="AISendButton">Send</button>
                         <button id="AIRetry">Retry</button>
-                        <button id="deleteLastMessageButton">Delete Last</button>
+
                     </div>
                 </div>
             </div>

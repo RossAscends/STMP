@@ -104,6 +104,9 @@ wssServer.setMaxListeners(0);
 var clientsArray = [];
 var connectedUserNames = [];
 var selectedCharacter
+var isAutoResponse = true
+var responseLength = 200
+var contextSize = 4096
 
 // Handle incoming WebSocket connections
 wsServer.on('connection', (ws) => {
@@ -172,7 +175,6 @@ async function removeLastAIChatMessage() {
     broadcast(chatUpdateMessage);
 }
 
-
 async function handleConnections(ws) {
     // Store the connected client in the appropriate array based on the server
     const thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
@@ -193,7 +195,10 @@ async function handleConnections(ws) {
         color: thisUserColor,
         cardList: cardList,
         selectedCharacter: selectedCharacter,
-        userList: connectedUserNames
+        userList: connectedUserNames,
+        isAutoResponse: isAutoResponse,
+        contextSize: contextSize,
+        responseLength: responseLength
     }
     //send connection confirmation along with chat history
     ws.send(JSON.stringify(connectionConfirmedMessage))
@@ -209,7 +214,7 @@ async function handleConnections(ws) {
             parsedMessage = JSON.parse(message);
             parsedMessage.userColor = thisUserColor
             //stringifiedMessage = JSON.stringify(message)
-            console.log('Received message from client:', parsedMessage);
+            //console.log('Received message from client:', parsedMessage);
             if (parsedMessage.type === 'connect') {
                 console.log('saw connect message from client')
                 ws.username = parsedMessage.username;
@@ -223,6 +228,18 @@ async function handleConnections(ws) {
                 await writeUserChat('[]')
                 // Broadcast the clear chat message to all connected clients
                 broadcast(parsedMessage);
+            }
+            else if (parsedMessage.type === 'toggleAutoResponse') {
+                isAutoResponse = parsedMessage.value
+                console.log(`AI AutoResponse set to ${isAutoResponse}`)
+            }
+            else if (parsedMessage.type === 'adjustContextSize') {
+                contextSize = parsedMessage.value
+                console.log(`Context Size set to ${contextSize}`)
+            }
+            else if (parsedMessage.type === 'adjustResponseLength') {
+                responseLength = parsedMessage.value
+                console.log(`Response Length set to ${responseLength}`)
             }
             else if (parsedMessage.type === 'clearAIChat') {
                 //clear the UserChat.json file
@@ -290,12 +307,13 @@ async function handleConnections(ws) {
                 const chatID = parsedMessage.chatID;
                 const username = parsedMessage.username
                 const userColor = thisUserColor
-                const userInput = parsedMessage.content
+                const userInput = parsedMessage.userInput
                 const hordePrompt = parsedMessage.content?.prompt
                 var userPrompt
 
                 //setup the userPrompt arrayin order to send the input into the AIChat box
                 if (chatID === 'AIChat') {
+
                     userPrompt = {
                         'chatID': chatID,
                         'username': username,
@@ -303,11 +321,25 @@ async function handleConnections(ws) {
                         'content': parsedMessage.userInput,
                         'userColor': userColor
                     }
+                    let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
-                    if (userPrompt.content !== '' && userPrompt.content !== undefined && userPrompt.content !== null) {
+                    if (!isEmptyTrigger) {
+                        let data = await readAIChat()
+                        let jsonArray = JSON.parse(data)
+                        const userObjToPush = {
+                            username: parsedMessage.username,
+                            content: parsedMessage.userInput,
+                            //htmlContent: parsedMessage.htmlContent,
+                            userColor: parsedMessage.userColor
+                        }
+                        jsonArray.push(userObjToPush)
+                        const formmattedData = JSON.stringify(jsonArray, null, 2);
+                        await writeAIChat(formmattedData)
                         broadcast(userPrompt)
                     }
-                    await getAIResponse()
+                    if (isAutoResponse || isEmptyTrigger) {
+                        await getAIResponse()
+                    }
                 }
                 //read the current userChat file
                 if (chatID === 'UserChat') {
@@ -328,46 +360,22 @@ async function handleConnections(ws) {
                     console.log(`Is this an empty trigger? ${isEmptyTrigger}`)
 
                     //if it's not an empty trigger from host
-                    if (!isEmptyTrigger) {
-                        //read the AIChat JSON file
-
-                        try {
-                            // Parse the existing contents as a JSON array
-                            let data = await readAIChat()
-                            jsonArray = JSON.parse(data);
-                        } catch (parseError) {
-                            console.error('An error occurred while parsing the JSON:', parseError);
-                            return;
-                        }
-                        //Add the new object to the chat array
-                        const userObjToPush = {
-                            username: parsedMessage.username,
-                            content: parsedMessage.userInput,
-                            //htmlContent: parsedMessage.htmlContent,
-                            userColor: parsedMessage.userColor
-                        }
-                        jsonArray.push(userObjToPush);
-                        //format data for readability
-                        const updatedData = JSON.stringify(jsonArray, null, 2);
-                        // Write the updated array back to the file
-                        await writeAIChat(updatedData)
-                    }
                     //if userInput is empty we can just request the AI directly
                     let charFile = parsedMessage.char
                     let cardData = await charaRead(charFile, 'png')
                     let cardJSON = JSON.parse(cardData)
                     let charName = cardJSON.name
 
-                    if (!isEmptyTrigger) { //if there was userInput we add it to the prompt, along with the charName at the end
-                        var lastUserMessageAndCharName = JSON.stringify(`${parsedMessage.username}: ${parsedMessage.APICallParams.prompt}\n${charName}:`);
-                    } else { //if the input was empty, we prompt for another AI response
-                        var lastUserMessageAndCharName = JSON.stringify(`\n${charName}:`);
-                    }
+                    var finalCharName = JSON.stringify(`\n${charName}:`);
+                    //}
                     //strips out HTML tags from last message
-                    var fixedLastUserMessageAndCharName = JSON.parse(lastUserMessageAndCharName.replace(/<[^>]+>/g, ''));
+                    var fixedFinalCharName = JSON.parse(finalCharName.replace(/<[^>]+>/g, ''));
 
-                    const fullPromptforAI = await addCharDefsToPrompt(charFile, fixedLastUserMessageAndCharName, parsedMessage.username)
+                    const fullPromptforAI = await addCharDefsToPrompt(charFile, fixedFinalCharName, parsedMessage.username)
                     parsedMessage.APICallParams.prompt = fullPromptforAI;
+                    parsedMessage.APICallParams.truncation_length = Number(contextSize)
+                    parsedMessage.APICallParams.max_new_tokens = Number(responseLength)
+                    parsedMessage.APICallParams.max_tokens = Number(responseLength)
 
                     // AI_API_SELECTION_CODE
                     // UNCOMMENT THIS LINE IF YOU WANT TO USE HORDE FOR AI RESPONSES
@@ -412,6 +420,13 @@ async function handleConnections(ws) {
         clientsArray = clientsArray.filter(client => client !== ws);
     });
 };
+
+function countTokens(str) {
+    let chars = str.length
+    let tokens = Math.ceil(chars / 3)
+    //console.log(`estimated tokens: ${tokens}`)
+    return tokens
+}
 
 async function readAIChat() {
     return new Promise((resolve, reject) => {
@@ -489,23 +504,16 @@ function trimIncompleteSentences(input, include_newline = false) {
 }
 
 async function ObjectifyChatHistory() {
-    return new Promise((resolve, reject) => {
-        fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
-            if (err) {
-                console.error('An error occurred while reading the file:', err);
-                reject(err);
-                return;
-            }
-            let chatHistory = [];
-            try {
-                // Parse the existing contents as a JSON array
-                chatHistory = JSON.parse(data);
-                resolve(chatHistory);
-            } catch (parseError) {
-                console.error('An error occurred while parsing the JSON:', parseError);
-                reject(parseError);
-            }
-        });
+    return new Promise(async (resolve, reject) => {
+        let data = await readAIChat();
+        try {
+            // Parse the existing contents as a JSON array
+            let chatHistory = JSON.parse(data);
+            resolve(chatHistory);
+        } catch (parseError) {
+            console.error('An error occurred while parsing the JSON:', parseError);
+            reject(parseError);
+        }
     });
 }
 
@@ -526,9 +534,24 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
             var stringToReturn =
                 `${systemMessage}\n${replacedData?.description}\n${replacedData?.personality.trim()}\n${replacedData?.scenario.trim()}\n${replacedData.name.trim()}: ${replacedData?.first_mes.trim()}\n`
             //add the chat history
-            chatHistory.forEach(obj => {
-                stringToReturn += `${obj.username}: ${obj.content}\n`
-            })
+            let promptTokens = countTokens(stringToReturn)
+            //console.log(`before adding ChatHIstory, Prompt is: ~${promptTokens}`)
+            let insertedItems = []
+            for (let i = chatHistory.length - 1; i >= 0; i--) {
+                let obj = chatHistory[i];
+                let newItem = `${obj.username}: ${obj.content}\n`;
+                let newItemTokens = countTokens(newItem);
+                if (promptTokens + newItemTokens < contextSize) {
+                    promptTokens += newItemTokens;
+                    //console.log(`added new item, prompt tokens: ~${promptTokens}`);
+                    insertedItems.push(newItem); // Add new item to the array
+                }
+            }
+
+            // Reverse the array before appending to insertedChatHistory
+            let reversedItems = insertedItems.reverse();
+            let insertedChatHistory = reversedItems.join('');
+            stringToReturn += insertedChatHistory
             //add the final first mes and userInput        
             stringToReturn += `${lastUserMesageAndCharName.trim()}`;
             stringToReturn = stringToReturn.trim()

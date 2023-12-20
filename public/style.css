@@ -57,7 +57,7 @@ body {
 #inputBlock,
 #AIInputBlock {
     display: flex;
-    flex-wrap: wrap;
+    /* flex-wrap: wrap; */
     align-items: center;
     align-content: center;
     justify-content: center;
@@ -197,6 +197,22 @@ hr {
     gap: 5px;
 }
 
+.noWrap {
+    flex-wrap: nowrap;
+}
+
 .flexFlowCol {
     flex-flow: column;
+}
+
+.flex1 {
+    flex: 1
+}
+
+.widthMinContent {
+    width: min-content
+}
+
+.widthFitContent {
+    width: fit-content
 }

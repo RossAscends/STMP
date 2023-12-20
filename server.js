@@ -141,64 +141,51 @@ async function getCardList() {
     return cards;
 }
 
+async function broadcast(message) {
+    clientsArray.forEach(client => {
+        if (client.socket.readyState === WebSocket.OPEN) {
+            client.socket.send(JSON.stringify(message));
+        }
+    });
+}
+
+// Broadcast the updated array of connected usernames to all clients
+async function broadcastUserList() {
+    const userListMessage = {
+        type: 'userList',
+        userList: connectedUserNames.sort()
+    };
+    broadcast(userListMessage);
+}
+
+
+
 async function handleConnections(ws) {
     // Store the connected client in the appropriate array based on the server
     const thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
     clientsArray.push({
         socket: ws,
-        color: thisUserColor
+        color: thisUserColor,
     });
 
-    var userChatJSON, AIChatJSON
     const cardList = await getCardList()
+    var AIChatJSON = await readAIChat();
+    var userChatJSON = await readUserChat()
 
-    //read AIchat.json
-    fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
-        if (err) {
-            console.error('An error occurred:', err);
-            return;
-        }
-        AIChatJSON = data;
-
-
-        //read userchat.json
-        fs.readFile('public/chats/UserChat.json', 'utf8', (err, data) => {
-            if (err) {
-                console.error('An error occurred:', err);
-                return;
-            }
-            userChatJSON = data;
-
-            //console.log(userChatJSON)
-            //console.log(AIChatJSON)
-            //send connection confirmation along with both chat history
-            let connectionConfirmedMessage = {
-                type: 'connectionConfirmed',
-                chatHistory: userChatJSON,
-                AIChatHistory: AIChatJSON,
-                color: thisUserColor,
-                cardList: cardList,
-                selectedCharacter: selectedCharacter
-            }
-            //send connection confirmation along with chat history
-            ws.send(JSON.stringify(connectionConfirmedMessage))
-        })
-    })
-
+    //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
+    let connectionConfirmedMessage = {
+        type: 'connectionConfirmed',
+        chatHistory: userChatJSON,
+        AIChatHistory: AIChatJSON,
+        color: thisUserColor,
+        cardList: cardList,
+        selectedCharacter: selectedCharacter,
+        userList: connectedUserNames
+    }
+    //send connection confirmation along with chat history
+    ws.send(JSON.stringify(connectionConfirmedMessage))
     broadcastUserList()
 
-    // Broadcast the updated array of connected usernames to all clients
-    function broadcastUserList() {
-        const userListMessage = {
-            type: 'userList',
-            userList: connectedUserNames.sort()
-        };
-        clientsArray.forEach(client => {
-            if (client.socket.readyState === WebSocket.OPEN) {
-                client.socket.send(JSON.stringify(userListMessage));
-            }
-        });
-    }
 
     // Handle incoming messages from clients
     ws.on('message', async function (message) {
@@ -208,40 +195,30 @@ async function handleConnections(ws) {
         try {
             parsedMessage = JSON.parse(message);
             parsedMessage.userColor = thisUserColor
-            stringifiedMessage = JSON.stringify(message)
+            //stringifiedMessage = JSON.stringify(message)
             console.log('Received message from client:', parsedMessage);
-
-            if (parsedMessage.type === 'clearChat') {
-                // Broadcast the clear chat message to all connected clients
-                clientsArray.forEach(function (client) {
-                    if (client.socket.readyState === WebSocket.OPEN) {
-                        client.socket.send(JSON.stringify(parsedMessage));
-                    }
-                });
+            if (parsedMessage.type === 'connect') {
+                console.log('saw connect message from client')
+                ws.username = parsedMessage.username;
+                connectedUserNames.push(parsedMessage.username)
+                console.log(`connectedUserNames: ${connectedUserNames}`)
+                await broadcastUserList()
+                return
+            }
+            else if (parsedMessage.type === 'clearChat') {
                 //clear the UserChat.json file
-                fs.writeFile('public/chats/UserChat.json', '[]', 'utf8', (err) => {
-                    if (err) {
-                        console.error('An error occurred:', err);
-                        return;
-                    }
-                    console.log('UserChat.json has been cleared.');
-                });
+                await writeUserChat('[]')
+                // Broadcast the clear chat message to all connected clients
+                broadcast(parsedMessage);
             }
             else if (parsedMessage.type === 'clearAIChat') {
-                // Broadcast the clear chat message to all connected clients
-                clientsArray.forEach(function (client) {
-                    if (client.socket.readyState === WebSocket.OPEN) {
-                        client.socket.send(JSON.stringify(parsedMessage));
-                    }
-                });
                 //clear the UserChat.json file
-                fs.writeFile('public/chats/AIChat.json', '[]', 'utf8', (err) => {
-                    if (err) {
-                        console.error('An error occurred:', err);
-                        return;
-                    }
-                    console.log('AIChat.json has been cleared.');
-                });
+                await writeAIChat('[]')
+                // Broadcast the clear chat message to all connected clients
+                broadcast(parsedMessage);
+            }
+            else if (parsedMessage.type === 'deleteLast') {
+
             }
             else if (parsedMessage.type === 'cardListQuery') {
                 let cards = await getCardList()
@@ -250,16 +227,13 @@ async function handleConnections(ws) {
                     cards: cards
                 }
                 ws.send(JSON.stringify(cardListMessage))
+                return
             }
             else if (parsedMessage.type === 'disconnect') {
                 const disconnectedUsername = parsedMessage.username;
                 connectedUserNames = connectedUserNames.filter(username => username !== disconnectedUsername);
-                broadcastUserList()
-            }
-            else if (parsedMessage.type === 'connect') {
-                ws.username = parsedMessage.username;
-                connectedUserNames.push(parsedMessage.username)
-                broadcastUserList()
+                await broadcastUserList()
+                return
             }
             else if (parsedMessage.type === 'usernameChange') {
                 const oldName = parsedMessage.oldName;
@@ -272,75 +246,51 @@ async function handleConnections(ws) {
                 }
                 console.log(nameChangeNotification)
                 console.log('sending notification of username change')
-                clientsArray.forEach(function (client) {
-                    if (client.socket.readyState === WebSocket.OPEN) {
-                        client.socket.send(JSON.stringify(nameChangeNotification));
-                    }
-                });
+                broadcast(nameChangeNotification);
                 broadcastUserList()
             }
             else if (parsedMessage.type === 'changeCharacter') {
-
                 const changeCharMessage = {
                     type: 'changeCharacter',
                     char: parsedMessage.newChar
                 }
                 selectedCharacter = parsedMessage.newChar
-                clientsArray.forEach(async function (client) {
-                    if (client.socket.readyState === WebSocket.OPEN) {
-                        client.socket.send(JSON.stringify(changeCharMessage));
-                    }
-                })
-                return
+                broadcast(changeCharMessage);
             }
             else if (parsedMessage.type === 'AIRetry') {
                 // Read the AIChat file
-                fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
-                    if (err) {
-                        console.error('An error occurred while reading the file:', err);
-                        return;
+                try {
+                    // Parse the existing contents as a JSON array
+                    let chatData = await readAIChat();
+                    console.log(chatData)
+                    let jsonArray = JSON.parse(chatData)
+                    // Remove the last object from the array
+                    console.log('removing last AI Chat item..')
+                    jsonArray.pop();
+                    // Convert the modified array back to a JSON string
+                    const updatedData = JSON.stringify(jsonArray, null, 2);
+                    // Write the updated JSON string back to the file
+                    await writeAIChat(updatedData)
+                    userPrompt = {
+                        'chatID': parsedMessage.chatID,
+                        'username': parsedMessage.username,
+                        //send the HTML-ized message into the AI chat
+                        'content': '',
+                        //'userColor': userColor
                     }
-                    try {
-                        // Parse the existing contents as a JSON array
-                        let jsonArray = JSON.parse(data);
-                        // Remove the last object from the array
-                        console.log('removing last AI Chat item..')
-                        jsonArray.pop();
-                        // Convert the modified array back to a JSON string
-                        const updatedData = JSON.stringify(jsonArray, null, 2);
-                        // Write the updated JSON string back to the file
-                        fs.writeFile('public/chats/AIChat.json', updatedData, 'utf8', (writeErr) => {
-                            if (writeErr) {
-                                console.error('An error occurred while writing to the file:', writeErr);
-                                return;
-                            }
-                            console.log('AIChat.json updated.');
-                        });
-                        userPrompt = {
-                            'chatID': parsedMessage.chatID,
-                            'username': parsedMessage.username,
-                            //send the HTML-ized message into the AI chat
-                            'content': '',
-                            //'userColor': userColor
-                        }
 
-                        let retryResetMessage = {
-                            type: 'retryReset',
-                            chatHistory: jsonArray
-                        }
-                        console.log('sending AI Retry instruction to clients')
-                        clientsArray.forEach(async function (client) {
-                            if (client.socket.readyState === WebSocket.OPEN) {
-                                client.socket.send(JSON.stringify(retryResetMessage));
-                            }
-                        })
-
-                        getAIResponse('retry')
-                    } catch (parseError) {
-                        console.error('An error occurred while parsing the JSON:', parseError);
-                        return;
+                    let retryResetMessage = {
+                        type: 'retryReset',
+                        chatHistory: jsonArray
                     }
-                });
+                    console.log('sending AI Retry instruction to clients')
+                    broadcast(retryResetMessage);
+                    getAIResponse('retry')
+                } catch (parseError) {
+                    console.error('An error occurred while parsing the JSON:', parseError);
+                    return;
+                }
+
 
             }
 
@@ -361,58 +311,22 @@ async function handleConnections(ws) {
                         'content': parsedMessage.userInput,
                         'userColor': userColor
                     }
+                    //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
+                    if (userPrompt.content !== '' && userPrompt.content !== undefined && userPrompt.content !== null) {
+                        broadcast(userPrompt)
+                    }
+                    getAIResponse()
                 }
                 //read the current userChat file
                 if (chatID === 'UserChat') {
-                    fs.readFile('public/chats/userChat.json', 'utf8', (err, data) => {
-                        if (err) {
-                            console.error('An error occurred while reading the file:', err);
-                            return;
-                        }
-
-                        let jsonArray = [];
-
-                        try {
-                            // Parse the existing contents as a JSON array
-                            jsonArray = JSON.parse(data);
-                        } catch (parseError) {
-                            console.error('An error occurred while parsing the JSON:', parseError);
-                            return;
-                        }
-
-                        // Add the new object to the array
-                        jsonArray.push(parsedMessage);
-                        const updatedData = JSON.stringify(jsonArray, null, 2);
-
-                        // Write the updated array back to the file
-                        fs.writeFile('public/chats/userChat.json', updatedData, 'utf8', (writeErr) => {
-                            if (writeErr) {
-                                console.error('An error occurred while writing to the file:', writeErr);
-                                return;
-                            }
-                            console.log('UserChat.json updated.');
-                        });
-                    });
-                }
-                //if the userprompt isn't empty (this check allows for host to send empty to trigger AI response only)
-
-                // Broadcast the parsed input message to all connected clients
-                clientsArray.forEach(async function (client) {
-                    if (client.socket.readyState === WebSocket.OPEN) {
-                        if (chatID === 'AIChat') {
-                            if (userPrompt.content !== '' && userPrompt.content !== undefined && userPrompt.content !== null) {
-                                //console.log(userPrompt)
-                                client.socket.send(JSON.stringify(userPrompt))
-                            }
-                        } else {
-                            client.socket.send(JSON.stringify(parsedMessage));
-                        }
-                    }
-                })
-
-                //request to AI API if user Input was made into AIChat
-                if (chatID === 'AIChat') {
-                    getAIResponse()
+                    let data = await readUserChat()
+                    let jsonArray = JSON.parse(data);
+                    // Add the new object to the array
+                    jsonArray.push(parsedMessage);
+                    const updatedData = JSON.stringify(jsonArray, null, 2);
+                    // Write the updated array back to the file
+                    await writeUserChat(updatedData)
+                    broadcast(parsedMessage)
                 }
             }
             async function getAIResponse(type) {
@@ -425,37 +339,27 @@ async function handleConnections(ws) {
                     //if it's not an empty trigger from host
                     if (!isEmptyTrigger) {
                         //read the AIChat JSON file
-                        fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
-                            if (err) {
-                                console.error('An error occurred while reading the file:', err);
-                                return;
-                            }
-                            try {
-                                // Parse the existing contents as a JSON array
-                                jsonArray = JSON.parse(data);
-                            } catch (parseError) {
-                                console.error('An error occurred while parsing the JSON:', parseError);
-                                return;
-                            }
-                            //Add the new object to the chat array
-                            const userObjToPush = {
-                                username: parsedMessage.username,
-                                content: parsedMessage.userInput,
-                                htmlContent: parsedMessage.htmlContent,
-                                userColor: parsedMessage.userColor
-                            }
-                            jsonArray.push(userObjToPush);
-                            //format data for readability
-                            const updatedData = JSON.stringify(jsonArray, null, 2);
-                            // Write the updated array back to the file
-                            fs.writeFile('public/chats/AIChat.json', updatedData, 'utf8', (writeErr) => {
-                                if (writeErr) {
-                                    console.error('An error occurred while writing to the file:', writeErr);
-                                    return;
-                                }
-                                console.log('AIChat.json updated.');
-                            });
-                        });
+
+                        try {
+                            // Parse the existing contents as a JSON array
+                            let data = await readAIChat()
+                            jsonArray = JSON.parse(data);
+                        } catch (parseError) {
+                            console.error('An error occurred while parsing the JSON:', parseError);
+                            return;
+                        }
+                        //Add the new object to the chat array
+                        const userObjToPush = {
+                            username: parsedMessage.username,
+                            content: parsedMessage.userInput,
+                            htmlContent: parsedMessage.htmlContent,
+                            userColor: parsedMessage.userColor
+                        }
+                        jsonArray.push(userObjToPush);
+                        //format data for readability
+                        const updatedData = JSON.stringify(jsonArray, null, 2);
+                        // Write the updated array back to the file
+                        await writeAIChat(updatedData)
                     }
                     //if userInput is empty we can just request the AI directly
                     let charFile = parsedMessage.char
@@ -485,30 +389,13 @@ async function handleConnections(ws) {
                         userColor: parsedMessage.userColor
                     }
                     //add the response to the chat file
-                    fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
-                        if (err) {
-                            console.error('An error occurred while reading the file:', err);
-                            return;
-                        }
-                        let jsonArray = [];
-                        try {
-                            // Parse the existing contents as a JSON array
-                            jsonArray = JSON.parse(data);
-                        } catch (parseError) {
-                            console.error('An error occurred while parsing the JSON:', parseError);
-                            return;
-                        }
-                        jsonArray.push(AIResponseForChatJSON);
-                        const updatedData = JSON.stringify(jsonArray, null, 2);
-                        // Write the formatted AI response array back to the file
-                        fs.writeFile('public/chats/AIChat.json', updatedData, 'utf8', (writeErr) => {
-                            if (writeErr) {
-                                console.error('An error occurred while writing to the file:', writeErr);
-                                return;
-                            }
-                            console.log('AIChat.json updated.');
-                        });
-                    })
+                    let data = await readAIChat()
+                    jsonArray = JSON.parse(data);
+                    jsonArray.push(AIResponseForChatJSON);
+                    const updatedData = JSON.stringify(jsonArray, null, 2);
+                    // Write the formatted AI response array back to the file
+                    await writeAIChat(updatedData)
+
                     //broadcast the response to all clients
                     const AIResponseBroadcast = {
                         chatID: parsedMessage.chatID,
@@ -535,10 +422,60 @@ async function handleConnections(ws) {
     });
 };
 
+async function readAIChat() {
+    return new Promise((resolve, reject) => {
+        fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
+            if (err) {
+                console.error('An error occurred while reading the file:', err);
+                reject(err);
+            }
+            //console.log(`--- readAIChat() results:`)
+            //console.log(data)
+            resolve(data)
+        })
+    })
+}
+
+async function writeAIChat(data) {
+    fs.writeFile('public/chats/AIChat.json', data, 'utf8', (writeErr) => {
+        if (writeErr) {
+            console.error('An error occurred while writing to the file:', writeErr);
+            return;
+        }
+        console.log('AIChat.json updated.');
+    });
+}
+
+async function readUserChat() {
+    return new Promise((resolve, reject) => {
+        fs.readFile('public/chats/UserChat.json', 'utf8', (err, data) => {
+            if (err) {
+                console.error('An error occurred while reading the file:', err);
+                reject(err);
+            }
+            //console.log(`--- readUserChat() results:`)
+            //console.log(data)
+            resolve(data)
+        })
+    })
+}
+
+async function writeUserChat(data) {
+    fs.writeFile('public/chats/UserChat.json', data, 'utf8', (writeErr) => {
+        if (writeErr) {
+            console.error('An error occurred while writing to the file:', writeErr);
+            return;
+        }
+        console.log('UserChat.json updated.');
+    });
+}
+
 function trimIncompleteSentences(input, include_newline = false) {
     const punctuation = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit
     let last = -1;
-
+    console.log(`--- BEFORE:`)
+    console.log(input)
+    console.log(`--- AFTER:`)
     for (let i = input.length - 1; i >= 0; i--) {
         const char = input[i];
         if (punctuation.has(char)) {
@@ -554,7 +491,10 @@ function trimIncompleteSentences(input, include_newline = false) {
         console.log(input.trimEnd())
         return input.trimEnd();
     }
-    return input.substring(0, last + 1).trimEnd();
+    let trimmedString = input.substring(0, last + 1).trimEnd();
+
+    console.log(trimmedString)
+    return trimmedString;
 }
 
 async function ObjectifyChatHistory() {

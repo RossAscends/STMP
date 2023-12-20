@@ -30,6 +30,7 @@ var sanitizeExtension = {
         return sanitizedHTML;
     }
 };
+
 var converter = new showdown.Converter({
     simpleLineBreaks: true,
     openLinksInNewWindow: true,
@@ -49,7 +50,7 @@ var port = window.location?.port;
 var wsType = window.location.hostname === (`localhost` || `127.0.0.1`) ? 'ws' : 'wss'
 var serverUrl = `${wsType}://${hostname}:${port}`
 
-var socket
+var socket = null
 var userRole = (hostname === 'localhost' || hostname === '127.0.0.1') ? 'Host' : 'Guest';
 var isHost = (userRole === 'Host') ? true : false;
 
@@ -198,92 +199,243 @@ function updateSelectedChar(char, type) {
     }
 }
 
-function connectWebSocket() {
-    socket = new WebSocket(serverUrl);
+function processConfirmedConnection(parsedMessage) {
+    console.log('--- processing confirmed connection...');
+    const { selectedCharacter, chatHistory, AIChatHistory, cardList, userList } = parsedMessage;
+    $("#chat").empty();
+    $("#AIchat").empty();
 
-    socket.onopen = async function (event) {
-        console.log("WebSocket connected to server:", serverUrl);
-        $("#reconnectButton").hide()
-        $("#disconnectButton").show()
-        $("#messageInput").prop("disabled", false).prop('placeholder', 'Type a message').removeClass('disconnected')
-        $("#AIMessageInput").prop("disabled", false).prop('placeholder', 'Type a message').removeClass('disconnected')
-        const connectionMessage = {
-            type: 'connect',
+    populateCardSelector(cardList);
+    console.debug(`selecting character as defined from server: ${selectedCharacter}`);
+    updateSelectedChar(selectedCharacter, 'forced');
+
+    if (chatHistory) {
+        const trimmedChatHistoryString = chatHistory.trim();
+        const parsedChatHistory = JSON.parse(trimmedChatHistoryString);
+        appendMessages(parsedChatHistory, "#chat");
+    }
+
+    if (AIChatHistory) {
+        const trimmedAIChatHistoryString = AIChatHistory.trim();
+        const parsedAIChatHistory = JSON.parse(trimmedAIChatHistoryString);
+        appendMessagesWithConverter(parsedAIChatHistory, "#AIchat");
+    }
+
+    $("#chat").scrollTop($("#chat").prop("scrollHeight"));
+    $("#AIchat").scrollTop($("#AIchat").prop("scrollHeight"));
+}
+
+function appendMessages(messages, elementSelector) {
+    messages.forEach((obj) => {
+        const { username, userColor, content } = obj;
+        const newDiv = $("<div></div>");
+        newDiv.html(`<span style="color:${userColor}">${username}</span>:${content}`).append('<hr>');
+        $(elementSelector).append(newDiv);
+    });
+}
+
+function appendMessagesWithConverter(messages, elementSelector) {
+    messages.forEach((obj) => {
+        const { username, userColor, content } = obj;
+        const message = converter.makeHtml(content);
+        const newDiv = $("<div></div>");
+        newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>');
+        $(elementSelector).append(newDiv);
+    });
+}
+
+function connectWebSocket() {
+    console.log(`trying to reconnect to ${serverUrl}`)
+    socket = new WebSocket(serverUrl);
+    console.log('socket made!')
+    socket.onopen = handleSocketOpening;
+    socket.onclose = disconnectWebSocket;
+    // Handle incoming messages from the server
+    socket.addEventListener('message', async function (event) {
+        var message = event.data;
+        console.log('Received message:', message);
+        let parsedMessage = JSON.parse(message);
+        const userList = parsedMessage.userList;
+
+        switch (parsedMessage?.type) {
+            case 'clearChat':
+                clearChatDiv();
+                break;
+            case 'clearAIChat':
+                clearAIChatDiv();
+                break;
+            case 'retryReset':
+                console.log('saw retry reset instruction');
+                $("#AIchat").empty();
+                let resetChatHistory = parsedMessage.chatHistory;
+                resetChatHistory.forEach((obj) => {
+                    let username = obj.username;
+                    let userColor = obj.userColor;
+                    let message = converter.makeHtml(obj.content);
+                    let newDiv = $(`<div></div>`);
+                    newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>');
+                    $("#AIchat").append(newDiv);
+                });
+                break;
+            case 'cardList':
+                let JSONCardData = parsedMessage.cards;
+                await populateCardSelector(JSONCardData);
+                break;
+            case 'userList':
+            case 'userConnect':
+            case 'userDisconnect':
+                updateUIUserList(userList);
+                break;
+            case 'forceDisconnect':
+                disconnectWebSocket();
+                break;
+            case 'connectionConfirmed':
+                processConfirmedConnection(parsedMessage)
+                break;
+            case 'userChangedName':
+                console.log('saw notification of user name change');
+                var { type, content } = JSON.parse(message);
+                const HTMLizedUsernameChangeMessage = converter.makeHtml(content);
+                const sanitizedUsernameChangeMessage = DOMPurify.sanitize(HTMLizedUsernameChangeMessage);
+                let newUsernameChatItem = $('<div>');
+                newUsernameChatItem.html(`<i>${sanitizedUsernameChangeMessage}</i>`);
+                newUsernameChatItem.append('<hr>');
+                $("#chat").append(newUsernameChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
+                break;
+            case 'changeCharacter':
+                if (isHost) {
+                    return;
+                }
+                updateSelectedChar(parsedMessage.char, 'forced');
+                break;
+            default:
+                var { chatID, username, content, userColor, workerName, hordeModel, kudosCost } = JSON.parse(message);
+                const HTMLizedMessage = converter.makeHtml(content);
+                const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
+                let newChatItem = $('<div>');
+                newChatItem.html(`<span style="color:${userColor};">${username}</span>: ${sanitizedMessage}`);
+                newChatItem.append('<hr>');
+                if (workerName !== undefined && hordeModel !== undefined && kudosCost !== undefined) {
+                    $(newChatItem).prop('title', `${workerName} - ${hordeModel} (Kudos: ${kudosCost})`);
+                }
+                $(`div[data-chat-id="${chatID}"]`).append(newChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
+                break;
+        }
+    });
+}
+
+function handleSocketOpening() {
+    console.log("WebSocket connected to server:", serverUrl);
+    $("#reconnectButton").hide()
+    $("#disconnectButton").show()
+    const username = $("#usernameInput").val()
+    console.log(username)
+    $("#messageInput").prop("disabled", false).prop('placeholder', 'Type a message').removeClass('disconnected')
+    $("#AIMessageInput").prop("disabled", false).prop('placeholder', 'Type a message').removeClass('disconnected')
+    const connectionMessage = {
+        type: 'connect',
+        username: username
+    };
+    console.log('sending connection message..')
+    socket.send(JSON.stringify(connectionMessage));
+};
+
+function disconnectWebSocket() {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        console.log("WebSocket disconnected from server:", serverUrl);
+        $("#reconnectButton").show()
+        $("#disconnectButton").hide()
+        $("#userList ul").empty()
+        $("#messageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
+        $("#AIMessageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
+        const disconnectMessage = {
+            type: 'disconnect',
             username: username
         };
-        console.log('sending connection message..')
-        socket.send(JSON.stringify(connectionMessage));
-    };
-
-    function disconnectWebSocket() {
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            console.log("WebSocket disconnected from server:", serverUrl);
-            $("#reconnectButton").show()
-            $("#disconnectButton").hide()
-            $("#userList ul").empty()
-            $("#messageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
-            $("#AIMessageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
-            const disconnectMessage = {
-                type: 'disconnect',
-                username: username
-            };
-            socket.send(JSON.stringify(disconnectMessage));
-            socket.close();
-        }
+        socket.send(JSON.stringify(disconnectMessage));
+        socket.close();
     }
+}
 
-    function updateUserName() {
-        let nameChangeMessage = {
-            type: 'usernameChange',
-            newName: $("#usernameInput").val(),
-            oldName: username
-        }
-        username = $("#usernameInput").val()
-        localStorage.setItem('username', username)
-        console.log(`Set localstorage "username" key to ${username}`)
-        socket.send(JSON.stringify(nameChangeMessage))
+function updateUserName() {
+    let nameChangeMessage = {
+        type: 'usernameChange',
+        newName: $("#usernameInput").val(),
+        oldName: username
     }
+    username = $("#usernameInput").val()
+    localStorage.setItem('username', username)
+    console.log(`Set localstorage "username" key to ${username}`)
+    socket.send(JSON.stringify(nameChangeMessage))
+}
 
-    function doAIRetry() {
-        let char = $('#characters').val();
-        setStopStrings()
-        let retryMessage = {
-            type: 'AIRetry',
-            chatID: 'AIChat',
-            username: username,
-            APICallParams: APICallParams,
-            char: char
-        }
-        socket.send(JSON.stringify(retryMessage))
+function doAIRetry() {
+    let char = $('#characters').val();
+    setStopStrings()
+    let retryMessage = {
+        type: 'AIRetry',
+        chatID: 'AIChat',
+        username: username,
+        APICallParams: APICallParams,
+        char: char
     }
+    socket.send(JSON.stringify(retryMessage))
+}
 
-    function setStopStrings() {
-        let charDisplayName = $('#characters option:selected').text();
+function setStopStrings() {
+    let charDisplayName = $('#characters option:selected').text();
 
-        APICallParams.stop = [
-            `${username}:`,
-            `\n${username}:`,
-            ` ${username}:`,
-            `\n ${username}:`,
-            `${charDisplayName}:`,
-            `\n${charDisplayName}:`,
-            ` ${charDisplayName}:`,
-            `\n ${charDisplayName}:`
-        ]
+    APICallParams.stop = [
+        `${username}:`,
+        `\n${username}:`,
+        ` ${username}:`,
+        `\n ${username}:`,
+        `${charDisplayName}:`,
+        `\n${charDisplayName}:`,
+        ` ${charDisplayName}:`,
+        `\n ${charDisplayName}:`
+    ]
+}
+
+//Just update Localstorage, no need to send anything to server for this.
+//but possibly add it in the future if we want to let users track which user is speaking as which entity in AI Chat.
+function updateAIChatUserName() {
+    username = $("#AIUsernameInput").val()
+    localStorage.setItem('AIChatUsername', username)
+    console.log(`Set localstorage "AIChatUsername" key to ${username}`)
+}
+
+async function populateCardSelector(cardList) {
+    //console.log(cardList)
+    let cardSelectElement = $("#characters");
+    cardSelectElement.empty()
+    for (const card of cardList) {
+        let newElem = $('<option>');
+        newElem.val(card.filename);
+        newElem.text(card.name);
+        cardSelectElement.append(newElem);
     }
-
-    //Just update Localstorage, no need to send anything to server for this.
-    //but possibly add it in the future if we want to let users track which user is speaking as which entity in AI Chat.
-    function updateAIChatUserName() {
-        username = $("#AIUsernameInput").val()
-        localStorage.setItem('AIChatUsername', username)
-        console.log(`Set localstorage "AIChatUsername" key to ${username}`)
+    if (!isHost) {
+        $("#characters").prop('disabled', true);
     }
+}
 
-    socket.onclose = function (event) {
+let isDisconnecting = false;
+window.addEventListener('beforeunload', () => {
+    if (!isDisconnecting) {
+        // Send a disconnect message to the server before unloading the page
         disconnectWebSocket()
-    };
+        isDisconnecting = true;
+    }
+});
 
+
+$(document).ready(async function () {
+    console.log('--- document is ready, processing entry....')
+
+    connectWebSocket();
+
+    var isPhone = /Mobile/.test(navigator.userAgent);
     //handle disconnect and reconnect
     $("#reconnectButton").off('click').on('click', function () {
         connectWebSocket()
@@ -317,6 +469,7 @@ function connectWebSocket() {
         messageInput.val('');
         messageInput.trigger('focus');
     });
+    //this just circumvents the logic of requiring a username and input message before pushing send.
     $("#triggerAIResponse").off('click').on("click", function () {
         $("#AISendButton").trigger('click')
     })
@@ -340,8 +493,13 @@ function connectWebSocket() {
     })
 
     $("#usernameInput").on('blur', function () {
-        //$("#usernameInput").trigger('change')
-        updateUserName()
+        console.log('saw username input blur')
+        let oldUsername = localStorage.getItem('username');
+        let currentUsername = $("#usernameInput").val()
+        if (oldUsername !== currentUsername) {
+            console.log('notifying server of UserChat username change...')
+            updateUserName()
+        }
     })
 
     $("#AIUsernameInput").on('blur', function () {
@@ -402,151 +560,13 @@ function connectWebSocket() {
         socket.send(JSON.stringify(clearMessage));
     })
 
-    // Handle incoming messages from the server
-    socket.addEventListener('message', async function (event) {
-        var message = event.data;
-        console.log('Received message:', message);
-        let parsedMessage = JSON.parse(message)
-        const userList = parsedMessage.userList;
-        //console.log(userList)
-        if (parsedMessage?.type === 'clearChat') {
-            clearChatDiv();
+    $("#deleteLastMessageButton").off('click').on('click', function () {
+        console.log('deleting last AI Chat message')
+        const delLastMessage = {
+            type: 'deleteLast'
         }
-        else if (parsedMessage?.type === 'clearAIChat') {
-            clearAIChatDiv();
-        }
-        else if (parsedMessage.type === 'retryReset') {
-            console.log('saw retry reset instruction')
-            $("#AIchat").empty()
-            let chatHistory = parsedMessage.chatHistory
-            chatHistory.forEach((obj) => {
-                let username = obj.username
-                let userColor = obj.userColor
-                let message = converter.makeHtml(obj.content)
-                let newDiv = $(`<div></div>`)
-                newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>')
-                $("#AIchat").append(newDiv)
-            })
-        }
-        else if (parsedMessage.type === 'cardList') {
-            let JSONCardData = parsedMessage.cards
-            await populateCardSelector(JSONCardData)
-        }
-        else if (parsedMessage.type === 'userList') {
-            updateUIUserList(userList);
-        }
-        else if (parsedMessage?.type === 'userConnect') {
-            updateUIUserList(userList);
-        }
-        else if (parsedMessage?.type === 'userDisconnect') {
-            updateUIUserList(userList);
-        }
-        else if (parsedMessage?.type === 'forceDisconnect') {
-            disconnectWebSocket()
-        }
-        else if (parsedMessage?.type === 'connectionConfirmed') {
-            console.log('--- processing confirmed connection...')
-            const selectedCharacter = parsedMessage.selectedCharacter
-            const chatHistoryString = parsedMessage.chatHistory
-            const AIChatHistoryString = parsedMessage.AIChatHistory
-            const cardList = parsedMessage.cardList
-            //trim whitespace to make it parseable
-            const trimmedChatHistoryString = chatHistoryString.trim();
-            const trimmedAIChatHistoryString = AIChatHistoryString.trim();
-            //parse the trimmed string into JSON
-            const chatHistory = JSON.parse(trimmedChatHistoryString);
-            const AIChatHistory = JSON.parse(trimmedAIChatHistoryString)
-            console.log('clearing user chat')
-            $("#chat").empty()
-            console.log('clearing AI chat')
-            $("#AIchat").empty()
-            populateCardSelector(cardList)
-            console.log(`selecting character as defined from server: ${selectedCharacter}`)
-            updateSelectedChar(selectedCharacter, 'forced')
-            //add each message object as div into the chat display
-            chatHistory.forEach((obj) => {
-                let username = obj.username
-                let userColor = obj.userColor
-                let message = obj.content
-                let newDiv = $(`<div></div>`)
-                newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>')
-                $("#chat").append(newDiv)
-            })
-            AIChatHistory.forEach((obj) => {
-                let username = obj.username
-                let userColor = obj.userColor
-                let message = converter.makeHtml(obj.content)
-                let newDiv = $(`<div></div>`)
-                newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>')
-                $("#AIchat").append(newDiv)
-            })
-
-            //scroll to the bottom of chat after it's all loaded up
-            $("#chat").scrollTop($("#chat").prop("scrollHeight"));
-        }
-
-        else if (parsedMessage.type === 'userChangedName') {
-            console.log('saw notification of user name change')
-            var { type, content } = JSON.parse(message)
-            const HTMLizedMessage = converter.makeHtml(content);
-            const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
-            let newChatItem = $('<div>');
-            newChatItem.html(`<i>${sanitizedMessage}</i>`);
-            newChatItem.append('<hr>');
-            $("#chat").append(newChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
-        }
-
-        else if (parsedMessage?.type === 'changeCharacter') {
-            if (isHost) {
-                return
-            }
-            updateSelectedChar(parsedMessage.char, 'forced')
-        }
-        else {
-            // Parse the message into username and content
-            var { chatID, username, content, userColor, workerName, hordeModel, kudosCost } = JSON.parse(message);
-            // Add the message to the message list
-            const HTMLizedMessage = converter.makeHtml(content);
-            const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
-            let newChatItem = $('<div>');
-            newChatItem.html(`<span style="color:${userColor};">${username}</span>: ${sanitizedMessage}`);
-            newChatItem.append('<hr>');
-            if (workerName !== undefined && hordeModel !== undefined && kudosCost !== undefined) {
-                $(newChatItem).prop('title', `${workerName} - ${hordeModel} (Kudos: ${kudosCost})`)
-            }
-            $(`div[data-chat-id="${chatID}"]`).append(newChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
-        }
-    });
-
-    async function populateCardSelector(cardList) {
-        //console.log(cardList)
-        let cardSelectElement = $("#characters");
-        cardSelectElement.empty()
-        for (const card of cardList) {
-            let newElem = $('<option>');
-            newElem.val(card.filename);
-            newElem.text(card.name);
-            cardSelectElement.append(newElem);
-        }
-        if (!isHost) {
-            $("#characters").prop('disabled', true);
-        }
-    }
-
-    let isDisconnecting = false;
-    window.addEventListener('beforeunload', () => {
-        if (!isDisconnecting) {
-            // Send a disconnect message to the server before unloading the page
-            disconnectWebSocket()
-            isDisconnecting = true;
-        }
-    });
-}
-
-$(document).ready(async function () {
-    console.log('--- document is ready, processing entry....')
-    var isPhone = /Mobile/.test(navigator.userAgent);
-
+        socket.send(JSON.stringify(delLastMessage));
+    })
     $("#userRole").text(userRole)
     console.log(`Host? ${isHost}`)
     if (!isHost) {
@@ -618,5 +638,4 @@ $(document).ready(async function () {
         }
     });
     console.log('connecting websocket..')
-    connectWebSocket();
 });

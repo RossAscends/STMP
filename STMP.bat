@@ -1,5 +1,10 @@
 @echo off
+setlocal
 pushd %~dp0
+
+set "api_key=_YOUR_API_KEY_HERE_"
+set "auth_string=_STUsername_:_STPassword_"
+set "secrets=secrets.json"
 
 ECHO ===========================
 ECHO SillyTavern MultiPlayer
@@ -30,8 +35,13 @@ IF EXIST secrets.json (
 
 
 :CreateNewIfMissing
-echo {"api_key_tabby":"_YOUR_API_KEY_HERE_"} > secrets.json
-echo secrets.json created -- PUT YOUR TABBY API KEY IN HERE AND RESTART THE SERVER
+(
+    echo {
+    echo    "api_key_tabby":"%api_key%",
+    echo    "sillytavern_basic_auth_string":"%auth_string%"
+    echo }
+ ) > "%secrets%"
+echo %secrets% created -- PUT YOUR TABBY API KEY AND SillyTavern BASIC AUTH CREDENTIALS IN THAT FILE AND RESTART THE SERVER
 ECHO ===========================
 
 :StartServer

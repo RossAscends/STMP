@@ -218,55 +218,55 @@ function connectWebSocket() {
         let charDisplayName = $('#characters option:selected').text();
         //API_PARAMS_FOR_TABBY
         //uncomment the code below to send Tabby-compliant API parameters
-        var APICallParams = {
-            "prompt": "",
-            "max_new_tokens": 200,
-            "do_sample": true,
-            "temperature": 2,
-            "top_p": 1,
-            "typical_p": 1,
-            "min_p": 0.2,
-            "repetition_penalty": 1,
-            "repetition_penalty_range": 0,
-            "encoder_repetition_penalty": 1,
-            "top_k": 0,
-            "min_length": 0,
-            "no_repeat_ngram_size": 0,
-            "num_beams": 1,
-            "penalty_alpha": 0,
-            "length_penalty": 1,
-            "early_stopping": false,
-            "guidance_scale": 1,
-            "negative_prompt": "",
-            "seed": -1,
-            "add_bos_token": true,
-            "stop": [`${username}:`,
-            `\n${username}:`,
-            ` ${username}:`,
-            `\n ${username}:`,
-            `${charDisplayName}:`,
-            `\n${charDisplayName}:`,
-            ` ${charDisplayName}:`,
-            `\n ${charDisplayName}:`],
-            "truncation_length": 4096,
-            "ban_eos_token": false,
-            "skip_special_tokens": true,
-            "top_a": 0,
-            "tfs": 1,
-            "epsilon_cutoff": 0,
-            "eta_cutoff": 0,
-            "mirostat_mode": 0,
-            "mirostat_tau": 5,
-            "mirostat_eta": 0.1,
-            "grammar_string": "",
-            "custom_token_bans": "",
-            "stream": false
-        }
+        // var APICallParams = {
+        //     "prompt": "",
+        //     "max_new_tokens": 200,
+        //     "do_sample": true,
+        //     "temperature": 2,
+        //     "top_p": 1,
+        //     "typical_p": 1,
+        //     "min_p": 0.2,
+        //     "repetition_penalty": 1,
+        //     "repetition_penalty_range": 0,
+        //     "encoder_repetition_penalty": 1,
+        //     "top_k": 0,
+        //     "min_length": 0,
+        //     "no_repeat_ngram_size": 0,
+        //     "num_beams": 1,
+        //     "penalty_alpha": 0,
+        //     "length_penalty": 1,
+        //     "early_stopping": false,
+        //     "guidance_scale": 1,
+        //     "negative_prompt": "",
+        //     "seed": -1,
+        //     "add_bos_token": true,
+        //     "stop": [`${username}:`,
+        //     `\n${username}:`,
+        //     ` ${username}:`,
+        //     `\n ${username}:`,
+        //     `${charDisplayName}:`,
+        //     `\n${charDisplayName}:`,
+        //     ` ${charDisplayName}:`,
+        //     `\n ${charDisplayName}:`],
+        //     "truncation_length": 4096,
+        //     "ban_eos_token": false,
+        //     "skip_special_tokens": true,
+        //     "top_a": 0,
+        //     "tfs": 1,
+        //     "epsilon_cutoff": 0,
+        //     "eta_cutoff": 0,
+        //     "mirostat_mode": 0,
+        //     "mirostat_tau": 5,
+        //     "mirostat_eta": 0.1,
+        //     "grammar_string": "",
+        //     "custom_token_bans": "",
+        //     "stream": false
+        // }
         //END_OF_TABBY_PARAMETERS
 
         //API_PARAMS_FOR_HORDE
         //uncomment the code below to enable API for Horde
-        /* var APICallParams = {
+        var APICallParams = {
             "prompt": "",
             "params": {
                 "gui_settings": false,
@@ -330,7 +330,7 @@ function connectWebSocket() {
             ],
             "disuedmodels": [
             ]
-        } */
+        }
         //END_OF_HORDE_PAREMETERS
 
         var markdownContent = `${username}: ${messageInput.val()}`;

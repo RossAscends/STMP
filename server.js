@@ -308,14 +308,14 @@ function handleConnections(ws) {
 
                             // AI_API_SELECTION_CODE
                             // UNCOMMENT THIS LINE IF YOU WANT TO USE TABBY FOR AI RESPONSES
-                            [parsedMessage.content.prompt, charName] = await addCharDefsToPrompt(charFile, fixedPrompt, parsedMessage.username);
+                            //[parsedMessage.content.prompt, charName] = await addCharDefsToPrompt(charFile, fixedPrompt, parsedMessage.username);
                             // UNCOMMENT THIS LINE IF YOU WANT TO USE HORDE FOR AI RESPONSES
-                            //const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.content);
+                            const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.content);
 
                             console.log(parsedMessage.content)
-                            const tabbyResponse = await requestToTabby(parsedMessage.content)
-                            //parsedMessage.content = `${charName}:${hordeResponse}`;
-                            parsedMessage.content = `${charName}:${tabbyResponse}`;
+                            //const tabbyResponse = await requestToTabby(parsedMessage.content)
+                            parsedMessage.content = `${charName}:${hordeResponse}`;
+                            //parsedMessage.content = `${charName}:${tabbyResponse}`;
                             parsedMessage.username = 'AI';
                             parsedMessage.type = 'AIResponse'
                             const clientsArray = [...wsServer.clients, ...wssServer.clients]; // Convert clients set to an array
@@ -373,7 +373,7 @@ async function requestToHorde(stringToSend, stoppingStrings = '') {
     var headers = {
         'Content-Type': 'application/json',
         'Cache': 'no-cache',
-        'Authorization': 'Basic ' + btoa(''),
+        //'Authorization': 'Basic ' + btoa(''),
         "Client-Agent": "SillyTavern:UNKNOWN:Cohee#1207"
     };
 

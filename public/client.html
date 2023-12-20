@@ -22,11 +22,20 @@
                 <div class="padding5 Hcentered Vcentered flexbox">
                     <select id="characters"></select>
                     AI Chat <input type="text" id="AIUsernameInput" placeholder="Username">
+                    <div class="hostControls">
+                        <button id="clearAIChat">Clear Chat</button>
+                        <button id="triggerAIResponse">Trigger AI</button>
+                        <label for="lockAIChatToggle">Lock Users
+                            <input type="checkbox" id="lockAIChatToggle" value="Lock">
+                        </label>
+
+                    </div>
                 </div>
                 <div id="AIchat" data-chat-id="AIChat"></div>
                 <div id="AIInputBlock">
                     <textarea id="AIMessageInput" placeholder="Type a message"></textarea>
                     <button id="AISendButton">Send</button>
+                    <button id="AIRetry">Retry</button>
                 </div>
             </div>
 
@@ -35,7 +44,7 @@
                     User Chat <input type="text" id="usernameInput" placeholder="Username">
                     <div id="userRole"></div>
                     <div class="hostControls">
-                        <button id="clearUserChat">ClearChat</button>
+                        <button id="clearUserChat">Clear Chat</button>
                     </div>
                     <div id="universalControls">
                         <button id="reconnectButton">Reconnect</button>

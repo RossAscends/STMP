@@ -53,8 +53,123 @@ var socket
 var userRole = (hostname === 'localhost' || hostname === '127.0.0.1') ? 'Host' : 'Guest';
 var isHost = (userRole === 'Host') ? true : false;
 
+//API_PARAMS_FOR_TABBY
+//uncomment the code below to send Tabby-compliant API parameters
+var APICallParams = {
+    "prompt": "",
+    "max_new_tokens": 50,
+    "do_sample": true,
+    "temperature": 2,
+    "top_p": 1,
+    "typical_p": 1,
+    "min_p": 0.2,
+    "repetition_penalty": 1,
+    "repetition_penalty_range": 0,
+    "encoder_repetition_penalty": 1,
+    "top_k": 0,
+    "min_length": 0,
+    "no_repeat_ngram_size": 0,
+    "num_beams": 1,
+    "penalty_alpha": 0,
+    "length_penalty": 1,
+    "early_stopping": false,
+    "guidance_scale": 1,
+    "negative_prompt": "",
+    "seed": -1,
+    "add_bos_token": true,
+    "stop": [],
+    "truncation_length": 4096,
+    "ban_eos_token": false,
+    "skip_special_tokens": true,
+    "top_a": 0,
+    "tfs": 1,
+    "epsilon_cutoff": 0,
+    "eta_cutoff": 0,
+    "mirostat_mode": 0,
+    "mirostat_tau": 5,
+    "mirostat_eta": 0.1,
+    "grammar_string": "",
+    "custom_token_bans": "",
+    "stream": false
+}
+//END_OF_TABBY_PARAMETERS
+
+//API_PARAMS_FOR_HORDE
+//uncomment the code below to enable API for Horde
+/* var APICallParams = {
+    "prompt": "",
+    "params": {
+        "gui_settings": false,
+        "sampler_order": [
+            6,
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+        ],
+        "max_context_length": 2048,
+        "max_length": 400,
+        "rep_pen_slope": 1,
+        "temperature": 1,
+        "tfs": 0.95,
+        "top_a": 0,
+        "top_k": 100,
+        "top_p": 0.9,
+        "typical": 1,
+        "s1": 6,
+        "s2": 0,
+        "s3": 1,
+        "s4": 2,
+        "s5": 3,
+        "s6": 4,
+        "s7": 5,
+        "use_world_info": false,
+        "singleline": false,
+        "streaming": false,
+        "can_abort": false,
+        "n": 1,
+        "frmtadsnsp": false,
+        "frmtrmblln": false,
+        "frmtrmspch": false,
+        "frmttriminc": false,
+        "stop_sequence": [`${username}:`]
+    },
+    "trusted_workers": true,
+    "models": [
+        "koboldcpp/mistral-pygmalion-7b.Q5_K_M",
+        "aphrodite/jebcarter/psyonic-cetacean-20B",
+        "aphrodite/DiscoResearch/DiscoLM-120b",
+        "aphrodite/KoboldAI/LLaMA2-13B-Psyfighter2",
+        "aphrodite/Undi95/Toppy-M-7B",
+        "koboldcpp/Noromaid-7b-v0.1.1",
+        "koboldcpp/Mistral-7B-claude-chat",
+        "aphrodite/alpindale/goliath-120b",
+        "koboldcpp/Mistral-7B-claude-chat",
+        "aphrodite/KoboldAI/LLaMA2-13B-Tiefighter",
+        "aphrodite/KoboldAI/LLaMA2-13B-TiefighterLR",
+        "aphrodite/Undi95/MLewd-ReMM-L2-Chat-20B-Inverted",
+        "aphrodite/Undi95/Xwin-MLewd-13B-V0.2",
+        "aphrodite/NeverSleep/Echidna-13b-v0.1",
+        "aphrodite/PygmalionAI/mythalion-13b",
+        "aphrodite/NeverSleep/Echidna-13b-v0.3",
+        "PygmalionAI/pygmalion-2-7b",
+        "RossAscends/Mistral7B_Dolphin2.1_LIMARP0.5_4bpw_exl2",
+        "aphrodite/Undi95/Emerhyst-20B"
+    ],
+    "disuedmodels": [
+    ]
+} */
+//END_OF_HORDE_PAREMETERS
+
+
 function clearChatDiv() {
     $("#chat").empty()
+}
+
+function clearAIChatDiv() {
+    $("#AIchat").empty()
 }
 
 function updateUserList(username) {
@@ -129,6 +244,34 @@ function connectWebSocket() {
         socket.send(JSON.stringify(nameChangeMessage))
     }
 
+    function doAIRetry() {
+        let char = $('#characters').val();
+        setStopStrings()
+        let retryMessage = {
+            type: 'AIRetry',
+            chatID: 'AIChat',
+            username: username,
+            APICallParams: APICallParams,
+            char: char
+        }
+        socket.send(JSON.stringify(retryMessage))
+    }
+
+    function setStopStrings() {
+        let charDisplayName = $('#characters option:selected').text();
+
+        APICallParams.stop = [
+            `${username}:`,
+            `\n${username}:`,
+            ` ${username}:`,
+            `\n ${username}:`,
+            `${charDisplayName}:`,
+            `\n${charDisplayName}:`,
+            ` ${charDisplayName}:`,
+            `\n ${charDisplayName}:`
+        ]
+    }
+
     //Just update Localstorage, no need to send anything to server for this.
     //but possibly add it in the future if we want to let users track which user is speaking as which entity in AI Chat.
     function updateAIChatUserName() {
@@ -166,7 +309,7 @@ function connectWebSocket() {
         var messageObj = {
             chatID: "UserChat",
             username: username,
-            content: htmlContent
+            content: htmlContent,
         };
         messageObj = JSON.stringify(messageObj)
         localStorage.setItem('username', username);
@@ -174,7 +317,13 @@ function connectWebSocket() {
         messageInput.val('');
         messageInput.trigger('focus');
     });
+    $("#triggerAIResponse").off('click').on("click", function () {
+        $("#AISendButton").trigger('click')
+    })
 
+    $("#AIRetry").off('click').on('click', function () {
+        doAIRetry()
+    })
 
     $("#characters").on('change', function () {
         if (!isHost) {
@@ -209,128 +358,14 @@ function connectWebSocket() {
         }
 
         var messageInput = $("#AIMessageInput");
-        if (messageInput.val().trim() === '') {
+        if (messageInput.val().trim() === '' && !isHost) {
             alert("Can't send empty message!");
             return;
         }
         username = $("#AIUsernameInput").val()
         let charDisplayName = $('#characters option:selected').text();
-        //API_PARAMS_FOR_TABBY
-        //uncomment the code below to send Tabby-compliant API parameters
-        var APICallParams = {
-            "prompt": "",
-            "max_new_tokens": 200,
-            "do_sample": true,
-            "temperature": 2,
-            "top_p": 1,
-            "typical_p": 1,
-            "min_p": 0.2,
-            "repetition_penalty": 1,
-            "repetition_penalty_range": 0,
-            "encoder_repetition_penalty": 1,
-            "top_k": 0,
-            "min_length": 0,
-            "no_repeat_ngram_size": 0,
-            "num_beams": 1,
-            "penalty_alpha": 0,
-            "length_penalty": 1,
-            "early_stopping": false,
-            "guidance_scale": 1,
-            "negative_prompt": "",
-            "seed": -1,
-            "add_bos_token": true,
-            "stop": [`${username}:`,
-            `\n${username}:`,
-            ` ${username}:`,
-            `\n ${username}:`,
-            `${charDisplayName}:`,
-            `\n${charDisplayName}:`,
-            ` ${charDisplayName}:`,
-            `\n ${charDisplayName}:`],
-            "truncation_length": 4096,
-            "ban_eos_token": false,
-            "skip_special_tokens": true,
-            "top_a": 0,
-            "tfs": 1,
-            "epsilon_cutoff": 0,
-            "eta_cutoff": 0,
-            "mirostat_mode": 0,
-            "mirostat_tau": 5,
-            "mirostat_eta": 0.1,
-            "grammar_string": "",
-            "custom_token_bans": "",
-            "stream": false
-        }
-        //END_OF_TABBY_PARAMETERS
 
-        //API_PARAMS_FOR_HORDE
-        //uncomment the code below to enable API for Horde
-        /* var APICallParams = {
-            "prompt": "",
-            "params": {
-                "gui_settings": false,
-                "sampler_order": [
-                    6,
-                    0,
-                    1,
-                    2,
-                    3,
-                    4,
-                    5
-                ],
-                "max_context_length": 2048,
-                "max_length": 400,
-                "rep_pen_slope": 1,
-                "temperature": 1,
-                "tfs": 0.95,
-                "top_a": 0,
-                "top_k": 100,
-                "top_p": 0.9,
-                "typical": 1,
-                "s1": 6,
-                "s2": 0,
-                "s3": 1,
-                "s4": 2,
-                "s5": 3,
-                "s6": 4,
-                "s7": 5,
-                "use_world_info": false,
-                "singleline": false,
-                "streaming": false,
-                "can_abort": false,
-                "n": 1,
-                "frmtadsnsp": false,
-                "frmtrmblln": false,
-                "frmtrmspch": false,
-                "frmttriminc": false,
-                "stop_sequence": [`${username}:`]
-            },
-            "trusted_workers": true,
-            "models": [
-                "koboldcpp/mistral-pygmalion-7b.Q5_K_M",
-                "aphrodite/jebcarter/psyonic-cetacean-20B",
-                "aphrodite/DiscoResearch/DiscoLM-120b",
-                "aphrodite/KoboldAI/LLaMA2-13B-Psyfighter2",
-                "aphrodite/Undi95/Toppy-M-7B",
-                "koboldcpp/Noromaid-7b-v0.1.1",
-                "koboldcpp/Mistral-7B-claude-chat",
-                "aphrodite/alpindale/goliath-120b",
-                "koboldcpp/Mistral-7B-claude-chat",
-                "aphrodite/KoboldAI/LLaMA2-13B-Tiefighter",
-                "aphrodite/KoboldAI/LLaMA2-13B-TiefighterLR",
-                "aphrodite/Undi95/MLewd-ReMM-L2-Chat-20B-Inverted",
-                "aphrodite/Undi95/Xwin-MLewd-13B-V0.2",
-                "aphrodite/NeverSleep/Echidna-13b-v0.1",
-                "aphrodite/PygmalionAI/mythalion-13b",
-                "aphrodite/NeverSleep/Echidna-13b-v0.3",
-                "PygmalionAI/pygmalion-2-7b",
-                "RossAscends/Mistral7B_Dolphin2.1_LIMARP0.5_4bpw_exl2",
-                "aphrodite/Undi95/Emerhyst-20B"
-            ],
-            "disuedmodels": [
-            ]
-        } */
-        //END_OF_HORDE_PAREMETERS
+        setStopStrings()
 
         var markdownContent = `${messageInput.val()}`;
         var htmlContent = converter.makeHtml(markdownContent);
@@ -357,7 +392,14 @@ function connectWebSocket() {
             type: 'clearChat'
         };
         socket.send(JSON.stringify(clearMessage));
+    })
 
+    $("#clearAIChat").off('click').on('click', function () {
+        console.log('Clearing AI Chat')
+        const clearMessage = {
+            type: 'clearAIChat'
+        };
+        socket.send(JSON.stringify(clearMessage));
     })
 
     // Handle incoming messages from the server
@@ -369,6 +411,22 @@ function connectWebSocket() {
         //console.log(userList)
         if (parsedMessage?.type === 'clearChat') {
             clearChatDiv();
+        }
+        else if (parsedMessage?.type === 'clearAIChat') {
+            clearAIChatDiv();
+        }
+        else if (parsedMessage.type === 'retryReset') {
+            console.log('saw retry reset instruction')
+            $("#AIchat").empty()
+            let chatHistory = parsedMessage.chatHistory
+            chatHistory.forEach((obj) => {
+                let username = obj.username
+                let userColor = obj.userColor
+                let message = converter.makeHtml(obj.content)
+                let newDiv = $(`<div></div>`)
+                newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>')
+                $("#AIchat").append(newDiv)
+            })
         }
         else if (parsedMessage.type === 'cardList') {
             let JSONCardData = parsedMessage.cards

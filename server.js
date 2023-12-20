@@ -164,8 +164,8 @@ function handleConnections(ws) {
             }
             userChatJSON = data;
 
-            console.log(userChatJSON)
-            console.log(AIChatJSON)
+            //console.log(userChatJSON)
+            //console.log(AIChatJSON)
             //send connection confirmation along with both chat history
             let connectionConfirmedMessage = {
                 type: 'connectionConfirmed',
@@ -220,6 +220,22 @@ function handleConnections(ws) {
                     console.log('UserChat.json has been cleared.');
                 });
             }
+            else if (parsedMessage.type === 'clearAIChat') {
+                // Broadcast the clear chat message to all connected clients
+                clientsArray.forEach(function (client) {
+                    if (client.socket.readyState === WebSocket.OPEN) {
+                        client.socket.send(JSON.stringify(parsedMessage));
+                    }
+                });
+                //clear the UserChat.json file
+                fs.writeFile('public/chats/AIChat.json', '[]', 'utf8', (err) => {
+                    if (err) {
+                        console.error('An error occurred:', err);
+                        return;
+                    }
+                    console.log('AIChat.json has been cleared.');
+                });
+            }
             else if (parsedMessage.type === 'cardListQuery') {
                 let cards = await getCardList()
                 let cardListMessage = {
@@ -238,7 +254,6 @@ function handleConnections(ws) {
                 connectedUserNames.push(parsedMessage.username)
                 broadcastUserList()
             }
-
             else if (parsedMessage.type === 'usernameChange') {
                 const oldName = parsedMessage.oldName;
                 connectedUserNames = connectedUserNames.filter(username => username !== oldName);
@@ -257,17 +272,69 @@ function handleConnections(ws) {
                 });
                 broadcastUserList()
             }
+            else if (parsedMessage.type === 'changeCharacter') {
 
-            else if (parsedMessage.type === 'changeChar') {
                 const changeCharMessage = {
-                    type: 'changeChar',
+                    type: 'changeCharacter',
                     char: parsedMessage.newChar
                 }
+                console.log(`--- Changing Character to ${parsedMessage.newChar}`)
                 clientsArray.forEach(async function (client) {
                     if (client.socket.readyState === WebSocket.OPEN) {
                         client.socket.send(JSON.stringify(changeCharMessage));
                     }
                 })
+                return
+            }
+            else if (parsedMessage.type === 'AIRetry') {
+                // Read the AIChat file
+                fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
+                    if (err) {
+                        console.error('An error occurred while reading the file:', err);
+                        return;
+                    }
+                    try {
+                        // Parse the existing contents as a JSON array
+                        let jsonArray = JSON.parse(data);
+                        // Remove the last object from the array
+                        console.log('removing last AI Chat item..')
+                        jsonArray.pop();
+                        // Convert the modified array back to a JSON string
+                        const updatedData = JSON.stringify(jsonArray, null, 2);
+                        // Write the updated JSON string back to the file
+                        fs.writeFile('public/chats/AIChat.json', updatedData, 'utf8', (writeErr) => {
+                            if (writeErr) {
+                                console.error('An error occurred while writing to the file:', writeErr);
+                                return;
+                            }
+                            console.log('AIChat.json updated.');
+                        });
+                        userPrompt = {
+                            'chatID': parsedMessage.chatID,
+                            'username': parsedMessage.username,
+                            //send the HTML-ized message into the AI chat
+                            'content': '',
+                            //'userColor': userColor
+                        }
+
+                        let retryResetMessage = {
+                            type: 'retryReset',
+                            chatHistory: jsonArray
+                        }
+                        console.log('sending AI Retry instruction to clients')
+                        clientsArray.forEach(async function (client) {
+                            if (client.socket.readyState === WebSocket.OPEN) {
+                                client.socket.send(JSON.stringify(retryResetMessage));
+                            }
+                        })
+
+                        getAIResponse('retry')
+                    } catch (parseError) {
+                        console.error('An error occurred while parsing the JSON:', parseError);
+                        return;
+                    }
+                });
+
             }
 
             else { //handle normal chat messages
@@ -320,21 +387,36 @@ function handleConnections(ws) {
                         });
                     });
                 }
+                //if the userprompt isn't empty (this check allows for host to send empty to trigger AI response only)
+
                 // Broadcast the parsed input message to all connected clients
                 clientsArray.forEach(async function (client) {
                     if (client.socket.readyState === WebSocket.OPEN) {
                         if (chatID === 'AIChat') {
-                            //console.log(userPrompt)
-                            client.socket.send(JSON.stringify(userPrompt))
+                            if (userPrompt.content !== '' && userPrompt.content !== undefined && userPrompt.content !== null) {
+                                //console.log(userPrompt)
+                                client.socket.send(JSON.stringify(userPrompt))
+                            }
                         } else {
                             client.socket.send(JSON.stringify(parsedMessage));
                         }
                     }
                 })
+
                 //request to AI API if user Input was made into AIChat
                 if (chatID === 'AIChat') {
-                    try {
-                        let jsonArray = [];
+                    getAIResponse()
+                }
+            }
+            async function getAIResponse(type) {
+                let isRetry = type === 'retry' ? true : false
+                try {
+                    let jsonArray = [];
+                    let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
+                    console.log(`Is this an empty trigger? ${isEmptyTrigger}`)
+
+                    //if it's not an empty trigger from host
+                    if (!isEmptyTrigger) {
                         //add the user input to the AIChat JSON file
                         fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
                             if (err) {
@@ -349,8 +431,9 @@ function handleConnections(ws) {
                                 console.error('An error occurred while parsing the JSON:', parseError);
                                 return;
                             }
+                            //if userInput isn't empty...
 
-                            // Add the new object to the array
+                            // Add the new object to the chat array
                             const userObjToPush = {
                                 username: parsedMessage.username,
                                 content: parsedMessage.userInput,
@@ -368,70 +451,76 @@ function handleConnections(ws) {
                                 }
                                 console.log('AIChat.json updated.');
                             });
+                            //otherwise no need to update the chat file
                         });
+                    }
 
-                        let charFile = parsedMessage.char
-                        let cardData = await charaRead(charFile, 'png')
-                        let cardJSON = JSON.parse(cardData)
-                        let charName = cardJSON.name
+                    let charFile = parsedMessage.char
+                    let cardData = await charaRead(charFile, 'png')
+                    let cardJSON = JSON.parse(cardData)
+                    let charName = cardJSON.name
+                    if (!isEmptyTrigger) {
                         var lastUserMessageAndCharName = JSON.stringify(`${parsedMessage.username}: ${parsedMessage.APICallParams.prompt}\n${charName}:`);
-                        //strips out HTML tags
-                        var fixedLastUserMessageAndCharName = JSON.parse(lastUserMessageAndCharName.replace(/<[^>]+>/g, ''));
+                    } else {
+                        var lastUserMessageAndCharName = JSON.stringify(`\n${charName}:`);
+                    }
+                    //strips out HTML tags
+                    var fixedLastUserMessageAndCharName = JSON.parse(lastUserMessageAndCharName.replace(/<[^>]+>/g, ''));
+
+                    const promptValue = await addCharDefsToPrompt(charFile, fixedLastUserMessageAndCharName, parsedMessage.username)
+                    parsedMessage.APICallParams.prompt = promptValue;
+
+                    // AI_API_SELECTION_CODE
+                    // UNCOMMENT THIS LINE IF YOU WANT TO USE HORDE FOR AI RESPONSES
+                    //const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.content);
+                    // UNCOMMENT THIS LINE IF YOU WANT TO USE TABBY FOR AI RESPONSES
+                    var AIResponse = trimIncompleteSentences(await requestToTabby(parsedMessage.APICallParams))
 
 
-                        const promptValue = await addCharDefsToPrompt(charFile, fixedLastUserMessageAndCharName, parsedMessage.username)
-                        parsedMessage.APICallParams.prompt = promptValue;
 
-                        // AI_API_SELECTION_CODE
-                        // UNCOMMENT THIS LINE IF YOU WANT TO USE HORDE FOR AI RESPONSES
-                        //const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.content);
-                        // UNCOMMENT THIS LINE IF YOU WANT TO USE TABBY FOR AI RESPONSES
-                        const AIResponse = await requestToTabby(parsedMessage.APICallParams)
+                    const AIResponseForChatJSON = {
+                        username: charName,
+                        content: AIResponse.trim(),
+                        userColor: parsedMessage.userColor
+                    }
 
-                        const AIResponseForChatJSON = {
-                            username: charName,
-                            content: AIResponse,
-                            userColor: parsedMessage.userColor
+                    fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
+                        if (err) {
+                            console.error('An error occurred while reading the file:', err);
+                            return;
                         }
 
-                        fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
-                            if (err) {
-                                console.error('An error occurred while reading the file:', err);
+                        let jsonArray = [];
+
+                        try {
+                            // Parse the existing contents as a JSON array
+                            jsonArray = JSON.parse(data);
+                        } catch (parseError) {
+                            console.error('An error occurred while parsing the JSON:', parseError);
+                            return;
+                        }
+
+                        jsonArray.push(AIResponseForChatJSON);
+                        const updatedData = JSON.stringify(jsonArray, null, 2);
+
+                        // Write the formatted AI response array back to the file
+                        fs.writeFile('public/chats/AIChat.json', updatedData, 'utf8', (writeErr) => {
+                            if (writeErr) {
+                                console.error('An error occurred while writing to the file:', writeErr);
                                 return;
                             }
-
-                            let jsonArray = [];
-
-                            try {
-                                // Parse the existing contents as a JSON array
-                                jsonArray = JSON.parse(data);
-                            } catch (parseError) {
-                                console.error('An error occurred while parsing the JSON:', parseError);
-                                return;
-                            }
-
-                            jsonArray.push(AIResponseForChatJSON);
-                            const updatedData = JSON.stringify(jsonArray, null, 2);
-
-                            // Write the formatted AI response array back to the file
-                            fs.writeFile('public/chats/AIChat.json', updatedData, 'utf8', (writeErr) => {
-                                if (writeErr) {
-                                    console.error('An error occurred while writing to the file:', writeErr);
-                                    return;
-                                }
-                                console.log('AIChat.json updated.');
-                            });
-                        })
-                        parsedMessage.content = AIResponse;
-                        parsedMessage.username = charName;
-                        parsedMessage.type = 'AIResponse'
-                        const clientsArray = [...wsServer.clients, ...wssServer.clients]; // Convert clients set to an array
-                        await Promise.all(clientsArray.map(client => client.send(JSON.stringify(parsedMessage))));
+                            console.log('AIChat.json updated.');
+                        });
+                    })
+                    parsedMessage.content = AIResponse;
+                    parsedMessage.username = charName;
+                    parsedMessage.type = 'AIResponse'
+                    const clientsArray = [...wsServer.clients, ...wssServer.clients]; // Convert clients set to an array
+                    await Promise.all(clientsArray.map(client => client.send(JSON.stringify(parsedMessage))));
 
 
-                    } catch (error) {
-                        console.log(error);
-                    }
+                } catch (error) {
+                    console.log(error);
                 }
             }
         } catch (error) {
@@ -445,6 +534,30 @@ function handleConnections(ws) {
         clientsArray = clientsArray.filter(client => client !== ws);
     });
 };
+
+function trimIncompleteSentences(input, include_newline = false) {
+    const punctuation = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit
+    let last = -1;
+
+    for (let i = input.length - 1; i >= 0; i--) {
+        const char = input[i];
+
+        if (punctuation.has(char)) {
+            last = i;
+            break;
+        }
+
+        if (include_newline && char === '\n') {
+            last = i;
+            break;
+        }
+    }
+    if (last === -1) {
+        console.log(input.trimEnd())
+        return input.trimEnd();
+    }
+    return input.substring(0, last + 1).trimEnd();
+}
 
 async function ObjectifyChatHistory() {
     return new Promise((resolve, reject) => {
@@ -473,24 +586,23 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
             let charData = await charaRead(charFile, 'png')
             let chatHistory = await ObjectifyChatHistory()
             const jsonData = JSON.parse(charData)
+            const charName = jsonData.name
             const jsonString = JSON.stringify(jsonData);
             var replacedString = jsonString.replace(/{{user}}/g, username);
             replacedString = replacedString.replace(/{{char}}/g, jsonData.name);
             const replacedData = JSON.parse(replacedString);
+            const systemMessage = `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
 
             //add the char description, personality, scenario, and first message
             var stringToReturn =
-                `${replacedData?.description}
-    ${replacedData?.personality}
-    ${replacedData?.scenario}
-    ${replacedData.name}: ${replacedData?.first_mes}\n`
+                `${systemMessage}\n${replacedData?.description}\n${replacedData?.personality.trim()}\n${replacedData?.scenario.trim()}\n${replacedData.name.trim()}: ${replacedData?.first_mes.trim()}\n`
             //add the chat history
             chatHistory.forEach(obj => {
                 stringToReturn += `${obj.username}: ${obj.content}\n`
             })
             //add the final first mes and userInput        
-            stringToReturn += `
-    ${lastUserMesageAndCharName}`;
+            stringToReturn += `${lastUserMesageAndCharName.trim()}`;
+            stringToReturn = stringToReturn.trim()
             resolve(stringToReturn);
         } catch (error) {
             console.error('Error reading file:', error);

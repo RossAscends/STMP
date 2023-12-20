@@ -11,6 +11,7 @@ const remoteApp = express();
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
 
+//for console coloring
 const color = {
     byNum: (mess, fgNum) => {
         mess = mess || '';
@@ -38,7 +39,7 @@ const usernameColors = [
     '#FF4C86',  // Pink
 ];
 
-// Create an HTTP servers
+// Create both HTTP servers
 const wsPort = 8181; //WS for host
 const wssPort = 8182; //WSS for guests
 
@@ -91,6 +92,7 @@ var sysMessage = {
 
 const secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
 const tabbyAPIkey = secretsObj.api_key_tabby
+const STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string
 
 // Create a WebSocket server
 const wsServer = new WebSocket.Server({ server: localServer });

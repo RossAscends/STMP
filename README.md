@@ -67,7 +67,7 @@ If new characters are added while the server is running, the Host must refresh t
 - markdown formatting is respected
 - pressing the retry button will remove the last chat message and prompt the AI character to give a new response.
 
-### Host Controls
+### Hosting
 
 The host will see controls at the top of the screen for:
 
@@ -82,21 +82,30 @@ You can have a different name for the User Chat and AI Chat.
 
 ## Planned Features
 
+### Core Functionality
+
 - ~~Proper chat history for the AI~~
 - ~~Saving user chat history for persistence across sessions~~
-- Better generation parameter adjustments (likely via preset files, not individual sliders)
-- API swapping in UI without server restart
-- Multiple AI characters active at once (group chats)
 - ~~in-chat notification of when a user changes their username~~
 - ~~unique colors for usernames in chat to make the chat easier to read at a glance.~~
 - set and respect API context limits
-- selected character persistence across sessions
-- ~~push selected character to user on connection~~
-- add host control toggle for "Host Approval" mode (host must approve messages from users before they are sent to AI)
-- add host control toggle for locking AI chat for users
-- add host control to set User Turn Order for AI chatting (drag-sort list)
-- ~~add AI chat clear button~~
+- selected character persists across sessions
 - smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
-- ability to remove individual chat messages (at first this will be deleting from the bottom.)
 - ability to save chat files when clearing the chat
+
+### Host Controls
+
+- Better generation parameter adjustments (likely via preset files, not individual sliders)
+- API swapping in UI without server restart
+- ~~push selected character to user on connection~~
+- toggle for AI response timing: 1-to-1 with user input, or only on manual trigger from Host
+- toggle for locking AI chat for users
+- drag-sort list to set User Turn Order for AI chatting
+- ~~add AI chat clear button~~
+- ability to remove individual chat messages (at first this will be deleting from the bottom.)
+
+### Nice-to-have Features
+
+- Multiple AI characters active at once (group chats)
 - ability to load past chat files
+- exporting chat files as text or JSON

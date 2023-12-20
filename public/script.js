@@ -201,7 +201,7 @@ function updateSelectedChar(char, type) {
 function connectWebSocket() {
     socket = new WebSocket(serverUrl);
 
-    socket.onopen = function (event) {
+    socket.onopen = async function (event) {
         console.log("WebSocket connected to server:", serverUrl);
         $("#reconnectButton").hide()
         $("#disconnectButton").show()
@@ -211,8 +211,8 @@ function connectWebSocket() {
             type: 'connect',
             username: username
         };
+        console.log('sending connection message..')
         socket.send(JSON.stringify(connectionMessage));
-        queryCardList()
     };
 
     function disconnectWebSocket() {
@@ -403,9 +403,9 @@ function connectWebSocket() {
     })
 
     // Handle incoming messages from the server
-    socket.addEventListener('message', function (event) {
+    socket.addEventListener('message', async function (event) {
         var message = event.data;
-        //console.log('Received message:', message);
+        console.log('Received message:', message);
         let parsedMessage = JSON.parse(message)
         const userList = parsedMessage.userList;
         //console.log(userList)
@@ -430,7 +430,7 @@ function connectWebSocket() {
         }
         else if (parsedMessage.type === 'cardList') {
             let JSONCardData = parsedMessage.cards
-            populateCardSelector(JSONCardData)
+            await populateCardSelector(JSONCardData)
         }
         else if (parsedMessage.type === 'userList') {
             updateUIUserList(userList);
@@ -445,16 +445,24 @@ function connectWebSocket() {
             disconnectWebSocket()
         }
         else if (parsedMessage?.type === 'connectionConfirmed') {
+            console.log('--- processing confirmed connection...')
+            const selectedCharacter = parsedMessage.selectedCharacter
             const chatHistoryString = parsedMessage.chatHistory
             const AIChatHistoryString = parsedMessage.AIChatHistory
+            const cardList = parsedMessage.cardList
             //trim whitespace to make it parseable
             const trimmedChatHistoryString = chatHistoryString.trim();
             const trimmedAIChatHistoryString = AIChatHistoryString.trim();
             //parse the trimmed string into JSON
             const chatHistory = JSON.parse(trimmedChatHistoryString);
             const AIChatHistory = JSON.parse(trimmedAIChatHistoryString)
+            console.log('clearing user chat')
             $("#chat").empty()
+            console.log('clearing AI chat')
             $("#AIchat").empty()
+            populateCardSelector(cardList)
+            console.log(`selecting character as defined from server: ${selectedCharacter}`)
+            updateSelectedChar(selectedCharacter, 'forced')
             //add each message object as div into the chat display
             chatHistory.forEach((obj) => {
                 let username = obj.username
@@ -492,7 +500,7 @@ function connectWebSocket() {
             if (isHost) {
                 return
             }
-            updateSelectedChar(parsedMessage.newChar, 'forced')
+            updateSelectedChar(parsedMessage.char, 'forced')
         }
         else {
             // Parse the message into username and content
@@ -509,13 +517,6 @@ function connectWebSocket() {
             $(`div[data-chat-id="${chatID}"]`).append(newChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
         }
     });
-
-    async function queryCardList() {
-        let cardQueryMessage = {
-            type: "cardListQuery"
-        }
-        socket.send(JSON.stringify(cardQueryMessage))
-    }
 
     async function populateCardSelector(cardList) {
         //console.log(cardList)
@@ -543,7 +544,7 @@ function connectWebSocket() {
 }
 
 $(document).ready(async function () {
-
+    console.log('--- document is ready, processing entry....')
     var isPhone = /Mobile/.test(navigator.userAgent);
 
     $("#userRole").text(userRole)
@@ -616,6 +617,6 @@ $(document).ready(async function () {
             });
         }
     });
-
+    console.log('connecting websocket..')
     connectWebSocket();
 });

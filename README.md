@@ -76,8 +76,8 @@ You can have a different name for the User Chat and AI Chat.
 - ~~unique colors for usernames in chat to make the chat easier to read at a glance.~~
 - set and respect API context limits
 - selected character persistence across sessions
-- push selected character to user on connection
+- ~~push selected character to user on connection~~
 - add host control toggle for "Host Approval" mode (host must approve messages from users before they are sent to AI)
 - add host control toggle for locking AI chat entirely
 - add host control to set User Turn Order for AI chatting (drag-sort list)
-- add AI chat clear button
+- ~~add AI chat clear button~~

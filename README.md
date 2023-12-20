@@ -58,7 +58,11 @@ If new characters are added while the server is running, the Host must refresh t
 
 ### Host Controls
 
-The host will see controls at the top of the screen for changing the AI character and clearing the user chat.
+The host will see controls at the top of the screen for:
+
+- changing the AI character
+- manually triggering an AI response without user Input
+- clearing either chat windows
 
 ### Changing usernames
 

@@ -37,6 +37,8 @@ var converter = new showdown.Converter({
     parseImgDimensions: false,
     emoji: true,
     backslashEscapesHTMLTags: true,
+    literalMidWordUnderscores: true,
+    strikethrough: true,
     extensions: [sanitizeExtension]
 });
 
@@ -58,7 +60,7 @@ var isHost = (userRole === 'Host') ? true : false;
 //uncomment the code below to send Tabby-compliant API parameters
 var APICallParams = {
     "prompt": "",
-    "max_new_tokens": 50,
+    "max_new_tokens": 200,
     "do_sample": true,
     "temperature": 2,
     "top_p": 1,

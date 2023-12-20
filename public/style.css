@@ -103,6 +103,7 @@ pre {
 #chat div p,
 #AIchat div p {
     margin: 0;
+    margin-bottom: 1em;
     padding: 0;
 }
 

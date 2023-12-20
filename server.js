@@ -231,7 +231,7 @@ async function handleConnections(ws) {
                 broadcast(parsedMessage);
             }
             else if (parsedMessage.type === 'deleteLast') {
-                removeLastAIChatMessage()
+                await removeLastAIChatMessage()
             }
             else if (parsedMessage.type === 'cardListQuery') {
                 let cards = await getCardList()
@@ -273,13 +273,13 @@ async function handleConnections(ws) {
             else if (parsedMessage.type === 'AIRetry') {
                 // Read the AIChat file
                 try {
-                    removeLastAIChatMessage()
+                    await removeLastAIChatMessage()
                     userPrompt = {
                         'chatID': parsedMessage.chatID,
                         'username': parsedMessage.username,
                         'content': '',
                     }
-                    getAIResponse()
+                    await getAIResponse()
                 } catch (parseError) {
                     console.error('An error occurred while parsing the JSON:', parseError);
                     return;
@@ -307,7 +307,7 @@ async function handleConnections(ws) {
                     if (userPrompt.content !== '' && userPrompt.content !== undefined && userPrompt.content !== null) {
                         broadcast(userPrompt)
                     }
-                    getAIResponse()
+                    await getAIResponse()
                 }
                 //read the current userChat file
                 if (chatID === 'UserChat') {
@@ -321,7 +321,7 @@ async function handleConnections(ws) {
                     broadcast(parsedMessage)
                 }
             }
-            async function getAIResponse(type) {
+            async function getAIResponse() {
                 try {
                     let jsonArray = [];
                     let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
@@ -343,7 +343,7 @@ async function handleConnections(ws) {
                         const userObjToPush = {
                             username: parsedMessage.username,
                             content: parsedMessage.userInput,
-                            htmlContent: parsedMessage.htmlContent,
+                            //htmlContent: parsedMessage.htmlContent,
                             userColor: parsedMessage.userColor
                         }
                         jsonArray.push(userObjToPush);
@@ -464,9 +464,9 @@ async function writeUserChat(data) {
 function trimIncompleteSentences(input, include_newline = false) {
     const punctuation = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit
     let last = -1;
-    console.log(`--- BEFORE:`)
-    console.log(input)
-    console.log(`--- AFTER:`)
+    //console.log(`--- BEFORE:`)
+    //console.log(input)
+    //console.log(`--- AFTER:`)
     for (let i = input.length - 1; i >= 0; i--) {
         const char = input[i];
         if (punctuation.has(char)) {
@@ -479,12 +479,12 @@ function trimIncompleteSentences(input, include_newline = false) {
         }
     }
     if (last === -1) {
-        console.log(input.trimEnd())
+        //console.log(input.trimEnd())
         return input.trimEnd();
     }
     let trimmedString = input.substring(0, last + 1).trimEnd();
 
-    console.log(trimmedString)
+    //console.log(trimmedString)
     return trimmedString;
 }
 

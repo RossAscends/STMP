@@ -11,9 +11,16 @@ body {
     color: #ccc;
     margin: 0;
     padding: 0;
-    /* overflow: hidden; */
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: "Noto Sans", "Noto Color Emoji", sans-serif;
     font-size: 1em;
+    display: flex;
+}
+
+textarea,
+input,
+select,
+button {
+    font-family: "Noto Sans", "Noto Color Emoji", sans-serif;
 }
 
 ::-webkit-scrollbar {
@@ -30,26 +37,19 @@ body {
     min-height: 40px;
 }
 
-#bodywrap {
-    margin: 0;
+#chatWrap {
+    position: relative
+}
+
+#universalControls {
+    justify-content: center;
     display: flex;
-    flex-wrap: wrap;
-    height: 100%;
-}
-
-#chatsWrapper {
-    flex-grow: 1;
-    overflow-y: auto;
-    max-height: calc(100% - 1em);
-}
-
-#controlPanel {
-    flex-basis: 15%;
+    position: absolute;
+    width: 100%;
 }
 
 #LLMChatWrapper,
 #OOCChatWrapper {
-    flex-basis: 40%;
     height: 100%;
     overflow: hidden;
 }
@@ -330,6 +330,10 @@ hr {
     gap: 5px;
 }
 
+.noGap {
+    gap: 0
+}
+
 .noWrap {
     flex-wrap: nowrap;
 }
@@ -372,4 +376,33 @@ hr {
 
 .textshadow {
     text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.5);
+}
+
+.flipHorizontal {
+    display: inline-block;
+    transform: scaleX(-1);
+    -webkit-transform: scaleX(-1);
+    -ms-transform: scaleX(-1);
+    -o-transform: scaleX(-1);
+}
+
+.flipVertical {
+    display: inline-block;
+    transform: scaleY(-1);
+    -webkit-transform: scaleY(-1);
+    -ms-transform: scaleY(-1);
+    -o-transform: scaleY(-1);
+}
+
+.flipBoth {
+    display: inline-block;
+    transform: scale(-1, -1);
+    -webkit-transform: scale(-1, -1);
+    -ms-transform: scale(-1, -1);
+    -o-transform: scale(-1, -1);
+}
+
+.mirror {
+    display: inline-block;
+    transform: rotateX(180deg);
 }

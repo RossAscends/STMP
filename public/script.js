@@ -672,6 +672,7 @@ $(document).ready(async function () {
     console.log(`Host? ${isHost}`)
     if (!isHost) {
         $(".hostControls").remove()
+        $("#controlPanel").remove()
     }
 
     await startupUsernames()

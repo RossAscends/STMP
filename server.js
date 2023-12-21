@@ -136,8 +136,10 @@ async function initConfig() {
         console.log('config.json created with default values.');
 
     } else {
-        console.log('config.json already exists.');
+        console.log('Loading config.json...');
         liveConfig = await readConfig()
+        console.log(liveConfig)
+        console.log('Finished!')
     }
 }
 
@@ -343,18 +345,18 @@ async function handleConnections(ws, type) {
             else if (parsedMessage.type === 'toggleAutoResponse') {
                 isAutoResponse = parsedMessage.value
                 liveConfig.isAutoResponse = isAutoResponse
-                await writeConfig('isAutoResponse', isAutoResponse)
+                await writeConfig(liveConfig, 'isAutoResponse', isAutoResponse)
             }
             else if (parsedMessage.type === 'adjustContextSize') {
                 contextSize = parsedMessage.value
                 liveConfig.contextSize = contextSize
-                await writeConfig('contextSize', contextSize)
+                await writeConfig(liveConfig, 'contextSize', contextSize)
 
             }
             else if (parsedMessage.type === 'adjustResponseLength') {
                 responseLength = parsedMessage.value
                 liveConfig.responseLength = responseLength
-                await writeConfig('responseLength', responseLength)
+                await writeConfig(liveConfig, 'responseLength', responseLength)
 
             }
             else if (parsedMessage.type === 'clearAIChat') {
@@ -392,7 +394,7 @@ async function handleConnections(ws, type) {
                 }
                 selectedCharacter = parsedMessage.newChar
                 liveConfig.selectedCharacter = selectedCharacter
-                await writeConfig('selectedCharacter', selectedCharacter)
+                await writeConfig(liveConfig, 'selectedCharacter', selectedCharacter)
                 broadcast(changeCharMessage);
             }
             else if (parsedMessage.type === 'changeSamplerPreset') {
@@ -404,8 +406,8 @@ async function handleConnections(ws, type) {
                 liveConfig.selectedPreset = selectedPreset
                 const samplerData = await readFile(selectedPreset)
                 liveConfig.samplers = samplerData
-                await writeConfig('samplers', liveConfig.samplers)
-                await writeConfig('selectedPreset', selectedPreset)
+                await writeConfig(liveConfig, 'samplers', liveConfig.samplers)
+                await writeConfig(liveConfig, 'selectedPreset', selectedPreset)
                 broadcast(changePresetMessage);
             }
             else if (parsedMessage.type === 'AIRetry') {
@@ -430,7 +432,7 @@ async function handleConnections(ws, type) {
                     engineMode: engineMode
                 }
                 liveConfig.engineMode = engineMode
-                await writeConfig('engineMode', engineMode)
+                await writeConfig(liveConfig, 'engineMode', engineMode)
                 broadcast(modeChangeMessage);
             }
 
@@ -519,7 +521,7 @@ async function handleConnections(ws, type) {
                     const APICallParams = await setStopStrings(parsedMessage.APICallParams)
 
                     var AIResponse = '';
-                    if (engineMode === 'horde') {
+                    if (liveConfig.engineMode === 'horde') {
                         const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(APICallParams);
                         AIResponse = hordeResponse;
                     }
@@ -579,6 +581,7 @@ function countTokens(str) {
  * @returns {Promise<string>} A promise that resolves with the file content.
  */
 async function readAIChat() {
+    await acquireLock()
     return new Promise((resolve, reject) => {
         fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
             if (err) {
@@ -588,13 +591,16 @@ async function readAIChat() {
                         resolve('[]');
                     }).catch(writeErr => {
                         console.error('An error occurred while creating the file:', writeErr);
+                        releaseLock();
                         reject(writeErr);
                     });
                 } else {
                     console.error('An error occurred while reading the file:', err);
+                    releaseLock();
                     reject(err);
                 }
             } else {
+                releaseLock();
                 resolve(data);
             }
         });
@@ -602,12 +608,15 @@ async function readAIChat() {
 }
 
 async function writeAIChat(data) {
+    await acquireLock()
     fs.writeFile('public/chats/AIChat.json', data, 'utf8', (writeErr) => {
         if (writeErr) {
             console.error('An error occurred while writing to the file:', writeErr);
+            releaseLock()
             return;
         }
         console.log('AIChat.json updated.');
+        releaseLock()
     });
 }
 
@@ -616,6 +625,7 @@ async function writeAIChat(data) {
  * @returns {Promise<string>} A promise that resolves with the file content.
  */
 async function readUserChat() {
+    await acquireLock()
     return new Promise((resolve, reject) => {
         fs.readFile('public/chats/UserChat.json', 'utf8', (err, data) => {
             if (err) {
@@ -625,13 +635,16 @@ async function readUserChat() {
                         resolve('[]');
                     }).catch(writeErr => {
                         console.error('An error occurred while creating the file:', writeErr);
+                        releaseLock()
                         reject(writeErr);
                     });
                 } else {
                     console.error('An error occurred while reading the file:', err);
+                    releaseLock()
                     reject(err);
                 }
             } else {
+                releaseLock()
                 resolve(data);
             }
         });
@@ -639,17 +652,21 @@ async function readUserChat() {
 }
 
 async function writeUserChat(data) {
+    await acquireLock()
     fs.writeFile('public/chats/UserChat.json', data, 'utf8', (writeErr) => {
         if (writeErr) {
             console.error('An error occurred while writing to the file:', writeErr);
+            releaseLock()
             return;
         }
         console.log('UserChat.json updated.');
+        releaseLock()
     });
 }
 
 async function readConfig() {
-    await delay(100)
+    await acquireLock()
+    //await delay(100)
     //console.log('--- READ CONFIG started')
     return new Promise(async (resolve, reject) => {
         fs.readFile('config.json', 'utf8', async (err, data) => {
@@ -658,25 +675,30 @@ async function readConfig() {
                     console.log('config.json not found, initializing with default values.');
                     try {
                         //console.log('--- READ CONFIG calling initconfig')
-                        await delay(100)
+                        //await delay(100)
                         await initConfig();
                         //console.log('----- CREATED NEW CONFIG FILE, RETURNING IT')
+                        releaseLock()
                         resolve(liveConfig); // Assuming liveconfig is accessible here
                     } catch (initErr) {
                         console.error('An error occurred while initializing the file:', initErr);
+                        releaseLock()
                         reject(initErr);
                     }
                 } else {
                     console.error('An error occurred while reading the file:', err);
+                    releaseLock()
                     reject(err);
                 }
             } else {
                 try {
-                    await delay(100)
+                    //await delay(100)
                     const configData = JSON.parse(data); // Parse the content as JSON
+                    releaseLock()
                     resolve(configData);
                 } catch (parseErr) {
                     console.error('An error occurred while parsing the JSON:', parseErr);
+                    releaseLock()
                     reject(parseErr);
                 }
             }
@@ -684,23 +706,27 @@ async function readConfig() {
     });
 }
 
-async function writeConfig(key, value) {
+async function writeConfig(configObj, key, value) {
+    await acquireLock()
     await delay(100)
-    let newObject = await readConfig()
-    newObject[key] = value;
+    //let newObject = await readConfig()
+    configObj[key] = value;
     //console.log('should have made changes to config object. Lets check.');
     console.log(`Config updated: ${key} = ${value}`);
-    const writableConfig = JSON.stringify(newObject, null, 2); // Serialize the object with indentation
+    const writableConfig = JSON.stringify(configObj, null, 2); // Serialize the object with indentation
     fs.writeFile('config.json', writableConfig, 'utf8', writeErr => {
         if (writeErr) {
             console.error('An error occurred while writing to the file:', writeErr);
+            releaseLock()
             return;
         }
         console.log('config.json updated.');
+        releaseLock()
     });
 }
 
 async function readFile(file) {
+    await acquireLock()
     console.log(`[readFile()] Reading ${file}...`)
     return new Promise((resolve, reject) => {
         fs.readFile(file, 'utf8', (err, data) => {
@@ -709,13 +735,46 @@ async function readFile(file) {
                     console.log(`ERROR: ${file} not found`);
                 } else {
                     console.error('An error occurred while reading the file:', err);
+                    releaseLock()
                     reject(err);
                 }
             } else {
+                releaseLock()
                 resolve(data);
             }
         });
     });
+}
+
+async function acquireLock() {
+    const stackTrace = new Error().stack;
+    const callingFunctionName = stackTrace.split('\n')[2].trim().split(' ')[1];
+    //console.log(`${callingFunctionName} trying to acquiring lock..`)
+    let lockfilePath = 'lockfile.lock'
+    while (true) {
+        try {
+            // Attempt to create the lock file exclusively
+            await fs.promises.writeFile(lockfilePath, '', { flag: 'wx' });
+            //console.log('lock acquired')
+            return;
+        } catch (error) {
+            //console.log('lockfile already exists')
+            // File already exists, wait and retry
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    }
+}
+
+async function releaseLock() {
+    const stackTrace = new Error().stack;
+    const callingFunctionName = stackTrace.split('\n')[2].trim().split(' ')[1];
+    //console.log(`${callingFunctionName} releasing lock..`)
+    let lockfilePath = 'lockfile.lock'
+    try {
+        await fs.promises.unlink(lockfilePath);
+    } catch (error) {
+        console.log(error)
+    }
 }
 
 function trimIncompleteSentences(input, include_newline = false) {

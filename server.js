@@ -238,12 +238,12 @@ async function handleConnections(ws) {
         AIChatHistory: AIChatJSON,
         color: thisUserColor,
         cardList: cardList,
-        selectedCharacter: selectedCharacter,
+        selectedCharacter: liveConfig.selectedCharacter,
         userList: connectedUserNames,
-        engineMode: 'tabby',
-        isAutoResponse: isAutoResponse,
-        contextSize: contextSize,
-        responseLength: responseLength
+        engineMode: liveConfig.engineMode,
+        isAutoResponse: liveConfig.isAutoResponse,
+        contextSize: liveConfig.contextSize,
+        responseLength: liveConfig.responseLength
     }
     //send connection confirmation along with chat history
     ws.send(JSON.stringify(connectionConfirmedMessage))
@@ -360,6 +360,8 @@ async function handleConnections(ws) {
                     type: 'modeChange',
                     engineMode: engineMode
                 }
+                liveConfig.engineMode = engineMode
+                await writeConfig('engineMode', engineMode)
                 broadcast(modeChangeMessage);
             }
 

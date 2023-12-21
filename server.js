@@ -106,6 +106,8 @@ wssServer.setMaxListeners(0);
 // Arrays to store connected clients of each server
 var clientsArray = [];
 var connectedUserNames = [];
+
+//default values
 var selectedCharacter
 var isAutoResponse = true
 var responseLength = 200
@@ -530,16 +532,15 @@ async function handleConnections(ws) {
                     for (const [key, value] of Object.entries(samplers)) {
                         parsedMessage.APICallParams[key] = value;
                     }
-
+                    //add full prompt to API call
                     parsedMessage.APICallParams.prompt = fullPromptforAI;
+                    //ctx and response length for Tabby
                     parsedMessage.APICallParams.truncation_length = Number(liveConfig.contextSize)
-                    parsedMessage.APICallParams.max_new_tokens = Number(liveConfig.responseLength)
                     parsedMessage.APICallParams.max_tokens = Number(liveConfig.responseLength)
+                    //ctx and response length for Horde
+                    parsedMessage.APICallParams.max_context_length = Number(liveConfig.contextSize)
                     parsedMessage.APICallParams.max_length = Number(liveConfig.responseLength)
 
-                    // AI_API_SELECTION_CODE
-                    // UNCOMMENT THIS LINE IF YOU WANT TO USE HORDE FOR AI RESPONSES
-                    //parsedMessage.APICallParams.engine = 'horde';
                     var AIResponse = '';
                     if (engineMode === 'horde') {
                         const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.APICallParams);
@@ -812,7 +813,7 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
                 let obj = chatHistory[i];
                 let newItem = `${obj.username}: ${obj.content}\n`;
                 let newItemTokens = countTokens(newItem);
-                if (promptTokens + newItemTokens < contextSize) {
+                if (promptTokens + newItemTokens < liveConfig.contextSize) {
                     promptTokens += newItemTokens;
                     //console.log(`added new item, prompt tokens: ~${promptTokens}`);
                     insertedItems.push(newItem); // Add new item to the array

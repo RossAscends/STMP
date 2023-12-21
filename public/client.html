@@ -23,58 +23,75 @@
                     <h4>AI Controls</h4>
                     <div class="flexbox Vcentered">
                         <span class="flex1">API</span>
-                        <div id="toggleMode" class="tabbyMode hoverglow" title="Toggle Mode">🐈</div>
+                        <div id="toggleMode" class="tabbyMode fontSize1p5em greyscale bgBrightUp textshadow transition250" title="Toggle Mode">🐈</div>
                     </div>
 
                     <div class="flexbox Vcentered">
                         <span class="flex1">Context</span>
-                        <select id="maxContext">
-                            <option value="1024">1024</option>
-                            <option value="2048">2048</option>
-                            <option value="4096">4096</option>
-                            <option value="8196">8192</option>
-                        </select>
+                        <div class="custom-select">
+                            <select id="maxContext">
+                                <option value="1024">1024</option>
+                                <option value="2048">2048</option>
+                                <option value="4096">4096</option>
+                                <option value="8196">8192</option>
+                            </select>
+                        </div>
+
+
                     </div>
                     <div class="flexbox Vcentered">
                         <span class="flex1">Response</span>
-                        <select id="responseLength">
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                            <option value="200">200</option>
-                            <option value="300">300</option>
-                            <option value="400">400</option>
-                        </select>
+                        <div class="custom-select">
+                            <select id="responseLength">
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="200">200</option>
+                                <option value="300">300</option>
+                                <option value="400">400</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="flexbox Vcentered">
                         <span class="flex1">Samplers</span>
-                        <select id="samplerPreset"></select>
+                        <div class="custom-select">
+                            <select id="samplerPreset"></select>
+                        </div>
                     </div>
                     <div class="flexbox Vcentered">
                         <span class="flex1">Instruct</span>
-                        <select id="instructStyle">
-                            <option value="none">None</option>
-                            <option value="chatML">ChatML</option>
-                            <option value="Alpaca">Alpaca</option>
-                        </select>
+                        <div class="custom-select">
+                            <select id="instructStyle">
+                                <option value="none">None</option>
+                                <option value="chatML">ChatML</option>
+                                <option value="Alpaca">Alpaca</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="flexbox"><span class="flex1">Char</span><select id="characters" class="flex1"></select></div>
+                    <div class="flexbox"><span class="flex1">Char</span>
+                        <div class="custom-select">
+                            <select id="characters" class="flex1"></select>
+                        </div>
+                    </div>
                     <div class="flexbox">
                         <label for="AIAutoResponse" class="Vcentered"><span class="flex1">AutoResponse</span>
                             <input type="checkbox" class="Vcentered" id="AIAutoResponse">
                         </label>
                     </div>
-                    <button id="clearAIChat">Clear Chat</button>
-                    <button id="triggerAIResponse">Trigger AI</button>
-                    <button id="deleteLastMessageButton">Delete Last</button>
+                    <div class="flexbox Hcentered justifySpaceBetween margin5">
+                        <button id="clearAIChat" class="fontSize1p5em greyscale bgBrightUp textshadow">🗑️</button>
+                        <button id="triggerAIResponse" class="fontSize1p5em greyscale bgBrightUp textshadow">🤖💬</button>
+                        <button id="deleteLastMessageButton" class="fontSize1p5em greyscale bgBrightUp textshadow">✂️</button>
+                    </div>
+
                     <div class="flexbox flexFlowCol">
                         <span class="flex1">Final Instruction (D1 JB)</span>
-                        <textarea class="Vcentered" rows=6 id="finalInstruction" placeholder="Put your Depth 1 prompt instruction here"></textarea>
+                        <textarea class="Vcentered brightUp" rows=6 id="finalInstruction" placeholder="Put your Depth 1 prompt instruction here"></textarea>
                     </div>
                     <hr>
                     <h4>UserChat Controls</h4>
-
-                    <button id="clearUserChat">Clear Chat</button>
-
+                    <div class="flexbox Hcentered margin5">
+                        <button id="clearUserChat" class="fontSize1p5em greyscale bgBrightUp textshadow">🗑️</button>
+                    </div>
                 </div>
             </div>
 
@@ -82,30 +99,27 @@
                 <div class="padding5 Hcentered Vcentered flexbox">
                     <!-- A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI to reflect the change. -->
                     <!-- Reveals mode on hover -->
-
-                    AI Chat <input type="text" id="AIUsernameInput" placeholder="Username">
-
+                    AI Chat <input type="text" id="AIUsernameInput" class="brightUp" placeholder="Username">
                 </div>
                 <div id="AIchat" data-chat-id="AIChat"></div>
-                <div id="AIInputBlock" class="flexbox noWrap">
-                    <textarea id="AIMessageInput" placeholder="Type a message"></textarea>
-                    <div class="flexbox flex1 Hcentered">
-                        <button id="AISendButton">Send</button>
-                        <button id="AIRetry">Retry</button>
-
+                <div id="AIInputBlock" class="flexbox noWrap marginLeft5 marginRight5">
+                    <textarea id="AIMessageInput" class="brightUp" placeholder="Type a message"></textarea>
+                    <div class="flexbox">
+                        <button id="AISendButton" class="greyscale fontSize1p5em textshadow">✏️</button>
+                        <button id="AIRetry" class="greyscale fontSize1p5em textshadow">🔄</button>
                     </div>
                 </div>
             </div>
 
             <div id="OOCChatWrapper" class="flexbox flexFlowCol">
                 <div class="padding5 Hcentered Vcentered flexbox">
-                    User Chat <input type="text" id="usernameInput" placeholder="Username">
+                    User Chat <input type="text" id="usernameInput" class="brightUp" placeholder="Username">
                     <div id="userRole"></div>
 
                     <div id="universalControls">
-                        <button id="reconnectButton">Reconnect</button>
-                        <button id="disconnectButton">Disconnect</button>
-                        <button id="clearLocalStorage">Clear Name</button>
+                        <button id="reconnectButton" class="brightUp">Reconnect</button>
+                        <button id="disconnectButton" class="brightUp">Disconnect</button>
+                        <button id="clearLocalStorage" class="brightUp">Clear Name</button>
                     </div>
                 </div>
                 <div id="userChatAndUserList" class="flexbox">
@@ -114,9 +128,11 @@
                         <ul></ul>
                     </div>
                 </div>
-                <div id="inputBlock">
-                    <textarea id="messageInput" placeholder="Type a message"></textarea>
-                    <button id="sendButton">Send</button>
+                <div id="inputBlock" class="flexbox noWrap marginLeft5 marginRight5">
+                    <textarea id="messageInput" class="brightUp" placeholder="Type a message"></textarea>
+                    <div class="flexbox">
+                        <button id="sendButton" class="greyscale fontSize1p5em textshadow">✏️</button>
+                    </div>
                 </div>
             </div>
 

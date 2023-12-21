@@ -600,7 +600,7 @@ $(document).ready(async function () {
         }
 
         var messageInput = $("#AIMessageInput");
-        if (messageInput.val().trim() === '' && !isHost) {
+        if (messageInput.val().trim() === '') {
             alert("Can't send empty message!");
             return;
         }
@@ -700,7 +700,7 @@ $(document).ready(async function () {
                 return;
             }
             event.preventDefault();
-            $("#AISendButton").click();
+            $("#AISendButton").trigger('click');
         }
     });
 

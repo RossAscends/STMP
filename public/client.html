@@ -17,7 +17,7 @@
 </head>
 
 <body class="Hcentered">
-    <div id="bodywrap" class="flexbox noWrap noGap">
+    <div id="bodywrap" class="flexbox noWrap noGap Hcentered">
         <div id="controlPanel" class="margin5 flexbox flexFlowCol">
             <div class="hostControls flexbox flexFlowCol">
                 <h4>AI Controls</h4>
@@ -94,8 +94,8 @@
             </div>
         </div>
         <div id="chatWrap" class="flexbox flex1 noGap">
-            <div id="LLMChatWrapper" class="flexbox flexFlowCol flex1">
-                <div class="padding5 Hcentered Vcentered flexbox">
+            <div id="LLMChatWrapper" class="flexbox flexFlowCol flex1 noGap">
+                <div class="Hcentered Vcentered flexbox">
                     <!-- A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI to reflect the change. -->
                     <!-- Reveals mode on hover -->
                     AI Chat <input type="text" id="AIUsernameInput" class="brightUp" placeholder="Username">
@@ -113,11 +113,11 @@
                 <button id="reconnectButton" class="textshadow greyscale fontSize1p5em brightUp">▶️</button>
                 <button id="disconnectButton" class="textshadow greyscale fontSize1p5em brightUp">⏸</button>
             </div>
-            <div id="OOCChatWrapper" class="flexbox flexFlowCol flex1">
-                <div class="padding5 Hcentered Vcentered flexbox">
+            <div id="OOCChatWrapper" class="flexbox flexFlowCol flex1 noGap">
+                <div class="Hcentered Vcentered flexbox">
                     User Chat <input type="text" id="usernameInput" class="brightUp" placeholder="Username">
                     <button id="clearLocalStorage" class="textshadow greyscale brightUp flipBoth">✏️</button>
-                    <div id="userRole"></div>
+                    <i id="userRole"></i>
                 </div>
                 <div id="userChatAndUserList" class="flexbox">
                     <div id="chat" data-chat-id="UserChat"></div>

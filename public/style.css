@@ -38,7 +38,9 @@ button {
 }
 
 #chatWrap {
-    position: relative
+    position: relative;
+    max-height: calc(100% - 1em);
+    max-width: 85%;
 }
 
 #universalControls {
@@ -70,7 +72,6 @@ button {
     align-items: center;
     align-content: center;
     justify-content: center;
-    margin: 5px;
     gap: 5px;
 }
 
@@ -306,6 +307,11 @@ input::placeholder {
 
 #userList {
     overflow: hidden;
+}
+
+#userRole {
+    font-size: 0.8em;
+    color: #666
 }
 
 #userList ul {

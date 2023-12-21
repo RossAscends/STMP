@@ -143,6 +143,8 @@ var HordeAPICallParams = {
     "trusted_workers": true,
     "models": [
         "koboldcpp/mistral-pygmalion-7b.Q5_K_M",
+        "koboldcpp/Toppy-M-7B",
+        "koboldcpp/LLaMA2-13B-Tiefighter",
         "aphrodite/jebcarter/psyonic-cetacean-20B",
         "aphrodite/DiscoResearch/DiscoLM-120b",
         "aphrodite/KoboldAI/LLaMA2-13B-Psyfighter2",
@@ -434,8 +436,8 @@ async function populateCardSelector(cardList) {
 }
 
 // set the engine mode to either horde or tabby based on a value from the websocket
-function setEngineMode(mode){
-    if (mode === 'horde'){
+function setEngineMode(mode) {
+    if (mode === 'horde') {
         $("#toggleMode").removeClass('tabbyMode').addClass('hordeMode').text('🧟');
         $("#toggleMode").attr('title', 'Click to switch to Tabby Mode');
         //copy the horde parameters into the APICallParams object

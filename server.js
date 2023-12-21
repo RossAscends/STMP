@@ -388,16 +388,17 @@ async function handleConnections(ws) {
                     parsedMessage.APICallParams.truncation_length = Number(contextSize)
                     parsedMessage.APICallParams.max_new_tokens = Number(responseLength)
                     parsedMessage.APICallParams.max_tokens = Number(responseLength)
+                    parsedMessage.APICallParams.max_length = Number(responseLength)
 
                     // AI_API_SELECTION_CODE
                     // UNCOMMENT THIS LINE IF YOU WANT TO USE HORDE FOR AI RESPONSES
-                    parsedMessage.APICallParams.engine = 'horde';
+                    //parsedMessage.APICallParams.engine = 'horde';
                     var AIResponse = '';
-                    if(engineMode === 'horde'){
+                    if (engineMode === 'horde') {
                         const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.APICallParams);
                         AIResponse = hordeResponse;
                     }
-                    else{
+                    else {
                         AIResponse = trimIncompleteSentences(await requestToTabby(parsedMessage.APICallParams))
                     }
 
@@ -621,7 +622,7 @@ async function requestToHorde(stringToSend, stoppingStrings = '') {
     var headers = {
         'Content-Type': 'application/json',
         'Cache': 'no-cache',
-        'Authorization': 'Basic ' + btoa(''),
+        'Authorization': 'Basic ' + btoa(STBasicAuthCredentials),
         "Client-Agent": "SillyTavern:UNKNOWN:Cohee#1207"
     };
 

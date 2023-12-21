@@ -76,6 +76,24 @@ button {
     transition: all 250ms;
 }
 
+#toggleMode {
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.hoverglow {
+    transition: all 250ms;
+    outline: 1px solid #666;
+    filter: saturate(0.5);
+
+}
+
+.hoverglow:hover {
+    outline: 1px solid white;
+    filter: saturate(1);
+    background-color: #333
+}
+
 button:hover,
 input:focus,
 textarea:focus {

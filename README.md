@@ -94,7 +94,7 @@ You can have a different name for the User Chat and AI Chat.
 
 ### Host Controls
 
-- Better generation parameter adjustments (likely via preset files, not individual sliders)
+- ~~generation parameter adjustments (likely via preset files, not individual sliders)~~
 - ~~API swapping in UI without server restart~~
 - ~~push selected character to user on connection~~
 - ~~toggle for AI response timing: 1-to-1 with user input, or only on manual trigger from Host~~

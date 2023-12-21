@@ -87,24 +87,24 @@ You can have a different name for the User Chat and AI Chat.
 - ~~in-chat notification of when a user changes their username~~
 - ~~unique colors for usernames in chat to make the chat easier to read at a glance.~~
 - ~~set and respect API context limits~~
-- selected character persists across sessions
+- ~~host-defined settings persist across sessions~~
 - smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
-- ability to save chat files when clearing the chat
+- ~~ability to save chat files when clearing the chat~~
+- ability to load old chat files
 
 ### Host Controls
 
-- Better generation parameter adjustments (likely via preset files, not individual sliders)
+- ~~generation parameter adjustments (likely via preset files, not individual sliders)~~
 - ~~API swapping in UI without server restart~~
 - ~~push selected character to user on connection~~
 - ~~toggle for AI response timing: 1-to-1 with user input, or only on manual trigger from Host~~
-- toggle for locking AI chat for users
-- drag-sort list to set User Turn Order for AI chatting
+- toggle for locking AI chat for users? (this is already kind of done with AutoResponse off)
+- drag-sort list to set User Turn Order for AI chatting?
 - ~~add AI chat clear button~~
 - ~~ability to remove individual chat messages (at first this will be deleting from the bottom.)~~
 
 ### Low-priority but Nice-to-have Features
 
 - Multiple AI characters active at once (group chats)
-- ability to load past chat files
-- exporting chat files as text or JSON
+- exporting chat files as text or JSON?
 - UI themes

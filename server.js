@@ -106,17 +106,49 @@ wssServer.setMaxListeners(0);
 // Arrays to store connected clients of each server
 var clientsArray = [];
 var connectedUserNames = [];
+
+//default values
 var selectedCharacter
 var isAutoResponse = true
 var responseLength = 200
 var contextSize = 4096
+var liveConfig
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function initConfig() {
+    await delay(100)
+    if (!fs.existsSync('config.json')) {
+        let config = {
+            engineMode: engineMode,
+            selectedCharacter: '',
+            responseLength: responseLength,
+            contextSize: contextSize,
+            isAutoResponse: isAutoResponse,
+        }
+        liveConfig = config
+        const writableArray = JSON.stringify(config, null, 2);
+        //console.log('initConfig writing initial file')
+        await delay(100)
+        fs.writeFileSync('config.json', writableArray);
+        console.log('config.json created with default values.');
+
+    } else {
+        console.log('config.json already exists.');
+        liveConfig = await readConfig()
+    }
+}
+
+initConfig()
 
 // Handle incoming WebSocket connections
 wsServer.on('connection', (ws) => {
-    handleConnections(ws)
+    handleConnections(ws, 'host')
 })
 wssServer.on('connection', (ws) => {
-    handleConnections(ws)
+    handleConnections(ws, 'guest')
 })
 
 async function charaRead(img_url, input_format) {
@@ -147,6 +179,26 @@ async function getCardList() {
     return cards;
 }
 
+async function getSamplerPresetList() {
+    const path = 'public/api-presets'
+    const files = await fs.promises.readdir(path);
+    var presets = []
+    var i = 0
+    for (const file of files) {
+        try {
+            let fullPath = `${path}/${file}`
+            presets[i] = {
+                name: file.replace('.json', ''),
+                filename: fullPath,
+            }
+        } catch (error) {
+            console.error(`Error reading file ${file}:`, error);
+        }
+        i++
+    }
+    return presets;
+}
+
 async function broadcast(message) {
     clientsArray.forEach(client => {
         if (client.socket.readyState === WebSocket.OPEN) {
@@ -162,6 +214,7 @@ async function broadcastUserList() {
         userList: connectedUserNames.sort()
     };
     broadcast(userListMessage);
+    console.log(`[BroadCast]: ${JSON.stringify(userListMessage)}`)
 }
 
 async function removeLastAIChatMessage() {
@@ -178,7 +231,53 @@ async function removeLastAIChatMessage() {
     broadcast(chatUpdateMessage);
 }
 
-async function handleConnections(ws) {
+function humanizedTimestamp() {
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.getDate()).padStart(2, '0');
+    const hour = String(currentDate.getHours()).padStart(2, '0');
+    const minute = String(currentDate.getMinutes()).padStart(2, '0');
+    const second = String(currentDate.getSeconds()).padStart(2, '0');
+    const currentDateTime = `${year}-${month}-${day}_${hour}h${minute}m${second}s`;
+    return currentDateTime
+}
+
+async function saveAndClearChat(type) {
+
+    let fileprefix, currentChatData
+    if (type === 'AIChat') {
+        fileprefix = 'AIChat_'
+        currentChatData = await readAIChat();
+    } else {
+        fileprefix = 'UserChat_'
+        currentChatData = await readUserChat();
+    }
+
+    let currentTimestamp = humanizedTimestamp()
+    const newFileName = `${fileprefix}${currentTimestamp}.json`;
+    const newFilePath = `public/chats/${newFileName}`;
+
+    fs.writeFile(newFilePath, currentChatData, 'utf8', (writeErr) => {
+        if (writeErr) {
+            console.error('An error occurred while writing to the file:', writeErr);
+            return;
+        }
+        console.log(`Saved current ${type} as ${newFileName}.`);
+    });
+
+    // Create a new file with an empty array
+    try {
+        console.log(`Clearing ${type}.json...`);
+        type === 'AIChat' ? await writeAIChat('[]') : await writeUserChat('[]')
+
+    } catch (writeError) {
+        console.error('An error occurred while creating the file:', writeError);
+        return;
+    }
+}
+
+async function handleConnections(ws, type) {
     // Store the connected client in the appropriate array based on the server
     const thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
     clientsArray.push({
@@ -187,6 +286,7 @@ async function handleConnections(ws) {
     });
 
     const cardList = await getCardList()
+    const samplerPresetList = await getSamplerPresetList()
     var AIChatJSON = await readAIChat();
     var userChatJSON = await readUserChat()
 
@@ -195,15 +295,25 @@ async function handleConnections(ws) {
         type: 'connectionConfirmed',
         chatHistory: userChatJSON,
         AIChatHistory: AIChatJSON,
-        color: thisUserColor,
-        cardList: cardList,
-        selectedCharacter: selectedCharacter,
         userList: connectedUserNames,
         engineMode: engineMode,
         isAutoResponse: isAutoResponse,
         contextSize: contextSize,
-        responseLength: responseLength
+        responseLength: responseLength,
+        color: thisUserColor
     }
+    if (type === 'host') {
+        console.log("HOST CONNECTED")
+        connectionConfirmedMessage["cardList"] = cardList
+        connectionConfirmedMessage["samplerPresetList"] = samplerPresetList
+        connectionConfirmedMessage["selectedCharacter"] = liveConfig.selectedCharacter
+        connectionConfirmedMessage["selectedSamplerPreset"] = liveConfig.selectedPreset
+        connectionConfirmedMessage["engineMode"] = liveConfig.engineMode
+        connectionConfirmedMessage["isAutoResponse"] = liveConfig.isAutoResponse
+        connectionConfirmedMessage["contextSize"] = liveConfig.contextSize
+        connectionConfirmedMessage["responseLength"] = liveConfig.responseLength
+    }
+
     //send connection confirmation along with chat history
     ws.send(JSON.stringify(connectionConfirmedMessage))
     broadcastUserList()
@@ -222,52 +332,48 @@ async function handleConnections(ws) {
             if (parsedMessage.type === 'connect') {
                 console.log('saw connect message from client')
                 ws.username = parsedMessage.username;
+                console.log(`Adding ${parsedMessage.username} to connected user list..`)
                 connectedUserNames.push(parsedMessage.username)
                 console.log(`connectedUserNames: ${connectedUserNames}`)
                 await broadcastUserList()
-                return
+
             }
             else if (parsedMessage.type === 'clearChat') {
                 //clear the UserChat.json file
-                await writeUserChat('[]')
+                await saveAndClearChat('UserChat')
                 // Broadcast the clear chat message to all connected clients
                 broadcast(parsedMessage);
             }
             else if (parsedMessage.type === 'toggleAutoResponse') {
                 isAutoResponse = parsedMessage.value
-                console.log(`AI AutoResponse set to ${isAutoResponse}`)
+                liveConfig.isAutoResponse = isAutoResponse
+                await writeConfig('isAutoResponse', isAutoResponse)
             }
             else if (parsedMessage.type === 'adjustContextSize') {
                 contextSize = parsedMessage.value
-                console.log(`Context Size set to ${contextSize}`)
+                liveConfig.contextSize = contextSize
+                await writeConfig('contextSize', contextSize)
+
             }
             else if (parsedMessage.type === 'adjustResponseLength') {
                 responseLength = parsedMessage.value
-                console.log(`Response Length set to ${responseLength}`)
+                liveConfig.responseLength = responseLength
+                await writeConfig('responseLength', responseLength)
+
             }
             else if (parsedMessage.type === 'clearAIChat') {
-                //clear the UserChat.json file
-                await writeAIChat('[]')
-                // Broadcast the clear chat message to all connected clients
+                await saveAndClearChat('AIChat')
                 broadcast(parsedMessage);
             }
             else if (parsedMessage.type === 'deleteLast') {
                 await removeLastAIChatMessage()
             }
-            else if (parsedMessage.type === 'cardListQuery') {
-                let cards = await getCardList()
-                let cardListMessage = {
-                    type: 'cardList',
-                    cards: cards
-                }
-                ws.send(JSON.stringify(cardListMessage))
-                return
-            }
             else if (parsedMessage.type === 'disconnect') {
                 const disconnectedUsername = parsedMessage.username;
+                console.log(`Removing ${disconnectedUsername} from the User List...`)
                 connectedUserNames = connectedUserNames.filter(username => username !== disconnectedUsername);
                 await broadcastUserList()
-                return
+
             }
             else if (parsedMessage.type === 'usernameChange') {
                 const oldName = parsedMessage.oldName;
@@ -289,7 +395,22 @@ async function handleConnections(ws) {
                     char: parsedMessage.newChar
                 }
                 selectedCharacter = parsedMessage.newChar
+                liveConfig.selectedCharacter = selectedCharacter
+                await writeConfig('selectedCharacter', selectedCharacter)
                 broadcast(changeCharMessage);
+            }
+            else if (parsedMessage.type === 'changeSamplerPreset') {
+                const changePresetMessage = {
+                    type: 'changeSamplerPreset',
+                    newPreset: parsedMessage.newPreset
+                }
+                selectedPreset = parsedMessage.newPreset
+                liveConfig.selectedPreset = selectedPreset
+                const samplerData = await readFile(selectedPreset)
+                liveConfig.samplers = samplerData
+                await writeConfig('samplers', liveConfig.samplers)
+                await writeConfig('selectedPreset', selectedPreset)
+                broadcast(changePresetMessage);
             }
             else if (parsedMessage.type === 'AIRetry') {
                 // Read the AIChat file
@@ -312,6 +433,8 @@ async function handleConnections(ws) {
                     type: 'modeChange',
                     engineMode: engineMode
                 }
+                liveConfig.engineMode = engineMode
+                await writeConfig('engineMode', engineMode)
                 broadcast(modeChangeMessage);
             }
 
@@ -349,7 +472,7 @@ async function handleConnections(ws) {
                         await writeAIChat(formmattedData)
                         broadcast(userPrompt)
                     }
-                    if (isAutoResponse || isEmptyTrigger) {
+                    if (liveConfig.isAutoResponse || isEmptyTrigger) {
                         await getAIResponse()
                     }
                 }
@@ -373,33 +496,39 @@ async function handleConnections(ws) {
 
                     //if it's not an empty trigger from host
                     //if userInput is empty we can just request the AI directly
-                    let charFile = parsedMessage.char
+                    let charFile = liveConfig.selectedCharacter
                     let cardData = await charaRead(charFile, 'png')
                     let cardJSON = JSON.parse(cardData)
                     let charName = cardJSON.name
-
                     var finalCharName = JSON.stringify(`\n${charName}:`);
-                    //}
                     //strips out HTML tags from last message
                     var fixedFinalCharName = JSON.parse(finalCharName.replace(/<[^>]+>/g, ''));
 
                     const fullPromptforAI = await addCharDefsToPrompt(charFile, fixedFinalCharName, parsedMessage.username)
+                    const samplers = JSON.parse(liveConfig.samplers);
+                    //apply the selected preset values to the API call
+                    for (const [key, value] of Object.entries(samplers)) {
+                        parsedMessage.APICallParams[key] = value;
+                    }
+                    //add full prompt to API call
                     parsedMessage.APICallParams.prompt = fullPromptforAI;
-                    parsedMessage.APICallParams.truncation_length = Number(contextSize)
-                    parsedMessage.APICallParams.max_new_tokens = Number(responseLength)
-                    parsedMessage.APICallParams.max_tokens = Number(responseLength)
-                    parsedMessage.APICallParams.max_length = Number(responseLength)
+                    //ctx and response length for Tabby
+                    parsedMessage.APICallParams.truncation_length = Number(liveConfig.contextSize)
+                    parsedMessage.APICallParams.max_tokens = Number(liveConfig.responseLength)
+                    //ctx and response length for Horde
+                    parsedMessage.APICallParams.max_context_length = Number(liveConfig.contextSize)
+                    parsedMessage.APICallParams.max_length = Number(liveConfig.responseLength)
 
-                    // AI_API_SELECTION_CODE
-                    // UNCOMMENT THIS LINE IF YOU WANT TO USE HORDE FOR AI RESPONSES
-                    //parsedMessage.APICallParams.engine = 'horde';
+                    //add stop strings
+                    const APICallParams = await setStopStrings(parsedMessage.APICallParams)
+
                     var AIResponse = '';
                     if (engineMode === 'horde') {
-                        const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.APICallParams);
+                        const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(APICallParams);
                         AIResponse = hordeResponse;
                     }
                     else {
-                        AIResponse = trimIncompleteSentences(await requestToTabby(parsedMessage.APICallParams))
+                        AIResponse = trimIncompleteSentences(await requestToTabby(APICallParams))
                     }
 
                     const AIResponseForChatJSON = {
@@ -476,7 +605,6 @@ async function readAIChat() {
     });
 }
 
-
 async function writeAIChat(data) {
     fs.writeFile('public/chats/AIChat.json', data, 'utf8', (writeErr) => {
         if (writeErr) {
@@ -514,7 +642,6 @@ async function readUserChat() {
     });
 }
 
-
 async function writeUserChat(data) {
     fs.writeFile('public/chats/UserChat.json', data, 'utf8', (writeErr) => {
         if (writeErr) {
@@ -522,6 +649,76 @@ async function writeUserChat(data) {
             return;
         }
         console.log('UserChat.json updated.');
+    });
+}
+
+async function readConfig() {
+    await delay(100)
+    //console.log('--- READ CONFIG started')
+    return new Promise(async (resolve, reject) => {
+        fs.readFile('config.json', 'utf8', async (err, data) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    console.log('config.json not found, initializing with default values.');
+                    try {
+                        //console.log('--- READ CONFIG calling initconfig')
+                        await delay(100)
+                        await initConfig();
+                        //console.log('----- CREATED NEW CONFIG FILE, RETURNING IT')
+                        resolve(liveConfig); // Assuming liveconfig is accessible here
+                    } catch (initErr) {
+                        console.error('An error occurred while initializing the file:', initErr);
+                        reject(initErr);
+                    }
+                } else {
+                    console.error('An error occurred while reading the file:', err);
+                    reject(err);
+                }
+            } else {
+                try {
+                    await delay(100)
+                    const configData = JSON.parse(data); // Parse the content as JSON
+                    resolve(configData);
+                } catch (parseErr) {
+                    console.error('An error occurred while parsing the JSON:', parseErr);
+                    reject(parseErr);
+                }
+            }
+        });
+    });
+}
+
+async function writeConfig(key, value) {
+    await delay(100)
+    let newObject = await readConfig()
+    newObject[key] = value;
+    //console.log('should have made changes to config object. Lets check.');
+    console.log(`Config updated: ${key} = ${value}`);
+    const writableConfig = JSON.stringify(newObject, null, 2); // Serialize the object with indentation
+    fs.writeFile('config.json', writableConfig, 'utf8', writeErr => {
+        if (writeErr) {
+            console.error('An error occurred while writing to the file:', writeErr);
+            return;
+        }
+        console.log('config.json updated.');
+    });
+}
+
+async function readFile(file) {
+    console.log(`[readFile()] Reading ${file}...`)
+    return new Promise((resolve, reject) => {
+        fs.readFile(file, 'utf8', (err, data) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    console.log(`ERROR: ${file} not found`);
+                } else {
+                    console.error('An error occurred while reading the file:', err);
+                    reject(err);
+                }
+            } else {
+                resolve(data);
+            }
+        });
     });
 }
 
@@ -554,6 +751,7 @@ function trimIncompleteSentences(input, include_newline = false) {
 
 async function ObjectifyChatHistory() {
     return new Promise(async (resolve, reject) => {
+        await delay(100)
         let data = await readAIChat();
         try {
             // Parse the existing contents as a JSON array
@@ -564,6 +762,37 @@ async function ObjectifyChatHistory() {
             reject(parseError);
         }
     });
+}
+
+async function setStopStrings(APICallParams) {
+
+    let chatHistory = await ObjectifyChatHistory();
+    let usernames = new Set();
+
+    // Iterate over chatHistory and extract unique usernames
+    for (const obj of chatHistory) {
+        const username = obj.username;
+        usernames.add(username);
+    }
+    let targetObj = []
+
+    // Generate permutations for each unique username
+    for (const username of usernames) {
+        targetObj.push(
+            `${username}:`,
+            `\n${username}:`,
+            ` ${username}:`,
+            `\n ${username}:`
+        );
+    }
+
+    if (liveConfig.engineMode === 'tabby') {
+        APICallParams.stop = targetObj
+    } else {
+        APICallParams.params.stop_sequence = targetObj
+    }
+
+    return APICallParams
 }
 
 async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username) {
@@ -590,7 +819,7 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
                 let obj = chatHistory[i];
                 let newItem = `${obj.username}: ${obj.content}\n`;
                 let newItemTokens = countTokens(newItem);
-                if (promptTokens + newItemTokens < contextSize) {
+                if (promptTokens + newItemTokens < liveConfig.contextSize) {
                     promptTokens += newItemTokens;
                     //console.log(`added new item, prompt tokens: ~${promptTokens}`);
                     insertedItems.push(newItem); // Add new item to the array
@@ -749,11 +978,7 @@ process.on('SIGINT', () => {
     const serverShutdownMessage = {
         type: 'forceDisconnect',
     };
-    clientsArray.forEach(client => {
-        if (client.socket.readyState === WebSocket.OPEN) {
-            client.socket.send(JSON.stringify(serverShutdownMessage));
-        }
-    });
+    broadcast(serverShutdownMessage);
 
     // Close the WebSocket server
     wsServer.close(() => {

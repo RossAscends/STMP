@@ -57,49 +57,31 @@ var userRole = (hostname === 'localhost' || hostname === '127.0.0.1') ? 'Host' :
 var isHost = (userRole === 'Host') ? true : false;
 
 //API_PARAMS_FOR_TABBY
-//uncomment the code below to send Tabby-compliant API parameters
 var TabbyAPICallParams = {
     "prompt": "",
-    "max_new_tokens": 200,
+    "stream": false,
+    "truncation_length": 4096,
     "max_tokens": 200,
-    "do_sample": true,
     "temperature": 2,
+    "top_k": 0,
     "top_p": 1,
-    "typical_p": 1,
     "min_p": 0.2,
+    "typical_p": 1,
+    "tfs": 1,
     "repetition_penalty": 1.1,
     "repetition_penalty_range": 400,
-    "encoder_repetition_penalty": 1,
-    "top_k": 0,
-    "min_length": 0,
-    "no_repeat_ngram_size": 0,
-    "num_beams": 1,
-    "penalty_alpha": 0,
-    "length_penalty": 1,
-    "early_stopping": false,
-    "guidance_scale": 1,
-    "negative_prompt": "",
     "seed": -1,
-    "add_bos_token": true,
-    "stop": [],
-    "truncation_length": 4096,
-    "ban_eos_token": false,
     "skip_special_tokens": true,
-    "top_a": 0,
-    "tfs": 1,
-    "epsilon_cutoff": 0,
-    "eta_cutoff": 0,
     "mirostat_mode": 0,
     "mirostat_tau": 5,
     "mirostat_eta": 0.1,
     "grammar_string": "",
     "custom_token_bans": "",
-    "stream": false
+    "stop": []
 }
 //END_OF_TABBY_PARAMETERS
 
 //API_PARAMS_FOR_HORDE
-//uncomment the code below to enable API for Horde
 var HordeAPICallParams = {
     "prompt": "",
     "params": {
@@ -171,31 +153,13 @@ var HordeAPICallParams = {
 
 var APICallParams = TabbyAPICallParams;
 
-
-function clearChatDiv() {
-    $("#chat").empty()
-}
-
-function clearAIChatDiv() {
-    $("#AIchat").empty()
-}
-
-function updateUserList(username) {
-    let nameAlreadyExists = $("#userList ul").find(`li[data-foruser="${username}"]`);
-    if (nameAlreadyExists.length !== 0) {
-        nameAlreadyExists.remove();
-    } else {
-        $("#userList ul").append(`<li data-foruser="${username}">${username}</li>`)
-    }
-}
-
 function updateUIUserList(userList) {
-    console.log(userList)
-    console.log('starting initial userlist population')
+    console.debug(userList)
+    console.log('populating user list...')
     const userListElement = $('#userList ul');
     userListElement.empty() // Clear the existing user list
     userList.forEach(username => {
-        const listItem = `<li>${username}</li>`;
+        const listItem = `<li data-foruser="${username}" title="${username}">${username}</li>`;
         userListElement.append(listItem);
     });
 }
@@ -206,20 +170,30 @@ function updateSelectedChar(char, type) {
     }
 }
 
+function updateSelectedSamplerPreset(preset, type) {
+    if (type === 'forced') {
+        $("#samplerPreset").find(`option[value="${preset}"]`).prop('selected', true).trigger('change')
+    }
+}
+
 function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
-    const { selectedCharacter, chatHistory, AIChatHistory, cardList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
+    const { selectedCharacter, selectedSamplerPreset, chatHistory, AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
     $("#AIAutoResponse").prop('checked', isAutoResponse)
     $("#maxContext").find(`option[value="${contextSize}"]`).prop('selected', true)
     $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
     $("#chat").empty();
     $("#AIchat").empty();
 
-    populateCardSelector(cardList);
-    console.debug(`selecting character as defined from server: ${selectedCharacter}`);
-    updateSelectedChar(selectedCharacter, 'forced');
-
-    setEngineMode(engineMode);
+    updateUIUserList(userList);
+    if (userRole === 'Host') {
+        populateCardSelector(cardList);
+        populateSamplerSelector(samplerPresetList);
+        console.debug(`selecting character as defined from server: ${selectedCharacter}`);
+        updateSelectedChar(selectedCharacter, 'forced');
+        updateSelectedSamplerPreset(selectedSamplerPreset, 'forced');
+        setEngineMode(engineMode);
+    }
 
     if (chatHistory) {
         const trimmedChatHistoryString = chatHistory.trim();
@@ -235,6 +209,13 @@ function processConfirmedConnection(parsedMessage) {
 
     $("#chat").scrollTop($("#chat").prop("scrollHeight"));
     $("#AIchat").scrollTop($("#AIchat").prop("scrollHeight"));
+    const connectionMessage = {
+        type: 'connect',
+        role: userRole,
+        username: username
+    };
+    console.log('sending connection message..')
+    socket.send(JSON.stringify(connectionMessage));
 }
 
 function appendMessages(messages, elementSelector) {
@@ -271,10 +252,10 @@ function connectWebSocket() {
 
         switch (parsedMessage?.type) {
             case 'clearChat':
-                clearChatDiv();
+                $("#chat").empty()
                 break;
             case 'clearAIChat':
-                clearAIChatDiv();
+                $("#AIchat").empty()
                 break;
             case 'chatUpdate':
                 console.log('saw chat update instruction');
@@ -323,6 +304,12 @@ function connectWebSocket() {
                 }
                 updateSelectedChar(parsedMessage.char, 'forced');
                 break;
+            case 'changeSamplerPreset':
+                if (isHost) {
+                    return;
+                }
+                updateSelectedSamplerPreset(parsedMessage.newPreset, 'forced');
+                break;
             default:
                 var { chatID, username, content, userColor, workerName, hordeModel, kudosCost } = JSON.parse(message);
                 const HTMLizedMessage = converter.makeHtml(content);
@@ -344,15 +331,9 @@ function handleSocketOpening() {
     $("#reconnectButton").hide()
     $("#disconnectButton").show()
     const username = $("#usernameInput").val()
-    console.log(username)
+    console.debug(`connected as ${username}`)
     $("#messageInput").prop("disabled", false).prop('placeholder', 'Type a message').removeClass('disconnected')
     $("#AIMessageInput").prop("disabled", false).prop('placeholder', 'Type a message').removeClass('disconnected')
-    const connectionMessage = {
-        type: 'connect',
-        username: username
-    };
-    console.log('sending connection message..')
-    socket.send(JSON.stringify(connectionMessage));
 };
 
 function disconnectWebSocket() {
@@ -386,7 +367,6 @@ function updateUserName() {
 
 function doAIRetry() {
     let char = $('#characters').val();
-    setStopStrings()
     let retryMessage = {
         type: 'AIRetry',
         chatID: 'AIChat',
@@ -395,21 +375,6 @@ function doAIRetry() {
         char: char
     }
     socket.send(JSON.stringify(retryMessage))
-}
-
-function setStopStrings() {
-    let charDisplayName = $('#characters option:selected').text();
-
-    APICallParams.stop = [
-        `${username}:`,
-        `\n${username}:`,
-        ` ${username}:`,
-        `\n ${username}:`,
-        `${charDisplayName}:`,
-        `\n${charDisplayName}:`,
-        ` ${charDisplayName}:`,
-        `\n ${charDisplayName}:`
-    ]
 }
 
 //Just update Localstorage, no need to send anything to server for this.
@@ -429,6 +394,21 @@ async function populateCardSelector(cardList) {
         newElem.val(card.filename);
         newElem.text(card.name);
         cardSelectElement.append(newElem);
+    }
+    if (!isHost) {
+        $("#characters").prop('disabled', true);
+    }
+}
+
+async function populateSamplerSelector(presetList) {
+    console.log(presetList)
+    let samplerSelectElement = $("#samplerPreset");
+    samplerSelectElement.empty()
+    for (const preset of presetList) {
+        let newElem = $('<option>');
+        newElem.val(preset.filename);
+        newElem.text(preset.name);
+        samplerSelectElement.append(newElem);
     }
     if (!isHost) {
         $("#characters").prop('disabled', true);
@@ -551,6 +531,20 @@ $(document).ready(async function () {
         }
     })
 
+    $("#samplerPreset").on('change', function () {
+        if (!isHost) {
+            return
+        }
+        else {
+            let newPreset = String($("#samplerPreset").val())
+            let changeSamplerPresetMessage = {
+                type: 'changeSamplerPreset',
+                newPreset: newPreset
+            }
+            socket.send(JSON.stringify(changeSamplerPresetMessage));
+        }
+    })
+
     //A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.
     $("#toggleMode").off('click').on('click', function () {
         if (!isHost) {
@@ -590,14 +584,15 @@ $(document).ready(async function () {
         }
 
         var messageInput = $("#AIMessageInput");
-        if (messageInput.val().trim() === '' && !isHost) {
+        if (messageInput.val().trim() === '') {
             alert("Can't send empty message!");
             return;
         }
         username = $("#AIUsernameInput").val()
         let charDisplayName = $('#characters option:selected').text();
-
-        setStopStrings()
+        //TODO: make this function grab usernames for all entities in chat history
+        //and move it inside the Prompt crafting function
+        //Move it to server-side. client side has no idea on its own.
 
         var markdownContent = `${messageInput.val()}`;
         var htmlContent = converter.makeHtml(markdownContent);
@@ -609,8 +604,6 @@ $(document).ready(async function () {
             username: username,
             APICallParams: APICallParams,
             userInput: markdownContent,
-            htmlContent: htmlContent,
-            char: char
         }
         localStorage.setItem('AIChatUsername', username);
         socket.send(JSON.stringify(websocketRequest));
@@ -645,6 +638,7 @@ $(document).ready(async function () {
     console.log(`Host? ${isHost}`)
     if (!isHost) {
         $(".hostControls").remove()
+        $("#controlPanel").remove()
     }
 
     await startupUsernames()
@@ -687,7 +681,7 @@ $(document).ready(async function () {
                 return;
             }
             event.preventDefault();
-            $("#AISendButton").click();
+            $("#AISendButton").trigger('click');
         }
     });
 

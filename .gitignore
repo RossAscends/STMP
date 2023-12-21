@@ -136,3 +136,4 @@ public/chats/
 public/api-presets/
 cloudflared.exe
 config.json
+lockfile.lock

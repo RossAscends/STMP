@@ -146,11 +146,51 @@ select:hover {
     top: 50%;
 }
 
-input[type=checkbox i]:hover,
-input[type=checkbox i]:focus-visible {
-    outline: none;
-    color: red !important;
-    background-color: blue !important
+/*CHECKBOXES*/
+input[type='checkbox'] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* outline: 1px solid #666; */
+    position: relative;
+    width: 1.5em;
+    height: 1.5em;
+    overflow: hidden;
+    border-radius: 3px;
+    border: 1px solid #666;
+    background-color: #333;
+    box-shadow: inset 0 0 2px 0 rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    transform: translateY(-0.075em);
+    flex-shrink: 0;
+    place-content: center;
+    filter: brightness(1.2);
+}
+
+input[type='checkbox'] {
+    display: grid;
+}
+
+input[type="checkbox"]::before {
+    content: "";
+    width: 1em;
+    height: 1em;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    box-shadow: inset 1em 1em #888;
+    transform-origin: bottom left;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+
+.checkbox_label {
+    display: flex;
+    flex-direction: row;
+    column-gap: 5px;
+    align-items: baseline;
 }
 
 button,
@@ -359,11 +399,11 @@ hr {
 }
 
 .greyscale {
-    filter: grayscale(0.7)
+    filter: saturate(0.3)
 }
 
 .greyscale:hover {
-    filter: grayscale(0)
+    filter: saturate(0.7)
 }
 
 .transition250 {

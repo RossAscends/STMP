@@ -367,7 +367,6 @@ function updateUserName() {
 
 function doAIRetry() {
     let char = $('#characters').val();
-    setStopStrings()
     let retryMessage = {
         type: 'AIRetry',
         chatID: 'AIChat',
@@ -376,21 +375,6 @@ function doAIRetry() {
         char: char
     }
     socket.send(JSON.stringify(retryMessage))
-}
-
-function setStopStrings() {
-    let charDisplayName = $('#characters option:selected').text();
-
-    APICallParams.stop = [
-        `${username}:`,
-        `\n${username}:`,
-        ` ${username}:`,
-        `\n ${username}:`,
-        `${charDisplayName}:`,
-        `\n${charDisplayName}:`,
-        ` ${charDisplayName}:`,
-        `\n ${charDisplayName}:`
-    ]
 }
 
 //Just update Localstorage, no need to send anything to server for this.
@@ -609,7 +593,6 @@ $(document).ready(async function () {
         //TODO: make this function grab usernames for all entities in chat history
         //and move it inside the Prompt crafting function
         //Move it to server-side. client side has no idea on its own.
-        setStopStrings()
 
         var markdownContent = `${messageInput.val()}`;
         var htmlContent = converter.makeHtml(markdownContent);
@@ -621,8 +604,6 @@ $(document).ready(async function () {
             username: username,
             APICallParams: APICallParams,
             userInput: markdownContent,
-            htmlContent: htmlContent,
-            char: char
         }
         localStorage.setItem('AIChatUsername', username);
         socket.send(JSON.stringify(websocketRequest));

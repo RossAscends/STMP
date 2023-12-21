@@ -515,13 +515,16 @@ async function handleConnections(ws, type) {
                     parsedMessage.APICallParams.max_context_length = Number(liveConfig.contextSize)
                     parsedMessage.APICallParams.max_length = Number(liveConfig.responseLength)
 
+                    //add stop strings
+                    const APICallParams = await setStopStrings(parsedMessage.APICallParams)
+
                     var AIResponse = '';
                     if (engineMode === 'horde') {
-                        const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.APICallParams);
+                        const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(APICallParams);
                         AIResponse = hordeResponse;
                     }
                     else {
-                        AIResponse = trimIncompleteSentences(await requestToTabby(parsedMessage.APICallParams))
+                        AIResponse = trimIncompleteSentences(await requestToTabby(APICallParams))
                     }
 
                     const AIResponseForChatJSON = {
@@ -597,7 +600,6 @@ async function readAIChat() {
         });
     });
 }
-
 
 async function writeAIChat(data) {
     fs.writeFile('public/chats/AIChat.json', data, 'utf8', (writeErr) => {
@@ -716,9 +718,6 @@ async function readFile(file) {
     });
 }
 
-
-
-
 function trimIncompleteSentences(input, include_newline = false) {
     const punctuation = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit
     let last = -1;
@@ -759,6 +758,37 @@ async function ObjectifyChatHistory() {
             reject(parseError);
         }
     });
+}
+
+async function setStopStrings(APICallParams) {
+
+    let chatHistory = await ObjectifyChatHistory();
+    let usernames = new Set();
+
+    // Iterate over chatHistory and extract unique usernames
+    for (const obj of chatHistory) {
+        const username = obj.username;
+        usernames.add(username);
+    }
+    let targetObj = []
+
+    // Generate permutations for each unique username
+    for (const username of usernames) {
+        targetObj.push(
+            `${username}:`,
+            `\n${username}:`,
+            ` ${username}:`,
+            `\n ${username}:`
+        );
+    }
+
+    if (liveConfig.engineMode === 'tabby') {
+        APICallParams.stop = targetObj
+    } else {
+        APICallParams.params.stop_sequence = targetObj
+    }
+
+    return APICallParams
 }
 
 async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username) {

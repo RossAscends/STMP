@@ -219,6 +219,52 @@ async function removeLastAIChatMessage() {
     broadcast(chatUpdateMessage);
 }
 
+function humanizedTimestamp() {
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.getDate()).padStart(2, '0');
+    const hour = String(currentDate.getHours()).padStart(2, '0');
+    const minute = String(currentDate.getMinutes()).padStart(2, '0');
+    const second = String(currentDate.getSeconds()).padStart(2, '0');
+    const currentDateTime = `${year}-${month}-${day}_${hour}h${minute}m${second}s`;
+    return currentDateTime
+}
+
+async function saveAndClearChat(type) {
+
+    let fileprefix, currentChatData
+    if (type === 'AIChat') {
+        fileprefix = 'AIChat_'
+        currentChatData = await readAIChat();
+    } else {
+        fileprefix = 'UserChat_'
+        currentChatData = await readUserChat();
+    }
+
+    let currentTimestamp = humanizedTimestamp()
+    const newFileName = `${fileprefix}${currentTimestamp}.json`;
+    const newFilePath = `public/chats/${newFileName}`;
+
+    fs.writeFile(newFilePath, currentChatData, 'utf8', (writeErr) => {
+        if (writeErr) {
+            console.error('An error occurred while writing to the file:', writeErr);
+            return;
+        }
+        console.log(`Saved current ${type} as ${newFileName}.`);
+    });
+
+    // Create a new file with an empty array
+    try {
+        console.log(`Clearing ${type}.json...`);
+        type === 'AIChat' ? await writeAIChat('[]') : await writeUserChat('[]')
+
+    } catch (writeError) {
+        console.error('An error occurred while creating the file:', writeError);
+        return;
+    }
+}
+
 async function handleConnections(ws) {
     // Store the connected client in the appropriate array based on the server
     const thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
@@ -270,7 +316,7 @@ async function handleConnections(ws) {
             }
             else if (parsedMessage.type === 'clearChat') {
                 //clear the UserChat.json file
-                await writeUserChat('[]')
+                await saveAndClearChat('UserChat')
                 // Broadcast the clear chat message to all connected clients
                 broadcast(parsedMessage);
             }
@@ -292,9 +338,7 @@ async function handleConnections(ws) {
 
             }
             else if (parsedMessage.type === 'clearAIChat') {
-                //clear the UserChat.json file
-                await writeAIChat('[]')
-                // Broadcast the clear chat message to all connected clients
+                await saveAndClearChat('AIChat')
                 broadcast(parsedMessage);
             }
             else if (parsedMessage.type === 'deleteLast') {

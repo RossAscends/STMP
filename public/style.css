@@ -101,6 +101,7 @@ select {
     color: #999;
     outline: none;
     transition: all 250ms;
+    z-index: 2;
 }
 
 button,

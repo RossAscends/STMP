@@ -135,3 +135,4 @@ public/characters/
 public/chats/
 public/api-presets/
 cloudflared.exe
+config.json

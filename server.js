@@ -110,6 +110,47 @@ var selectedCharacter
 var isAutoResponse = true
 var responseLength = 200
 var contextSize = 4096
+var liveConfig
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function initConfig() {
+    if (!fs.existsSync('config.json')) {
+        let config = {
+            engineMode: engineMode,
+            selectedCharacter: '',
+            responseLength: responseLength,
+            contextSize: contextSize,
+            isAutoResponse: isAutoResponse,
+        }
+        liveConfig = config
+        const writableArray = JSON.stringify(config, null, 2);
+        //console.log('initConfig writing initial file')
+        fs.writeFileSync('config.json', writableArray);
+        console.log('config.json created with default values.');
+
+    } else {
+        console.log('config.json already exists.');
+        liveConfig = await readConfig()
+    }
+}
+
+initConfig()
+
+/* async function testConfig() {
+    initConfig()
+    await delay(1)
+    let configData = await readConfig()
+    await delay(1)
+    await writeConfig(configData, 'selectedCharacter', 'Coding Sensei')
+    await delay(1)
+    let newConfigData = await readConfig()
+    console.log(newConfigData)
+}
+
+testConfig() */
 
 // Handle incoming WebSocket connections
 wsServer.on('connection', (ws) => {
@@ -235,15 +276,20 @@ async function handleConnections(ws) {
             }
             else if (parsedMessage.type === 'toggleAutoResponse') {
                 isAutoResponse = parsedMessage.value
-                console.log(`AI AutoResponse set to ${isAutoResponse}`)
+                liveConfig.isAutoResponse = isAutoResponse
+                await writeConfig('isAutoResponse', isAutoResponse)
             }
             else if (parsedMessage.type === 'adjustContextSize') {
                 contextSize = parsedMessage.value
-                console.log(`Context Size set to ${contextSize}`)
+                liveConfig.contextSize = contextSize
+                await writeConfig('contextSize', contextSize)
+
             }
             else if (parsedMessage.type === 'adjustResponseLength') {
                 responseLength = parsedMessage.value
-                console.log(`Response Length set to ${responseLength}`)
+                liveConfig.responseLength = responseLength
+                await writeConfig('responseLength', responseLength)
+
             }
             else if (parsedMessage.type === 'clearAIChat') {
                 //clear the UserChat.json file
@@ -289,6 +335,8 @@ async function handleConnections(ws) {
                     char: parsedMessage.newChar
                 }
                 selectedCharacter = parsedMessage.newChar
+                liveConfig.selectedCharacter = selectedCharacter
+                await writeConfig('selectedCharacter', selectedCharacter)
                 broadcast(changeCharMessage);
             }
             else if (parsedMessage.type === 'AIRetry') {
@@ -514,7 +562,6 @@ async function readUserChat() {
     });
 }
 
-
 async function writeUserChat(data) {
     fs.writeFile('public/chats/UserChat.json', data, 'utf8', (writeErr) => {
         if (writeErr) {
@@ -524,6 +571,62 @@ async function writeUserChat(data) {
         console.log('UserChat.json updated.');
     });
 }
+
+async function readConfig() {
+    //console.log('--- READ CONFIG started')
+    return new Promise(async (resolve, reject) => {
+        fs.readFile('config.json', 'utf8', async (err, data) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    console.log('config.json not found, initializing with default values.');
+                    try {
+                        //console.log('--- READ CONFIG calling initconfig')
+                        await initConfig();
+                        //console.log('----- CREATED NEW CONFIG FILE, RETURNING IT')
+                        resolve(liveConfig); // Assuming liveconfig is accessible here
+                    } catch (initErr) {
+                        console.error('An error occurred while initializing the file:', initErr);
+                        reject(initErr);
+                    }
+                } else {
+                    console.error('An error occurred while reading the file:', err);
+                    reject(err);
+                }
+            } else {
+                try {
+                    //console.log('--- READ CONFIG saw data:')
+                    console.log(data)
+                    //console.log('--- READ CONFIG parsing data')
+                    const configData = JSON.parse(data); // Parse the content as JSON
+                    //console.log('--- READ CONFIG sending back parsed data')
+                    resolve(configData);
+                } catch (parseErr) {
+                    console.error('An error occurred while parsing the JSON:', parseErr);
+                    reject(parseErr);
+                }
+            }
+        });
+    });
+}
+
+async function writeConfig(key, value) {
+    let newObject = await readConfig()
+    await delay(1)
+    newObject[key] = value;
+    //console.log('should have made changes to config object. Lets check.');
+    console.log(`Config updated: ${key} = ${value}`);
+    const writableConfig = JSON.stringify(newObject, null, 2); // Serialize the object with indentation
+    fs.writeFile('config.json', writableConfig, 'utf8', writeErr => {
+        if (writeErr) {
+            console.error('An error occurred while writing to the file:', writeErr);
+            return;
+        }
+        console.log('config.json updated.');
+    });
+}
+
+
+
 
 function trimIncompleteSentences(input, include_newline = false) {
     const punctuation = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit

@@ -188,6 +188,30 @@ async function getCardList() {
     return cards;
 }
 
+async function getSamplerPresetList() {
+    const path = 'public/api-presets'
+    const files = await fs.promises.readdir(path);
+    var presets = []
+    var i = 0
+    //console.log('Files in directory:');
+    for (const file of files) {
+        try {
+            let fullPath = `${path}/${file}`
+            //const samplerPreset = await readFile(fullPath);
+            //var jsonData = JSON.parse(samplerPreset);
+            //jsonData.filename = `${path}/${file}`
+            presets[i] = {
+                name: file.replace('.json', ''),
+                filename: fullPath,
+            }
+        } catch (error) {
+            console.error(`Error reading file ${file}:`, error);
+        }
+        i++
+    }
+    return presets;
+}
+
 async function broadcast(message) {
     clientsArray.forEach(client => {
         if (client.socket.readyState === WebSocket.OPEN) {
@@ -274,6 +298,7 @@ async function handleConnections(ws) {
     });
 
     const cardList = await getCardList()
+    const samplerPresetList = await getSamplerPresetList()
     var AIChatJSON = await readAIChat();
     var userChatJSON = await readUserChat()
 
@@ -284,7 +309,9 @@ async function handleConnections(ws) {
         AIChatHistory: AIChatJSON,
         color: thisUserColor,
         cardList: cardList,
+        samplerPresetList: samplerPresetList,
         selectedCharacter: liveConfig.selectedCharacter,
+        selectedSamplerPreset: liveConfig.selectedPreset,
         userList: connectedUserNames,
         engineMode: liveConfig.engineMode,
         isAutoResponse: liveConfig.isAutoResponse,
@@ -343,7 +370,7 @@ async function handleConnections(ws) {
             }
             else if (parsedMessage.type === 'deleteLast') {
                 await removeLastAIChatMessage()
-            }
+            }/* 
             else if (parsedMessage.type === 'cardListQuery') {
                 let cards = await getCardList()
                 let cardListMessage = {
@@ -353,6 +380,15 @@ async function handleConnections(ws) {
                 ws.send(JSON.stringify(cardListMessage))
                 return
             }
+            else if (parsedMessage.type === 'samplerListQuery') {
+                let samplers = await getCardList()
+                let samplerListMessage = {
+                    type: 'samplerList',
+                    samplers: samplers
+                }
+                ws.send(JSON.stringify(samplerListMessage))
+                return
+            } */
             else if (parsedMessage.type === 'disconnect') {
                 const disconnectedUsername = parsedMessage.username;
                 connectedUserNames = connectedUserNames.filter(username => username !== disconnectedUsername);
@@ -382,6 +418,19 @@ async function handleConnections(ws) {
                 liveConfig.selectedCharacter = selectedCharacter
                 await writeConfig('selectedCharacter', selectedCharacter)
                 broadcast(changeCharMessage);
+            }
+            else if (parsedMessage.type === 'changeSamplerPreset') {
+                const changePresetMessage = {
+                    type: 'changeSamplerPreset',
+                    newPreset: parsedMessage.newPreset
+                }
+                selectedPreset = parsedMessage.newPreset
+                liveConfig.selectedPreset = selectedPreset
+                const samplerData = await readFile(selectedPreset)
+                liveConfig.samplers = samplerData
+                await writeConfig('samplers', liveConfig.samplers)
+                await writeConfig('selectedPreset', selectedPreset)
+                broadcast(changePresetMessage);
             }
             else if (parsedMessage.type === 'AIRetry') {
                 // Read the AIChat file
@@ -471,18 +520,22 @@ async function handleConnections(ws) {
                     let cardData = await charaRead(charFile, 'png')
                     let cardJSON = JSON.parse(cardData)
                     let charName = cardJSON.name
-
                     var finalCharName = JSON.stringify(`\n${charName}:`);
-                    //}
                     //strips out HTML tags from last message
                     var fixedFinalCharName = JSON.parse(finalCharName.replace(/<[^>]+>/g, ''));
 
                     const fullPromptforAI = await addCharDefsToPrompt(charFile, fixedFinalCharName, parsedMessage.username)
+                    const samplers = JSON.parse(liveConfig.samplers);
+                    //apply the selected preset values to the API call
+                    for (const [key, value] of Object.entries(samplers)) {
+                        parsedMessage.APICallParams[key] = value;
+                    }
+
                     parsedMessage.APICallParams.prompt = fullPromptforAI;
-                    parsedMessage.APICallParams.truncation_length = Number(contextSize)
-                    parsedMessage.APICallParams.max_new_tokens = Number(responseLength)
-                    parsedMessage.APICallParams.max_tokens = Number(responseLength)
-                    parsedMessage.APICallParams.max_length = Number(responseLength)
+                    parsedMessage.APICallParams.truncation_length = Number(liveConfig.contextSize)
+                    parsedMessage.APICallParams.max_new_tokens = Number(liveConfig.responseLength)
+                    parsedMessage.APICallParams.max_tokens = Number(liveConfig.responseLength)
+                    parsedMessage.APICallParams.max_length = Number(liveConfig.responseLength)
 
                     // AI_API_SELECTION_CODE
                     // UNCOMMENT THIS LINE IF YOU WANT TO USE HORDE FOR AI RESPONSES
@@ -619,6 +672,7 @@ async function writeUserChat(data) {
 }
 
 async function readConfig() {
+    await delay(100)
     //console.log('--- READ CONFIG started')
     return new Promise(async (resolve, reject) => {
         fs.readFile('config.json', 'utf8', async (err, data) => {
@@ -641,7 +695,7 @@ async function readConfig() {
             } else {
                 try {
                     //console.log('--- READ CONFIG saw data:')
-                    console.log(data)
+                    //console.log(data)
                     //console.log('--- READ CONFIG parsing data')
                     const configData = JSON.parse(data); // Parse the content as JSON
                     //console.log('--- READ CONFIG sending back parsed data')
@@ -656,8 +710,8 @@ async function readConfig() {
 }
 
 async function writeConfig(key, value) {
+    await delay(100)
     let newObject = await readConfig()
-    await delay(1)
     newObject[key] = value;
     //console.log('should have made changes to config object. Lets check.');
     console.log(`Config updated: ${key} = ${value}`);
@@ -668,6 +722,24 @@ async function writeConfig(key, value) {
             return;
         }
         console.log('config.json updated.');
+    });
+}
+
+async function readFile(file) {
+    console.log(`[readFile()] Reading ${file}...`)
+    return new Promise((resolve, reject) => {
+        fs.readFile(file, 'utf8', (err, data) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    console.log(`ERROR: ${file} not found`);
+                } else {
+                    console.error('An error occurred while reading the file:', err);
+                    reject(err);
+                }
+            } else {
+                resolve(data);
+            }
+        });
     });
 }
 
@@ -703,6 +775,7 @@ function trimIncompleteSentences(input, include_newline = false) {
 
 async function ObjectifyChatHistory() {
     return new Promise(async (resolve, reject) => {
+        await delay(100)
         let data = await readAIChat();
         try {
             // Parse the existing contents as a JSON array
@@ -898,11 +971,7 @@ process.on('SIGINT', () => {
     const serverShutdownMessage = {
         type: 'forceDisconnect',
     };
-    clientsArray.forEach(client => {
-        if (client.socket.readyState === WebSocket.OPEN) {
-            client.socket.send(JSON.stringify(serverShutdownMessage));
-        }
-    });
+    broadcast(serverShutdownMessage);
 
     // Close the WebSocket server
     wsServer.close(() => {

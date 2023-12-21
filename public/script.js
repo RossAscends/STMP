@@ -206,9 +206,15 @@ function updateSelectedChar(char, type) {
     }
 }
 
+function updateSelectedSamplerPreset(preset, type) {
+    if (type === 'forced') {
+        $("#samplerPreset").find(`option[value="${preset}"]`).prop('selected', true).trigger('change')
+    }
+}
+
 function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
-    const { selectedCharacter, chatHistory, AIChatHistory, cardList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
+    const { selectedCharacter, selectedSamplerPreset, chatHistory, AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
     $("#AIAutoResponse").prop('checked', isAutoResponse)
     $("#maxContext").find(`option[value="${contextSize}"]`).prop('selected', true)
     $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
@@ -216,8 +222,10 @@ function processConfirmedConnection(parsedMessage) {
     $("#AIchat").empty();
 
     populateCardSelector(cardList);
+    populateSamplerSelector(samplerPresetList);
     console.debug(`selecting character as defined from server: ${selectedCharacter}`);
     updateSelectedChar(selectedCharacter, 'forced');
+    updateSelectedSamplerPreset(selectedSamplerPreset, 'forced');
 
     setEngineMode(engineMode);
 
@@ -322,6 +330,12 @@ function connectWebSocket() {
                     return;
                 }
                 updateSelectedChar(parsedMessage.char, 'forced');
+                break;
+            case 'changeSamplerPreset':
+                if (isHost) {
+                    return;
+                }
+                updateSelectedSamplerPreset(parsedMessage.newPreset, 'forced');
                 break;
             default:
                 var { chatID, username, content, userColor, workerName, hordeModel, kudosCost } = JSON.parse(message);
@@ -429,6 +443,21 @@ async function populateCardSelector(cardList) {
         newElem.val(card.filename);
         newElem.text(card.name);
         cardSelectElement.append(newElem);
+    }
+    if (!isHost) {
+        $("#characters").prop('disabled', true);
+    }
+}
+
+async function populateSamplerSelector(presetList) {
+    console.log(presetList)
+    let samplerSelectElement = $("#samplerPreset");
+    samplerSelectElement.empty()
+    for (const preset of presetList) {
+        let newElem = $('<option>');
+        newElem.val(preset.filename);
+        newElem.text(preset.name);
+        samplerSelectElement.append(newElem);
     }
     if (!isHost) {
         $("#characters").prop('disabled', true);
@@ -551,6 +580,20 @@ $(document).ready(async function () {
         }
     })
 
+    $("#samplerPreset").on('change', function () {
+        if (!isHost) {
+            return
+        }
+        else {
+            let newPreset = String($("#samplerPreset").val())
+            let changeSamplerPresetMessage = {
+                type: 'changeSamplerPreset',
+                newPreset: newPreset
+            }
+            socket.send(JSON.stringify(changeSamplerPresetMessage));
+        }
+    })
+
     //A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.
     $("#toggleMode").off('click').on('click', function () {
         if (!isHost) {
@@ -596,7 +639,9 @@ $(document).ready(async function () {
         }
         username = $("#AIUsernameInput").val()
         let charDisplayName = $('#characters option:selected').text();
-
+        //TODO: make this function grab usernames for all entities in chat history
+        //and move it inside the Prompt crafting function
+        //Move it to server-side. client side has no idea on its own.
         setStopStrings()
 
         var markdownContent = `${messageInput.val()}`;

@@ -43,6 +43,9 @@ const usernameColors = [
 const wsPort = 8181; //WS for host
 const wssPort = 8182; //WSS for guests
 
+//set the engine mode to either 'tabby' or 'horde'
+let engineMode = 'tabby'
+
 localApp.get('/', (req, res) => {
     const filePath = path.join(__dirname, '/public/client.html');
     fs.readFile(filePath, 'utf8', (err, data) => {
@@ -196,6 +199,7 @@ async function handleConnections(ws) {
         cardList: cardList,
         selectedCharacter: selectedCharacter,
         userList: connectedUserNames,
+        engineMode: 'tabby',
         isAutoResponse: isAutoResponse,
         contextSize: contextSize,
         responseLength: responseLength
@@ -302,6 +306,14 @@ async function handleConnections(ws) {
                     return;
                 }
             }
+            else if (parsedMessage.type === 'modeChange') {
+                engineMode = parsedMessage.newMode
+                const modeChangeMessage = {
+                    type: 'modeChange',
+                    engineMode: engineMode
+                }
+                broadcast(modeChangeMessage);
+            }
 
             else { //handle normal chat messages
                 const chatID = parsedMessage.chatID;
@@ -379,9 +391,16 @@ async function handleConnections(ws) {
 
                     // AI_API_SELECTION_CODE
                     // UNCOMMENT THIS LINE IF YOU WANT TO USE HORDE FOR AI RESPONSES
-                    //const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.content);
-                    // UNCOMMENT THIS LINE IF YOU WANT TO USE TABBY FOR AI RESPONSES
-                    var AIResponse = trimIncompleteSentences(await requestToTabby(parsedMessage.APICallParams))
+                    parsedMessage.APICallParams.engine = 'horde';
+                    var AIResponse = '';
+                    if(engineMode === 'horde'){
+                        const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.APICallParams);
+                        AIResponse = hordeResponse;
+                    }
+                    else{
+                        AIResponse = trimIncompleteSentences(await requestToTabby(parsedMessage.APICallParams))
+                    }
+
                     const AIResponseForChatJSON = {
                         username: charName,
                         content: AIResponse.trim(),
@@ -421,6 +440,7 @@ async function handleConnections(ws) {
     });
 };
 
+
 function countTokens(str) {
     let chars = str.length
     let tokens = Math.ceil(chars / 3)
@@ -428,19 +448,33 @@ function countTokens(str) {
     return tokens
 }
 
+/**
+ * Reads AI chat data from a JSON file. If the file doesn't exist, creates it.
+ * @returns {Promise<string>} A promise that resolves with the file content.
+ */
 async function readAIChat() {
     return new Promise((resolve, reject) => {
         fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
             if (err) {
-                console.error('An error occurred while reading the file:', err);
-                reject(err);
+                if (err.code === 'ENOENT') {
+                    console.log('AIChat.json not found, creating it now.');
+                    writeAIChat('[]').then(() => {
+                        resolve('[]');
+                    }).catch(writeErr => {
+                        console.error('An error occurred while creating the file:', writeErr);
+                        reject(writeErr);
+                    });
+                } else {
+                    console.error('An error occurred while reading the file:', err);
+                    reject(err);
+                }
+            } else {
+                resolve(data);
             }
-            //console.log(`--- readAIChat() results:`)
-            //console.log(data)
-            resolve(data)
-        })
-    })
+        });
+    });
 }
+
 
 async function writeAIChat(data) {
     fs.writeFile('public/chats/AIChat.json', data, 'utf8', (writeErr) => {
@@ -452,19 +486,33 @@ async function writeAIChat(data) {
     });
 }
 
+/**
+ * Reads user chat data from a JSON file. If the file doesn't exist, creates it.
+ * @returns {Promise<string>} A promise that resolves with the file content.
+ */
 async function readUserChat() {
     return new Promise((resolve, reject) => {
         fs.readFile('public/chats/UserChat.json', 'utf8', (err, data) => {
             if (err) {
-                console.error('An error occurred while reading the file:', err);
-                reject(err);
+                if (err.code === 'ENOENT') {
+                    console.log('UserChat.json not found, creating it now.');
+                    writeUserChat('[]').then(() => {
+                        resolve('[]');
+                    }).catch(writeErr => {
+                        console.error('An error occurred while creating the file:', writeErr);
+                        reject(writeErr);
+                    });
+                } else {
+                    console.error('An error occurred while reading the file:', err);
+                    reject(err);
+                }
+            } else {
+                resolve(data);
             }
-            //console.log(`--- readUserChat() results:`)
-            //console.log(data)
-            resolve(data)
-        })
-    })
+        });
+    });
 }
+
 
 async function writeUserChat(data) {
     fs.writeFile('public/chats/UserChat.json', data, 'utf8', (writeErr) => {

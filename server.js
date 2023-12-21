@@ -199,7 +199,7 @@ async function handleConnections(ws) {
         cardList: cardList,
         selectedCharacter: selectedCharacter,
         userList: connectedUserNames,
-        engineMode: 'tabby',
+        engineMode: engineMode,
         isAutoResponse: isAutoResponse,
         contextSize: contextSize,
         responseLength: responseLength

@@ -298,6 +298,10 @@ async function handleConnections(ws, type) {
         chatHistory: userChatJSON,
         AIChatHistory: AIChatJSON,
         userList: connectedUserNames,
+        engineMode: engineMode,
+        isAutoResponse: isAutoResponse,
+        contextSize: contextSize,
+        responseLength: responseLength,
         color: thisUserColor
     }
     if (type === 'host') {

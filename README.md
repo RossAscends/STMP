@@ -34,12 +34,9 @@ Currently STMP supports Tabby and HordeAI, with Tabby active by default.
 
 ### Changing API
 
-Currently the host must edit `server.js` to swap which API is used to generate responses in the AI Chat.
-Search `server.js` for `AI_API_SELECTION_CODE` and comment/uncomment the appropriate line, and restart server.
-
-- **NOTE:** The API Selected in `server.js` must match the API parameters sent by `client.html`, or the requests will not work.
-- Search `client.html` for `API_PARAMS_FOR_HORDE` or `API_PARAMS_FOR_TABBY` to find them, and comment/uncomment the one that matches the API Selected in `server.js`
-- User will need to refresh their browser page after this change takes place.
+- The Host can click the emoji icon at the top left to change which API is used.
+- cat = Tabby
+- zombie = Horde
 
 ## Multiuser Setup
 
@@ -97,13 +94,13 @@ You can have a different name for the User Chat and AI Chat.
 ### Host Controls
 
 - Better generation parameter adjustments (likely via preset files, not individual sliders)
-- API swapping in UI without server restart
+- ~~API swapping in UI without server restart~~
 - ~~push selected character to user on connection~~
-- toggle for AI response timing: 1-to-1 with user input, or only on manual trigger from Host
+- ~~toggle for AI response timing: 1-to-1 with user input, or only on manual trigger from Host~~
 - toggle for locking AI chat for users
 - drag-sort list to set User Turn Order for AI chatting
 - ~~add AI chat clear button~~
-- ability to remove individual chat messages (at first this will be deleting from the bottom.)
+- ~~ability to remove individual chat messages (at first this will be deleting from the bottom.)~~
 
 ### Low-priority but Nice-to-have Features
 

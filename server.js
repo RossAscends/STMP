@@ -119,6 +119,7 @@ function delay(ms) {
 }
 
 async function initConfig() {
+    await delay(100)
     if (!fs.existsSync('config.json')) {
         let config = {
             engineMode: engineMode,
@@ -130,6 +131,7 @@ async function initConfig() {
         liveConfig = config
         const writableArray = JSON.stringify(config, null, 2);
         //console.log('initConfig writing initial file')
+        await delay(100)
         fs.writeFileSync('config.json', writableArray);
         console.log('config.json created with default values.');
 
@@ -141,25 +143,12 @@ async function initConfig() {
 
 initConfig()
 
-/* async function testConfig() {
-    initConfig()
-    await delay(1)
-    let configData = await readConfig()
-    await delay(1)
-    await writeConfig(configData, 'selectedCharacter', 'Coding Sensei')
-    await delay(1)
-    let newConfigData = await readConfig()
-    console.log(newConfigData)
-}
-
-testConfig() */
-
 // Handle incoming WebSocket connections
 wsServer.on('connection', (ws) => {
-    handleConnections(ws)
+    handleConnections(ws, 'host')
 })
 wssServer.on('connection', (ws) => {
-    handleConnections(ws)
+    handleConnections(ws, 'guest')
 })
 
 async function charaRead(img_url, input_format) {
@@ -195,13 +184,9 @@ async function getSamplerPresetList() {
     const files = await fs.promises.readdir(path);
     var presets = []
     var i = 0
-    //console.log('Files in directory:');
     for (const file of files) {
         try {
             let fullPath = `${path}/${file}`
-            //const samplerPreset = await readFile(fullPath);
-            //var jsonData = JSON.parse(samplerPreset);
-            //jsonData.filename = `${path}/${file}`
             presets[i] = {
                 name: file.replace('.json', ''),
                 filename: fullPath,
@@ -229,6 +214,7 @@ async function broadcastUserList() {
         userList: connectedUserNames.sort()
     };
     broadcast(userListMessage);
+    console.log(`[BroadCast]: ${JSON.stringify(userListMessage)}`)
 }
 
 async function removeLastAIChatMessage() {
@@ -291,7 +277,7 @@ async function saveAndClearChat(type) {
     }
 }
 
-async function handleConnections(ws) {
+async function handleConnections(ws, type) {
     // Store the connected client in the appropriate array based on the server
     const thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
     clientsArray.push({
@@ -309,17 +295,21 @@ async function handleConnections(ws) {
         type: 'connectionConfirmed',
         chatHistory: userChatJSON,
         AIChatHistory: AIChatJSON,
-        color: thisUserColor,
-        cardList: cardList,
-        samplerPresetList: samplerPresetList,
-        selectedCharacter: liveConfig.selectedCharacter,
-        selectedSamplerPreset: liveConfig.selectedPreset,
         userList: connectedUserNames,
-        engineMode: liveConfig.engineMode,
-        isAutoResponse: liveConfig.isAutoResponse,
-        contextSize: liveConfig.contextSize,
-        responseLength: liveConfig.responseLength
+        color: thisUserColor
     }
+    if (type === 'host') {
+        console.log("HOST CONNECTED")
+        connectionConfirmedMessage["cardList"] = cardList
+        connectionConfirmedMessage["samplerPresetList"] = samplerPresetList
+        connectionConfirmedMessage["selectedCharacter"] = liveConfig.selectedCharacter
+        connectionConfirmedMessage["selectedSamplerPreset"] = liveConfig.selectedPreset
+        connectionConfirmedMessage["engineMode"] = liveConfig.engineMode
+        connectionConfirmedMessage["isAutoResponse"] = liveConfig.isAutoResponse
+        connectionConfirmedMessage["contextSize"] = liveConfig.contextSize
+        connectionConfirmedMessage["responseLength"] = liveConfig.responseLength
+    }
+
     //send connection confirmation along with chat history
     ws.send(JSON.stringify(connectionConfirmedMessage))
     broadcastUserList()
@@ -338,10 +328,11 @@ async function handleConnections(ws) {
             if (parsedMessage.type === 'connect') {
                 console.log('saw connect message from client')
                 ws.username = parsedMessage.username;
+                console.log(`Adding ${parsedMessage.username} to connected user list..`)
                 connectedUserNames.push(parsedMessage.username)
                 console.log(`connectedUserNames: ${connectedUserNames}`)
                 await broadcastUserList()
-                return
+
             }
             else if (parsedMessage.type === 'clearChat') {
                 //clear the UserChat.json file
@@ -372,30 +363,13 @@ async function handleConnections(ws) {
             }
             else if (parsedMessage.type === 'deleteLast') {
                 await removeLastAIChatMessage()
-            }/* 
-            else if (parsedMessage.type === 'cardListQuery') {
-                let cards = await getCardList()
-                let cardListMessage = {
-                    type: 'cardList',
-                    cards: cards
-                }
-                ws.send(JSON.stringify(cardListMessage))
-                return
             }
-            else if (parsedMessage.type === 'samplerListQuery') {
-                let samplers = await getCardList()
-                let samplerListMessage = {
-                    type: 'samplerList',
-                    samplers: samplers
-                }
-                ws.send(JSON.stringify(samplerListMessage))
-                return
-            } */
             else if (parsedMessage.type === 'disconnect') {
                 const disconnectedUsername = parsedMessage.username;
+                console.log(`Removing ${disconnectedUsername} from the User List...`)
                 connectedUserNames = connectedUserNames.filter(username => username !== disconnectedUsername);
                 await broadcastUserList()
-                return
+
             }
             else if (parsedMessage.type === 'usernameChange') {
                 const oldName = parsedMessage.oldName;
@@ -494,7 +468,7 @@ async function handleConnections(ws) {
                         await writeAIChat(formmattedData)
                         broadcast(userPrompt)
                     }
-                    if (isAutoResponse || isEmptyTrigger) {
+                    if (liveConfig.isAutoResponse || isEmptyTrigger) {
                         await getAIResponse()
                     }
                 }
@@ -518,7 +492,7 @@ async function handleConnections(ws) {
 
                     //if it's not an empty trigger from host
                     //if userInput is empty we can just request the AI directly
-                    let charFile = parsedMessage.char
+                    let charFile = liveConfig.selectedCharacter
                     let cardData = await charaRead(charFile, 'png')
                     let cardJSON = JSON.parse(cardData)
                     let charName = cardJSON.name
@@ -682,6 +656,7 @@ async function readConfig() {
                     console.log('config.json not found, initializing with default values.');
                     try {
                         //console.log('--- READ CONFIG calling initconfig')
+                        await delay(100)
                         await initConfig();
                         //console.log('----- CREATED NEW CONFIG FILE, RETURNING IT')
                         resolve(liveConfig); // Assuming liveconfig is accessible here
@@ -695,11 +670,8 @@ async function readConfig() {
                 }
             } else {
                 try {
-                    //console.log('--- READ CONFIG saw data:')
-                    //console.log(data)
-                    //console.log('--- READ CONFIG parsing data')
+                    await delay(100)
                     const configData = JSON.parse(data); // Parse the content as JSON
-                    //console.log('--- READ CONFIG sending back parsed data')
                     resolve(configData);
                 } catch (parseErr) {
                     console.error('An error occurred while parsing the JSON:', parseErr);

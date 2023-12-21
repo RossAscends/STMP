@@ -153,31 +153,13 @@ var HordeAPICallParams = {
 
 var APICallParams = TabbyAPICallParams;
 
-
-function clearChatDiv() {
-    $("#chat").empty()
-}
-
-function clearAIChatDiv() {
-    $("#AIchat").empty()
-}
-
-function updateUserList(username) {
-    let nameAlreadyExists = $("#userList ul").find(`li[data-foruser="${username}"]`);
-    if (nameAlreadyExists.length !== 0) {
-        nameAlreadyExists.remove();
-    } else {
-        $("#userList ul").append(`<li data-foruser="${username}">${username}</li>`)
-    }
-}
-
 function updateUIUserList(userList) {
-    console.log(userList)
-    console.log('starting initial userlist population')
+    console.debug(userList)
+    console.log('populating user list...')
     const userListElement = $('#userList ul');
     userListElement.empty() // Clear the existing user list
     userList.forEach(username => {
-        const listItem = `<li>${username}</li>`;
+        const listItem = `<li data-foruser="${username}" title="${username}">${username}</li>`;
         userListElement.append(listItem);
     });
 }
@@ -203,13 +185,15 @@ function processConfirmedConnection(parsedMessage) {
     $("#chat").empty();
     $("#AIchat").empty();
 
-    populateCardSelector(cardList);
-    populateSamplerSelector(samplerPresetList);
-    console.debug(`selecting character as defined from server: ${selectedCharacter}`);
-    updateSelectedChar(selectedCharacter, 'forced');
-    updateSelectedSamplerPreset(selectedSamplerPreset, 'forced');
-
-    setEngineMode(engineMode);
+    updateUIUserList(userList);
+    if (userRole === 'Host') {
+        populateCardSelector(cardList);
+        populateSamplerSelector(samplerPresetList);
+        console.debug(`selecting character as defined from server: ${selectedCharacter}`);
+        updateSelectedChar(selectedCharacter, 'forced');
+        updateSelectedSamplerPreset(selectedSamplerPreset, 'forced');
+        setEngineMode(engineMode);
+    }
 
     if (chatHistory) {
         const trimmedChatHistoryString = chatHistory.trim();
@@ -225,6 +209,13 @@ function processConfirmedConnection(parsedMessage) {
 
     $("#chat").scrollTop($("#chat").prop("scrollHeight"));
     $("#AIchat").scrollTop($("#AIchat").prop("scrollHeight"));
+    const connectionMessage = {
+        type: 'connect',
+        role: userRole,
+        username: username
+    };
+    console.log('sending connection message..')
+    socket.send(JSON.stringify(connectionMessage));
 }
 
 function appendMessages(messages, elementSelector) {
@@ -261,10 +252,10 @@ function connectWebSocket() {
 
         switch (parsedMessage?.type) {
             case 'clearChat':
-                clearChatDiv();
+                $("#chat").empty()
                 break;
             case 'clearAIChat':
-                clearAIChatDiv();
+                $("#AIchat").empty()
                 break;
             case 'chatUpdate':
                 console.log('saw chat update instruction');
@@ -340,15 +331,9 @@ function handleSocketOpening() {
     $("#reconnectButton").hide()
     $("#disconnectButton").show()
     const username = $("#usernameInput").val()
-    console.log(username)
+    console.debug(`connected as ${username}`)
     $("#messageInput").prop("disabled", false).prop('placeholder', 'Type a message').removeClass('disconnected')
     $("#AIMessageInput").prop("disabled", false).prop('placeholder', 'Type a message').removeClass('disconnected')
-    const connectionMessage = {
-        type: 'connect',
-        username: username
-    };
-    console.log('sending connection message..')
-    socket.send(JSON.stringify(connectionMessage));
 };
 
 function disconnectWebSocket() {

@@ -48,10 +48,11 @@ button {
 }
 
 #universalControls {
-    justify-content: center;
+    justify-content: end;
     display: flex;
     position: absolute;
     width: 100%;
+    right: 5px
 }
 
 #LLMChatWrapper,
@@ -297,7 +298,10 @@ input::placeholder {
     border-radius: 5px;
     padding: 5px;
     flex: 1;
+}
 
+.chatHeader {
+    height: 2.5em
 }
 
 #userChatAndUserList {
@@ -411,6 +415,10 @@ hr {
 
 .fontSize1p5em {
     font-size: 1.5em
+}
+
+.fontSize1p25em {
+    font-size: 1.25em
 }
 
 .greyscale {

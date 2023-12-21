@@ -19,26 +19,27 @@
         <div id="chatsWrapper" class="flexbox Hcentered">
 
             <div id="controlPanel" class="flexbox flexFlowCol">
-                <div class="flexbox flexFlowCol">
-                    Context
-                    <select id="maxContext">
-                        <option value="1024">1024</option>
-                        <option value="2048">2048</option>
-                        <option value="4096">4096</option>
-                        <option value="8196">8192</option>
-                    </select>
-                </div>
-                <div class="flexbox flexFlowCol">
-                    Response
-                    <select id="responseLength">
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="200">200</option>
-                        <option value="300">300</option>
-                        <option value="400">400</option>
-                    </select>
-                </div>
                 <div class="hostControls flexbox flexFlowCol">
+                    <div class="flexbox flexFlowCol">
+                        Context
+                        <select id="maxContext">
+                            <option value="1024">1024</option>
+                            <option value="2048">2048</option>
+                            <option value="4096">4096</option>
+                            <option value="8196">8192</option>
+                        </select>
+                    </div>
+                    <div class="flexbox flexFlowCol">
+                        Response
+                        <select id="responseLength">
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="200">200</option>
+                            <option value="300">300</option>
+                            <option value="400">400</option>
+                        </select>
+                    </div>
+
                     <label for="AIAutoResponse">AutoResponse
                         <input type="checkbox" id="AIAutoResponse">
                     </label>
@@ -53,7 +54,7 @@
                 <div class="padding5 Hcentered Vcentered flexbox">
                     <!-- A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI to reflect the change. -->
                     <!-- Reveals mode on hover -->
-                    <div id="toggleMode" class="tabbyMode" title="Toggle Mode">🐈</div>                     
+                    <div id="toggleMode" class="tabbyMode" title="Toggle Mode">🐈</div>
                     <select id="characters"></select>
                     AI Chat <input type="text" id="AIUsernameInput" placeholder="Username">
 

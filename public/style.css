@@ -186,6 +186,10 @@ input[type="checkbox"]:checked::before {
     transform: scale(1);
 }
 
+input[type='checkbox']:hover {
+    filter: brightness(2);
+}
+
 .checkbox_label {
     display: flex;
     flex-direction: row;

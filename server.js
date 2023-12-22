@@ -166,7 +166,13 @@ async function initFiles() {
         console.log('Creating config.json with default values...');
         await writeFileAsync(configPath, JSON.stringify(defaultConfig, null, 2));
         console.log('config.json created.');
-    } 
+    } else {
+        console.log('Loading config.json...');
+        liveConfig = await readConfig()
+        console.log(liveConfig)
+        console.log('Finished!')
+
+    }
 
     // Check and create secrets.json if it doesn't exist
     if (!await existsAsync(secretsPath)) {
@@ -325,6 +331,7 @@ async function handleConnections(ws, type) {
     clientsArray.push({
         socket: ws,
         color: thisUserColor,
+        role: type
     });
 
     const cardList = await getCardList()
@@ -362,7 +369,10 @@ async function handleConnections(ws, type) {
 
 
     // Handle incoming messages from clients
-    ws.on('message', async function (message) {
+    ws.on('message', async function (ws, message) {
+
+        let isHost = ws.role === 'host' ? true : false
+        console.log(`message from host? ${isHost}`)
 
         // Parse the incoming message as JSON
         let parsedMessage;

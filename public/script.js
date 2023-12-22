@@ -9,7 +9,7 @@ async function startupUsernames() {
 
     username = storedUsername !== null && storedUsername !== '' ? storedUsername : await initializeUsername();
     AIChatUsername = storedAIChatUsername !== null && storedAIChatUsername !== '' ? storedAIChatUsername : username;
-    console.log(`[localStorage] username:${username}, AIChatUsername:${AIChatUsername}`)
+    console.debug(`[localStorage] username:${username}, AIChatUsername:${AIChatUsername}`)
 }
 
 async function initializeUsername() {
@@ -165,6 +165,7 @@ function updateUIUserList(userList) {
     console.debug(userList)
     if (userList.length === 0) {
         console.log('saw empty userList, will wait for another..')
+        return
     }
     console.log('populating user list...')
     const userListElement = $('#userList ul');
@@ -184,6 +185,7 @@ async function requestUserList() {
 }
 
 function updateSelectedChar(char, displayName, type) {
+    console.debug(char, displayName)
     $("#charName").text(displayName)
     if (type === 'forced') { //if server ordered it
         console.debug('changing Char from server command')
@@ -203,6 +205,7 @@ function updateSelectedChar(char, displayName, type) {
 }
 
 function updateSelectedSamplerPreset(preset, type) {
+    console.debug(preset)
     if (type === 'forced') {
         console.debug('changing preset from server command')
         $("#samplerPreset").find(`option[value="${preset}"]`).prop('selected', true)
@@ -217,8 +220,24 @@ function updateSelectedSamplerPreset(preset, type) {
     }
 }
 
+function updateInstructFormat(format, type) {
+    console.debug(format)
+    if (type === 'forced') {
+        console.debug('changing Instruct format from server command')
+        $("#instructStyle").find(`option[value="${format}"]`).prop('selected', true)
+    } else {
+        console.debug('I manually changed Instruct format, and updating to server')
+        let changeInstructFormatMessage = {
+            type: 'changeInstructFormat',
+            UUID: myUUID,
+            newInstructFormat: format
+        }
+        messageServer(changeInstructFormatMessage);
+    }
+}
+
 function updateD1JB(jb, type) {
-    console.log(jb, type)
+    console.debug(jb, type)
     if (type === 'forced') {
         console.debug('changing D1JB from server command')
         $("#finalInstruction").val(jb)
@@ -235,7 +254,7 @@ function updateD1JB(jb, type) {
 
 async function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
-    const { clientUUID, role, D1JB, selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory, AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
+    const { clientUUID, role, D1JB, instructList, instructFormat, selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory, AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
     myUUID = clientUUID
     isHost = role === 'host' ? true : false
     console.debug(`my UUID is: ${myUUID}`)
@@ -251,11 +270,11 @@ async function processConfirmedConnection(parsedMessage) {
         await delay(100)
         $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
         populateCardSelector(cardList);
+        populateInstructSelector(instructList);
         populateSamplerSelector(samplerPresetList);
-        console.debug(`selecting character as defined from server: ${selectedCharacter}`);
         updateSelectedChar(selectedCharacter, selectedCharacterDisplayName, 'forced');
         updateSelectedSamplerPreset(selectedSamplerPreset, 'forced');
-        console.log(`about to update D1JB with this: ${D1JB}`)
+        updateInstructFormat(instructFormat, 'forced');
         updateD1JB(D1JB, 'forced')
         setEngineMode(engineMode);
     } else {
@@ -300,15 +319,15 @@ function appendMessagesWithConverter(messages, elementSelector) {
 }
 
 function connectWebSocket() {
-    console.log(`trying to reconnect to ${serverUrl}`)
+    console.log(`trying to connect to ${serverUrl}`)
     socket = new WebSocket(serverUrl);
-    console.log('socket made!')
+    console.log('socket connected!')
     socket.onopen = handleSocketOpening;
     socket.onclose = disconnectWebSocket;
     // Handle incoming messages from the server
     socket.addEventListener('message', async function (event) {
         var message = event.data;
-        console.log('Received server message:', message);
+        console.debug('Received server message:', message);
         let parsedMessage = JSON.parse(message);
         const userList = parsedMessage.userList;
 
@@ -333,10 +352,6 @@ function connectWebSocket() {
                     newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>');
                     $("#AIchat").append(newDiv);
                 });
-                break;
-            case 'cardList':
-                let JSONCardData = parsedMessage.cards;
-                await populateCardSelector(JSONCardData);
                 break;
             case 'modeChange':
                 setEngineMode(parsedMessage.engineMode);
@@ -366,14 +381,21 @@ function connectWebSocket() {
                 let currentChar = $("#characters").val()
                 let newChar = parsedMessage.char
                 if (currentChar !== newChar) {
-                    updateSelectedChar(parsedMessage.char, parsedMessage.charDisplayName, 'forced');
+                    updateSelectedChar(newChar, parsedMessage.charDisplayName, 'forced');
                 }
                 break;
             case 'changeSamplerPreset':
                 let currentPreset = $("#samplerPreset").val()
                 let newPreset = parsedMessage.newPreset
                 if (currentPreset !== newPreset) {
-                    updateSelectedSamplerPreset(parsedMessage.newPreset, 'forced');
+                    updateSelectedSamplerPreset(newPreset, 'forced');
+                }
+                break;
+            case 'changeInstructFormat':
+                let currentFormat = $("#instructStyle").val()
+                let newFormat = parsedMessage.newInstructFormat
+                if (currentFormat !== newFormat) {
+                    updateInstructFormat(newFormat, 'forced');
                 }
                 break;
             case 'changeD1JB':
@@ -402,7 +424,7 @@ function connectWebSocket() {
 }
 
 function handleSocketOpening() {
-    console.log("WebSocket connected to server:", serverUrl);
+    console.log("WebSocket opened to server:", serverUrl);
     $("#reconnectButton").hide()
     $("#disconnectButton").show()
     const username = $("#usernameInput").val()
@@ -464,7 +486,7 @@ function updateAIChatUserName() {
 }
 
 async function populateCardSelector(cardList) {
-    //console.log(cardList)
+    console.debug(cardList)
     let cardSelectElement = $("#characters");
     cardSelectElement.empty()
     for (const card of cardList) {
@@ -475,8 +497,20 @@ async function populateCardSelector(cardList) {
     }
 }
 
+async function populateInstructSelector(instrustList) {
+    console.debug(instrustList)
+    let instructSelectElement = $("#instructStyle");
+    instructSelectElement.empty()
+    for (const style of instrustList) {
+        let newElem = $('<option>');
+        newElem.val(style.filename);
+        newElem.text(style.name);
+        instructSelectElement.append(newElem);
+    }
+}
+
 async function populateSamplerSelector(presetList) {
-    console.log(presetList)
+    console.debug(presetList)
     let samplerSelectElement = $("#samplerPreset");
     samplerSelectElement.empty()
     for (const preset of presetList) {
@@ -500,7 +534,7 @@ function setEngineMode(mode) {
         $("#toggleMode").attr('title', 'Click to switch to Horde Mode');
         //copy the tabby parameters into the APICallParams object
         APICallParams = JSON.parse(JSON.stringify(TabbyAPICallParams));
-        console.log('Switching to Tabby Mode')
+        console.debug('Switching to Tabby Mode')
     }
 }
 
@@ -552,7 +586,7 @@ window.addEventListener('beforeunload', () => {
 });
 
 $(document).ready(async function () {
-    console.log('--- document is ready, processing entry....')
+    console.log('document is ready')
 
     connectWebSocket();
 
@@ -577,7 +611,6 @@ $(document).ready(async function () {
     })
     $("#maxContext").on('input', function () {
         contextSize = $(this).find(`option:selected`).val()
-        console.log(contextSize)
         const adjustCtxMes = {
             type: 'adjustContextSize',
             UUID: myUUID,
@@ -587,7 +620,6 @@ $(document).ready(async function () {
     })
     $("#responseLength").on('input', function () {
         responseLength = $(this).find(`option:selected`).val()
-        console.log(responseLength)
         const adjustResponseLength = {
             type: 'adjustResponseLength',
             UUID: myUUID,
@@ -640,6 +672,10 @@ $(document).ready(async function () {
 
     $("#samplerPreset").on('change', function () {
         updateSelectedSamplerPreset($(this).val())
+    })
+
+    $("#instructStyle").on('change', function () {
+        updateInstructFormat($(this).val())
     })
 
     $("#finalInstruction").on('blur', function () {
@@ -767,5 +803,4 @@ $(document).ready(async function () {
             });
         }
     });
-    console.log('connecting websocket..')
 });

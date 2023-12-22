@@ -229,6 +229,30 @@ async function getCardList() {
     return cards;
 }
 
+async function getInstructList() {
+    const path = 'public/instructFormats'
+    const files = await fs.promises.readdir(path);
+    var instructs = []
+    var i = 0
+    //console.log('Files in directory:');
+    for (const file of files) {
+        try {
+            let fullPath = `${path}/${file}`
+            const cardData = await readFile(fullPath);
+            var jsonData = JSON.parse(cardData);
+            jsonData.filename = `${path}/${file}`
+            instructs[i] = {
+                name: jsonData.name,
+                filename: jsonData.filename
+            }
+        } catch (error) {
+            console.error(`Error reading file ${file}:`, error);
+        }
+        i++
+    }
+    return instructs;
+}
+
 async function getSamplerPresetList() {
     const path = 'public/api-presets'
     const files = await fs.promises.readdir(path);
@@ -343,6 +367,7 @@ async function handleConnections(ws, type) {
     };
 
     const cardList = await getCardList()
+    const instructList = await getInstructList()
     const samplerPresetList = await getSamplerPresetList()
     var AIChatJSON = await readAIChat();
     var userChatJSON = await readUserChat()
@@ -366,6 +391,7 @@ async function handleConnections(ws, type) {
         console.log("HOST CONNECTED")
         hostUUID = thisUserUniqueId
         connectionConfirmedMessage["cardList"] = cardList
+        connectionConfirmedMessage["instructList"] = instructList
         connectionConfirmedMessage["samplerPresetList"] = samplerPresetList
         connectionConfirmedMessage["selectedCharacter"] = liveConfig.selectedCharacter
         connectionConfirmedMessage["selectedSamplerPreset"] = liveConfig.selectedPreset
@@ -374,6 +400,7 @@ async function handleConnections(ws, type) {
         connectionConfirmedMessage["contextSize"] = liveConfig.contextSize
         connectionConfirmedMessage["responseLength"] = liveConfig.responseLength
         connectionConfirmedMessage["D1JB"] = liveConfig.D1JB
+        connectionConfirmedMessage["instructFormat"] = liveConfig.instructFormat
     }
 
     //send connection confirmation along with chat history
@@ -479,6 +506,19 @@ async function handleConnections(ws, type) {
                     await writeConfig(liveConfig, 'samplers', liveConfig.samplers)
                     await writeConfig(liveConfig, 'selectedPreset', selectedPreset)
                     await broadcast(changePresetMessage);
+                    return
+                }
+                else if (parsedMessage.type === 'changeInstructFormat') {
+                    const changeInstructMessage = {
+                        type: 'changeInstructFormat',
+                        newInstructFormat: parsedMessage.newInstructFormat
+                    }
+                    liveConfig.instructFormat = parsedMessage.newInstructFormat
+                    const instructSequences = await readFile(liveConfig.instructFormat)
+                    liveConfig.instructSequences = instructSequences
+                    await writeConfig(liveConfig, 'instructSequences', liveConfig.instructSequences)
+                    await writeConfig(liveConfig, 'instructFormat', parsedMessage.newInstructFormat)
+                    await broadcast(changeInstructMessage);
                     return
                 }
                 else if (parsedMessage.type === 'changeD1JB') {
@@ -983,24 +1023,43 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
         try {
             let charData = await charaRead(charFile, 'png')
             let chatHistory = await ObjectifyChatHistory()
+
+            //replace {{user}} and {{char}} for character definitions
             const jsonData = JSON.parse(charData)
             const charName = jsonData.name
             const jsonString = JSON.stringify(jsonData);
             var replacedString = jsonString.replace(/{{user}}/g, username);
             replacedString = replacedString.replace(/{{char}}/g, jsonData.name);
             const replacedData = JSON.parse(replacedString);
+
+            //replace {{user}} and {{char}} for D1JB
+            var D1JB = liveConfig.D1JB
+            var replacedD1JB = D1JB.replace(/{{user}}/g, username);
+            replacedD1JB = replacedD1JB.replace(/{{char}}/g, jsonData.name);
+
+            const instructSequence = JSON.parse(liveConfig.instructSequences)
+            const inputSequence = instructSequence.input_sequence
+            const outputSequence = instructSequence.output_sequence
+            const systemSequence = instructSequence.system_sequence
+            const endSequence = instructSequence.end_sequence
             const systemMessage = `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
 
             //add the char description, personality, scenario, and first message
             var stringToReturn =
-                `${systemMessage}\n${replacedData?.description}\n${replacedData?.personality.trim()}\n${replacedData?.scenario.trim()}\n${replacedData.name.trim()}: ${replacedData?.first_mes.trim()}\n`
+                `${systemSequence}${systemMessage}\n${replacedData?.description}\n${replacedData?.personality.trim()}\n${replacedData?.scenario.trim()}${endSequence}${outputSequence}${replacedData.name.trim()}: ${replacedData?.first_mes.trim()}\n${endSequence}`
             //add the chat history
             let promptTokens = countTokens(stringToReturn)
             //console.log(`before adding ChatHIstory, Prompt is: ~${promptTokens}`)
             let insertedItems = []
             for (let i = chatHistory.length - 1; i >= 0; i--) {
                 let obj = chatHistory[i];
-                let newItem = `${obj.username}: ${obj.content}\n`;
+                let newItem
+                if (obj.username === charName) {
+                    newItem = `${outputSequence}${obj.username}: ${obj.content}\n${endSequence}`;
+                } else {
+                    newItem = `${inputSequence}${obj.username}: ${obj.content}\n${endSequence}`;
+                }
+
                 let newItemTokens = countTokens(newItem);
                 if (promptTokens + newItemTokens < liveConfig.contextSize) {
                     promptTokens += newItemTokens;
@@ -1014,8 +1073,8 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
             let insertedChatHistory = reversedItems.join('');
             stringToReturn += insertedChatHistory
             //add the final first mes and userInput        
-            stringToReturn += `${liveConfig.D1JB}\n`
-            stringToReturn += `${lastUserMesageAndCharName.trim()}`;
+            stringToReturn += `${systemSequence}${replacedD1JB}\n${endSequence}`
+            stringToReturn += `${outputSequence}${lastUserMesageAndCharName.trim()}`;
             stringToReturn = stringToReturn.trim()
             resolve(stringToReturn);
         } catch (error) {

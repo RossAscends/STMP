@@ -369,10 +369,7 @@ async function handleConnections(ws, type) {
 
 
     // Handle incoming messages from clients
-    ws.on('message', async function (ws, message) {
-
-        let isHost = ws.role === 'host' ? true : false
-        console.log(`message from host? ${isHost}`)
+    ws.on('message', async function (message) {
 
         // Parse the incoming message as JSON
         let parsedMessage;

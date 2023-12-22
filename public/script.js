@@ -274,6 +274,7 @@ async function processConfirmedConnection(parsedMessage) {
         populateCardSelector(cardList);
         populateInstructSelector(instructList);
         populateSamplerSelector(samplerPresetList);
+        console.log('updating UI to match server state...')
         updateSelectedChar(selectedCharacter, selectedCharacterDisplayName, 'forced');
         updateSelectedSamplerPreset(selectedSamplerPreset, 'forced');
         updateInstructFormat(instructFormat, 'forced');

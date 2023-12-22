@@ -4,12 +4,21 @@ SillyTavern MultiPlayer is a multiuser LLM chat interface created by RossAscends
 
 ## Installation
 
+### Typical
+
 1. Make sure Node JS is installed on your system and has access through your windows Firewall.
 2. Clone this github repo. (`git clone https://github.com/RossAscends/STMP/` in a command line, or use a Github GUI like Github Desktop)
 3. Setup the API (see below).
 4. Run `STMP.bat` to install the required Node modules and start the server.
 5. On the first run, the server will create an empty `secrets.json` and a default `config.json`, as well as the `/api-presets/` and `/chats/` folders.
 6. Open `htttp://localhost:8181/` in your web browser.
+
+### Docker
+
+- STMP can also be installed via Docker, thanks to @city-unit.
+- The Docker file can be found in `/utils/`
+
+(instructions coming soon)
 
 ## API Setup
 
@@ -34,7 +43,7 @@ Currently STMP supports Tabby and HordeAI, with Tabby active by default.
 ### Changing API
 
 - The Host can click the emoji icon at the top left to change which API is used.
-- 🐈 = Tabby
+- 🐈 = Tabby text completions
 - 🧟 = Horde
 
 ## Multiuser Setup

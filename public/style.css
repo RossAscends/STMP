@@ -1,3 +1,9 @@
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
 body {
     background-color: #111;
     width: 100svw;
@@ -5,43 +11,54 @@ body {
     color: #ccc;
     margin: 0;
     padding: 0;
-    /* overflow: hidden; */
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: "Noto Sans", "Noto Color Emoji", sans-serif;
     font-size: 1em;
+    display: flex;
 }
 
 #bodywrap {
-    margin: 0 auto;
+    width: 100%
+}
+
+textarea,
+input,
+select,
+button {
+    font-family: "Noto Sans", "Noto Color Emoji", sans-serif;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    scrollbar-gutter: stable;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #666;
+    box-shadow: inset 0 0 0 1px #333;
+    border-radius: 10px;
+    background-clip: content-box;
+    border: 2px solid transparent;
+    min-height: 40px;
+}
+
+#chatWrap {
+    position: relative;
+    max-height: calc(100% - 1em);
+    max-width: 85%;
+}
+
+#universalControls {
+    justify-content: end;
     display: flex;
-    flex-wrap: wrap;
-    /* gap: 15px; */
-    height: 100%;
-    /* justify-content: center; */
-}
-
-#chatsWrapper {
-    flex-grow: 1;
-    overflow-y: auto;
-    max-height: calc(100vh - 2em);
+    position: absolute;
     width: 100%;
-}
-
-#footer {
-    height: 1.5em
+    right: 5px
 }
 
 #LLMChatWrapper,
 #OOCChatWrapper {
-    flex-basis: calc(50% - 25px);
     height: 100%;
     overflow: hidden;
-
-}
-
-#OOCChatWrapper img,
-#LLMChatWrapper img {
-    max-height: 80%;
-    max-width: 80%
 }
 
 @media (max-width: 800px) {
@@ -57,29 +74,176 @@ body {
 #inputBlock,
 #AIInputBlock {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     align-content: center;
     justify-content: center;
-    width: 100%;
     gap: 5px;
+}
+
+#controlPanel h4 {
+    margin: 0;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    font-size: 1.25em;
+    text-align: center;
+}
+
+#controlPanel span {
+    font-size: 0.9em;
 }
 
 input,
 textarea,
-button {
+button,
+select {
     border-radius: 5px;
     border: 1px solid #666;
     background-color: #333;
     color: #999;
     outline: none;
     transition: all 250ms;
+    z-index: 2;
 }
 
-button:hover,
-input:focus,
-textarea:focus {
+button,
+select {
+    cursor: pointer;
+}
+
+
+select {
+    font-size: 0.8em;
+    appearance: none;
+    padding: 3px 1em 3px 3px;
+    width: fit-content;
+}
+
+select:hover {
+    background-color: #666;
+    color: #ccc;
+    border-color: #ccc
+}
+
+.custom-select {
+    min-width: 30px;
+    position: relative;
+}
+
+.custom-select::before,
+.custom-select::after {
+    --size: 0.3rem;
+    content: "";
+    position: absolute;
+    right: 3px;
+    top: 3px;
+    pointer-events: none;
+}
+
+.custom-select::before {
+    border-left: var(--size) solid transparent;
+    border-right: var(--size) solid transparent;
+    border-bottom: var(--size) solid #888;
+    top: 25%;
+}
+
+.custom-select::after {
+    border-left: var(--size) solid transparent;
+    border-right: var(--size) solid transparent;
+    border-top: var(--size) solid #888;
+    top: 50%;
+}
+
+/*CHECKBOXES*/
+input[type='checkbox'] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    /* outline: 1px solid #666; */
+    position: relative;
+    width: 1.5em;
+    height: 1.5em;
+    overflow: hidden;
+    border-radius: 3px;
+    border: 1px solid #666;
+    background-color: #333;
+    box-shadow: inset 0 0 2px 0 rgba(0, 0, 0, 0.5);
+    cursor: pointer;
+    transform: translateY(-0.075em);
+    flex-shrink: 0;
+    place-content: center;
+    filter: brightness(1.2);
+}
+
+input[type='checkbox'] {
+    display: grid;
+}
+
+input[type="checkbox"]::before {
+    content: "";
+    width: 1em;
+    height: 1em;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    box-shadow: inset 1em 1em #888;
+    transform-origin: bottom left;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+
+input[type='checkbox']:hover {
+    filter: brightness(2);
+}
+
+.checkbox_label {
+    display: flex;
+    flex-direction: row;
+    column-gap: 5px;
+    align-items: baseline;
+}
+
+button,
+input {
+    padding: 3px;
+    width: fit-content;
+}
+
+#toggleMode {
+    cursor: pointer;
+    border-radius: 5px;
+    border: 1px solid #666;
+}
+
+.hoverglow {
+    transition: all 250ms;
+    outline: 1px solid #666;
+    filter: saturate(0.5);
+
+}
+
+.hoverglow:hover {
+    outline: 1px solid white;
+    filter: saturate(1);
+    background-color: #333;
+
+}
+
+.brightUp:hover,
+.brightUp:focus {
     filter: brightness(2)
+}
+
+.bgBrightUp:hover {
+    background-color: #555;
+    border: 1px solid #ccc
+}
+
+#OOCChatWrapper img,
+#LLMChatWrapper img {
+    max-height: 80%;
+    max-width: 80%
 }
 
 code {
@@ -88,7 +252,8 @@ code {
     border-radius: 5px;
     padding: 3px;
     margin: 5px;
-    line-height: 1.3em;
+    line-height: 1.4em;
+    font-size: 1.1em;
 }
 
 pre {
@@ -100,15 +265,17 @@ pre {
     width: min-content;
 }
 
-#chat div p {
+#chat div p,
+#AIchat div p {
     margin: 0;
+    margin-bottom: 1em;
     padding: 0;
 }
 
 #messageInput,
 #AIMessageInput {
     height: 3em;
-    width: 80%;
+    flex-grow: 1;
 }
 
 #messageInput::placeholder,
@@ -132,7 +299,10 @@ input::placeholder {
     border-radius: 5px;
     padding: 5px;
     flex: 1;
+}
 
+.chatHeader {
+    height: 2.5em
 }
 
 #userChatAndUserList {
@@ -147,6 +317,11 @@ input::placeholder {
 
 #userList {
     overflow: hidden;
+}
+
+#userRole {
+    font-size: 0.8em;
+    color: #666
 }
 
 #userList ul {
@@ -186,8 +361,27 @@ hr {
 
 .Vcentered {
     align-items: center;
-    align-self: center;
     align-content: center;
+}
+
+.marginTop5 {
+    margin-top: 5px;
+}
+
+.marginBot5 {
+    margin-bottom: 5px;
+}
+
+.marginLeft5 {
+    margin-left: 5px;
+}
+
+.marginRight5 {
+    margin-right: 5px;
+}
+
+.margin5 {
+    margin: 5px;
 }
 
 .flexbox {
@@ -196,6 +390,83 @@ hr {
     gap: 5px;
 }
 
+.noGap {
+    gap: 0
+}
+
+.noWrap {
+    flex-wrap: nowrap;
+}
+
 .flexFlowCol {
     flex-flow: column;
+}
+
+.flex1 {
+    flex: 1
+}
+
+.widthMinContent {
+    width: min-content
+}
+
+.widthFitContent {
+    width: fit-content
+}
+
+.fontSize1p5em {
+    font-size: 1.5em
+}
+
+.fontSize1p25em {
+    font-size: 1.25em
+}
+
+.greyscale {
+    filter: saturate(0.3)
+}
+
+.greyscale:hover {
+    filter: saturate(0.7)
+}
+
+.transition250 {
+    transition: all 250ms;
+}
+
+.justifySpaceBetween {
+    justify-content: space-between;
+}
+
+.textshadow {
+    text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.5);
+}
+
+.flipHorizontal {
+    display: inline-block;
+    transform: scaleX(-1);
+    -webkit-transform: scaleX(-1);
+    -ms-transform: scaleX(-1);
+    -o-transform: scaleX(-1);
+}
+
+.flipVertical {
+    display: inline-block;
+    transform: scaleY(-1);
+    -webkit-transform: scaleY(-1);
+    -ms-transform: scaleY(-1);
+    -o-transform: scaleY(-1);
+}
+
+.flipBoth {
+    display: inline-block;
+    transform: scale(-1, -1);
+    -webkit-transform: scale(-1, -1);
+    -ms-transform: scale(-1, -1);
+    -o-transform: scale(-1, -1);
+}
+
+.mirror {
+    display: inline-block;
+    transform: rotateX(180deg);
 }

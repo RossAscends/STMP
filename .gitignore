@@ -134,4 +134,7 @@ secrets.json
 public/characters/
 public/chats/
 public/api-presets/
+public/instructFormats/
 cloudflared.exe
+config.json
+lockfile.lock

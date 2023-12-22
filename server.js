@@ -1,5 +1,9 @@
 const http = require('http');
 const fs = require('fs');
+const util = require('util');
+const { v4: uuidv4 } = require('uuid');
+const writeFileAsync = util.promisify(fs.writeFile);
+const existsAsync = util.promisify(fs.exists);
 const fsp = require('fs').promises;
 const path = require('path');
 const WebSocket = require('ws');
@@ -11,6 +15,7 @@ const remoteApp = express();
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
 
+//for console coloring
 const color = {
     byNum: (mess, fgNum) => {
         mess = mess || '';
@@ -27,9 +32,44 @@ const color = {
     white: (mess) => color.byNum(mess, 37),
 };
 
-// Create an HTTP servers
+const usernameColors = [
+    '#FF5C5C',  // Red
+    '#FFB54C',  // Orange
+    '#FFED4C',  // Yellow
+    '#4CFF69',  // Green
+    '#4CCAFF',  // Blue
+    '#AD4CFF',  // Purple
+    '#FF4CC3',  // Magenta
+    '#FF4C86',  // Pink
+];
+
+// Create both HTTP servers
 const wsPort = 8181; //WS for host
 const wssPort = 8182; //WSS for guests
+
+//set the engine mode to either 'tabby' or 'horde'
+let engineMode = 'tabby'
+
+// Configuration
+const apiKey = "_YOUR_API_KEY_HERE_";
+const authString = "_STUsername_:_STPassword_";
+const secretsPath = path.join(__dirname, 'secrets.json');
+
+console.log("===========================");
+console.log("SillyTavern MultiPlayer");
+
+// Create directory if it does not exist
+function createDirectoryIfNotExist(path) {
+    if (!fs.existsSync(path)) {
+        try {
+            fs.mkdirSync(path, { recursive: true });
+            console.log(`-- Created '${path}' folder.`);
+        } catch (err) {
+            console.error(`Failed to create '${path}' folder. Check permissions or path.`);
+            process.exit(1);
+        }
+    }
+}
 
 localApp.get('/', (req, res) => {
     const filePath = path.join(__dirname, '/public/client.html');
@@ -80,6 +120,7 @@ var sysMessage = {
 
 const secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
 const tabbyAPIkey = secretsObj.api_key_tabby
+const STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string
 
 // Create a WebSocket server
 const wsServer = new WebSocket.Server({ server: localServer });
@@ -88,15 +129,76 @@ wsServer.setMaxListeners(0);
 wssServer.setMaxListeners(0);
 
 // Arrays to store connected clients of each server
-var clientsArray = [];
+var clientsObject = [];
 var connectedUserNames = [];
+var hostUUID
+
+//default values
+var selectedCharacter
+var isAutoResponse = true
+var responseLength = 200
+var contextSize = 4096
+var liveConfig
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function initFiles() {
+    const configPath = 'config.json';
+    const secretsPath = 'secrets.json';
+
+    // Default values for config.json
+    const defaultConfig = {
+        engineMode: 'defaultEngineMode',
+        selectedCharacter: '',
+        responseLength: 'defaultResponseLength',
+        contextSize: 'defaultContextSize',
+        isAutoResponse: 'defaultIsAutoResponse',
+    };
+
+    // Default values for secrets.json
+    const defaultSecrets = {
+        api_key: 'YourAPIKey',
+        authString: 'YourAuthString'
+    };
+
+    // Check and create config.json if it doesn't exist
+    if (!await existsAsync(configPath)) {
+        console.log('Creating config.json with default values...');
+        await writeFileAsync(configPath, JSON.stringify(defaultConfig, null, 2));
+        console.log('config.json created.');
+    } else {
+        console.log('Loading config.json...');
+        liveConfig = await readConfig()
+        console.log(liveConfig)
+        console.log('Finished!')
+
+    }
+
+    // Check and create secrets.json if it doesn't exist
+    if (!await existsAsync(secretsPath)) {
+        console.log('Creating secrets.json with default values...');
+        await writeFileAsync(secretsPath, JSON.stringify(defaultSecrets, null, 2));
+        console.log('secrets.json created, please update it with real credentials now and restart the server.');
+    }
+}
+
+// Create directories
+createDirectoryIfNotExist("./public/chats");
+createDirectoryIfNotExist("./public/api-presets");
+
+// Call the function to initialize the files
+initFiles();
+
+
 
 // Handle incoming WebSocket connections
 wsServer.on('connection', (ws) => {
-    handleConnections(ws)
+    handleConnections(ws, 'host')
 })
 wssServer.on('connection', (ws) => {
-    handleConnections(ws)
+    handleConnections(ws, 'guest')
 })
 
 async function charaRead(img_url, input_format) {
@@ -104,107 +206,379 @@ async function charaRead(img_url, input_format) {
 }
 
 async function getCardList() {
-    console.log('getting card list')
     const path = 'public/characters'
     const files = await fs.promises.readdir(path);
-    console.log(files)
     var cards = []
-    console.log('Files in directory:');
+    var i = 0
+    //console.log('Files in directory:');
     for (const file of files) {
         try {
             let fullPath = `${path}/${file}`
             const cardData = await charaRead(fullPath);
             var jsonData = JSON.parse(cardData);
             jsonData.filename = `${path}/${file}`
-            cards.push(jsonData);
-            console.log(jsonData.name, jsonData.filename)
+            cards[i] = {
+                name: jsonData.name,
+                filename: jsonData.filename
+            }
         } catch (error) {
             console.error(`Error reading file ${file}:`, error);
         }
+        i++
     }
-
     return cards;
 }
 
-function handleConnections(ws) {
-    // Store the connected client in the appropriate array based on the server
-    clientsArray.push(ws);
-    var userChatJSON
+async function getInstructList() {
+    const path = 'public/instructFormats'
+    const files = await fs.promises.readdir(path);
+    var instructs = []
+    var i = 0
+    //console.log('Files in directory:');
+    for (const file of files) {
+        try {
+            let fullPath = `${path}/${file}`
+            const cardData = await readFile(fullPath);
+            var jsonData = JSON.parse(cardData);
+            jsonData.filename = `${path}/${file}`
+            instructs[i] = {
+                name: jsonData.name,
+                filename: jsonData.filename
+            }
+        } catch (error) {
+            console.error(`Error reading file ${file}:`, error);
+        }
+        i++
+    }
+    return instructs;
+}
 
-    //gather the userchat history to send to the new user
-    fs.readFile('public/chats/UserChat.json', 'utf8', (err, data) => {
-        if (err) {
-            console.error('An error occurred:', err);
+async function getSamplerPresetList() {
+    const path = 'public/api-presets'
+    const files = await fs.promises.readdir(path);
+    var presets = []
+    var i = 0
+    for (const file of files) {
+        try {
+            let fullPath = `${path}/${file}`
+            presets[i] = {
+                name: file.replace('.json', ''),
+                filename: fullPath,
+            }
+        } catch (error) {
+            console.error(`Error reading file ${file}:`, error);
+        }
+        i++
+    }
+    return presets;
+}
+
+async function broadcast(message) {
+    console.log('broadcasting this:')
+    console.log(message)
+    Object.keys(clientsObject).forEach(clientUUID => {
+        const client = clientsObject[clientUUID];
+        const socket = client.socket;
+
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify(message));
+        }
+    });
+}
+
+// Broadcast the updated array of connected usernames to all clients
+async function broadcastUserList() {
+    const userListMessage = {
+        type: 'userList',
+        userList: connectedUserNames.sort()
+    };
+    broadcast(userListMessage);
+    console.log(`[BroadCast]: ${JSON.stringify(userListMessage)}`)
+}
+
+async function removeLastAIChatMessage() {
+    const data = await readAIChat()
+    let jsonArray = JSON.parse(data)
+    jsonArray.pop();
+    const formattedData = JSON.stringify(jsonArray, null, 2);
+    await writeAIChat(formattedData)
+    let chatUpdateMessage = {
+        type: 'chatUpdate',
+        chatHistory: jsonArray
+    }
+    console.log('sending AI Chat Update instruction to clients')
+    broadcast(chatUpdateMessage);
+}
+
+function humanizedTimestamp() {
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.getDate()).padStart(2, '0');
+    const hour = String(currentDate.getHours()).padStart(2, '0');
+    const minute = String(currentDate.getMinutes()).padStart(2, '0');
+    const second = String(currentDate.getSeconds()).padStart(2, '0');
+    const currentDateTime = `${year}-${month}-${day}_${hour}h${minute}m${second}s`;
+    return currentDateTime
+}
+
+async function saveAndClearChat(type) {
+
+    let fileprefix, currentChatData
+    if (type === 'AIChat') {
+        fileprefix = 'AIChat_'
+        currentChatData = await readAIChat();
+    } else {
+        fileprefix = 'UserChat_'
+        currentChatData = await readUserChat();
+    }
+
+    let currentTimestamp = humanizedTimestamp()
+    const newFileName = `${fileprefix}${currentTimestamp}.json`;
+    const newFilePath = `public/chats/${newFileName}`;
+
+    fs.writeFile(newFilePath, currentChatData, 'utf8', (writeErr) => {
+        if (writeErr) {
+            console.error('An error occurred while writing to the file:', writeErr);
             return;
         }
-        userChatJSON = data;
-        let connectionConfirmedMessage = {
-            type: 'connectionConfirmed',
-            chatHistory: userChatJSON
-        }
-        //send connection confirmation along with chat history
-        ws.send(JSON.stringify(connectionConfirmedMessage))
-    })
+        console.log(`Saved current ${type} as ${newFileName}.`);
+    });
 
+    // Create a new file with an empty array
+    try {
+        console.log(`Clearing ${type}.json...`);
+        type === 'AIChat' ? await writeAIChat('[]') : await writeUserChat('[]')
+
+    } catch (writeError) {
+        console.error('An error occurred while creating the file:', writeError);
+        return;
+    }
+}
+
+async function handleConnections(ws, type) {
+    // Store the connected client in the appropriate array based on the server
+    const thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
+    const thisUserUniqueId = uuidv4();
+    clientsObject[thisUserUniqueId] = {
+        socket: ws,
+        color: thisUserColor,
+        role: type
+    };
+
+    const cardList = await getCardList()
+    const instructList = await getInstructList()
+    const samplerPresetList = await getSamplerPresetList()
+    var AIChatJSON = await readAIChat();
+    var userChatJSON = await readUserChat()
+
+    //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
+    let connectionConfirmedMessage = {
+        clientUUID: thisUserUniqueId,
+        type: 'connectionConfirmed',
+        chatHistory: userChatJSON,
+        AIChatHistory: AIChatJSON,
+        userList: connectedUserNames,
+        engineMode: engineMode,
+        isAutoResponse: isAutoResponse,
+        contextSize: contextSize,
+        responseLength: responseLength,
+        color: thisUserColor,
+        role: type,
+        selectedCharacterDisplayName: liveConfig.selectedCharDisplayName
+    }
+    if (type === 'host') {
+        console.log("HOST CONNECTED")
+        hostUUID = thisUserUniqueId
+        connectionConfirmedMessage["cardList"] = cardList
+        connectionConfirmedMessage["instructList"] = instructList
+        connectionConfirmedMessage["samplerPresetList"] = samplerPresetList
+        connectionConfirmedMessage["selectedCharacter"] = liveConfig.selectedCharacter
+        connectionConfirmedMessage["selectedSamplerPreset"] = liveConfig.selectedPreset
+        connectionConfirmedMessage["engineMode"] = liveConfig.engineMode
+        connectionConfirmedMessage["isAutoResponse"] = liveConfig.isAutoResponse
+        connectionConfirmedMessage["contextSize"] = liveConfig.contextSize
+        connectionConfirmedMessage["responseLength"] = liveConfig.responseLength
+        connectionConfirmedMessage["D1JB"] = liveConfig.D1JB
+        connectionConfirmedMessage["instructFormat"] = liveConfig.instructFormat
+    }
+
+    //send connection confirmation along with chat history
+    ws.send(JSON.stringify(connectionConfirmedMessage))
     broadcastUserList()
 
-    // Broadcast the updated array of connected usernames to all clients
-    function broadcastUserList() {
-        const userListMessage = {
-            type: 'userList',
-            userList: connectedUserNames.sort()
-        };
-        clientsArray.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify(userListMessage));
-            }
-        });
-    }
 
     // Handle incoming messages from clients
     ws.on('message', async function (message) {
+        console.log(`--- MESSAGE IN`)
         // Parse the incoming message as JSON
         let parsedMessage;
+
+
         try {
+            console.log('')
             parsedMessage = JSON.parse(message);
-            stringifiedMessage = JSON.stringify(message)
+            const senderUUID = parsedMessage.UUID
+
+            let clientObject = clientsObject[parsedMessage.UUID];
+            //console.log(`==========ALL CLIENTS==========`)
+            let allClientUUIDs = Object.keys(clientsObject)
+
+            //console.log(allClientUUIDs)
+            //console.log(`connectedUsernames: ${connectedUserNames}`)
+            //console.log(`==========INCOMING MESSAGE==========`)
+            //console.log(parsedMessage)
+
+
+            //console.log('==========CLIENT OBJECT==========')
+            //console.log(clientObject.username, clientObject.role)
+            parsedMessage.userColor = thisUserColor
+            //stringifiedMessage = JSON.stringify(message)
             console.log('Received message from client:', parsedMessage);
 
-            if (parsedMessage.type === 'clearChat') {
-                // Broadcast the clear chat message to all connected clients
-                clientsArray.forEach(function (client) {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify(parsedMessage));
+            //first check if the sender is host, and if so, process possible host commands
+            if (senderUUID === hostUUID) {
+                //console.log(`saw message from host, type (${parsedMessage.type})`)
+                if (parsedMessage.type === 'clearChat') {
+
+                    //clear the UserChat.json file
+                    await saveAndClearChat('UserChat')
+                    const clearUserChatInstruction = {
+                        type: 'clearChat'
                     }
-                });
-                //clear the UserChat.json file
-                fs.writeFile('public/chats/UserChat.json', '[]', 'utf8', (err) => {
-                    if (err) {
-                        console.error('An error occurred:', err);
+                    // Broadcast the clear chat message to all connected clients
+                    await broadcast(clearUserChatInstruction);
+                    return
+                }
+                else if (parsedMessage.type === 'toggleAutoResponse') {
+                    isAutoResponse = parsedMessage.value
+                    liveConfig.isAutoResponse = isAutoResponse
+                    await writeConfig(liveConfig, 'isAutoResponse', isAutoResponse)
+                    return
+                }
+                else if (parsedMessage.type === 'adjustContextSize') {
+                    contextSize = parsedMessage.value
+                    liveConfig.contextSize = contextSize
+                    await writeConfig(liveConfig, 'contextSize', contextSize)
+                    return
+
+                }
+                else if (parsedMessage.type === 'adjustResponseLength') {
+                    responseLength = parsedMessage.value
+                    liveConfig.responseLength = responseLength
+                    await writeConfig(liveConfig, 'responseLength', responseLength)
+                    return
+
+                }
+                else if (parsedMessage.type === 'clearAIChat') {
+                    await saveAndClearChat('AIChat')
+                    const clearAIChatInstruction = {
+                        type: 'clearAIChat'
+                    }
+                    await broadcast(clearAIChatInstruction);
+                    return
+                }
+                else if (parsedMessage.type === 'deleteLast') {
+                    await removeLastAIChatMessage()
+                    return
+                }
+                else if (parsedMessage.type === 'changeCharacterRequest') {
+                    const changeCharMessage = {
+                        type: 'changeCharacter',
+                        char: parsedMessage.newChar,
+                        charDisplayName: parsedMessage.newCharDisplayName
+                    }
+                    liveConfig.selectedCharacter = parsedMessage.newChar
+                    liveConfig.selectedCharDisplayName = parsedMessage.newCharDisplayName
+                    await writeConfig(liveConfig)
+                    await broadcast(changeCharMessage);
+                    return
+                }
+                else if (parsedMessage.type === 'changeSamplerPreset') {
+                    const changePresetMessage = {
+                        type: 'changeSamplerPreset',
+                        newPreset: parsedMessage.newPreset
+                    }
+                    selectedPreset = parsedMessage.newPreset
+                    liveConfig.selectedPreset = selectedPreset
+                    const samplerData = await readFile(selectedPreset)
+                    liveConfig.samplers = samplerData
+                    await writeConfig(liveConfig, 'samplers', liveConfig.samplers)
+                    await writeConfig(liveConfig, 'selectedPreset', selectedPreset)
+                    await broadcast(changePresetMessage);
+                    return
+                }
+                else if (parsedMessage.type === 'changeInstructFormat') {
+                    const changeInstructMessage = {
+                        type: 'changeInstructFormat',
+                        newInstructFormat: parsedMessage.newInstructFormat
+                    }
+                    liveConfig.instructFormat = parsedMessage.newInstructFormat
+                    const instructSequences = await readFile(liveConfig.instructFormat)
+                    liveConfig.instructSequences = instructSequences
+                    await writeConfig(liveConfig, 'instructSequences', liveConfig.instructSequences)
+                    await writeConfig(liveConfig, 'instructFormat', parsedMessage.newInstructFormat)
+                    await broadcast(changeInstructMessage);
+                    return
+                }
+                else if (parsedMessage.type === 'changeD1JB') {
+                    const changeD1JBMessage = {
+                        type: 'changeD1JB',
+                        newD1JB: parsedMessage.newD1JB
+                    }
+                    liveConfig.D1JB = parsedMessage.newD1JB
+                    await writeConfig(liveConfig)
+                    await broadcast(changeD1JBMessage);
+                    return
+                }
+                else if (parsedMessage.type === 'AIRetry') {
+                    // Read the AIChat file
+                    try {
+                        await removeLastAIChatMessage()
+                        userPrompt = {
+                            'chatID': parsedMessage.chatID,
+                            'username': parsedMessage.username,
+                            'content': '',
+                        }
+                        await getAIResponse()
+                        return
+                    } catch (parseError) {
+                        console.error('An error occurred while parsing the JSON:', parseError);
                         return;
                     }
-                    console.log('UserChat.json has been cleared.');
-                });
-            }
-            else if (parsedMessage.type === 'cardListQuery') {
-                let cards = await getCardList()
-                let cardListMessage = {
-                    type: 'cardList',
-                    cards: cards
                 }
-                ws.send(JSON.stringify(cardListMessage))
+                else if (parsedMessage.type === 'modeChange') {
+                    engineMode = parsedMessage.newMode
+                    const modeChangeMessage = {
+                        type: 'modeChange',
+                        engineMode: engineMode
+                    }
+                    liveConfig.engineMode = engineMode
+                    await writeConfig(liveConfig, 'engineMode', engineMode)
+                    await broadcast(modeChangeMessage);
+                    return
+                }
+            }
+            //process universal message types
+            console.log(`processing universal message types...`)
+
+            if (parsedMessage.type === 'connect') {
+                console.log('saw connect message from client')
+                clientObject.username = parsedMessage.username;
+                console.log(clientObject.UUID, clientObject.username, clientObject.role)
+                console.log(`Adding ${parsedMessage.username} to connected user list..`)
+                connectedUserNames.push(parsedMessage.username)
+                console.log(`connectedUserNames: ${connectedUserNames}`)
+                await broadcastUserList()
+
             }
             else if (parsedMessage.type === 'disconnect') {
                 const disconnectedUsername = parsedMessage.username;
+                console.log(`Removing ${disconnectedUsername} from the User List...`)
                 connectedUserNames = connectedUserNames.filter(username => username !== disconnectedUsername);
-                broadcastUserList()
-            }
-            else if (parsedMessage.type === 'connect') {
-                ws.username = parsedMessage.username;
-                connectedUserNames.push(parsedMessage.username)
-                broadcastUserList()
-            }
+                await broadcastUserList()
 
+            }
             else if (parsedMessage.type === 'usernameChange') {
                 const oldName = parsedMessage.oldName;
                 connectedUserNames = connectedUserNames.filter(username => username !== oldName);
@@ -216,114 +590,137 @@ function handleConnections(ws) {
                 }
                 console.log(nameChangeNotification)
                 console.log('sending notification of username change')
-                clientsArray.forEach(function (client) {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify(nameChangeNotification));
-                    }
-                });
-                broadcastUserList()
+                await broadcast(nameChangeNotification);
+                await broadcastUserList()
             }
-
-            else if (parsedMessage.type === 'changeChar') {
-                const changeCharMessage = {
-                    type: 'changeChar',
-                    char: parsedMessage.newChar
-                }
-                clientsArray.forEach(async function (client) {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify(changeCharMessage));
-                    }
-                })
-            }
-
-            else { //handle normal chat messages
+            else if (parsedMessage.type === 'chatMessage') { //handle normal chat messages
                 const chatID = parsedMessage.chatID;
-                const userInput = parsedMessage.content
+                const username = parsedMessage.username
+                const userColor = thisUserColor
+                const userInput = parsedMessage.userInput
                 const hordePrompt = parsedMessage.content?.prompt
+                var userPrompt
 
                 //setup the userPrompt arrayin order to send the input into the AIChat box
                 if (chatID === 'AIChat') {
-                    var userPrompt = {
+
+                    userPrompt = {
                         'chatID': chatID,
-                        'username': parsedMessage.username,
+                        'username': username,
                         //send the HTML-ized message into the AI chat
-                        'content': parsedMessage.rawContent
+                        'content': parsedMessage.userInput,
+                        'userColor': userColor
+                    }
+                    let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
+                    //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
+                    if (!isEmptyTrigger) {
+                        let data = await readAIChat()
+                        let jsonArray = JSON.parse(data)
+                        const userObjToPush = {
+                            username: parsedMessage.username,
+                            content: parsedMessage.userInput,
+                            //htmlContent: parsedMessage.htmlContent,
+                            userColor: parsedMessage.userColor
+                        }
+                        jsonArray.push(userObjToPush)
+                        const formmattedData = JSON.stringify(jsonArray, null, 2);
+                        await writeAIChat(formmattedData)
+                        await broadcast(userPrompt)
+                    }
+                    if (liveConfig.isAutoResponse || isEmptyTrigger) {
+                        await getAIResponse()
                     }
                 }
                 //read the current userChat file
-                fs.readFile('public/chats/userChat.json', 'utf8', (err, data) => {
-                    if (err) {
-                        console.error('An error occurred while reading the file:', err);
-                        return;
-                    }
-
-                    let jsonArray = [];
-
-                    try {
-                        // Parse the existing contents as a JSON array
-                        jsonArray = JSON.parse(data);
-                    } catch (parseError) {
-                        console.error('An error occurred while parsing the JSON:', parseError);
-                        return;
-                    }
-
+                if (chatID === 'UserChat') {
+                    let data = await readUserChat()
+                    let jsonArray = JSON.parse(data);
                     // Add the new object to the array
                     jsonArray.push(parsedMessage);
                     const updatedData = JSON.stringify(jsonArray, null, 2);
-
                     // Write the updated array back to the file
-                    fs.writeFile('public/chats/userChat.json', updatedData, 'utf8', (writeErr) => {
-                        if (writeErr) {
-                            console.error('An error occurred while writing to the file:', writeErr);
-                            return;
-                        }
-                        console.log('UserChat.json updated.');
-                    });
-                });
-
-
-                // Broadcast the parsed message to all connected clients
-                clientsArray.forEach(async function (client) {
-                    //send the manual input user message to chat
-                    if (client.readyState === WebSocket.OPEN) {
-                        if (chatID === 'AIChat') {
-                            console.log(userPrompt)
-                            client.send(JSON.stringify(userPrompt))
-                        } else {
-                            client.send(JSON.stringify(parsedMessage));
-                        }
+                    await writeUserChat(updatedData)
+                    const newUserChatMessage = {
+                        chatID: chatID,
+                        username: username,
+                        userColor: userColor,
+                        content: parsedMessage.content
                     }
-                })
-                //request to AI API if user Input was made into AIChat
-                if (chatID === 'AIChat') {
-                    try {
-                        let charFile = parsedMessage.char
-                        let cardData = await charaRead(charFile, 'png')
-                        let cardJSON = JSON.parse(cardData)
-                        let charName = cardJSON.name
-                        var prompt = JSON.stringify(`${parsedMessage.content.prompt}\n${charName}:`);
-                        //strips out HTML tags
-                        var fixedPrompt = JSON.parse(prompt.replace(/<[^>]+>/g, ''));
-                        await (async function () {
+                    await broadcast(newUserChatMessage)
+                }
+            } else {
+                console.log(`unknown message type received (${parsedMessage.type})...ignoring...`)
+            }
 
-                            // AI_API_SELECTION_CODE
-                            // UNCOMMENT THIS LINE IF YOU WANT TO USE TABBY FOR AI RESPONSES
-                            //[parsedMessage.content.prompt, charName] = await addCharDefsToPrompt(charFile, fixedPrompt, parsedMessage.username);
-                            // UNCOMMENT THIS LINE IF YOU WANT TO USE HORDE FOR AI RESPONSES
-                            const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(parsedMessage.content);
 
-                            console.log(parsedMessage.content)
-                            //const tabbyResponse = await requestToTabby(parsedMessage.content)
-                            parsedMessage.content = `${charName}:${hordeResponse}`;
-                            //parsedMessage.content = `${charName}:${tabbyResponse}`;
-                            parsedMessage.username = 'AI';
-                            parsedMessage.type = 'AIResponse'
-                            const clientsArray = [...wsServer.clients, ...wssServer.clients]; // Convert clients set to an array
-                            await Promise.all(clientsArray.map(client => client.send(JSON.stringify(parsedMessage))));
-                        })();
-                    } catch (error) {
-                        console.log(error);
+            async function getAIResponse() {
+                try {
+                    let jsonArray = [];
+                    let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
+                    console.log(`Is this an empty trigger? ${isEmptyTrigger}`)
+
+                    //if it's not an empty trigger from host
+                    //if userInput is empty we can just request the AI directly
+                    let charFile = liveConfig.selectedCharacter
+                    let cardData = await charaRead(charFile, 'png')
+                    let cardJSON = JSON.parse(cardData)
+                    let charName = cardJSON.name
+                    var finalCharName = JSON.stringify(`\n${charName}:`);
+                    //strips out HTML tags from last message
+                    var fixedFinalCharName = JSON.parse(finalCharName.replace(/<[^>]+>/g, ''));
+
+                    const fullPromptforAI = await addCharDefsToPrompt(charFile, fixedFinalCharName, parsedMessage.username)
+                    const samplers = JSON.parse(liveConfig.samplers);
+                    //apply the selected preset values to the API call
+                    for (const [key, value] of Object.entries(samplers)) {
+                        parsedMessage.APICallParams[key] = value;
                     }
+                    //add full prompt to API call
+                    parsedMessage.APICallParams.prompt = fullPromptforAI;
+                    //ctx and response length for Tabby
+                    parsedMessage.APICallParams.truncation_length = Number(liveConfig.contextSize)
+                    parsedMessage.APICallParams.max_tokens = Number(liveConfig.responseLength)
+                    //ctx and response length for Horde
+                    parsedMessage.APICallParams.max_context_length = Number(liveConfig.contextSize)
+                    parsedMessage.APICallParams.max_length = Number(liveConfig.responseLength)
+
+                    //add stop strings
+                    const APICallParams = await setStopStrings(parsedMessage.APICallParams)
+
+                    var AIResponse = '';
+                    if (liveConfig.engineMode === 'horde') {
+                        const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(APICallParams);
+                        AIResponse = hordeResponse;
+                    }
+                    else {
+                        AIResponse = trimIncompleteSentences(await requestToTabby(APICallParams))
+                    }
+
+                    const AIResponseForChatJSON = {
+                        username: charName,
+                        content: AIResponse.trim(),
+                        userColor: parsedMessage.userColor
+                    }
+                    //add the response to the chat file
+                    let data = await readAIChat()
+                    jsonArray = JSON.parse(data);
+                    jsonArray.push(AIResponseForChatJSON);
+                    const updatedData = JSON.stringify(jsonArray, null, 2);
+                    // Write the formatted AI response array back to the file
+                    await writeAIChat(updatedData)
+
+                    //broadcast the response to all clients
+                    const AIResponseBroadcast = {
+                        chatID: parsedMessage.chatID,
+                        content: AIResponse,
+                        username: charName,
+                        type: 'AIResponse',
+                        userColor: parsedMessage.userColor
+                    }
+                    const tempClientsArray = [...wsServer.clients, ...wssServer.clients]; // Convert clients set to an array
+                    await Promise.all(tempClientsArray.map(client => client.send(JSON.stringify(AIResponseBroadcast))));
+                } catch (error) {
+                    console.log(error);
                 }
             }
         } catch (error) {
@@ -333,34 +730,358 @@ function handleConnections(ws) {
     });
 
     ws.on('close', () => {
-        // Remove the disconnected client from the clientsArray
-        clientsArray = clientsArray.filter(client => client !== ws);
+        // Remove the disconnected client from the clientsObject
+        clientsObject = clientsObject.filter(client => client !== ws);
     });
 };
 
-async function addCharDefsToPrompt(charFile, userInputString, username) {
 
-    try {
-        let charData = await charaRead(charFile, 'png')
-        const jsonData = JSON.parse(charData)
-        const jsonString = JSON.stringify(jsonData);
-        //resolve {user} macros in data (depcreciated, was used for hivemind.json file from discord imp)
-        const replacedString = jsonString.replace(/\${user}/g, username);
-        const replacedData = JSON.parse(replacedString);
-        console.log(replacedData)
-        const stringToReturn =
-            `${replacedData?.description}
-${replacedData?.personality}
-${replacedData?.scenario}
-${replacedData.name}: ${replacedData?.first_mes}
-${userInputString}`;
-        let charName = jsonData.name
+function countTokens(str) {
+    let chars = str.length
+    let tokens = Math.ceil(chars / 3)
+    //console.log(`estimated tokens: ${tokens}`)
+    return tokens
+}
 
-        return [stringToReturn, charName];
-    } catch (error) {
-        console.error('Error reading file:', error);
-        throw error;
+/**
+ * Reads AI chat data from a JSON file. If the file doesn't exist, creates it.
+ * @returns {Promise<string>} A promise that resolves with the file content.
+ */
+async function readAIChat() {
+    await acquireLock()
+    return new Promise((resolve, reject) => {
+        fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    console.log('AIChat.json not found, creating it now.');
+                    writeAIChat('[]').then(() => {
+                        resolve('[]');
+                    }).catch(writeErr => {
+                        console.error('An error occurred while creating the file:', writeErr);
+                        releaseLock();
+                        reject(writeErr);
+                    });
+                } else {
+                    console.error('An error occurred while reading the file:', err);
+                    releaseLock();
+                    reject(err);
+                }
+            } else {
+                releaseLock();
+                resolve(data);
+            }
+        });
+    });
+}
+
+async function writeAIChat(data) {
+    await acquireLock()
+    fs.writeFile('public/chats/AIChat.json', data, 'utf8', (writeErr) => {
+        if (writeErr) {
+            console.error('An error occurred while writing to the file:', writeErr);
+            releaseLock()
+            return;
+        }
+        console.log('AIChat.json updated.');
+        releaseLock()
+    });
+}
+
+/**
+ * Reads user chat data from a JSON file. If the file doesn't exist, creates it.
+ * @returns {Promise<string>} A promise that resolves with the file content.
+ */
+async function readUserChat() {
+    await acquireLock()
+    return new Promise((resolve, reject) => {
+        fs.readFile('public/chats/UserChat.json', 'utf8', (err, data) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    console.log('UserChat.json not found, creating it now.');
+                    writeUserChat('[]').then(() => {
+                        resolve('[]');
+                    }).catch(writeErr => {
+                        console.error('An error occurred while creating the file:', writeErr);
+                        releaseLock()
+                        reject(writeErr);
+                    });
+                } else {
+                    console.error('An error occurred while reading the file:', err);
+                    releaseLock()
+                    reject(err);
+                }
+            } else {
+                releaseLock()
+                resolve(data);
+            }
+        });
+    });
+}
+
+async function writeUserChat(data) {
+    await acquireLock()
+    fs.writeFile('public/chats/UserChat.json', data, 'utf8', (writeErr) => {
+        if (writeErr) {
+            console.error('An error occurred while writing to the file:', writeErr);
+            releaseLock()
+            return;
+        }
+        console.log('UserChat.json updated.');
+        releaseLock()
+    });
+}
+
+async function readConfig() {
+    await acquireLock()
+    //await delay(100)
+    //console.log('--- READ CONFIG started')
+    return new Promise(async (resolve, reject) => {
+        fs.readFile('config.json', 'utf8', async (err, data) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    console.log('config.json not found, initializing with default values.');
+                    try {
+                        //console.log('--- READ CONFIG calling initconfig')
+                        //await delay(100)
+                        await initConfig();
+                        //console.log('----- CREATED NEW CONFIG FILE, RETURNING IT')
+                        releaseLock()
+                        resolve(liveConfig); // Assuming liveconfig is accessible here
+                    } catch (initErr) {
+                        console.error('An error occurred while initializing the file:', initErr);
+                        releaseLock()
+                        reject(initErr);
+                    }
+                } else {
+                    console.error('An error occurred while reading the file:', err);
+                    releaseLock()
+                    reject(err);
+                }
+            } else {
+                try {
+                    //await delay(100)
+                    const configData = JSON.parse(data); // Parse the content as JSON
+                    releaseLock()
+                    resolve(configData);
+                } catch (parseErr) {
+                    console.error('An error occurred while parsing the JSON:', parseErr);
+                    releaseLock()
+                    reject(parseErr);
+                }
+            }
+        });
+    });
+}
+
+async function writeConfig(configObj, key, value) {
+    await acquireLock()
+    await delay(100)
+    //let newObject = await readConfig()
+    if (key) {
+        configObj[key] = value;
+        console.log(`Config updated: ${key}`); // = ${value}`);
     }
+    const writableConfig = JSON.stringify(configObj, null, 2); // Serialize the object with indentation
+    fs.writeFile('config.json', writableConfig, 'utf8', writeErr => {
+        if (writeErr) {
+            console.error('An error occurred while writing to the file:', writeErr);
+            releaseLock()
+            return;
+        }
+        console.log('config.json updated.');
+        releaseLock()
+    });
+}
+
+async function readFile(file) {
+    await acquireLock()
+    console.log(`[readFile()] Reading ${file}...`)
+    return new Promise((resolve, reject) => {
+        fs.readFile(file, 'utf8', (err, data) => {
+            if (err) {
+                if (err.code === 'ENOENT') {
+                    console.log(`ERROR: ${file} not found`);
+                } else {
+                    console.error('An error occurred while reading the file:', err);
+                    releaseLock()
+                    reject(err);
+                }
+            } else {
+                releaseLock()
+                resolve(data);
+            }
+        });
+    });
+}
+
+async function acquireLock() {
+    const stackTrace = new Error().stack;
+    const callingFunctionName = stackTrace.split('\n')[2].trim().split(' ')[1];
+    //console.log(`${callingFunctionName} trying to acquiring lock..`)
+    let lockfilePath = 'lockfile.lock'
+    while (true) {
+        try {
+            // Attempt to create the lock file exclusively
+            await fs.promises.writeFile(lockfilePath, '', { flag: 'wx' });
+            //console.log('lock acquired')
+            return;
+        } catch (error) {
+            //console.log('lockfile already exists')
+            // File already exists, wait and retry
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    }
+}
+
+async function releaseLock() {
+    const stackTrace = new Error().stack;
+    const callingFunctionName = stackTrace.split('\n')[2].trim().split(' ')[1];
+    //console.log(`${callingFunctionName} releasing lock..`)
+    let lockfilePath = 'lockfile.lock'
+    try {
+        await fs.promises.unlink(lockfilePath);
+    } catch (error) {
+        console.log(error)
+    }
+}
+
+function trimIncompleteSentences(input, include_newline = false) {
+    const punctuation = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit
+    let last = -1;
+    //console.log(`--- BEFORE:`)
+    //console.log(input)
+    //console.log(`--- AFTER:`)
+    for (let i = input.length - 1; i >= 0; i--) {
+        const char = input[i];
+        if (punctuation.has(char)) {
+            last = i;
+            break;
+        }
+        if (include_newline && char === '\n') {
+            last = i;
+            break;
+        }
+    }
+    if (last === -1) {
+        //console.log(input.trimEnd())
+        return input.trimEnd();
+    }
+    let trimmedString = input.substring(0, last + 1).trimEnd();
+
+    //console.log(trimmedString)
+    return trimmedString;
+}
+
+async function ObjectifyChatHistory() {
+    return new Promise(async (resolve, reject) => {
+        await delay(100)
+        let data = await readAIChat();
+        try {
+            // Parse the existing contents as a JSON array
+            let chatHistory = JSON.parse(data);
+            resolve(chatHistory);
+        } catch (parseError) {
+            console.error('An error occurred while parsing the JSON:', parseError);
+            reject(parseError);
+        }
+    });
+}
+
+async function setStopStrings(APICallParams) {
+
+    let chatHistory = await ObjectifyChatHistory();
+    let usernames = new Set();
+
+    // Iterate over chatHistory and extract unique usernames
+    for (const obj of chatHistory) {
+        const username = obj.username;
+        usernames.add(username);
+    }
+    let targetObj = []
+
+    // Generate permutations for each unique username
+    for (const username of usernames) {
+        targetObj.push(
+            `${username}:`,
+            `\n${username}:`,
+            ` ${username}:`,
+            `\n ${username}:`
+        );
+    }
+
+    if (liveConfig.engineMode === 'tabby') {
+        APICallParams.stop = targetObj
+    } else {
+        APICallParams.params.stop_sequence = targetObj
+    }
+
+    return APICallParams
+}
+
+async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username) {
+    return new Promise(async function (resolve, reject) {
+        try {
+            let charData = await charaRead(charFile, 'png')
+            let chatHistory = await ObjectifyChatHistory()
+
+            //replace {{user}} and {{char}} for character definitions
+            const jsonData = JSON.parse(charData)
+            const charName = jsonData.name
+            const jsonString = JSON.stringify(jsonData);
+            var replacedString = jsonString.replace(/{{user}}/g, username);
+            replacedString = replacedString.replace(/{{char}}/g, jsonData.name);
+            const replacedData = JSON.parse(replacedString);
+
+            //replace {{user}} and {{char}} for D1JB
+            var D1JB = liveConfig.D1JB
+            var replacedD1JB = D1JB.replace(/{{user}}/g, username);
+            replacedD1JB = replacedD1JB.replace(/{{char}}/g, jsonData.name);
+
+            const instructSequence = JSON.parse(liveConfig.instructSequences)
+            const inputSequence = instructSequence.input_sequence
+            const outputSequence = instructSequence.output_sequence
+            const systemSequence = instructSequence.system_sequence
+            const endSequence = instructSequence.end_sequence
+            const systemMessage = `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
+
+            //add the char description, personality, scenario, and first message
+            var stringToReturn =
+                `${systemSequence}${systemMessage}\n${replacedData?.description}\n${replacedData?.personality.trim()}\n${replacedData?.scenario.trim()}${endSequence}${outputSequence}${replacedData.name.trim()}: ${replacedData?.first_mes.trim()}\n${endSequence}`
+            //add the chat history
+            let promptTokens = countTokens(stringToReturn)
+            //console.log(`before adding ChatHIstory, Prompt is: ~${promptTokens}`)
+            let insertedItems = []
+            for (let i = chatHistory.length - 1; i >= 0; i--) {
+                let obj = chatHistory[i];
+                let newItem
+                if (obj.username === charName) {
+                    newItem = `${outputSequence}${obj.username}: ${obj.content}\n${endSequence}`;
+                } else {
+                    newItem = `${inputSequence}${obj.username}: ${obj.content}\n${endSequence}`;
+                }
+
+                let newItemTokens = countTokens(newItem);
+                if (promptTokens + newItemTokens < liveConfig.contextSize) {
+                    promptTokens += newItemTokens;
+                    //console.log(`added new item, prompt tokens: ~${promptTokens}`);
+                    insertedItems.push(newItem); // Add new item to the array
+                }
+            }
+
+            // Reverse the array before appending to insertedChatHistory
+            let reversedItems = insertedItems.reverse();
+            let insertedChatHistory = reversedItems.join('');
+            stringToReturn += insertedChatHistory
+            //add the final first mes and userInput        
+            stringToReturn += `${systemSequence}${replacedD1JB}\n${endSequence}`
+            stringToReturn += `${outputSequence}${lastUserMesageAndCharName.trim()}`;
+            stringToReturn = stringToReturn.trim()
+            resolve(stringToReturn);
+        } catch (error) {
+            console.error('Error reading file:', error);
+            reject(error)
+        }
+    })
 }
 
 async function requestToHorde(stringToSend, stoppingStrings = '') {
@@ -373,7 +1094,7 @@ async function requestToHorde(stringToSend, stoppingStrings = '') {
     var headers = {
         'Content-Type': 'application/json',
         'Cache': 'no-cache',
-        //'Authorization': 'Basic ' + btoa(''),
+        'Authorization': 'Basic ' + btoa(STBasicAuthCredentials),
         "Client-Agent": "SillyTavern:UNKNOWN:Cohee#1207"
     };
 
@@ -435,7 +1156,8 @@ async function requestToHorde(stringToSend, stoppingStrings = '') {
     };
 }
 
-async function requestToTabby(message, stringToSend, stoppingStrings) {
+async function requestToTabby(APICallParamsAndPrompt) {
+    //message needs to be the ENTIRE API call, including params and chat history..
     try {
         console.log('Sending Tabby request..');
 
@@ -448,7 +1170,6 @@ async function requestToTabby(message, stringToSend, stoppingStrings) {
             'Authorization': `Bearer ${tabbyAPIkey}`,
         };
 
-
         //old code for pulling from an external JSON file to get gen params, currently these are provided by client.html WS messages
         //TODO: revert to external JSON and only pull necessary variables from client.html WS pings.
 
@@ -456,7 +1177,8 @@ async function requestToTabby(message, stringToSend, stoppingStrings) {
         //TabbyAPICallParams['prompt'] = stringToSend;
         //TabbyAPICallParams['stopping_strings'] = stoppingStrings;
 
-        const body = JSON.stringify(message);
+        const body = JSON.stringify(APICallParamsAndPrompt);
+        console.log(APICallParamsAndPrompt)
 
         const response = await fetch(url, {
             method: 'POST',
@@ -499,11 +1221,7 @@ process.on('SIGINT', () => {
     const serverShutdownMessage = {
         type: 'forceDisconnect',
     };
-    clientsArray.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(serverShutdownMessage));
-        }
-    });
+    broadcast(serverShutdownMessage);
 
     // Close the WebSocket server
     wsServer.close(() => {

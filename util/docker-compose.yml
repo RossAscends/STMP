@@ -1,0 +1,11 @@
+version: '3.6'
+
+services:
+  stmp:
+    container_name: SillyTavern_Multiplayer
+    build:
+      context: ..
+      dockerfile: ./util/Dockerfile
+    ports:
+      - "8181:8181"
+      - "8182:8182"

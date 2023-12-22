@@ -1,5 +1,8 @@
 var username, storedUsername, AIChatUsername, storedAIChatUsername, isAutoResponse
 
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 async function startupUsernames() {
     storedUsername = localStorage.getItem('username');
     storedAIChatUsername = localStorage.getItem('AIChatUsername');
@@ -151,6 +154,7 @@ var HordeAPICallParams = {
 }
 //END_OF_HORDE_PAREMETERS
 
+//default to TabbyAPI
 var APICallParams = TabbyAPICallParams;
 
 function messageServer(message) {
@@ -179,49 +183,70 @@ async function requestUserList() {
     messageServer(userListRequestMessage)
 }
 
-function updateSelectedChar(char, type) {
-    if (type === 'forced') {
-        $("#characters").find(`option[value="${char}"]`).prop('selected', true).trigger('change')
-    } else {
-        return
+function updateSelectedChar(char, displayName, type) {
+    $("#charName").text(displayName)
+    if (type === 'forced') { //if server ordered it
+        console.debug('changing Char from server command')
+        $("#characters").find(`option[value="${char}"]`).prop('selected', true)
+    } else { //if user did it
+        //let newChar = String($("#characters").val())
+        console.debug('I manually changed char, and updating to server')
+        let newCharDisplayName = $("#characters").find(`option[value="${char}"]`).text()
+        let changeCharacterRequest = {
+            type: 'changeCharacterRequest',
+            UUID: myUUID,
+            newChar: char,
+            newCharDisplayName: newCharDisplayName
+        }
+        messageServer(changeCharacterRequest);
     }
 }
 
 function updateSelectedSamplerPreset(preset, type) {
     if (type === 'forced') {
-        $("#samplerPreset").find(`option[value="${preset}"]`).prop('selected', true).trigger('change')
+        console.debug('changing preset from server command')
+        $("#samplerPreset").find(`option[value="${preset}"]`).prop('selected', true)
+    } else {
+        console.debug('I manually changed char, and updating to server')
+        let changeSamplerPresetMessage = {
+            type: 'changeSamplerPreset',
+            UUID: myUUID,
+            newPreset: preset
+        }
+        messageServer(changeSamplerPresetMessage);
     }
 }
 
-function processConfirmedConnection(parsedMessage) {
+async function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
-    const { clientUUID, role, selectedCharacter, selectedSamplerPreset, chatHistory, AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
+    const { clientUUID, role, selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory, AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
     myUUID = clientUUID
     isHost = role === 'host' ? true : false
-    console.log(role, isHost)
-    console.log(`my UUID is: ${myUUID}`)
+    console.debug(`my UUID is: ${myUUID}`)
     var userRole = isHost ? 'Host' : 'Guest';
     $("#userRole").text(userRole)
+    $("#charName").text(selectedCharacterDisplayName)
     if (isHost) {
         $("#controlPanel").show()
-    } else {
-        $("#controlPanel").remove()
-    }
-    $("#AIAutoResponse").prop('checked', isAutoResponse)
-    $("#maxContext").find(`option[value="${contextSize}"]`).prop('selected', true)
-    $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
-    $("#chat").empty();
-    $("#AIchat").empty();
-
-    updateUIUserList(userList);
-    if (userRole === 'Host') {
+        await delay(100)
+        $("#AIAutoResponse").prop('checked', isAutoResponse)
+        await delay(100)
+        $("#maxContext").find(`option[value="${contextSize}"]`).prop('selected', true)
+        await delay(100)
+        $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
         populateCardSelector(cardList);
         populateSamplerSelector(samplerPresetList);
         console.debug(`selecting character as defined from server: ${selectedCharacter}`);
-        updateSelectedChar(selectedCharacter, 'forced');
+        updateSelectedChar(selectedCharacter, selectedCharacterDisplayName, 'forced');
         updateSelectedSamplerPreset(selectedSamplerPreset, 'forced');
         setEngineMode(engineMode);
+    } else {
+        $("#controlPanel").remove()
     }
+
+    $("#chat").empty();
+    $("#AIchat").empty();
+    updateUIUserList(userList);
 
     if (chatHistory) {
         const trimmedChatHistoryString = chatHistory.trim();
@@ -240,7 +265,6 @@ function processConfirmedConnection(parsedMessage) {
     const connectionMessage = {
         type: 'connect',
         UUID: myUUID,
-        role: userRole,
         username: username
     };
     console.log('sending connection message..')
@@ -324,7 +348,7 @@ function connectWebSocket() {
                 let currentChar = $("#characters").val()
                 let newChar = parsedMessage.char
                 if (currentChar !== newChar) {
-                    updateSelectedChar(parsedMessage.char, 'forced');
+                    updateSelectedChar(parsedMessage.char, parsedMessage.charDisplayName, 'forced');
                 }
                 break;
             case 'changeSamplerPreset':
@@ -455,6 +479,44 @@ function setEngineMode(mode) {
     }
 }
 
+async function sendMessageToAIChat(type) {
+    //hordeAPICallParams.params.stop_sequence = stoppingStrings;
+
+    if ($("#AIUsernameInput").val().trim() === '') {
+        alert("Can't send chat message with no username!");
+        return;
+    }
+
+    var messageInput = $("#AIMessageInput");
+    if (messageInput.val().trim() === '' && type !== 'forced') {
+        alert("Can't send empty message!");
+        return;
+    }
+    username = $("#AIUsernameInput").val()
+    let charDisplayName = $('#characters option:selected').text();
+    //TODO: make this function grab usernames for all entities in chat history
+    //and move it inside the Prompt crafting function
+    //Move it to server-side. client side has no idea on its own.
+
+    var markdownContent = `${messageInput.val()}`;
+    var htmlContent = converter.makeHtml(markdownContent);
+    var char = $('#characters').val();
+    var stringToSend = markdownContent
+    APICallParams.prompt = stringToSend;
+    var websocketRequest = {
+        type: 'chatMessage',
+        chatID: 'AIChat',
+        UUID: myUUID,
+        username: username,
+        APICallParams: APICallParams,
+        userInput: markdownContent,
+    }
+    localStorage.setItem('AIChatUsername', username);
+    messageServer(websocketRequest);
+    messageInput.val('');
+    messageInput.trigger('focus');
+}
+
 let isDisconnecting = false;
 window.addEventListener('beforeunload', () => {
     if (!isDisconnecting) {
@@ -539,7 +601,7 @@ $(document).ready(async function () {
     });
     //this just circumvents the logic of requiring a username and input message before pushing send.
     $("#triggerAIResponse").off('click').on("click", function () {
-        $("#AISendButton").trigger('click')
+        sendMessageToAIChat('forced')
     })
 
     $("#AIRetry").off('click').on('click', function () {
@@ -547,29 +609,16 @@ $(document).ready(async function () {
     })
 
     $("#characters").on('change', function () {
-        let newChar = String($("#characters").val())
-        let changeCharacterRequest = {
-            type: 'changeCharacterRequest',
-            UUID: myUUID,
-            newChar: newChar
-        }
-        messageServer(changeCharacterRequest);
+        let displayName = $("#characters").find('option:selected').text()
+        updateSelectedChar($(this).val(), displayName)
     })
 
     $("#samplerPreset").on('change', function () {
-        let newPreset = String($("#samplerPreset").val())
-        let changeSamplerPresetMessage = {
-            type: 'changeSamplerPreset',
-            UUID: myUUID,
-            newPreset: newPreset
-        }
-        messageServer(changeSamplerPresetMessage);
+        updateSelectedSamplerPreset($(this).val())
     })
 
     //A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.
     $("#toggleMode").off('click').on('click', function () {
-        //A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI to reflect the change.
-
         let newMode = $("#toggleMode").hasClass('hordeMode') ? 'tabby' : 'horde';
         let modeChangeMessage = {
             type: 'modeChange',
@@ -595,41 +644,7 @@ $(document).ready(async function () {
     })
 
     $("#AISendButton").off('click').on('click', function () {
-        //hordeAPICallParams.params.stop_sequence = stoppingStrings;
-
-        if ($("#AIUsernameInput").val().trim() === '') {
-            alert("Can't send chat message with no username!");
-            return;
-        }
-
-        var messageInput = $("#AIMessageInput");
-        if (messageInput.val().trim() === '') {
-            alert("Can't send empty message!");
-            return;
-        }
-        username = $("#AIUsernameInput").val()
-        let charDisplayName = $('#characters option:selected').text();
-        //TODO: make this function grab usernames for all entities in chat history
-        //and move it inside the Prompt crafting function
-        //Move it to server-side. client side has no idea on its own.
-
-        var markdownContent = `${messageInput.val()}`;
-        var htmlContent = converter.makeHtml(markdownContent);
-        var char = $('#characters').val();
-        var stringToSend = markdownContent
-        APICallParams.prompt = stringToSend;
-        var websocketRequest = {
-            type: 'chatMessage',
-            chatID: 'AIChat',
-            UUID: myUUID,
-            username: username,
-            APICallParams: APICallParams,
-            userInput: markdownContent,
-        }
-        localStorage.setItem('AIChatUsername', username);
-        messageServer(websocketRequest);
-        messageInput.val('');
-        messageInput.trigger('focus');
+        sendMessageToAIChat()
     })
 
     $("#clearUserChat").off('click').on('click', function () {
@@ -658,7 +673,6 @@ $(document).ready(async function () {
         }
         messageServer(delLastMessage);
     })
-
 
     await startupUsernames()
     $("#usernameInput").val(username)

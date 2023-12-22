@@ -131,6 +131,7 @@ wssServer.setMaxListeners(0);
 // Arrays to store connected clients of each server
 var clientsObject = [];
 var connectedUserNames = [];
+var hostUUID
 
 //default values
 var selectedCharacter
@@ -358,10 +359,12 @@ async function handleConnections(ws, type) {
         contextSize: contextSize,
         responseLength: responseLength,
         color: thisUserColor,
-        role: type
+        role: type,
+        selectedCharacterDisplayName: liveConfig.selectedCharDisplayName
     }
     if (type === 'host') {
         console.log("HOST CONNECTED")
+        hostUUID = thisUserUniqueId
         connectionConfirmedMessage["cardList"] = cardList
         connectionConfirmedMessage["samplerPresetList"] = samplerPresetList
         connectionConfirmedMessage["selectedCharacter"] = liveConfig.selectedCharacter
@@ -379,29 +382,135 @@ async function handleConnections(ws, type) {
 
     // Handle incoming messages from clients
     ws.on('message', async function (message) {
-
+        console.log(`--- MESSAGE IN`)
         // Parse the incoming message as JSON
         let parsedMessage;
 
 
         try {
+            console.log('')
             parsedMessage = JSON.parse(message);
+            const senderUUID = parsedMessage.UUID
 
             let clientObject = clientsObject[parsedMessage.UUID];
-            console.log(`==========ALL CLIENTS==========`)
+            //console.log(`==========ALL CLIENTS==========`)
             let allClientUUIDs = Object.keys(clientsObject)
 
-            console.log(allClientUUIDs)
-            console.log(`connectedUsernames: ${connectedUserNames}`)
-            console.log(`==========INCOMING MESSAGE==========`)
-            console.log(parsedMessage)
+            //console.log(allClientUUIDs)
+            //console.log(`connectedUsernames: ${connectedUserNames}`)
+            //console.log(`==========INCOMING MESSAGE==========`)
+            //console.log(parsedMessage)
 
 
-            console.log('==========CLIENT OBJECT==========')
-            console.log(clientObject.username, clientObject.role)
+            //console.log('==========CLIENT OBJECT==========')
+            //console.log(clientObject.username, clientObject.role)
             parsedMessage.userColor = thisUserColor
             //stringifiedMessage = JSON.stringify(message)
-            //console.log('Received message from client:', parsedMessage);
+            console.log('Received message from client:', parsedMessage);
+
+            //first check if the sender is host, and if so, process possible host commands
+            if (senderUUID === hostUUID) {
+                //console.log(`saw message from host, type (${parsedMessage.type})`)
+                if (parsedMessage.type === 'clearChat') {
+
+                    //clear the UserChat.json file
+                    await saveAndClearChat('UserChat')
+                    const clearUserChatInstruction = {
+                        type: 'clearChat'
+                    }
+                    // Broadcast the clear chat message to all connected clients
+                    await broadcast(clearUserChatInstruction);
+                    return
+                }
+                else if (parsedMessage.type === 'toggleAutoResponse') {
+                    isAutoResponse = parsedMessage.value
+                    liveConfig.isAutoResponse = isAutoResponse
+                    await writeConfig(liveConfig, 'isAutoResponse', isAutoResponse)
+                    return
+                }
+                else if (parsedMessage.type === 'adjustContextSize') {
+                    contextSize = parsedMessage.value
+                    liveConfig.contextSize = contextSize
+                    await writeConfig(liveConfig, 'contextSize', contextSize)
+                    return
+
+                }
+                else if (parsedMessage.type === 'adjustResponseLength') {
+                    responseLength = parsedMessage.value
+                    liveConfig.responseLength = responseLength
+                    await writeConfig(liveConfig, 'responseLength', responseLength)
+                    return
+
+                }
+                else if (parsedMessage.type === 'clearAIChat') {
+                    await saveAndClearChat('AIChat')
+                    const clearAIChatInstruction = {
+                        type: 'clearAIChat'
+                    }
+                    await broadcast(clearAIChatInstruction);
+                    return
+                }
+                else if (parsedMessage.type === 'deleteLast') {
+                    await removeLastAIChatMessage()
+                    return
+                }
+                else if (parsedMessage.type === 'changeCharacterRequest') {
+                    const changeCharMessage = {
+                        type: 'changeCharacter',
+                        char: parsedMessage.newChar,
+                        charDisplayName: parsedMessage.newCharDisplayName
+                    }
+                    liveConfig.selectedCharacter = parsedMessage.newChar
+                    liveConfig.selectedCharDisplayName = parsedMessage.newCharDisplayName
+                    await writeConfig(liveConfig)
+                    await broadcast(changeCharMessage);
+                    return
+                }
+                else if (parsedMessage.type === 'changeSamplerPreset') {
+                    const changePresetMessage = {
+                        type: 'changeSamplerPreset',
+                        newPreset: parsedMessage.newPreset
+                    }
+                    selectedPreset = parsedMessage.newPreset
+                    liveConfig.selectedPreset = selectedPreset
+                    const samplerData = await readFile(selectedPreset)
+                    liveConfig.samplers = samplerData
+                    await writeConfig(liveConfig, 'samplers', liveConfig.samplers)
+                    await writeConfig(liveConfig, 'selectedPreset', selectedPreset)
+                    await broadcast(changePresetMessage);
+                    return
+                }
+                else if (parsedMessage.type === 'AIRetry') {
+                    // Read the AIChat file
+                    try {
+                        await removeLastAIChatMessage()
+                        userPrompt = {
+                            'chatID': parsedMessage.chatID,
+                            'username': parsedMessage.username,
+                            'content': '',
+                        }
+                        await getAIResponse()
+                        return
+                    } catch (parseError) {
+                        console.error('An error occurred while parsing the JSON:', parseError);
+                        return;
+                    }
+                }
+                else if (parsedMessage.type === 'modeChange') {
+                    engineMode = parsedMessage.newMode
+                    const modeChangeMessage = {
+                        type: 'modeChange',
+                        engineMode: engineMode
+                    }
+                    liveConfig.engineMode = engineMode
+                    await writeConfig(liveConfig, 'engineMode', engineMode)
+                    await broadcast(modeChangeMessage);
+                    return
+                }
+            }
+            //process universal message types
+            console.log(`processing universal message types...`)
+
             if (parsedMessage.type === 'connect') {
                 console.log('saw connect message from client')
                 clientObject.username = parsedMessage.username;
@@ -411,42 +520,6 @@ async function handleConnections(ws, type) {
                 console.log(`connectedUserNames: ${connectedUserNames}`)
                 await broadcastUserList()
 
-            }
-            else if (parsedMessage.type === 'clearChat') {
-                //clear the UserChat.json file
-                await saveAndClearChat('UserChat')
-                const clearUserChatInstruction = {
-                    type: 'clearChat'
-                }
-                // Broadcast the clear chat message to all connected clients
-                await broadcast(clearUserChatInstruction);
-            }
-            else if (parsedMessage.type === 'toggleAutoResponse') {
-                isAutoResponse = parsedMessage.value
-                liveConfig.isAutoResponse = isAutoResponse
-                await writeConfig(liveConfig, 'isAutoResponse', isAutoResponse)
-            }
-            else if (parsedMessage.type === 'adjustContextSize') {
-                contextSize = parsedMessage.value
-                liveConfig.contextSize = contextSize
-                await writeConfig(liveConfig, 'contextSize', contextSize)
-
-            }
-            else if (parsedMessage.type === 'adjustResponseLength') {
-                responseLength = parsedMessage.value
-                liveConfig.responseLength = responseLength
-                await writeConfig(liveConfig, 'responseLength', responseLength)
-
-            }
-            else if (parsedMessage.type === 'clearAIChat') {
-                await saveAndClearChat('AIChat')
-                const clearAIChatInstruction = {
-                    type: 'clearAIChat'
-                }
-                await broadcast(clearAIChatInstruction);
-            }
-            else if (parsedMessage.type === 'deleteLast') {
-                await removeLastAIChatMessage()
             }
             else if (parsedMessage.type === 'disconnect') {
                 const disconnectedUsername = parsedMessage.username;
@@ -469,55 +542,6 @@ async function handleConnections(ws, type) {
                 await broadcast(nameChangeNotification);
                 await broadcastUserList()
             }
-            else if (parsedMessage.type === 'changeCharacter') {
-                const changeCharMessage = {
-                    type: 'changeCharacter',
-                    char: parsedMessage.newChar
-                }
-                selectedCharacter = parsedMessage.newChar
-                liveConfig.selectedCharacter = selectedCharacter
-                await writeConfig(liveConfig, 'selectedCharacter', selectedCharacter)
-                await broadcast(changeCharMessage);
-            }
-            else if (parsedMessage.type === 'changeSamplerPreset') {
-                const changePresetMessage = {
-                    type: 'changeSamplerPreset',
-                    newPreset: parsedMessage.newPreset
-                }
-                selectedPreset = parsedMessage.newPreset
-                liveConfig.selectedPreset = selectedPreset
-                const samplerData = await readFile(selectedPreset)
-                liveConfig.samplers = samplerData
-                await writeConfig(liveConfig, 'samplers', liveConfig.samplers)
-                await writeConfig(liveConfig, 'selectedPreset', selectedPreset)
-                await broadcast(changePresetMessage);
-            }
-            else if (parsedMessage.type === 'AIRetry') {
-                // Read the AIChat file
-                try {
-                    await removeLastAIChatMessage()
-                    userPrompt = {
-                        'chatID': parsedMessage.chatID,
-                        'username': parsedMessage.username,
-                        'content': '',
-                    }
-                    await getAIResponse()
-                } catch (parseError) {
-                    console.error('An error occurred while parsing the JSON:', parseError);
-                    return;
-                }
-            }
-            else if (parsedMessage.type === 'modeChange') {
-                engineMode = parsedMessage.newMode
-                const modeChangeMessage = {
-                    type: 'modeChange',
-                    engineMode: engineMode
-                }
-                liveConfig.engineMode = engineMode
-                await writeConfig(liveConfig, 'engineMode', engineMode)
-                await broadcast(modeChangeMessage);
-            }
-
             else if (parsedMessage.type === 'chatMessage') { //handle normal chat messages
                 const chatID = parsedMessage.chatID;
                 const username = parsedMessage.username
@@ -574,8 +598,10 @@ async function handleConnections(ws, type) {
                     await broadcast(newUserChatMessage)
                 }
             } else {
-                console.log('unknown message type received...ignoring...')
+                console.log(`unknown message type received (${parsedMessage.type})...ignoring...`)
             }
+
+
             async function getAIResponse() {
                 try {
                     let jsonArray = [];
@@ -800,9 +826,10 @@ async function writeConfig(configObj, key, value) {
     await acquireLock()
     await delay(100)
     //let newObject = await readConfig()
-    configObj[key] = value;
-    //console.log('should have made changes to config object. Lets check.');
-    console.log(`Config updated: ${key}`); // = ${value}`);
+    if (key) {
+        configObj[key] = value;
+        console.log(`Config updated: ${key}`); // = ${value}`);
+    }
     const writableConfig = JSON.stringify(configObj, null, 2); // Serialize the object with indentation
     fs.writeFile('config.json', writableConfig, 'utf8', writeErr => {
         if (writeErr) {

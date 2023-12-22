@@ -17,7 +17,8 @@
     "png-chunk-text": "^1.0.0",
     "png-chunks-encode": "^1.0.0",
     "png-chunks-extract": "^1.0.0",
-    "uuid": "^8.3.2"
+    "uuid": "^8.3.2",
+    "sqlite3": "5.1.6"
   },
   "keywords": [],
   "author": "",

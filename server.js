@@ -8,6 +8,7 @@ const fsp = require('fs').promises;
 const path = require('path');
 const WebSocket = require('ws');
 const $ = require('jquery');
+const sqlite3 = require('sqlite3').verbose();
 const characterCardParser = require('./character-card-parser.js');
 const express = require('express');
 const localApp = express();
@@ -191,6 +192,110 @@ createDirectoryIfNotExist("./public/api-presets");
 // Call the function to initialize the files
 initFiles();
 
+
+
+
+// Connect to the SQLite database
+const db = new sqlite3.Database('./stmp.db', (err) => {
+    if (err) {
+        console.error(err.message);
+    } else {
+        console.log('Connected to the SQLite database.');
+    }
+});
+
+module.exports = db;
+
+// Create tables
+db.serialize(() => {
+    // Users table
+    db.run(`CREATE TABLE IF NOT EXISTS users (
+    user_id INTEGER PRIMARY KEY,
+    uuid TEXT UNIQUE,
+    username TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+    // AIChats table
+    db.run(`CREATE TABLE IF NOT EXISTS aichats (
+    message_id INTEGER PRIMARY KEY,
+    session_id INTEGER,
+    user_id INTEGER,
+    message TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (session_id) REFERENCES sessions(session_id),
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+  )`);
+
+    // UserChats table
+    db.run(`CREATE TABLE IF NOT EXISTS userchats (
+    message_id INTEGER PRIMARY KEY,
+    user_id INTEGER,
+    message TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+  )`);
+
+    // Sessions table
+    db.run(`CREATE TABLE IF NOT EXISTS sessions (
+    session_id INTEGER PRIMARY KEY,
+    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ended_at DATETIME,
+    is_active BOOLEAN DEFAULT TRUE
+  )`);
+});
+
+function writeUserChatMessage(userId, message) {
+    db.run('INSERT INTO userchats (user_id, message) VALUES (?, ?)', [userId, message], function (err) {
+        if (err) {
+            console.error('Error writing side chat message:', err);
+        } else {
+            console.debug(`A side chat message was inserted with message_id ${this.lastID}`);
+        }
+    });
+}
+
+function writeAIChatMessage(sessionId, userId, message) {
+    db.run('INSERT INTO aichats (session_id, user_id, message) VALUES (?, ?, ?)', [sessionId, userId, message], function (err) {
+        if (err) {
+            console.error('Error writing AI chat message:', err);
+        } else {
+            console.debug(`An AI chat message was inserted with message_id ${this.lastID}`);
+        }
+    });
+}
+
+//update all messages in the current session to a new session ID and clear the current session
+function newSession() {
+    db.run('UPDATE aichats SET session_id = (SELECT session_id FROM sessions WHERE is_active = TRUE) WHERE session_id = (SELECT session_id FROM sessions WHERE is_active = FALSE)')
+    db.run('UPDATE userchats SET session_id = (SELECT session_id FROM sessions WHERE is_active = TRUE) WHERE session_id = (SELECT session_id FROM sessions WHERE is_active = FALSE)')
+    db.run('UPDATE sessions SET is_active = FALSE WHERE is_active = TRUE')
+    db.run('INSERT INTO sessions DEFAULT VALUES')
+}
+
+// create or update the user in the database, adds last seen timestamp
+function upsertUser(uuid, username) {
+    db.run('INSERT INTO users (uuid, username) VALUES (?, ?) ON CONFLICT(uuid) DO UPDATE SET username = ?, last_seen_at = CURRENT_TIMESTAMP', [uuid, username, username], function (err) {
+        if (err) {
+            console.error('Error upserting user:', err);
+        } else {
+            console.debug(`A user was upserted with user_id ${this.lastID}`);
+        }
+    });
+}
+
+//get username from UUID, return nothing if not found
+function getUsername(uuid) {
+    db.get('SELECT username FROM users WHERE uuid = ?', [uuid], (err, row) => {
+        if (err) {
+            console.error('Error getting username:', err);
+        } else {
+            return row.username
+        }
+    }
+    )
+}
 
 
 // Handle incoming WebSocket connections
@@ -420,7 +525,9 @@ async function handleConnections(ws, type) {
             parsedMessage = JSON.parse(message);
             const senderUUID = parsedMessage.UUID
 
+            //If there is no UUID, then this is a new client and we need to add it to the clientsObject
             let clientObject = clientsObject[parsedMessage.UUID];
+            
             //console.log(`==========ALL CLIENTS==========`)
             let allClientUUIDs = Object.keys(clientsObject)
 
@@ -564,11 +671,12 @@ async function handleConnections(ws, type) {
 
             if (parsedMessage.type === 'connect') {
                 console.log('saw connect message from client')
-                clientObject.username = parsedMessage.username;
+                clientObject.username = getUsername(senderUUID) || parsedMessage.username;
                 console.log(clientObject.UUID, clientObject.username, clientObject.role)
                 console.log(`Adding ${parsedMessage.username} to connected user list..`)
-                connectedUserNames.push(parsedMessage.username)
+                connectedUserNames.push(clientObject.username)
                 console.log(`connectedUserNames: ${connectedUserNames}`)
+                upsertUser(senderUUID, clientObject.username);
                 await broadcastUserList()
 
             }
@@ -625,6 +733,7 @@ async function handleConnections(ws, type) {
                         jsonArray.push(userObjToPush)
                         const formmattedData = JSON.stringify(jsonArray, null, 2);
                         await writeAIChat(formmattedData)
+                        writeAIChatMessage(1, username, userInput);
                         await broadcast(userPrompt)
                     }
                     if (liveConfig.isAutoResponse || isEmptyTrigger) {
@@ -640,6 +749,7 @@ async function handleConnections(ws, type) {
                     const updatedData = JSON.stringify(jsonArray, null, 2);
                     // Write the updated array back to the file
                     await writeUserChat(updatedData)
+                    writeUserChatMessage(1, userInput)
                     const newUserChatMessage = {
                         chatID: chatID,
                         username: username,

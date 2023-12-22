@@ -8,6 +8,7 @@ async function startupUsernames() {
     storedAIChatUsername = localStorage.getItem('AIChatUsername');
 
     username = storedUsername !== null && storedUsername !== '' ? storedUsername : await initializeUsername();
+    myUUID = localStorage.getItem('UUID') !== null ? localStorage.getItem('UUID') : '';
     AIChatUsername = storedAIChatUsername !== null && storedAIChatUsername !== '' ? storedAIChatUsername : username;
     console.debug(`[localStorage] username:${username}, AIChatUsername:${AIChatUsername}`)
 }
@@ -255,7 +256,8 @@ function updateD1JB(jb, type) {
 async function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
     const { clientUUID, role, D1JB, instructList, instructFormat, selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory, AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
-    myUUID = clientUUID
+    myUUID = myUUID === '' ? clientUUID : myUUID;
+    localStorage.setItem('UUID', myUUID);
     isHost = role === 'host' ? true : false
     console.debug(`my UUID is: ${myUUID}`)
     var userRole = isHost ? 'Host' : 'Guest';

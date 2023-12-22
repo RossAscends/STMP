@@ -129,6 +129,10 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
+#dbs
+*.db
+*.sqlite
+
 #STMP-specific files
 secrets.json
 public/characters/

@@ -6,7 +6,7 @@ SillyTavern MultiPlayer is a multiuser LLM chat interface created by RossAscends
 
 ### Typical
 
-1. Make sure Node JS is installed on your system and has access through your windows Firewall.
+1. Make sure [Node JS](https://nodejs.org/) is installed on your system and has access through your firewall.
 2. Clone this github repo. (`git clone https://github.com/RossAscends/STMP/` in a command line, or use a Github GUI like Github Desktop)
 3. Setup the API (see below).
 4. Run `STMP.bat` to install the required Node modules and start the server.
@@ -16,7 +16,7 @@ SillyTavern MultiPlayer is a multiuser LLM chat interface created by RossAscends
 ### Docker
 
 - STMP can also be installed via Docker, thanks to [city-unit](https://github.com/city-unit).
-- The Docker file can be found in `/utils/`
+- The [Docker](https://www.docker.com) file can be found in `/utils/`
 
 (instructions coming soon)
 
@@ -24,13 +24,13 @@ SillyTavern MultiPlayer is a multiuser LLM chat interface created by RossAscends
 
 Currently STMP supports Tabby and HordeAI, with Tabby active by default.
 
-**NOTE:** The API parameters are set in `client.html`.
+**NOTE:** Initial API parameters are sent by the Client and processed in the Server.
 
 ### Using Tabby
 
 - Obviously, the host must have Tabby installed and working on their device. Instructions for this can be found on the [TabbyAPI Github](https://github.com/theroyallab/tabbyAPI).
 - STMP assumes the default server URL of `http://127.0.0.1:5000/v1/completions` for Tabby requests.
-- Copy the TabbyAPI key from the Tabby console and paste it into `secrets.json`
+- Copy the TabbyAPI key from the Tabby console and paste it into `secrets.json`.
 
 ### Using Horde
 
@@ -68,9 +68,9 @@ This must be done AFTER completing all installation steps above.
 
 ### Chatting
 
-- Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button, or pressing Enter.
-- Shift+enter can be used to add newlines to the input.
-- Markdown formatting is respected
+- Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button (✏️), or pressing Enter.
+- `Shift+Enter` can be used to add newlines to the input.
+- [Markdown formatting](https://github.com/showdownjs/showdown/wiki/Showdown%27s-Markdown-syntax) is respected.
 - Pressing the retry button (🔄) will remove the last chat message and prompt the AI character to give a new response.
 
 ### Hosting
@@ -78,7 +78,7 @@ This must be done AFTER completing all installation steps above.
 The host will see controls on the left for:
 
 - Changing API controls such as: API (Tabby(🐈) or horde(🧟)), context size, response length, Sampler presets, Instruct formats
-- Changing the AI character
+- Changing the active AI character
 - Manually triggering an AI response without user Input (🤖💬)
 - Toggle to determine whether the AI should respond to every user input (AutoResponse)
 - Clearing either chat windows (🗑️)

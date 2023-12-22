@@ -217,9 +217,25 @@ function updateSelectedSamplerPreset(preset, type) {
     }
 }
 
+function updateD1JB(jb, type) {
+    console.log(jb, type)
+    if (type === 'forced') {
+        console.debug('changing D1JB from server command')
+        $("#finalInstruction").val(jb)
+    } else {
+        console.debug('I manually changed D1JB, and updating to server')
+        let changeD1JBMessage = {
+            type: 'changeD1JB',
+            UUID: myUUID,
+            newD1JB: jb
+        }
+        messageServer(changeD1JBMessage);
+    }
+}
+
 async function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
-    const { clientUUID, role, selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory, AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
+    const { clientUUID, role, D1JB, selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory, AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
     myUUID = clientUUID
     isHost = role === 'host' ? true : false
     console.debug(`my UUID is: ${myUUID}`)
@@ -239,6 +255,8 @@ async function processConfirmedConnection(parsedMessage) {
         console.debug(`selecting character as defined from server: ${selectedCharacter}`);
         updateSelectedChar(selectedCharacter, selectedCharacterDisplayName, 'forced');
         updateSelectedSamplerPreset(selectedSamplerPreset, 'forced');
+        console.log(`about to update D1JB with this: ${D1JB}`)
+        updateD1JB(D1JB, 'forced')
         setEngineMode(engineMode);
     } else {
         $("#controlPanel").remove()
@@ -356,6 +374,13 @@ function connectWebSocket() {
                 let newPreset = parsedMessage.newPreset
                 if (currentPreset !== newPreset) {
                     updateSelectedSamplerPreset(parsedMessage.newPreset, 'forced');
+                }
+                break;
+            case 'changeD1JB':
+                let currentJB = $("#finalInstruction").val()
+                let newJB = parsedMessage.newD1JB
+                if (currentJB !== newJB) {
+                    updateD1JB(newJB, 'forced');
                 }
                 break;
             default:
@@ -615,6 +640,10 @@ $(document).ready(async function () {
 
     $("#samplerPreset").on('change', function () {
         updateSelectedSamplerPreset($(this).val())
+    })
+
+    $("#finalInstruction").on('blur', function () {
+        updateD1JB($(this).val())
     })
 
     //A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.

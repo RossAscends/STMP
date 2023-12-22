@@ -373,6 +373,7 @@ async function handleConnections(ws, type) {
         connectionConfirmedMessage["isAutoResponse"] = liveConfig.isAutoResponse
         connectionConfirmedMessage["contextSize"] = liveConfig.contextSize
         connectionConfirmedMessage["responseLength"] = liveConfig.responseLength
+        connectionConfirmedMessage["D1JB"] = liveConfig.D1JB
     }
 
     //send connection confirmation along with chat history
@@ -478,6 +479,16 @@ async function handleConnections(ws, type) {
                     await writeConfig(liveConfig, 'samplers', liveConfig.samplers)
                     await writeConfig(liveConfig, 'selectedPreset', selectedPreset)
                     await broadcast(changePresetMessage);
+                    return
+                }
+                else if (parsedMessage.type === 'changeD1JB') {
+                    const changeD1JBMessage = {
+                        type: 'changeD1JB',
+                        newD1JB: parsedMessage.newD1JB
+                    }
+                    liveConfig.D1JB = parsedMessage.newD1JB
+                    await writeConfig(liveConfig)
+                    await broadcast(changeD1JBMessage);
                     return
                 }
                 else if (parsedMessage.type === 'AIRetry') {
@@ -1003,6 +1014,7 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
             let insertedChatHistory = reversedItems.join('');
             stringToReturn += insertedChatHistory
             //add the final first mes and userInput        
+            stringToReturn += `${liveConfig.D1JB}\n`
             stringToReturn += `${lastUserMesageAndCharName.trim()}`;
             stringToReturn = stringToReturn.trim()
             resolve(stringToReturn);

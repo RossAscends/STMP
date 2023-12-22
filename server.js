@@ -172,7 +172,7 @@ async function initFiles() {
     if (!await existsAsync(secretsPath)) {
         console.log('Creating secrets.json with default values...');
         await writeFileAsync(secretsPath, JSON.stringify(defaultSecrets, null, 2));
-        console.log('secrets.json created.');
+        console.log('secrets.json created, please update it with real credentials now and restart the server.');
     }
 }
 

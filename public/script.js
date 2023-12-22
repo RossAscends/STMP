@@ -585,7 +585,7 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-$(document).ready(async function () {
+$(async function () {
     console.log('document is ready')
 
     connectWebSocket();

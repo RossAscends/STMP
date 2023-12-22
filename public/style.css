@@ -252,7 +252,8 @@ code {
     border-radius: 5px;
     padding: 3px;
     margin: 5px;
-    line-height: 1.3em;
+    line-height: 1.4em;
+    font-size: 1.1em;
 }
 
 pre {

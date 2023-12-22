@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const util = require('util');
+const { v4: uuidv4 } = require('uuid');
 const writeFileAsync = util.promisify(fs.writeFile);
 const existsAsync = util.promisify(fs.exists);
 const fsp = require('fs').promises;
@@ -128,7 +129,7 @@ wsServer.setMaxListeners(0);
 wssServer.setMaxListeners(0);
 
 // Arrays to store connected clients of each server
-var clientsArray = [];
+var clientsObject = [];
 var connectedUserNames = [];
 
 //default values
@@ -248,9 +249,14 @@ async function getSamplerPresetList() {
 }
 
 async function broadcast(message) {
-    clientsArray.forEach(client => {
-        if (client.socket.readyState === WebSocket.OPEN) {
-            client.socket.send(JSON.stringify(message));
+    console.log('broadcasting this:')
+    console.log(message)
+    Object.keys(clientsObject).forEach(clientUUID => {
+        const client = clientsObject[clientUUID];
+        const socket = client.socket;
+
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify(message));
         }
     });
 }
@@ -328,11 +334,12 @@ async function saveAndClearChat(type) {
 async function handleConnections(ws, type) {
     // Store the connected client in the appropriate array based on the server
     const thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
-    clientsArray.push({
+    const thisUserUniqueId = uuidv4();
+    clientsObject[thisUserUniqueId] = {
         socket: ws,
         color: thisUserColor,
         role: type
-    });
+    };
 
     const cardList = await getCardList()
     const samplerPresetList = await getSamplerPresetList()
@@ -341,6 +348,7 @@ async function handleConnections(ws, type) {
 
     //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
     let connectionConfirmedMessage = {
+        clientUUID: thisUserUniqueId,
         type: 'connectionConfirmed',
         chatHistory: userChatJSON,
         AIChatHistory: AIChatJSON,
@@ -349,7 +357,8 @@ async function handleConnections(ws, type) {
         isAutoResponse: isAutoResponse,
         contextSize: contextSize,
         responseLength: responseLength,
-        color: thisUserColor
+        color: thisUserColor,
+        role: type
     }
     if (type === 'host') {
         console.log("HOST CONNECTED")
@@ -373,14 +382,30 @@ async function handleConnections(ws, type) {
 
         // Parse the incoming message as JSON
         let parsedMessage;
+
+
         try {
             parsedMessage = JSON.parse(message);
+
+            let clientObject = clientsObject[parsedMessage.UUID];
+            console.log(`==========ALL CLIENTS==========`)
+            let allClientUUIDs = Object.keys(clientsObject)
+
+            console.log(allClientUUIDs)
+            console.log(`connectedUsernames: ${connectedUserNames}`)
+            console.log(`==========INCOMING MESSAGE==========`)
+            console.log(parsedMessage)
+
+
+            console.log('==========CLIENT OBJECT==========')
+            console.log(clientObject.username, clientObject.role)
             parsedMessage.userColor = thisUserColor
             //stringifiedMessage = JSON.stringify(message)
             //console.log('Received message from client:', parsedMessage);
             if (parsedMessage.type === 'connect') {
                 console.log('saw connect message from client')
-                ws.username = parsedMessage.username;
+                clientObject.username = parsedMessage.username;
+                console.log(clientObject.UUID, clientObject.username, clientObject.role)
                 console.log(`Adding ${parsedMessage.username} to connected user list..`)
                 connectedUserNames.push(parsedMessage.username)
                 console.log(`connectedUserNames: ${connectedUserNames}`)
@@ -390,8 +415,11 @@ async function handleConnections(ws, type) {
             else if (parsedMessage.type === 'clearChat') {
                 //clear the UserChat.json file
                 await saveAndClearChat('UserChat')
+                const clearUserChatInstruction = {
+                    type: 'clearChat'
+                }
                 // Broadcast the clear chat message to all connected clients
-                broadcast(parsedMessage);
+                await broadcast(clearUserChatInstruction);
             }
             else if (parsedMessage.type === 'toggleAutoResponse') {
                 isAutoResponse = parsedMessage.value
@@ -412,7 +440,10 @@ async function handleConnections(ws, type) {
             }
             else if (parsedMessage.type === 'clearAIChat') {
                 await saveAndClearChat('AIChat')
-                broadcast(parsedMessage);
+                const clearAIChatInstruction = {
+                    type: 'clearAIChat'
+                }
+                await broadcast(clearAIChatInstruction);
             }
             else if (parsedMessage.type === 'deleteLast') {
                 await removeLastAIChatMessage()
@@ -435,8 +466,8 @@ async function handleConnections(ws, type) {
                 }
                 console.log(nameChangeNotification)
                 console.log('sending notification of username change')
-                broadcast(nameChangeNotification);
-                broadcastUserList()
+                await broadcast(nameChangeNotification);
+                await broadcastUserList()
             }
             else if (parsedMessage.type === 'changeCharacter') {
                 const changeCharMessage = {
@@ -446,7 +477,7 @@ async function handleConnections(ws, type) {
                 selectedCharacter = parsedMessage.newChar
                 liveConfig.selectedCharacter = selectedCharacter
                 await writeConfig(liveConfig, 'selectedCharacter', selectedCharacter)
-                broadcast(changeCharMessage);
+                await broadcast(changeCharMessage);
             }
             else if (parsedMessage.type === 'changeSamplerPreset') {
                 const changePresetMessage = {
@@ -459,7 +490,7 @@ async function handleConnections(ws, type) {
                 liveConfig.samplers = samplerData
                 await writeConfig(liveConfig, 'samplers', liveConfig.samplers)
                 await writeConfig(liveConfig, 'selectedPreset', selectedPreset)
-                broadcast(changePresetMessage);
+                await broadcast(changePresetMessage);
             }
             else if (parsedMessage.type === 'AIRetry') {
                 // Read the AIChat file
@@ -484,10 +515,10 @@ async function handleConnections(ws, type) {
                 }
                 liveConfig.engineMode = engineMode
                 await writeConfig(liveConfig, 'engineMode', engineMode)
-                broadcast(modeChangeMessage);
+                await broadcast(modeChangeMessage);
             }
 
-            else { //handle normal chat messages
+            else if (parsedMessage.type === 'chatMessage') { //handle normal chat messages
                 const chatID = parsedMessage.chatID;
                 const username = parsedMessage.username
                 const userColor = thisUserColor
@@ -519,7 +550,7 @@ async function handleConnections(ws, type) {
                         jsonArray.push(userObjToPush)
                         const formmattedData = JSON.stringify(jsonArray, null, 2);
                         await writeAIChat(formmattedData)
-                        broadcast(userPrompt)
+                        await broadcast(userPrompt)
                     }
                     if (liveConfig.isAutoResponse || isEmptyTrigger) {
                         await getAIResponse()
@@ -534,8 +565,16 @@ async function handleConnections(ws, type) {
                     const updatedData = JSON.stringify(jsonArray, null, 2);
                     // Write the updated array back to the file
                     await writeUserChat(updatedData)
-                    broadcast(parsedMessage)
+                    const newUserChatMessage = {
+                        chatID: chatID,
+                        username: username,
+                        userColor: userColor,
+                        content: parsedMessage.content
+                    }
+                    await broadcast(newUserChatMessage)
                 }
+            } else {
+                console.log('unknown message type received...ignoring...')
             }
             async function getAIResponse() {
                 try {
@@ -601,8 +640,8 @@ async function handleConnections(ws, type) {
                         type: 'AIResponse',
                         userColor: parsedMessage.userColor
                     }
-                    const clientsArray = [...wsServer.clients, ...wssServer.clients]; // Convert clients set to an array
-                    await Promise.all(clientsArray.map(client => client.send(JSON.stringify(AIResponseBroadcast))));
+                    const tempClientsArray = [...wsServer.clients, ...wssServer.clients]; // Convert clients set to an array
+                    await Promise.all(tempClientsArray.map(client => client.send(JSON.stringify(AIResponseBroadcast))));
                 } catch (error) {
                     console.log(error);
                 }
@@ -614,8 +653,8 @@ async function handleConnections(ws, type) {
     });
 
     ws.on('close', () => {
-        // Remove the disconnected client from the clientsArray
-        clientsArray = clientsArray.filter(client => client !== ws);
+        // Remove the disconnected client from the clientsObject
+        clientsObject = clientsObject.filter(client => client !== ws);
     });
 };
 
@@ -763,7 +802,7 @@ async function writeConfig(configObj, key, value) {
     //let newObject = await readConfig()
     configObj[key] = value;
     //console.log('should have made changes to config object. Lets check.');
-    console.log(`Config updated: ${key} = ${value}`);
+    console.log(`Config updated: ${key}`); // = ${value}`);
     const writableConfig = JSON.stringify(configObj, null, 2); // Serialize the object with indentation
     fs.writeFile('config.json', writableConfig, 'utf8', writeErr => {
         if (writeErr) {

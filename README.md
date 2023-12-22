@@ -2,7 +2,7 @@
 
 SillyTavern MultiPlayer is a multiuser LLM chat interface created by RossAscends.
 
-[Ross's Ko-fi](https://ko-fi.com/rossascends) - [Ross's Patreon](https://www.patreon.com/RossAscends)
+[Ross's Ko-fi](https://ko-fi.com/rossascends) - [Ross's Patreon](https://www.patreon.com/RossAscends) - [SillyTavern Discord](https://discord.gg/sillytavern)
 
 ## Installation
 

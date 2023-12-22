@@ -313,7 +313,7 @@ function appendMessagesWithConverter(messages, elementSelector) {
         const { username, userColor, content } = obj;
         const message = converter.makeHtml(content);
         const newDiv = $("<div></div>");
-        newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>');
+        newDiv.html(`<span class="chatUserName" style="color:${userColor}">${username}</span>${message}`)//.append('<hr>');
         $(elementSelector).append(newDiv);
     });
 }
@@ -349,7 +349,7 @@ function connectWebSocket() {
                     let userColor = obj.userColor;
                     let message = converter.makeHtml(obj.content);
                     let newDiv = $(`<div></div>`);
-                    newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>');
+                    newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`)//.append('<hr>');
                     $("#AIchat").append(newDiv);
                 });
                 break;
@@ -374,7 +374,7 @@ function connectWebSocket() {
                 const sanitizedUsernameChangeMessage = DOMPurify.sanitize(HTMLizedUsernameChangeMessage);
                 let newUsernameChatItem = $('<div>');
                 newUsernameChatItem.html(`<i>${sanitizedUsernameChangeMessage}</i>`);
-                newUsernameChatItem.append('<hr>');
+                //newUsernameChatItem.append('<hr>');
                 $("#chat").append(newUsernameChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
                 break;
             case 'changeCharacter':
@@ -412,7 +412,7 @@ function connectWebSocket() {
                 const HTMLizedMessage = converter.makeHtml(content);
                 const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
                 let newChatItem = $('<div>');
-                newChatItem.html(`<span style="color:${userColor};">${username}</span>: ${sanitizedMessage}`).append('<hr>');
+                newChatItem.html(`<span class="chatUserName" style="color:${userColor};">${username}</span> ${sanitizedMessage}`)//.append('<hr>');
                 if (workerName !== undefined && hordeModel !== undefined && kudosCost !== undefined) {
                     $(newChatItem).prop('title', `${workerName} - ${hordeModel} (Kudos: ${kudosCost})`);
                 }

@@ -405,7 +405,7 @@ async function handleConnections(ws, type) {
 
     //send connection confirmation along with chat history
     ws.send(JSON.stringify(connectionConfirmedMessage))
-    broadcastUserList()
+    //broadcastUserList()
 
 
     // Handle incoming messages from clients
@@ -432,7 +432,6 @@ async function handleConnections(ws, type) {
 
             //console.log('==========CLIENT OBJECT==========')
             //console.log(clientObject.username, clientObject.role)
-            parsedMessage.userColor = thisUserColor
             //stringifiedMessage = JSON.stringify(message)
             console.log('Received message from client:', parsedMessage);
 
@@ -540,7 +539,15 @@ async function handleConnections(ws, type) {
                             'username': parsedMessage.username,
                             'content': '',
                         }
-                        await getAIResponse()
+                        let AIResponse = await getAIResponse()
+                        const AIResponseMessage = {
+                            chatID: parsedMessage.chatID,
+                            content: AIResponse,
+                            username: `${liveConfig.selectedCharDisplayName}`,
+                            type: 'AIResponse',
+                            userColor: parsedMessage.userColor
+                        }
+                        broadcast(AIResponseMessage)
                         return
                     } catch (parseError) {
                         console.error('An error occurred while parsing the JSON:', parseError);
@@ -565,15 +572,19 @@ async function handleConnections(ws, type) {
             if (parsedMessage.type === 'connect') {
                 console.log('saw connect message from client')
                 clientObject.username = parsedMessage.username;
-                console.log(clientObject.UUID, clientObject.username, clientObject.role)
-                console.log(`Adding ${parsedMessage.username} to connected user list..`)
-                connectedUserNames.push(parsedMessage.username)
-                console.log(`connectedUserNames: ${connectedUserNames}`)
+                console.log(`Adding ${clientObject.username} to connected user list..`)
+                //the intent with this IF check is to give special charater to the host name
+                //but it causes problems elsewhere (can't filter from the userList, gets sent to AI chat calls)
+                if (senderUUID === hostUUID) {
+                    connectedUserNames.push(`${clientObject.username}`)
+                } else {
+                    connectedUserNames.push(clientObject.username)
+                }
                 await broadcastUserList()
 
             }
             else if (parsedMessage.type === 'disconnect') {
-                const disconnectedUsername = parsedMessage.username;
+                const disconnectedUsername = clientObject.username;
                 console.log(`Removing ${disconnectedUsername} from the User List...`)
                 connectedUserNames = connectedUserNames.filter(username => username !== disconnectedUsername);
                 await broadcastUserList()
@@ -594,6 +605,8 @@ async function handleConnections(ws, type) {
                 await broadcastUserList()
             }
             else if (parsedMessage.type === 'chatMessage') { //handle normal chat messages
+                //having this enable sends the user's colors along with the response message if it uses parsedMessage as the base..
+                parsedMessage.userColor = thisUserColor
                 const chatID = parsedMessage.chatID;
                 const username = parsedMessage.username
                 const userColor = thisUserColor
@@ -619,7 +632,6 @@ async function handleConnections(ws, type) {
                         const userObjToPush = {
                             username: parsedMessage.username,
                             content: parsedMessage.userInput,
-                            //htmlContent: parsedMessage.htmlContent,
                             userColor: parsedMessage.userColor
                         }
                         jsonArray.push(userObjToPush)
@@ -628,7 +640,16 @@ async function handleConnections(ws, type) {
                         await broadcast(userPrompt)
                     }
                     if (liveConfig.isAutoResponse || isEmptyTrigger) {
-                        await getAIResponse()
+                        let AIResponse = await getAIResponse()
+                        const AIResponseMessage = {
+                            chatID: parsedMessage.chatID,
+                            content: AIResponse,
+                            username: `${liveConfig.selectedCharDisplayName}`,
+                            type: 'AIResponse',
+                            userColor: parsedMessage.userColor
+                        }
+                        broadcast(AIResponseMessage)
+
                     }
                 }
                 //read the current userChat file
@@ -697,7 +718,7 @@ async function handleConnections(ws, type) {
                     }
 
                     const AIResponseForChatJSON = {
-                        username: charName,
+                        username: `${charName}`,
                         content: AIResponse.trim(),
                         userColor: parsedMessage.userColor
                     }
@@ -709,16 +730,8 @@ async function handleConnections(ws, type) {
                     // Write the formatted AI response array back to the file
                     await writeAIChat(updatedData)
 
-                    //broadcast the response to all clients
-                    const AIResponseBroadcast = {
-                        chatID: parsedMessage.chatID,
-                        content: AIResponse,
-                        username: charName,
-                        type: 'AIResponse',
-                        userColor: parsedMessage.userColor
-                    }
-                    const tempClientsArray = [...wsServer.clients, ...wssServer.clients]; // Convert clients set to an array
-                    await Promise.all(tempClientsArray.map(client => client.send(JSON.stringify(AIResponseBroadcast))));
+                    return AIResponse
+
                 } catch (error) {
                     console.log(error);
                 }
@@ -895,7 +908,7 @@ async function writeConfig(configObj, key, value) {
 
 async function readFile(file) {
     await acquireLock()
-    console.log(`[readFile()] Reading ${file}...`)
+    //console.log(`[readFile()] Reading ${file}...`)
     return new Promise((resolve, reject) => {
         fs.readFile(file, 'utf8', (err, data) => {
             if (err) {

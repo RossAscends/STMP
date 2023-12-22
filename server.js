@@ -11,6 +11,7 @@ const $ = require('jquery');
 const sqlite3 = require('sqlite3').verbose();
 const characterCardParser = require('./character-card-parser.js');
 const express = require('express');
+const { url } = require('inspector');
 const localApp = express();
 const remoteApp = express();
 localApp.use(express.static('public'));
@@ -298,13 +299,15 @@ function getUsername(uuid) {
 }
 
 
-// Handle incoming WebSocket connections
-wsServer.on('connection', (ws) => {
-    handleConnections(ws, 'host')
-})
-wssServer.on('connection', (ws) => {
-    handleConnections(ws, 'guest')
-})
+// Handle incoming WebSocket connections for wsServer
+wsServer.on('connection', (ws, request) => {
+    handleConnections(ws, 'host', request);
+});
+
+// Handle incoming WebSocket connections for wssServer
+wssServer.on('connection', (ws, request) => {
+    handleConnections(ws, 'guest', request);
+});
 
 async function charaRead(img_url, input_format) {
     return characterCardParser.parse(img_url, input_format);
@@ -461,10 +464,25 @@ async function saveAndClearChat(type) {
     }
 }
 
-async function handleConnections(ws, type) {
+let tempConnections = [];
+
+async function handleConnections(ws, type, request) {
+    // Parse the URL to get the query parameters
+    console.log(request);
+    const urlParams = new URLSearchParams(request.url.split('?')[1]);
+    console.log(urlParams)
+
+    // Retrieve the UUID from the query parameters
+    const uuid = urlParams.get('uuid');
+    if (uuid !== null && uuid !== undefined) {
+        console.log('Client connected with UUID:', uuid);
+    } else {
+        console.log('Client connected without UUID');
+    }
     // Store the connected client in the appropriate array based on the server
+
     const thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
-    const thisUserUniqueId = uuidv4();
+    const thisUserUniqueId = uuid || uuidv4();
     clientsObject[thisUserUniqueId] = {
         socket: ws,
         color: thisUserColor,
@@ -510,7 +528,7 @@ async function handleConnections(ws, type) {
 
     //send connection confirmation along with chat history
     ws.send(JSON.stringify(connectionConfirmedMessage))
-    broadcastUserList()
+    //broadcastUserList()
 
 
     // Handle incoming messages from clients
@@ -527,6 +545,14 @@ async function handleConnections(ws, type) {
 
             //If there is no UUID, then this is a new client and we need to add it to the clientsObject
             let clientObject = clientsObject[parsedMessage.UUID];
+            if (!clientObject) {
+                clientObject = {
+                    username: '',
+                    color: '',
+                    role: ''
+                };
+                clientsObject[parsedMessage.UUID] = clientObject;
+            }
             
             //console.log(`==========ALL CLIENTS==========`)
             let allClientUUIDs = Object.keys(clientsObject)
@@ -539,7 +565,6 @@ async function handleConnections(ws, type) {
 
             //console.log('==========CLIENT OBJECT==========')
             //console.log(clientObject.username, clientObject.role)
-            parsedMessage.userColor = thisUserColor
             //stringifiedMessage = JSON.stringify(message)
             console.log('Received message from client:', parsedMessage);
 
@@ -647,7 +672,15 @@ async function handleConnections(ws, type) {
                             'username': parsedMessage.username,
                             'content': '',
                         }
-                        await getAIResponse()
+                        let AIResponse = await getAIResponse()
+                        const AIResponseMessage = {
+                            chatID: parsedMessage.chatID,
+                            content: AIResponse,
+                            username: `${liveConfig.selectedCharDisplayName}`,
+                            type: 'AIResponse',
+                            userColor: parsedMessage.userColor
+                        }
+                        broadcast(AIResponseMessage)
                         return
                     } catch (parseError) {
                         console.error('An error occurred while parsing the JSON:', parseError);
@@ -671,17 +704,21 @@ async function handleConnections(ws, type) {
 
             if (parsedMessage.type === 'connect') {
                 console.log('saw connect message from client')
-                clientObject.username = getUsername(senderUUID) || parsedMessage.username;
-                console.log(clientObject.UUID, clientObject.username, clientObject.role)
-                console.log(`Adding ${parsedMessage.username} to connected user list..`)
-                connectedUserNames.push(clientObject.username)
-                console.log(`connectedUserNames: ${connectedUserNames}`)
+                clientObject.username = parsedMessage.username;
                 upsertUser(senderUUID, clientObject.username);
+                console.log(`Adding ${clientObject.username} to connected user list..`)
+                //the intent with this IF check is to give special charater to the host name
+                //but it causes problems elsewhere (can't filter from the userList, gets sent to AI chat calls)
+                if (senderUUID === hostUUID) {
+                    connectedUserNames.push(`${clientObject.username}`)
+                } else {
+                    connectedUserNames.push(clientObject.username)
+                }
                 await broadcastUserList()
 
             }
             else if (parsedMessage.type === 'disconnect') {
-                const disconnectedUsername = parsedMessage.username;
+                const disconnectedUsername = clientObject.username;
                 console.log(`Removing ${disconnectedUsername} from the User List...`)
                 connectedUserNames = connectedUserNames.filter(username => username !== disconnectedUsername);
                 await broadcastUserList()
@@ -702,6 +739,8 @@ async function handleConnections(ws, type) {
                 await broadcastUserList()
             }
             else if (parsedMessage.type === 'chatMessage') { //handle normal chat messages
+                //having this enable sends the user's colors along with the response message if it uses parsedMessage as the base..
+                parsedMessage.userColor = thisUserColor
                 const chatID = parsedMessage.chatID;
                 const username = parsedMessage.username
                 const userColor = thisUserColor
@@ -727,7 +766,6 @@ async function handleConnections(ws, type) {
                         const userObjToPush = {
                             username: parsedMessage.username,
                             content: parsedMessage.userInput,
-                            //htmlContent: parsedMessage.htmlContent,
                             userColor: parsedMessage.userColor
                         }
                         jsonArray.push(userObjToPush)
@@ -737,7 +775,16 @@ async function handleConnections(ws, type) {
                         await broadcast(userPrompt)
                     }
                     if (liveConfig.isAutoResponse || isEmptyTrigger) {
-                        await getAIResponse()
+                        let AIResponse = await getAIResponse()
+                        const AIResponseMessage = {
+                            chatID: parsedMessage.chatID,
+                            content: AIResponse,
+                            username: `${liveConfig.selectedCharDisplayName}`,
+                            type: 'AIResponse',
+                            userColor: parsedMessage.userColor
+                        }
+                        broadcast(AIResponseMessage)
+
                     }
                 }
                 //read the current userChat file
@@ -807,7 +854,7 @@ async function handleConnections(ws, type) {
                     }
 
                     const AIResponseForChatJSON = {
-                        username: charName,
+                        username: `${charName}`,
                         content: AIResponse.trim(),
                         userColor: parsedMessage.userColor
                     }
@@ -819,16 +866,8 @@ async function handleConnections(ws, type) {
                     // Write the formatted AI response array back to the file
                     await writeAIChat(updatedData)
 
-                    //broadcast the response to all clients
-                    const AIResponseBroadcast = {
-                        chatID: parsedMessage.chatID,
-                        content: AIResponse,
-                        username: charName,
-                        type: 'AIResponse',
-                        userColor: parsedMessage.userColor
-                    }
-                    const tempClientsArray = [...wsServer.clients, ...wssServer.clients]; // Convert clients set to an array
-                    await Promise.all(tempClientsArray.map(client => client.send(JSON.stringify(AIResponseBroadcast))));
+                    return AIResponse
+
                 } catch (error) {
                     console.log(error);
                 }
@@ -1005,7 +1044,7 @@ async function writeConfig(configObj, key, value) {
 
 async function readFile(file) {
     await acquireLock()
-    console.log(`[readFile()] Reading ${file}...`)
+    //console.log(`[readFile()] Reading ${file}...`)
     return new Promise((resolve, reject) => {
         fs.readFile(file, 'utf8', (err, data) => {
             if (err) {

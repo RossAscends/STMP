@@ -272,6 +272,15 @@ pre {
     padding: 0;
 }
 
+.chatUserName {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0px 4px;
+    position: relative;
+    left: -5px;
+}
+
 #messageInput,
 #AIMessageInput {
     height: 3em;
@@ -299,6 +308,10 @@ input::placeholder {
     border-radius: 5px;
     padding: 5px;
     flex: 1;
+}
+
+#AIchat {
+    padding: 10px;
 }
 
 .chatHeader {
@@ -342,7 +355,7 @@ input::placeholder {
 }
 
 hr {
-    background-image: linear-gradient(90deg, rgba(128, 128, 128, 100), rgba(0, 0, 0, 0));
+    background-image: linear-gradient(90deg, rgba(128, 128, 128, 100), rgba(128, 128, 128, 100));
     margin: 5px 0;
     height: 1px;
     min-height: 1px;

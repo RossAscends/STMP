@@ -15,7 +15,7 @@ SillyTavern MultiPlayer is a multiuser LLM chat interface created by RossAscends
 
 ### Docker
 
-- STMP can also be installed via Docker, thanks to [https://github.com/city-unit](city-unit).
+- STMP can also be installed via Docker, thanks to [city-unit](https://github.com/city-unit).
 - The Docker file can be found in `/utils/`
 
 (instructions coming soon)

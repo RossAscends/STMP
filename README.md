@@ -71,7 +71,7 @@ This must be done AFTER completing all installation steps above.
 - Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button, or pressing Enter.
 - Shift+enter can be used to add newlines to the input.
 - Markdown formatting is respected
-- Pressing the retry button will remove the last chat message and prompt the AI character to give a new response.
+- Pressing the retry button (🔄) will remove the last chat message and prompt the AI character to give a new response.
 
 ### Hosting
 

@@ -8,7 +8,6 @@ const fsp = require('fs').promises;
 const path = require('path');
 const WebSocket = require('ws');
 const $ = require('jquery');
-const sqlite3 = require('sqlite3').verbose();
 const characterCardParser = require('./character-card-parser.js');
 const express = require('express');
 const { url } = require('inspector');
@@ -16,6 +15,9 @@ const localApp = express();
 const remoteApp = express();
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
+
+//Import db handler from STMP/db.js
+const db = require('./db.js');
 
 //for console coloring
 const color = {
@@ -174,7 +176,6 @@ async function initFiles() {
         console.log('Loading config.json...');
         liveConfig = await readConfig()
         console.log(liveConfig)
-        console.log('Finished!')
 
     }
 
@@ -196,107 +197,7 @@ initFiles();
 
 
 
-// Connect to the SQLite database
-const db = new sqlite3.Database('./stmp.db', (err) => {
-    if (err) {
-        console.error(err.message);
-    } else {
-        console.log('Connected to the SQLite database.');
-    }
-});
 
-module.exports = db;
-
-// Create tables
-db.serialize(() => {
-    // Users table
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-    user_id INTEGER PRIMARY KEY,
-    uuid TEXT UNIQUE,
-    username TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-
-    // AIChats table
-    db.run(`CREATE TABLE IF NOT EXISTS aichats (
-    message_id INTEGER PRIMARY KEY,
-    session_id INTEGER,
-    user_id INTEGER,
-    message TEXT,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (session_id) REFERENCES sessions(session_id),
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
-  )`);
-
-    // UserChats table
-    db.run(`CREATE TABLE IF NOT EXISTS userchats (
-    message_id INTEGER PRIMARY KEY,
-    user_id INTEGER,
-    message TEXT,
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
-  )`);
-
-    // Sessions table
-    db.run(`CREATE TABLE IF NOT EXISTS sessions (
-    session_id INTEGER PRIMARY KEY,
-    started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    ended_at DATETIME,
-    is_active BOOLEAN DEFAULT TRUE
-  )`);
-});
-
-function writeUserChatMessage(userId, message) {
-    db.run('INSERT INTO userchats (user_id, message) VALUES (?, ?)', [userId, message], function (err) {
-        if (err) {
-            console.error('Error writing side chat message:', err);
-        } else {
-            console.debug(`A side chat message was inserted with message_id ${this.lastID}`);
-        }
-    });
-}
-
-function writeAIChatMessage(sessionId, userId, message) {
-    db.run('INSERT INTO aichats (session_id, user_id, message) VALUES (?, ?, ?)', [sessionId, userId, message], function (err) {
-        if (err) {
-            console.error('Error writing AI chat message:', err);
-        } else {
-            console.debug(`An AI chat message was inserted with message_id ${this.lastID}`);
-        }
-    });
-}
-
-//update all messages in the current session to a new session ID and clear the current session
-function newSession() {
-    db.run('UPDATE aichats SET session_id = (SELECT session_id FROM sessions WHERE is_active = TRUE) WHERE session_id = (SELECT session_id FROM sessions WHERE is_active = FALSE)')
-    db.run('UPDATE userchats SET session_id = (SELECT session_id FROM sessions WHERE is_active = TRUE) WHERE session_id = (SELECT session_id FROM sessions WHERE is_active = FALSE)')
-    db.run('UPDATE sessions SET is_active = FALSE WHERE is_active = TRUE')
-    db.run('INSERT INTO sessions DEFAULT VALUES')
-}
-
-// create or update the user in the database, adds last seen timestamp
-function upsertUser(uuid, username) {
-    db.run('INSERT INTO users (uuid, username) VALUES (?, ?) ON CONFLICT(uuid) DO UPDATE SET username = ?, last_seen_at = CURRENT_TIMESTAMP', [uuid, username, username], function (err) {
-        if (err) {
-            console.error('Error upserting user:', err);
-        } else {
-            console.debug(`A user was upserted with user_id ${this.lastID}`);
-        }
-    });
-}
-
-//get username from UUID, return nothing if not found
-function getUsername(uuid) {
-    db.get('SELECT username FROM users WHERE uuid = ?', [uuid], (err, row) => {
-        if (err) {
-            console.error('Error getting username:', err);
-        } else {
-            return row.username
-        }
-    }
-    )
-}
 
 
 // Handle incoming WebSocket connections for wsServer
@@ -405,7 +306,7 @@ async function broadcastUserList() {
 }
 
 async function removeLastAIChatMessage() {
-    const data = await readAIChat()
+    const data = await db.readAIChat()
     let jsonArray = JSON.parse(data)
     jsonArray.pop();
     const formattedData = JSON.stringify(jsonArray, null, 2);
@@ -435,7 +336,7 @@ async function saveAndClearChat(type) {
     let fileprefix, currentChatData
     if (type === 'AIChat') {
         fileprefix = 'AIChat_'
-        currentChatData = await readAIChat();
+        currentChatData = await db.readAIChat();
     } else {
         fileprefix = 'UserChat_'
         currentChatData = await readUserChat();
@@ -468,9 +369,7 @@ let tempConnections = [];
 
 async function handleConnections(ws, type, request) {
     // Parse the URL to get the query parameters
-    console.log(request);
     const urlParams = new URLSearchParams(request.url.split('?')[1]);
-    console.log(urlParams)
 
     // Retrieve the UUID from the query parameters
     const uuid = urlParams.get('uuid');
@@ -492,8 +391,16 @@ async function handleConnections(ws, type, request) {
     const cardList = await getCardList()
     const instructList = await getInstructList()
     const samplerPresetList = await getSamplerPresetList()
-    var AIChatJSON = await readAIChat();
+    var AIChatJSON = await db.readAIChat();
     var userChatJSON = await readUserChat()
+
+    if (!liveConfig.selectedCharacter || liveConfig.selectedCharacter === '') {
+        console.log('No selected character found, setting to default character...')
+        liveConfig.selectedCharacter = cardList[0].filename;
+        liveConfig.selectedCharDisplayName = cardList[0].name;
+        await writeConfig(liveConfig, 'selectedCharacter', liveConfig.selectedCharacter)
+        await writeConfig(liveConfig, 'selectedCharDisplayName', liveConfig.selectedCharDisplayName)
+    }
 
     //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
     let connectionConfirmedMessage = {
@@ -705,7 +612,7 @@ async function handleConnections(ws, type, request) {
             if (parsedMessage.type === 'connect') {
                 console.log('saw connect message from client')
                 clientObject.username = parsedMessage.username;
-                upsertUser(senderUUID, clientObject.username);
+                db.upsertUser(senderUUID, clientObject.username, thisUserColor);
                 console.log(`Adding ${clientObject.username} to connected user list..`)
                 //the intent with this IF check is to give special charater to the host name
                 //but it causes problems elsewhere (can't filter from the userList, gets sent to AI chat calls)
@@ -761,7 +668,7 @@ async function handleConnections(ws, type, request) {
                     let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     if (!isEmptyTrigger) {
-                        let data = await readAIChat()
+                        let data = await db.readAIChat()
                         let jsonArray = JSON.parse(data)
                         const userObjToPush = {
                             username: parsedMessage.username,
@@ -771,7 +678,7 @@ async function handleConnections(ws, type, request) {
                         jsonArray.push(userObjToPush)
                         const formmattedData = JSON.stringify(jsonArray, null, 2);
                         await writeAIChat(formmattedData)
-                        writeAIChatMessage(1, username, userInput);
+                        db.writeAIChatMessage(senderUUID, userInput);
                         await broadcast(userPrompt)
                     }
                     if (liveConfig.isAutoResponse || isEmptyTrigger) {
@@ -819,6 +726,7 @@ async function handleConnections(ws, type, request) {
                     //if it's not an empty trigger from host
                     //if userInput is empty we can just request the AI directly
                     let charFile = liveConfig.selectedCharacter
+                    console.log(`selected character: ${charFile}`)
                     let cardData = await charaRead(charFile, 'png')
                     let cardJSON = JSON.parse(cardData)
                     let charName = cardJSON.name
@@ -859,9 +767,10 @@ async function handleConnections(ws, type, request) {
                         userColor: parsedMessage.userColor
                     }
                     //add the response to the chat file
-                    let data = await readAIChat()
+                    let data = await db.readAIChat()
                     jsonArray = JSON.parse(data);
                     jsonArray.push(AIResponseForChatJSON);
+                    db.writeAIChatMessage(charName, AIResponse);
                     const updatedData = JSON.stringify(jsonArray, null, 2);
                     // Write the formatted AI response array back to the file
                     await writeAIChat(updatedData)
@@ -890,37 +799,6 @@ function countTokens(str) {
     let tokens = Math.ceil(chars / 3)
     //console.log(`estimated tokens: ${tokens}`)
     return tokens
-}
-
-/**
- * Reads AI chat data from a JSON file. If the file doesn't exist, creates it.
- * @returns {Promise<string>} A promise that resolves with the file content.
- */
-async function readAIChat() {
-    await acquireLock()
-    return new Promise((resolve, reject) => {
-        fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
-            if (err) {
-                if (err.code === 'ENOENT') {
-                    console.log('AIChat.json not found, creating it now.');
-                    writeAIChat('[]').then(() => {
-                        resolve('[]');
-                    }).catch(writeErr => {
-                        console.error('An error occurred while creating the file:', writeErr);
-                        releaseLock();
-                        reject(writeErr);
-                    });
-                } else {
-                    console.error('An error occurred while reading the file:', err);
-                    releaseLock();
-                    reject(err);
-                }
-            } else {
-                releaseLock();
-                resolve(data);
-            }
-        });
-    });
 }
 
 async function writeAIChat(data) {
@@ -1124,7 +1002,7 @@ function trimIncompleteSentences(input, include_newline = false) {
 async function ObjectifyChatHistory() {
     return new Promise(async (resolve, reject) => {
         await delay(100)
-        let data = await readAIChat();
+        let data = await db.readAIChat();
         try {
             // Parse the existing contents as a JSON array
             let chatHistory = JSON.parse(data);
@@ -1182,7 +1060,7 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
             const replacedData = JSON.parse(replacedString);
 
             //replace {{user}} and {{char}} for D1JB
-            var D1JB = liveConfig.D1JB
+            var D1JB = liveConfig.D1JB || ''
             var replacedD1JB = D1JB.replace(/{{user}}/g, username);
             replacedD1JB = replacedD1JB.replace(/{{char}}/g, jsonData.name);
 

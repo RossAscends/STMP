@@ -1,5 +1,8 @@
 const http = require('http');
 const fs = require('fs');
+const util = require('util');
+const writeFileAsync = util.promisify(fs.writeFile);
+const existsAsync = util.promisify(fs.exists);
 const fsp = require('fs').promises;
 const path = require('path');
 const WebSocket = require('ws');
@@ -45,6 +48,27 @@ const wssPort = 8182; //WSS for guests
 
 //set the engine mode to either 'tabby' or 'horde'
 let engineMode = 'tabby'
+
+// Configuration
+const apiKey = "_YOUR_API_KEY_HERE_";
+const authString = "_STUsername_:_STPassword_";
+const secretsPath = path.join(__dirname, 'secrets.json');
+
+console.log("===========================");
+console.log("SillyTavern MultiPlayer");
+
+// Create directory if it does not exist
+function createDirectoryIfNotExist(path) {
+    if (!fs.existsSync(path)) {
+        try {
+            fs.mkdirSync(path, { recursive: true });
+            console.log(`-- Created '${path}' folder.`);
+        } catch (err) {
+            console.error(`Failed to create '${path}' folder. Check permissions or path.`);
+            process.exit(1);
+        }
+    }
+}
 
 localApp.get('/', (req, res) => {
     const filePath = path.join(__dirname, '/public/client.html');
@@ -118,32 +142,48 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function initConfig() {
-    await delay(100)
-    if (!fs.existsSync('config.json')) {
-        let config = {
-            engineMode: engineMode,
-            selectedCharacter: '',
-            responseLength: responseLength,
-            contextSize: contextSize,
-            isAutoResponse: isAutoResponse,
-        }
-        liveConfig = config
-        const writableArray = JSON.stringify(config, null, 2);
-        //console.log('initConfig writing initial file')
-        await delay(100)
-        fs.writeFileSync('config.json', writableArray);
-        console.log('config.json created with default values.');
+async function initFiles() {
+    const configPath = 'config.json';
+    const secretsPath = 'secrets.json';
 
-    } else {
-        console.log('Loading config.json...');
-        liveConfig = await readConfig()
-        console.log(liveConfig)
-        console.log('Finished!')
+    // Default values for config.json
+    const defaultConfig = {
+        engineMode: 'defaultEngineMode',
+        selectedCharacter: '',
+        responseLength: 'defaultResponseLength',
+        contextSize: 'defaultContextSize',
+        isAutoResponse: 'defaultIsAutoResponse',
+    };
+
+    // Default values for secrets.json
+    const defaultSecrets = {
+        api_key: 'YourAPIKey',
+        authString: 'YourAuthString'
+    };
+
+    // Check and create config.json if it doesn't exist
+    if (!await existsAsync(configPath)) {
+        console.log('Creating config.json with default values...');
+        await writeFileAsync(configPath, JSON.stringify(defaultConfig, null, 2));
+        console.log('config.json created.');
+    } 
+
+    // Check and create secrets.json if it doesn't exist
+    if (!await existsAsync(secretsPath)) {
+        console.log('Creating secrets.json with default values...');
+        await writeFileAsync(secretsPath, JSON.stringify(defaultSecrets, null, 2));
+        console.log('secrets.json created.');
     }
 }
 
-initConfig()
+// Create directories
+createDirectoryIfNotExist("./public/chats");
+createDirectoryIfNotExist("./public/api-presets");
+
+// Call the function to initialize the files
+initFiles();
+
+
 
 // Handle incoming WebSocket connections
 wsServer.on('connection', (ws) => {

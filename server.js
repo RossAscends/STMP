@@ -155,10 +155,12 @@ async function initFiles() {
     // Default values for config.json
     const defaultConfig = {
         engineMode: 'tabby',
-        selectedCharacter: '',
+        selectedCharacter: '/public/characters/CodingSensei.png',
         responseLength: 200,
         contextSize: 2048,
         isAutoResponse: true,
+        selectedPreset: "public/api-presets/Tabby-Temp-2_MinP-0.2.json",
+        instructFormat: "public/instructFormats/ChatML.json",
     };
 
     // Default values for secrets.json

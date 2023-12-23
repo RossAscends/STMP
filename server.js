@@ -161,6 +161,7 @@ async function initFiles() {
         isAutoResponse: true,
         selectedPreset: "public/api-presets/Tabby-Temp-2_MinP-0.2.json",
         instructFormat: "public/instructFormats/ChatML.json",
+        D1JB: ''
     };
 
     // Default values for secrets.json

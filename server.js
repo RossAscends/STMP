@@ -279,11 +279,9 @@ async function getSamplerPresetList() {
 async function broadcast(message) {
     console.log('broadcasting this:')
     console.log(message)
-    console.log(clientsObject)
     Object.keys(clientsObject).forEach(clientUUID => {
         const client = clientsObject[clientUUID];
         const socket = client.socket;
-        console.log(`sending to ${clientUUID}`)
 
         if (socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify(message));
@@ -316,8 +314,6 @@ async function removeLastAIChatMessage() {
 async function saveAndClearChat(type) {
     await db.newSession();
 }
-
-let tempConnections = [];
 
 async function handleConnections(ws, type, request) {
     // Parse the URL to get the query parameters
@@ -740,18 +736,6 @@ function countTokens(str) {
     return tokens
 }
 
-async function writeAIChat(data) {
-    await acquireLock()
-    fs.writeFile('public/chats/AIChat.json', data, 'utf8', (writeErr) => {
-        if (writeErr) {
-            console.error('An error occurred while writing to the file:', writeErr);
-            releaseLock()
-            return;
-        }
-        console.log('AIChat.json updated.');
-        releaseLock()
-    });
-}
 
 async function readConfig() {
     await acquireLock()

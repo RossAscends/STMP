@@ -170,6 +170,8 @@ async function initFiles() {
     const samplerData = await readFile(defaultConfig.selectedPreset)
     defaultConfig.samplers = samplerData
 
+    defaultConfig.selectedCharDisplayName = "Coding Sensei"
+    
     // Default values for secrets.json
     const defaultSecrets = {
         api_key: 'YourAPIKey',

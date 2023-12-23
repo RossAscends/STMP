@@ -22,126 +22,148 @@
 
 <body class="Hcentered">
     <div id="bodywrap" class="flexbox noWrap noGap Hcentered">
-        <div id="controlPanel" class="margin5 flexbox flexFlowCol" style="display:none;">
+        <div id="controlPanel" class="padding5 flexbox flexFlowCol scrollY" style="display:none;">
             <div class="hostControls flexbox flexFlowCol">
-                <div name="AIControls">
+                <div name="AIControls" class="flexbox flexFlowCol">
                     <h4>AI Controls</h4>
-                    <div class="flexbox Vcentered">
-                        <span class="flex1">API</span>
-                        <div id="toggleMode" class="tabbyMode fontSize1p5em greyscale bgBrightUp textshadow transition250" title="Toggle Mode">🐈</div>
-                    </div>
-
-                    <div class="flexbox Vcentered">
-                        <span class="flex1">Context</span>
-                        <div class="custom-select">
-                            <select id="maxContext">
-                                <option value="1024">1024</option>
-                                <option value="2048">2048</option>
-                                <option value="4096">4096</option>
-                                <option value="8196">8192</option>
-                            </select>
+                    <div class="flexbox justifySpaceAround">
+                        <div class="flexbox flexFlowCol">
+                            <small class="alignSelfCenter">API</small>
+                            <button id="toggleMode" class="tabbyMode mutedColor square1p5em fontSize1p5em bgBrightUp textshadow" title="Toggle Mode">🐈
+                            </button>
                         </div>
-                    </div>
-                    <div class="flexbox Vcentered">
-                        <span class="flex1">Response</span>
-                        <div class="custom-select">
-                            <select id="responseLength">
-                                <option value="50">50</option>
-                                <option value="100">100</option>
-                                <option value="200">200</option>
-                                <option value="300">300</option>
-                                <option value="400">400</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="flexbox Vcentered">
-                        <span class="flex1">Samplers</span>
-                        <div class="custom-select">
-                            <select id="samplerPreset"></select>
-                        </div>
-                    </div>
-                    <div class="flexbox Vcentered">
-                        <span class="flex1">Instruct</span>
-                        <div class="custom-select">
-                            <select id="instructStyle">
-
-                            </select>
-                        </div>
-                    </div>
-                    <div class="flexbox"><span class="flex1">Char</span>
-                        <div class="custom-select">
-                            <select id="characters" class="flex1"></select>
-                        </div>
-                    </div>
-                    <div class="flexbox">
-                        <label for="AIAutoResponse" class="Vcentered checkbox_label">
-                            <span class="flex1">AutoResponse</span>
+                        <label for="AIAutoResponse" class="checkbox_label flexbox flexFlowCol alignItemsCenter">
+                            <small class="">AutoAI</small>
                             <input type="checkbox" class="Vcentered" id="AIAutoResponse">
                         </label>
+                        <div class="flexbox flexFlowCol alignItemsCenter">
+                            <small class="alignSelfCenter">Context</small>
+                            <div class="custom-select">
+                                <select id="maxContext">
+                                    <option value="1024">1024</option>
+                                    <option value="2048">2048</option>
+                                    <option value="4096">4096</option>
+                                    <option value="8196">8192</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flexbox flexFlowCol alignItemsCenter">
+                            <small class="alignSelfCenter">Response</small>
+                            <div class="custom-select">
+                                <select id="responseLength">
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                    <option value="200">200</option>
+                                    <option value="300">300</option>
+                                    <option value="400">400</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="flexbox flexFlowCol alignItemsCenter">
+                            <small class="alignSelfCenter">Instruct</small>
+                            <div class="custom-select">
+                                <select id="instructStyle"></select>
+                            </div>
+                        </div>
+                        <div class="flexbox flexFlowCol">
+                            <small class="alignSelfCenter">Samplers</small>
+                            <div class="custom-select">
+                                <select id="samplerPreset"></select>
+                            </div>
+                        </div>
                     </div>
-                    <div class="flexbox Hcentered justifySpaceBetween margin5">
-                        <button id="clearAIChat" class="fontSize1p5em greyscale bgBrightUp textshadow">🗑️</button>
-                        <button id="triggerAIResponse" class="fontSize1p5em greyscale bgBrightUp textshadow">🤖💬</button>
-                        <button id="deleteLastMessageButton" class="fontSize1p5em greyscale bgBrightUp textshadow">✂️</button>
+                    <div class="flexbox justifySpaceBetween alignItemsCenter">
+
+
                     </div>
 
-                    <div class="flexbox flexFlowCol">
-                        <span class="flex1">Final Instruction (D1 JB)</span>
-                        <textarea class="Vcentered brightUp" rows=6 id="finalInstruction" placeholder="Put your Depth 1 prompt instruction here"></textarea>
+                    <div id="finalInstructionBlock" class="flexbox flexFlowCol Hcentered dummyBG">
+                        <span class="widthFitContent alignSelfCenter">Final Instruction (D1 JB)</span>
+                        <textarea class="bgBrightUp" rows=6 id="finalInstruction" placeholder="Put your Depth 1 prompt instruction here"></textarea>
                     </div>
                 </div>
                 <hr>
-                <div name="userchatControls">
-                    <h4>UserChat Controls</h4>
-                    <div class="flexbox Hcentered margin5">
-                        <button id="clearUserChat" class="fontSize1p5em greyscale bgBrightUp textshadow">🗑️</button>
+
+                <div id="pastChatsBlock" class="flexbox flexFlowCol scrollY">
+                    <div class="flexbox Hcentered Vcentered">
+                        <h4>Past Chats</h4><button id="showPastChats" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow">🔄</button>
                     </div>
-                </div>
-                <div name="misccontrols" class="flexbox">
-                    <div class="flexbox flexFlowCol Hcentered margin5">
-                        <button id="showPastChats">Past chats</button>
-                        <div id="pastChatsList"></div>
+                    <div class="flexbox flexFlowCol Hcentered">
+
                     </div>
+                    <div id="pastChatsList" class="flexbox"></div>
                 </div>
             </div>
         </div>
-        <div id="chatWrap" class="flexbox flex1 noGap">
+        <div id="chatWrap" class="flexbox flex1">
+
             <div id="LLMChatWrapper" class="flexbox flexFlowCol flex1 noGap">
                 <div class="Hcentered Vcentered flexbox chatHeader">
-                    Chat with<span id="charName"></span>as <input type="text" id="AIUsernameInput" class="brightUp" placeholder="Username">
+                    Chat with
+                    <div class="custom-select hostControls">
+                        <select id="characters" class="flex1"></select>
+                    </div>
+                    <span id="charName"></span>as <input type="text" maxlength="12" id="AIUsernameInput" class="width100px bgBrightUp" placeholder="Username">
                 </div>
-                <div id="AIchat" data-chat-id="AIChat"></div>
-                <div id="AIInputBlock" class="flexbox noWrap marginLeft5 marginRight5">
-                    <textarea id="AIMessageInput" class="brightUp" placeholder="Type a message"></textarea>
-                    <div class="flexbox">
-                        <button id="AISendButton" class="greyscale fontSize1p5em textshadow">✏️</button>
-                        <button id="AIRetry" class="greyscale fontSize1p5em textshadow">🔄</button>
+                <div id="AIChatAndAIUserList" class="flexbox positionRelative noGap">
+                    <div class="chatAndTrashWrap flexbox positionRelative flex1">
+                        <button id="clearAIChat" class="positionAbsolute chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow">🗑️</button>
+                        <div id="AIchat" data-chat-id="AIChat"></div>
+                    </div>
+                    <div id="AIChatUserList">
+                        <ul>
+                            <li>Placeholder</li>
+                            <li>Placeholder</li>
+                            <li>Placeholder</li>
+                        </ul>
+                    </div>
+                </div>
+                <div id="AIInputBlock" class="flexbox noWrap">
+                    <div class="inputAndIconsWrapper flexbox transition250">
+                        <textarea id="AIMessageInput" class="" placeholder="Type a message"></textarea>
+                        <div class="flexbox marginRight5">
+                            <button id="AISendButton" class="bgTransparent greyscale square1p5em fontSize1p5em  textshadow">✏️</button>
+                            <button id="deleteLastMessageButton" class="bgTransparent hostControls square1p5em fontSize1p5em greyscale  textshadow">✂️</button>
+                            <button id="triggerAIResponse" class="bgTransparent hostControls square1p5em fontSize1p5em greyscale  textshadow">🤖</button>
+                            <button id="AIRetry" class="bgTransparent greyscale square1p5em fontSize1p5em  textshadow">🔄</button>
+                        </div>
                     </div>
                 </div>
             </div>
             <div id="universalControls">
-                <button id="reconnectButton" class="textshadow greyscale fontSize1p25em brightUp">▶️</button>
-                <button id="disconnectButton" class="textshadow greyscale fontSize1p25em brightUp">⏸</button>
+                <button id="reconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor  textshadow">▶️</button>
+                <button id="disconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor  textshadow">⏸</button>
             </div>
+
             <div id="OOCChatWrapper" class="flexbox flexFlowCol flex1 noGap">
+
                 <div class="Hcentered Vcentered flexbox chatHeader">
-                    User Chat <input type="text" id="usernameInput" class="brightUp" placeholder="Username">
-                    <button id="clearLocalStorage" class="textshadow greyscale brightUp flipBoth">✏️</button>
+                    Chat with Users as <input type="text" maxlength="12" id="usernameInput" class="width100px bgBrightUp" placeholder="Username">
+                    <button id="clearLocalStorage" class="textshadow square1p5em fontSize1p25em mutedColor bgBrightUp flipBoth">✏️</button>
                     <i id="userRole"></i>
                 </div>
-                <div id="userChatAndUserList" class="flexbox">
-                    <div id="chat" data-chat-id="UserChat"></div>
+
+                <div id="userChatAndUserList" class="flexbox positionRelative noGap">
+                    <div class="chatAndTrashWrap flexbox positionRelative flex1">
+                        <button id="clearUserChat" class="positionAbsolute chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow">🗑️</button>
+                        <div id="chat" data-chat-id="UserChat"></div>
+                    </div>
                     <div id="userList">
                         <ul></ul>
                     </div>
                 </div>
-                <div id="inputBlock" class="flexbox noWrap marginLeft5 marginRight5">
-                    <textarea id="messageInput" class="brightUp" placeholder="Type a message"></textarea>
-                    <div class="flexbox">
-                        <button id="sendButton" class="greyscale fontSize1p5em textshadow">✏️</button>
+
+                <div id="inputBlock" class="flexbox noWrap">
+                    <div class="inputAndIconsWrapper flexbox  transition250">
+                        <textarea id="messageInput" class="" placeholder="Type a message"></textarea>
+                        <div class="flexbox">
+                            <button id="sendButton" class="bgTransparent  greyscale square1p5em fontSize1p5em textshadow">✏️</button>
+                        </div>
                     </div>
                 </div>
+
             </div>
+
         </div>
     </div>
 </body>

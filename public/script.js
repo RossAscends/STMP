@@ -264,7 +264,9 @@ async function processConfirmedConnection(parsedMessage) {
     $("#userRole").text(userRole)
     $("#charName").text(selectedCharacterDisplayName)
     if (isHost) {
-        $("#controlPanel").show()
+        $("#charName").hide()
+        $("#controlPanel, .hostControls").show()
+
         await delay(100)
         $("#AIAutoResponse").prop('checked', isAutoResponse)
         await delay(100)
@@ -280,8 +282,10 @@ async function processConfirmedConnection(parsedMessage) {
         updateInstructFormat(instructFormat, 'forced');
         updateD1JB(D1JB, 'forced')
         setEngineMode(engineMode);
+        $("#showPastChats").trigger('click')
     } else {
-        $("#controlPanel").remove()
+        $("#controlPanel, .hostControls").remove()
+
     }
 
     $("#chat").empty();
@@ -453,7 +457,7 @@ function showPastChats(chatList) {
             let item = JSONChatList[sessionID];
 
             // Create a new div element for each item
-            var divElement = $(`<div class="pastChatItem hoverglow flexbox flexFlowCol" data-session_id="${item.session_id}">`);
+            var divElement = $(`<div class="pastChatItem transition250 flexbox flexFlowCol" data-session_id="${item.session_id}">`);
             var timestamp = item.latestTimestamp;
 
             // Format the timestamp
@@ -822,11 +826,20 @@ $(async function () {
     if (window.matchMedia("(orientation: landscape)").matches && /Mobile/.test(navigator.userAgent)) {
         if (isIOS) {
             $('body').css({
-                'padding-left': '15px',
+                'padding-left': '0px',
                 'padding-right': '0px',
                 'width': '100sfw',
-                'height': 'calc(100svh - 36px)'
+                'height': 'calc(100svh - 5px)'
             })
+            $(".bodywrap").css({
+                gap: '5px'
+            })
+            $(".fontSize1p5em").addClass('fontSize1p25em').removeClass('fontSize1p5em')
+            $('.fontSize1p25em')
+                .css('width', '2em')
+                .css('height', '2em')
+                .css('line-height', '2em')
+                .css('padding', '0')
         }
     }
     //do message send on Enter

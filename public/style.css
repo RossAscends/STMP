@@ -5,10 +5,10 @@
 }
 
 body {
-    background-color: #111;
+    background-color: #232428;
     width: 100svw;
     height: 100svh;
-    color: #ccc;
+    color: #bcbec2;
     margin: 0;
     padding: 0;
     font-family: "Noto Sans", "Noto Color Emoji", sans-serif;
@@ -17,7 +17,8 @@ body {
 }
 
 #bodywrap {
-    width: 100%
+    width: 100%;
+    height: calc(100% - 1px);
 }
 
 textarea,
@@ -27,23 +28,36 @@ button {
     font-family: "Noto Sans", "Noto Color Emoji", sans-serif;
 }
 
+textarea {
+    resize: vertical;
+}
+
 ::-webkit-scrollbar {
-    width: 10px;
+    width: 12px;
     scrollbar-gutter: stable;
+    /* border: 5px solid #313338; */
+}
+
+::-webkit-scrollbar-track {
+    background-color: #2c2d31;
+    border: 3px solid #313338;
+    margin-top: 5px;
+    margin-bottom: 5px;
+
+    border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background-color: #666;
-    box-shadow: inset 0 0 0 1px #333;
+    background-color: #1e1f23;
     border-radius: 10px;
     background-clip: content-box;
-    border: 2px solid transparent;
+    border: 3px solid transparent;
     min-height: 40px;
 }
 
 #chatWrap {
     position: relative;
-    max-height: calc(100% - 1em);
+    max-height: 100%;
     max-width: 85%;
 }
 
@@ -59,16 +73,7 @@ button {
 #OOCChatWrapper {
     height: 100%;
     overflow: hidden;
-}
-
-@media (max-width: 800px) {
-
-    #LLMChatWrapper,
-    #OOCChatWrapper {
-        flex-basis: 100%;
-        height: calc(50% - 15px);
-        box-sizing: border-box;
-    }
+    position: relative;
 }
 
 #inputBlock,
@@ -77,19 +82,31 @@ button {
     align-items: center;
     align-content: center;
     justify-content: center;
-    gap: 5px;
+    background-color: #313338
+}
+
+.inputAndIconsWrapper {
+    border-radius: 10px;
+    margin: 10px;
+    background-color: #393a3f;
+    width: 100%;
+}
+
+#controlPanel {
+    max-width: 15svw;
+    width: 15svw;
+    min-width: 200px;
+    background-color: #2c2d31;
 }
 
 #controlPanel h4 {
-    margin: 0;
-    margin-top: 10px;
-    margin-bottom: 10px;
+    margin: 5px 0;
     font-size: 1.25em;
     text-align: center;
 }
 
 #controlPanel span {
-    font-size: 0.9em;
+    font-size: 0.8em;
 }
 
 input,
@@ -97,11 +114,11 @@ textarea,
 button,
 select {
     border-radius: 5px;
-    border: 1px solid #666;
-    background-color: #333;
-    color: #999;
+    border: 0;
+    background-color: #393a3f;
+    color: #afb1b6;
     outline: none;
-    transition: all 250ms;
+
     z-index: 2;
 }
 
@@ -110,23 +127,54 @@ select {
     cursor: pointer;
 }
 
+button,
+select,
+input {
+    transition: all 250ms;
+}
+
+textarea {
+    transition: background-color 250ms;
+}
 
 select {
     font-size: 0.8em;
     appearance: none;
     padding: 3px 1em 3px 3px;
     width: fit-content;
+    /* min-width: 50px; */
+    display: flex;
 }
 
-select:hover {
-    background-color: #666;
-    color: #ccc;
-    border-color: #ccc
+select:hover,
+.pastChatItem:hover {
+    background-color: #52545b;
+}
+
+.hostControls {
+    display: none
+}
+
+.positionAbsolute {
+    position: absolute;
+}
+
+.positionRelative {
+    position: relative;
 }
 
 .custom-select {
-    min-width: 30px;
+    display: flex;
+    justify-content: right;
     position: relative;
+    z-index: 3;
+    width: fit-content;
+}
+
+.chatTrash {
+    top: 5px;
+    right: 15px;
+    background: transparent;
 }
 
 .custom-select::before,
@@ -137,6 +185,7 @@ select:hover {
     right: 3px;
     top: 3px;
     pointer-events: none;
+    z-index: 3;
 }
 
 .custom-select::before {
@@ -164,8 +213,9 @@ input[type='checkbox'] {
     height: 1.5em;
     overflow: hidden;
     border-radius: 3px;
-    border: 1px solid #666;
-    background-color: #333;
+    /* border: 1px solid #666; */
+    background-color: #343437;
+    /* another weird color mismatch cope */
     box-shadow: inset 0 0 2px 0 rgba(0, 0, 0, 0.5);
     cursor: pointer;
     transform: translateY(-0.075em);
@@ -194,7 +244,7 @@ input[type="checkbox"]:checked::before {
 }
 
 input[type='checkbox']:hover {
-    filter: brightness(2);
+    filter: brightness(1.5);
 }
 
 .checkbox_label {
@@ -210,10 +260,8 @@ input {
     width: fit-content;
 }
 
-#toggleMode {
-    cursor: pointer;
-    border-radius: 5px;
-    border: 1px solid #666;
+.scrollY {
+    overflow-y: auto;
 }
 
 .hoverglow {
@@ -223,21 +271,9 @@ input {
 
 }
 
-.hoverglow:hover {
-    outline: 1px solid white;
-    filter: saturate(1);
-    background-color: #333;
-
-}
-
-.brightUp:hover,
-.brightUp:focus {
-    filter: brightness(2)
-}
-
-.bgBrightUp:hover {
-    background-color: #555;
-    border: 1px solid #ccc
+.bgBrightUp:hover,
+.bgBrightUp:focus {
+    background-color: #52545b;
 }
 
 #OOCChatWrapper img,
@@ -257,7 +293,7 @@ code {
 }
 
 pre {
-    border: 1px solid white;
+    /* border: 1px solid white; */
     padding: 3px;
     background: black;
     margin: 5px;
@@ -265,26 +301,29 @@ pre {
     width: min-content;
 }
 
+#chat div,
+#AIchat div {
+    padding: 5px 5% 5px 10px;
+    margin-bottom: 10px;
+}
+
+#chat div:hover,
+#AIchat div:hover {
+    background-color: #2f3035
+}
+
 #chat div p,
 #AIchat div p {
     margin: 0;
-    margin-bottom: 1em;
     padding: 0;
-}
-
-.chatUserName {
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 5px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 0px 4px;
-    position: relative;
-    left: -5px;
 }
 
 #messageInput,
 #AIMessageInput {
     height: 3em;
     flex-grow: 1;
+    background-color: transparent;
+    padding: 5px 10px;
 }
 
 #messageInput::placeholder,
@@ -300,36 +339,8 @@ input::placeholder {
     color: red;
 }
 
-#chat,
-#AIchat,
-#userChatAndUserList {
-    background: #333;
-    margin: 5px;
-    border-radius: 5px;
-    padding: 5px;
-    flex: 1;
-}
-
-#AIchat {
-    padding: 10px;
-}
-
 .chatHeader {
     height: 2.5em
-}
-
-#userChatAndUserList {
-    overflow-y: hidden;
-}
-
-#chat,
-#AIchat {
-    overflow-y: auto;
-    max-height: 100%;
-}
-
-#userList {
-    overflow: hidden;
 }
 
 #userRole {
@@ -337,30 +348,117 @@ input::placeholder {
     color: #666
 }
 
-#userList ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    width: 100px;
+#userChatAndUserList,
+#AIChatAndAIUserList {
+    overflow-y: auto;
+    height: 100%;
+    max-height: 100%;
 }
 
-#userList ul li {
+#chat,
+#AIchat {
+    background: #313338;
+    flex: 1;
+    overflow-y: auto;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    /* padding: 7px 5% 5px 10px; */
+}
+
+.chatAndTrashWrap {
+    height: 100%;
+    max-height: 100%;
+    overflow-y: auto;
+}
+
+#userList,
+#AIChatUserList {
+    background: #2c2d31;
+    overflow: hidden;
+}
+
+#userList ul,
+#AIChatUserList ul {
+    list-style: none;
+    padding: 5px;
+    width: 100px;
+    margin: 0;
+}
+
+#userList ul li,
+#AIChatUserList ul li {
     padding: 3px;
     font-size: 0.8em;
 }
 
-#chat {
-    border-radius: 0;
-    border-right: 1px solid black;
+#pastChatsBlock {
+    height: 33svh;
+}
+
+#pastChatsList {
+    overflow-y: auto;
+    max-height: 33svh;
+    border-radius: 5px;
+    padding: 0 4px 0 12px;
+
+    /*makes background on effect text, allowing for it to effect scrollbar but not the whole div*/
+    -webkit-background-clip: text;
 }
 
 .pastChatItem {
     cursor: pointer;
     padding: 0 3px;
     border-radius: 5px;
-    border: 1px solid #666;
-    margin-bottom: 5px;
-    background-color: #333
+    /* border: 1px solid #666; */
+    background-color: #393a3f;
+    width: 100%
+}
+
+#pastChatsList:hover {
+    /* this makes the scrollbar fade in */
+    background-color: #1e1f23;
+}
+
+#pastChatsList,
+.dummyBG {
+    transition: all 0.5s;
+    -webkit-background-clip: text;
+}
+
+#pastChatsList::-webkit-scrollbar,
+#finalInstruction::-webkit-scrollbar {
+    transition: all 0.5s;
+    width: 8px;
+    height: 8px;
+}
+
+#pastChatsList::-webkit-scrollbar-track,
+#finalInstruction::-webkit-scrollbar-track {
+    display: none;
+}
+
+#pastChatsList::-webkit-scrollbar-thumb {
+    width: 8px;
+    background-color: inherit;
+    border-radius: 10px;
+    border: 1px solid transparent;
+}
+
+#finalInstruction::-webkit-scrollbar-thumb {
+    width: 8px;
+    background-color: inherit;
+    border-radius: 10px;
+    border: 1px solid transparent;
+}
+
+#finalInstruction:hover::-webkit-scrollbar-thumb {
+    background-color: #2c2d31;
+}
+
+
+small {
+    font-size: 0.7em
 }
 
 hr {
@@ -384,6 +482,14 @@ hr {
 .Vcentered {
     align-items: center;
     align-content: center;
+}
+
+.alignSelfCenter {
+    align-self: center
+}
+
+.alignItemsCenter {
+    align-items: center;
 }
 
 .marginTop5 {
@@ -428,6 +534,10 @@ hr {
     flex: 1
 }
 
+.flex1p5 {
+    flex: 1.5
+}
+
 .widthMinContent {
     width: min-content
 }
@@ -436,19 +546,51 @@ hr {
     width: fit-content
 }
 
+.width100px {
+    width: 100px
+}
+
 .fontSize1p5em {
     font-size: 1.5em
+}
+
+.square1p5em {
+    height: 1.5em;
+    width: 1.5em;
+    padding: 0;
 }
 
 .fontSize1p25em {
     font-size: 1.25em
 }
 
+.square1p25em {
+    height: 1.25em;
+    width: 1.25em;
+    padding: 0;
+}
+
+
 .greyscale {
+    filter: saturate(0)
+}
+
+.mutedColor {
     filter: saturate(0.3)
 }
 
-.greyscale:hover {
+/* a cope for greyscale affecting background colors */
+/* and making them not match the other inputs */
+#controlPanel button.greyscale {
+    background-color: #3a3c45
+}
+
+.bgTransparent {
+    background-color: transparent;
+}
+
+.greyscale:hover,
+.mutedColor:hover {
     filter: saturate(0.7)
 }
 
@@ -458,6 +600,10 @@ hr {
 
 .justifySpaceBetween {
     justify-content: space-between;
+}
+
+.justifySpaceAround {
+    justify-content: space-around;
 }
 
 .textshadow {
@@ -491,4 +637,31 @@ hr {
 .mirror {
     display: inline-block;
     transform: rotateX(180deg);
+}
+
+@media (max-width: 800px) {
+
+    #bodywrap {
+        height: calc(100svh - 10px);
+    }
+
+    #OOCChatWrapper {
+        order: 1;
+    }
+
+    #LLMChatWrapper {
+        order: 2
+    }
+
+    #LLMChatWrapper,
+    #OOCChatWrapper {
+        flex-basis: 100%;
+        height: 50%;
+        box-sizing: border-box;
+    }
+
+    #chatWrap {
+        max-width: 100svw;
+        max-height: 100svh;
+    }
 }

@@ -164,6 +164,12 @@ async function initFiles() {
         D1JB: ''
     };
 
+    const instructSequences = await readFile(defaultConfig.instructFormat)
+    defaultConfig.instructSequences = instructSequences
+
+    const samplerData = await readFile(defaultConfig.selectedPreset)
+    defaultConfig.samplers = samplerData
+
     // Default values for secrets.json
     const defaultSecrets = {
         api_key: 'YourAPIKey',

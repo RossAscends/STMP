@@ -188,7 +188,6 @@ async function initFiles() {
 }
 
 // Create directories
-createDirectoryIfNotExist("./public/chats");
 createDirectoryIfNotExist("./public/api-presets");
 
 // Call the function to initialize the files
@@ -722,7 +721,8 @@ async function handleConnections(ws, type, request) {
         // Remove the disconnected client from the clientsObject
         console.debug('Client disconnected:', uuid);
         console.log(clientsObject)
-        clientsObject = clientsObject.filter(client => client !== ws);
+        // Pop the client from the clientsObject
+        delete clientsObject[uuid];
         console.log(clientsObject)
     });
 };

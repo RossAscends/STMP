@@ -265,7 +265,11 @@ async function processConfirmedConnection(parsedMessage) {
     $("#charName").text(selectedCharacterDisplayName)
     if (isHost) {
         $("#charName").hide()
-        $("#controlPanel, .hostControls").show()
+        //only force show the control panel if the user has not set it to be closed with the toggle
+        if ($("#controlPanelToggle.closePanel").length !== 0) {
+            $("#controlPanel").show()
+        }
+        $(".hostControls").show()
 
         await delay(100)
         $("#AIAutoResponse").prop('checked', isAutoResponse)
@@ -285,7 +289,6 @@ async function processConfirmedConnection(parsedMessage) {
         $("#showPastChats").trigger('click')
     } else {
         $("#controlPanel, .hostControls").remove()
-
     }
 
     $("#chat").empty();

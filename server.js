@@ -334,37 +334,7 @@ function humanizedTimestamp() {
 }
 
 async function saveAndClearChat(type) {
-
-    let fileprefix, currentChatData
-    if (type === 'AIChat') {
-        fileprefix = 'AIChat_'
-        currentChatData = await db.readAIChat();
-    } else {
-        fileprefix = 'UserChat_'
-        currentChatData = await db.readUserChat();
-    }
-
-    let currentTimestamp = humanizedTimestamp()
-    const newFileName = `${fileprefix}${currentTimestamp}.json`;
-    const newFilePath = `public/chats/${newFileName}`;
-
-    fs.writeFile(newFilePath, currentChatData, 'utf8', (writeErr) => {
-        if (writeErr) {
-            console.error('An error occurred while writing to the file:', writeErr);
-            return;
-        }
-        console.log(`Saved current ${type} as ${newFileName}.`);
-    });
-
-    // Create a new file with an empty array
-    try {
-        console.log(`Clearing ${type}.json...`);
-        type === 'AIChat' ? await writeAIChat('[]') : await writeUserChat('[]')
-
-    } catch (writeError) {
-        console.error('An error occurred while creating the file:', writeError);
-        return;
-    }
+    await db.newSession();
 }
 
 let tempConnections = [];
@@ -615,7 +585,7 @@ async function handleConnections(ws, type, request) {
             if (parsedMessage.type === 'connect') {
                 console.log('saw connect message from client')
                 clientObject.username = parsedMessage.username;
-                db.upsertUser(senderUUID, clientObject.username, thisUserColor);
+                await db.upsertUser(senderUUID, clientObject.username, thisUserColor);
                 console.log(`Adding ${clientObject.username} to connected user list..`)
                 //the intent with this IF check is to give special charater to the host name
                 //but it causes problems elsewhere (can't filter from the userList, gets sent to AI chat calls)
@@ -672,6 +642,7 @@ async function handleConnections(ws, type, request) {
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     if (!isEmptyTrigger) {
                         let data = await db.readAIChat()
+                        console.log(`data: ${data}`)
                         let jsonArray = JSON.parse(data)
                         const userObjToPush = {
                             username: parsedMessage.username,
@@ -681,7 +652,7 @@ async function handleConnections(ws, type, request) {
                         jsonArray.push(userObjToPush)
                         const formmattedData = JSON.stringify(jsonArray, null, 2);
                         await writeAIChat(formmattedData)
-                        db.writeAIChatMessage(senderUUID, userInput);
+                        await db.writeAIChatMessage(senderUUID, userInput);
                         await broadcast(userPrompt)
                     }
                     if (liveConfig.isAutoResponse || isEmptyTrigger) {
@@ -763,8 +734,8 @@ async function handleConnections(ws, type, request) {
                         AIResponse = trimIncompleteSentences(await requestToTabby(APICallParams))
                     }
 
-                    db.upsertChar(charName, charName, parsedMessage.userColor);
-                    db.writeAIChatMessage(charName, AIResponse);
+                    await db.upsertChar(charName, charName, parsedMessage.userColor);
+                    await db.writeAIChatMessage(charName, AIResponse);
 
                     return AIResponse
 
@@ -780,7 +751,10 @@ async function handleConnections(ws, type, request) {
 
     ws.on('close', () => {
         // Remove the disconnected client from the clientsObject
+        console.debug('Client disconnected:', uuid);
+        console.log(clientsObject)
         clientsObject = clientsObject.filter(client => client !== ws);
+        console.log(clientsObject)
     });
 };
 

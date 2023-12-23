@@ -18,7 +18,8 @@
     "png-chunks-encode": "^1.0.0",
     "png-chunks-extract": "^1.0.0",
     "uuid": "^8.3.2",
-    "sqlite3": "5.1.6"
+    "sqlite3": "5.1.6",
+    "sqlite": "4.0.23"
   },
   "keywords": [],
   "author": "",

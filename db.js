@@ -88,6 +88,18 @@ async function readUserChat() {
     }
 }
 
+//Remove last AI chat message from the database
+async function removeLastAIChatMessage() {
+    console.log('Removing last AI chat message from database...');
+    const db = await dbPromise;
+    try {
+        await db.run('DELETE FROM aichats WHERE message_id = (SELECT MAX(message_id) FROM aichats)');
+        console.debug('An AI chat message was removed');
+    } catch (err) {
+        console.error('Error removing AI chat message:', err);
+    }
+}
+
 // Write an AI chat message to the database
 async function writeAIChatMessage(userId, message) {
     console.log('Writing AI chat message to database...');
@@ -205,5 +217,6 @@ module.exports = {
     getUser: getUser,
     readAIChat: readAIChat,
     readUserChat: readUserChat,
-    upsertChar: upsertChar
+    upsertChar: upsertChar,
+    removeLastAIChatMessage: removeLastAIChatMessage
 };

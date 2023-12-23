@@ -194,12 +194,6 @@ createDirectoryIfNotExist("./public/api-presets");
 // Call the function to initialize the files
 initFiles();
 
-
-
-
-
-
-
 // Handle incoming WebSocket connections for wsServer
 wsServer.on('connection', (ws, request) => {
     handleConnections(ws, 'host', request);
@@ -308,29 +302,15 @@ async function broadcastUserList() {
 }
 
 async function removeLastAIChatMessage() {
-    const data = await db.readAIChat()
-    let jsonArray = JSON.parse(data)
-    jsonArray.pop();
-    const formattedData = JSON.stringify(jsonArray, null, 2);
-    await writeAIChat(formattedData)
+    await db.removeLastAIChatMessage()
+    let AIChatJSON = await db.readAIChat();
+    let jsonArray = JSON.parse(AIChatJSON)
     let chatUpdateMessage = {
         type: 'chatUpdate',
         chatHistory: jsonArray
     }
     console.log('sending AI Chat Update instruction to clients')
     broadcast(chatUpdateMessage);
-}
-
-function humanizedTimestamp() {
-    const currentDate = new Date();
-    const year = currentDate.getFullYear();
-    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-    const day = String(currentDate.getDate()).padStart(2, '0');
-    const hour = String(currentDate.getHours()).padStart(2, '0');
-    const minute = String(currentDate.getMinutes()).padStart(2, '0');
-    const second = String(currentDate.getSeconds()).padStart(2, '0');
-    const currentDateTime = `${year}-${month}-${day}_${hour}h${minute}m${second}s`;
-    return currentDateTime
 }
 
 async function saveAndClearChat(type) {
@@ -641,17 +621,6 @@ async function handleConnections(ws, type, request) {
                     let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     if (!isEmptyTrigger) {
-                        let data = await db.readAIChat()
-                        console.log(`data: ${data}`)
-                        let jsonArray = JSON.parse(data)
-                        const userObjToPush = {
-                            username: parsedMessage.username,
-                            content: parsedMessage.userInput,
-                            userColor: parsedMessage.userColor
-                        }
-                        jsonArray.push(userObjToPush)
-                        const formmattedData = JSON.stringify(jsonArray, null, 2);
-                        await writeAIChat(formmattedData)
                         await db.writeAIChatMessage(senderUUID, userInput);
                         await broadcast(userPrompt)
                     }

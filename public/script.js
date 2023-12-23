@@ -8,6 +8,7 @@ async function startupUsernames() {
     storedAIChatUsername = localStorage.getItem('AIChatUsername');
 
     username = storedUsername !== null && storedUsername !== '' ? storedUsername : await initializeUsername();
+    myUUID = localStorage.getItem('UUID') !== null ? localStorage.getItem('UUID') : '';
     AIChatUsername = storedAIChatUsername !== null && storedAIChatUsername !== '' ? storedAIChatUsername : username;
     console.debug(`[localStorage] username:${username}, AIChatUsername:${AIChatUsername}`)
 }
@@ -255,7 +256,8 @@ function updateD1JB(jb, type) {
 async function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
     const { clientUUID, role, D1JB, instructList, instructFormat, selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory, AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
-    myUUID = clientUUID
+    myUUID = myUUID === '' ? clientUUID : myUUID;
+    localStorage.setItem('UUID', myUUID);
     isHost = role === 'host' ? true : false
     console.debug(`my UUID is: ${myUUID}`)
     var userRole = isHost ? 'Host' : 'Guest';
@@ -272,6 +274,7 @@ async function processConfirmedConnection(parsedMessage) {
         populateCardSelector(cardList);
         populateInstructSelector(instructList);
         populateSamplerSelector(samplerPresetList);
+        console.log('updating UI to match server state...')
         updateSelectedChar(selectedCharacter, selectedCharacterDisplayName, 'forced');
         updateSelectedSamplerPreset(selectedSamplerPreset, 'forced');
         updateInstructFormat(instructFormat, 'forced');
@@ -313,14 +316,15 @@ function appendMessagesWithConverter(messages, elementSelector) {
         const { username, userColor, content } = obj;
         const message = converter.makeHtml(content);
         const newDiv = $("<div></div>");
-        newDiv.html(`<span class="chatUserName" style="color:${userColor}">${username}</span>${message}`)//.append('<hr>');
+        newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>');
         $(elementSelector).append(newDiv);
     });
 }
 
 function connectWebSocket() {
     console.log(`trying to connect to ${serverUrl}`)
-    socket = new WebSocket(serverUrl);
+    myUUID = localStorage.getItem('UUID') !== null ? localStorage.getItem('UUID') : '';
+    socket = new WebSocket(serverUrl + '?uuid=' + myUUID);
     console.log('socket connected!')
     socket.onopen = handleSocketOpening;
     socket.onclose = disconnectWebSocket;
@@ -349,7 +353,7 @@ function connectWebSocket() {
                     let userColor = obj.userColor;
                     let message = converter.makeHtml(obj.content);
                     let newDiv = $(`<div></div>`);
-                    newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`)//.append('<hr>');
+                    newDiv.html(`<span style="color:${userColor}">${username}</span>:${message}`).append('<hr>');
                     $("#AIchat").append(newDiv);
                 });
                 break;
@@ -374,7 +378,7 @@ function connectWebSocket() {
                 const sanitizedUsernameChangeMessage = DOMPurify.sanitize(HTMLizedUsernameChangeMessage);
                 let newUsernameChatItem = $('<div>');
                 newUsernameChatItem.html(`<i>${sanitizedUsernameChangeMessage}</i>`);
-                //newUsernameChatItem.append('<hr>');
+                newUsernameChatItem.append('<hr>');
                 $("#chat").append(newUsernameChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
                 break;
             case 'changeCharacter':
@@ -412,7 +416,7 @@ function connectWebSocket() {
                 const HTMLizedMessage = converter.makeHtml(content);
                 const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
                 let newChatItem = $('<div>');
-                newChatItem.html(`<span class="chatUserName" style="color:${userColor};">${username}</span> ${sanitizedMessage}`)//.append('<hr>');
+                newChatItem.html(`<span style="color:${userColor};">${username}</span>: ${sanitizedMessage}`).append('<hr>');
                 if (workerName !== undefined && hordeModel !== undefined && kudosCost !== undefined) {
                     $(newChatItem).prop('title', `${workerName} - ${hordeModel} (Kudos: ${kudosCost})`);
                 }

@@ -10,10 +10,14 @@ const WebSocket = require('ws');
 const $ = require('jquery');
 const characterCardParser = require('./character-card-parser.js');
 const express = require('express');
+const { url } = require('inspector');
 const localApp = express();
 const remoteApp = express();
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
+
+//Import db handler from STMP/db.js
+const db = require('./db.js');
 
 //for console coloring
 const color = {
@@ -150,13 +154,24 @@ async function initFiles() {
 
     // Default values for config.json
     const defaultConfig = {
-        engineMode: 'defaultEngineMode',
-        selectedCharacter: '',
-        responseLength: 'defaultResponseLength',
-        contextSize: 'defaultContextSize',
-        isAutoResponse: 'defaultIsAutoResponse',
+        engineMode: 'tabby',
+        selectedCharacter: 'public/characters/CodingSensei.png',
+        responseLength: 200,
+        contextSize: 2048,
+        isAutoResponse: true,
+        selectedPreset: "public/api-presets/Tabby-Temp-2_MinP-0.2.json",
+        instructFormat: "public/instructFormats/ChatML.json",
+        D1JB: ''
     };
 
+    const instructSequences = await readFile(defaultConfig.instructFormat)
+    defaultConfig.instructSequences = instructSequences
+
+    const samplerData = await readFile(defaultConfig.selectedPreset)
+    defaultConfig.samplers = samplerData
+
+    defaultConfig.selectedCharDisplayName = "Coding Sensei"
+    
     // Default values for secrets.json
     const defaultSecrets = {
         api_key: 'YourAPIKey',
@@ -168,11 +183,11 @@ async function initFiles() {
         console.log('Creating config.json with default values...');
         await writeFileAsync(configPath, JSON.stringify(defaultConfig, null, 2));
         console.log('config.json created.');
+        liveConfig = await readConfig()
     } else {
         console.log('Loading config.json...');
         liveConfig = await readConfig()
         console.log(liveConfig)
-        console.log('Finished!')
 
     }
 
@@ -185,21 +200,20 @@ async function initFiles() {
 }
 
 // Create directories
-createDirectoryIfNotExist("./public/chats");
 createDirectoryIfNotExist("./public/api-presets");
 
 // Call the function to initialize the files
 initFiles();
 
+// Handle incoming WebSocket connections for wsServer
+wsServer.on('connection', (ws, request) => {
+    handleConnections(ws, 'host', request);
+});
 
-
-// Handle incoming WebSocket connections
-wsServer.on('connection', (ws) => {
-    handleConnections(ws, 'host')
-})
-wssServer.on('connection', (ws) => {
-    handleConnections(ws, 'guest')
-})
+// Handle incoming WebSocket connections for wssServer
+wssServer.on('connection', (ws, request) => {
+    handleConnections(ws, 'guest', request);
+});
 
 async function charaRead(img_url, input_format) {
     return characterCardParser.parse(img_url, input_format);
@@ -297,11 +311,9 @@ async function broadcastUserList() {
 }
 
 async function removeLastAIChatMessage() {
-    const data = await readAIChat()
-    let jsonArray = JSON.parse(data)
-    jsonArray.pop();
-    const formattedData = JSON.stringify(jsonArray, null, 2);
-    await writeAIChat(formattedData)
+    await db.removeLastAIChatMessage()
+    let AIChatJSON = await db.readAIChat();
+    let jsonArray = JSON.parse(AIChatJSON)
     let chatUpdateMessage = {
         type: 'chatUpdate',
         chatHistory: jsonArray
@@ -310,56 +322,29 @@ async function removeLastAIChatMessage() {
     broadcast(chatUpdateMessage);
 }
 
-function humanizedTimestamp() {
-    const currentDate = new Date();
-    const year = currentDate.getFullYear();
-    const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-    const day = String(currentDate.getDate()).padStart(2, '0');
-    const hour = String(currentDate.getHours()).padStart(2, '0');
-    const minute = String(currentDate.getMinutes()).padStart(2, '0');
-    const second = String(currentDate.getSeconds()).padStart(2, '0');
-    const currentDateTime = `${year}-${month}-${day}_${hour}h${minute}m${second}s`;
-    return currentDateTime
-}
-
 async function saveAndClearChat(type) {
-
-    let fileprefix, currentChatData
-    if (type === 'AIChat') {
-        fileprefix = 'AIChat_'
-        currentChatData = await readAIChat();
-    } else {
-        fileprefix = 'UserChat_'
-        currentChatData = await readUserChat();
-    }
-
-    let currentTimestamp = humanizedTimestamp()
-    const newFileName = `${fileprefix}${currentTimestamp}.json`;
-    const newFilePath = `public/chats/${newFileName}`;
-
-    fs.writeFile(newFilePath, currentChatData, 'utf8', (writeErr) => {
-        if (writeErr) {
-            console.error('An error occurred while writing to the file:', writeErr);
-            return;
-        }
-        console.log(`Saved current ${type} as ${newFileName}.`);
-    });
-
-    // Create a new file with an empty array
-    try {
-        console.log(`Clearing ${type}.json...`);
-        type === 'AIChat' ? await writeAIChat('[]') : await writeUserChat('[]')
-
-    } catch (writeError) {
-        console.error('An error occurred while creating the file:', writeError);
-        return;
-    }
+    await db.newSession();
 }
 
-async function handleConnections(ws, type) {
+async function handleConnections(ws, type, request) {
+    // Parse the URL to get the query parameters
+    const urlParams = new URLSearchParams(request.url.split('?')[1]);
+
+    // Retrieve the UUID from the query parameters
+    const uuid = urlParams.get('uuid');
+    if (uuid !== null && uuid !== undefined) {
+        console.log('Client connected with UUID:', uuid);
+    } else {
+        console.log('Client connected without UUID');
+    }
+    let thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
     // Store the connected client in the appropriate array based on the server
-    const thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
-    const thisUserUniqueId = uuidv4();
+    let user = await db.getUser(uuid);
+    if (user) {
+        thisUserColor = user.username_color;
+    }
+
+    const thisUserUniqueId = uuid || uuidv4();
     clientsObject[thisUserUniqueId] = {
         socket: ws,
         color: thisUserColor,
@@ -369,8 +354,17 @@ async function handleConnections(ws, type) {
     const cardList = await getCardList()
     const instructList = await getInstructList()
     const samplerPresetList = await getSamplerPresetList()
-    var AIChatJSON = await readAIChat();
-    var userChatJSON = await readUserChat()
+    var AIChatJSON = await db.readAIChat();
+    var userChatJSON = await db.readUserChat()
+    console.log(`userChatJSON: ${userChatJSON}`);
+
+    if (!liveConfig.selectedCharacter || liveConfig.selectedCharacter === '') {
+        console.log('No selected character found, setting to default character...')
+        liveConfig.selectedCharacter = cardList[0].filename;
+        liveConfig.selectedCharDisplayName = cardList[0].name;
+        await writeConfig(liveConfig, 'selectedCharacter', liveConfig.selectedCharacter)
+        await writeConfig(liveConfig, 'selectedCharDisplayName', liveConfig.selectedCharDisplayName)
+    }
 
     //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
     let connectionConfirmedMessage = {
@@ -420,7 +414,17 @@ async function handleConnections(ws, type) {
             parsedMessage = JSON.parse(message);
             const senderUUID = parsedMessage.UUID
 
+            //If there is no UUID, then this is a new client and we need to add it to the clientsObject
             let clientObject = clientsObject[parsedMessage.UUID];
+            if (!clientObject) {
+                clientObject = {
+                    username: '',
+                    color: '',
+                    role: ''
+                };
+                clientsObject[parsedMessage.UUID] = clientObject;
+            }
+            
             //console.log(`==========ALL CLIENTS==========`)
             let allClientUUIDs = Object.keys(clientsObject)
 
@@ -572,6 +576,7 @@ async function handleConnections(ws, type) {
             if (parsedMessage.type === 'connect') {
                 console.log('saw connect message from client')
                 clientObject.username = parsedMessage.username;
+                await db.upsertUser(senderUUID, clientObject.username, thisUserColor);
                 console.log(`Adding ${clientObject.username} to connected user list..`)
                 //the intent with this IF check is to give special charater to the host name
                 //but it causes problems elsewhere (can't filter from the userList, gets sent to AI chat calls)
@@ -627,16 +632,7 @@ async function handleConnections(ws, type) {
                     let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     if (!isEmptyTrigger) {
-                        let data = await readAIChat()
-                        let jsonArray = JSON.parse(data)
-                        const userObjToPush = {
-                            username: parsedMessage.username,
-                            content: parsedMessage.userInput,
-                            userColor: parsedMessage.userColor
-                        }
-                        jsonArray.push(userObjToPush)
-                        const formmattedData = JSON.stringify(jsonArray, null, 2);
-                        await writeAIChat(formmattedData)
+                        await db.writeAIChatMessage(senderUUID, userInput);
                         await broadcast(userPrompt)
                     }
                     if (liveConfig.isAutoResponse || isEmptyTrigger) {
@@ -654,13 +650,13 @@ async function handleConnections(ws, type) {
                 }
                 //read the current userChat file
                 if (chatID === 'UserChat') {
-                    let data = await readUserChat()
+                    let data = await db.readUserChat()
                     let jsonArray = JSON.parse(data);
                     // Add the new object to the array
                     jsonArray.push(parsedMessage);
                     const updatedData = JSON.stringify(jsonArray, null, 2);
                     // Write the updated array back to the file
-                    await writeUserChat(updatedData)
+                    await db.writeUserChatMessage(uuid, parsedMessage.content)
                     const newUserChatMessage = {
                         chatID: chatID,
                         username: username,
@@ -683,6 +679,7 @@ async function handleConnections(ws, type) {
                     //if it's not an empty trigger from host
                     //if userInput is empty we can just request the AI directly
                     let charFile = liveConfig.selectedCharacter
+                    console.log(`selected character: ${charFile}`)
                     let cardData = await charaRead(charFile, 'png')
                     let cardJSON = JSON.parse(cardData)
                     let charName = cardJSON.name
@@ -717,18 +714,8 @@ async function handleConnections(ws, type) {
                         AIResponse = trimIncompleteSentences(await requestToTabby(APICallParams))
                     }
 
-                    const AIResponseForChatJSON = {
-                        username: `${charName}`,
-                        content: AIResponse.trim(),
-                        userColor: parsedMessage.userColor
-                    }
-                    //add the response to the chat file
-                    let data = await readAIChat()
-                    jsonArray = JSON.parse(data);
-                    jsonArray.push(AIResponseForChatJSON);
-                    const updatedData = JSON.stringify(jsonArray, null, 2);
-                    // Write the formatted AI response array back to the file
-                    await writeAIChat(updatedData)
+                    await db.upsertChar(charName, charName, parsedMessage.userColor);
+                    await db.writeAIChatMessage(charName, AIResponse);
 
                     return AIResponse
 
@@ -744,7 +731,11 @@ async function handleConnections(ws, type) {
 
     ws.on('close', () => {
         // Remove the disconnected client from the clientsObject
-        clientsObject = clientsObject.filter(client => client !== ws);
+        console.debug('Client disconnected:', uuid);
+        console.log(clientsObject)
+        // Pop the client from the clientsObject
+        delete clientsObject[uuid];
+        console.log(clientsObject)
     });
 };
 
@@ -756,93 +747,6 @@ function countTokens(str) {
     return tokens
 }
 
-/**
- * Reads AI chat data from a JSON file. If the file doesn't exist, creates it.
- * @returns {Promise<string>} A promise that resolves with the file content.
- */
-async function readAIChat() {
-    await acquireLock()
-    return new Promise((resolve, reject) => {
-        fs.readFile('public/chats/AIChat.json', 'utf8', (err, data) => {
-            if (err) {
-                if (err.code === 'ENOENT') {
-                    console.log('AIChat.json not found, creating it now.');
-                    writeAIChat('[]').then(() => {
-                        resolve('[]');
-                    }).catch(writeErr => {
-                        console.error('An error occurred while creating the file:', writeErr);
-                        releaseLock();
-                        reject(writeErr);
-                    });
-                } else {
-                    console.error('An error occurred while reading the file:', err);
-                    releaseLock();
-                    reject(err);
-                }
-            } else {
-                releaseLock();
-                resolve(data);
-            }
-        });
-    });
-}
-
-async function writeAIChat(data) {
-    await acquireLock()
-    fs.writeFile('public/chats/AIChat.json', data, 'utf8', (writeErr) => {
-        if (writeErr) {
-            console.error('An error occurred while writing to the file:', writeErr);
-            releaseLock()
-            return;
-        }
-        console.log('AIChat.json updated.');
-        releaseLock()
-    });
-}
-
-/**
- * Reads user chat data from a JSON file. If the file doesn't exist, creates it.
- * @returns {Promise<string>} A promise that resolves with the file content.
- */
-async function readUserChat() {
-    await acquireLock()
-    return new Promise((resolve, reject) => {
-        fs.readFile('public/chats/UserChat.json', 'utf8', (err, data) => {
-            if (err) {
-                if (err.code === 'ENOENT') {
-                    console.log('UserChat.json not found, creating it now.');
-                    writeUserChat('[]').then(() => {
-                        resolve('[]');
-                    }).catch(writeErr => {
-                        console.error('An error occurred while creating the file:', writeErr);
-                        releaseLock()
-                        reject(writeErr);
-                    });
-                } else {
-                    console.error('An error occurred while reading the file:', err);
-                    releaseLock()
-                    reject(err);
-                }
-            } else {
-                releaseLock()
-                resolve(data);
-            }
-        });
-    });
-}
-
-async function writeUserChat(data) {
-    await acquireLock()
-    fs.writeFile('public/chats/UserChat.json', data, 'utf8', (writeErr) => {
-        if (writeErr) {
-            console.error('An error occurred while writing to the file:', writeErr);
-            releaseLock()
-            return;
-        }
-        console.log('UserChat.json updated.');
-        releaseLock()
-    });
-}
 
 async function readConfig() {
     await acquireLock()
@@ -988,7 +892,7 @@ function trimIncompleteSentences(input, include_newline = false) {
 async function ObjectifyChatHistory() {
     return new Promise(async (resolve, reject) => {
         await delay(100)
-        let data = await readAIChat();
+        let data = await db.readAIChat();
         try {
             // Parse the existing contents as a JSON array
             let chatHistory = JSON.parse(data);
@@ -1046,7 +950,7 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
             const replacedData = JSON.parse(replacedString);
 
             //replace {{user}} and {{char}} for D1JB
-            var D1JB = liveConfig.D1JB
+            var D1JB = liveConfig.D1JB || ''
             var replacedD1JB = D1JB.replace(/{{user}}/g, username);
             replacedD1JB = replacedD1JB.replace(/{{char}}/g, jsonData.name);
 

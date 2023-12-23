@@ -155,7 +155,7 @@ async function initFiles() {
     // Default values for config.json
     const defaultConfig = {
         engineMode: 'tabby',
-        selectedCharacter: '/public/characters/CodingSensei.png',
+        selectedCharacter: 'public/characters/CodingSensei.png',
         responseLength: 200,
         contextSize: 2048,
         isAutoResponse: true,

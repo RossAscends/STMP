@@ -154,11 +154,11 @@ async function initFiles() {
 
     // Default values for config.json
     const defaultConfig = {
-        engineMode: 'defaultEngineMode',
+        engineMode: 'tabby',
         selectedCharacter: '',
-        responseLength: 'defaultResponseLength',
-        contextSize: 'defaultContextSize',
-        isAutoResponse: 'defaultIsAutoResponse',
+        responseLength: 200,
+        contextSize: 2048,
+        isAutoResponse: true,
     };
 
     // Default values for secrets.json

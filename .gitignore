@@ -142,3 +142,7 @@ public/instructFormats/
 cloudflared.exe
 config.json
 lockfile.lock
+
+#Don't ignore the following files
+!public/api-presets/Tabby-Deterministic.json
+!public/api-presets/Tabby-Temp-2_MinP-0.2.json

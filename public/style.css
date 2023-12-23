@@ -285,7 +285,7 @@ input {
 
 code {
     font-family: monospace;
-    background: black;
+    background: #232428;
     border-radius: 5px;
     padding: 3px;
     margin: 5px;
@@ -296,7 +296,7 @@ code {
 pre {
     /* border: 1px solid white; */
     padding: 3px;
-    background: black;
+    background: #232428;
     margin: 5px;
     border-radius: 5px;
     width: min-content;
@@ -325,15 +325,14 @@ pre {
     flex-grow: 1;
     background-color: transparent;
     padding: 5px 10px;
-}
+    font-size: 1em;
 
-#messageInput::placeholder,
-#AIMessageInput::placeholder {
-    text-align: center;
 }
 
 input::placeholder {
-    color: #666
+    color: #666;
+    align-self: center;
+    justify-self: center;
 }
 
 .disconnected::placeholder {

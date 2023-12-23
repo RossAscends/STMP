@@ -505,8 +505,8 @@ function handleSocketOpening() {
     $("#disconnectButton").show()
     const username = $("#usernameInput").val()
     console.debug(`connected as ${username}`)
-    $("#messageInput").prop("disabled", false).prop('placeholder', 'Type a message').removeClass('disconnected')
-    $("#AIMessageInput").prop("disabled", false).prop('placeholder', 'Type a message').removeClass('disconnected')
+    $("#messageInput").prop("disabled", false).prop('placeholder', 'Message the User Chat').removeClass('disconnected')
+    $("#AIMessageInput").prop("disabled", false).prop('placeholder', 'Message the AI Chat').removeClass('disconnected')
 };
 
 function disconnectWebSocket() {

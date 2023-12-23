@@ -1,3 +1,5 @@
+const { read } = require('fs');
+
 const sqlite3 = require('sqlite3').verbose();
 
 // Connect to the SQLite database
@@ -13,10 +15,18 @@ const db = new sqlite3.Database('./stmp.db', (err) => {
 db.serialize(() => {
     // Users table
     db.run(`CREATE TABLE IF NOT EXISTS users (
-    user_id INTEGER PRIMARY KEY,
-    uuid TEXT UNIQUE,
+    user_id TEXT UNIQUE PRIMARY KEY,
     username TEXT,
     username_color TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
+    // Char  table
+    db.run(`CREATE TABLE IF NOT EXISTS characters (
+    char_id TEXT UNIQUE PRIMARY KEY,
+    displayname TEXT,
+    display_color TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`);
@@ -25,7 +35,7 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS aichats (
     message_id INTEGER PRIMARY KEY,
     session_id INTEGER,
-    user_id INTEGER,
+    user_id TEXT,
     message TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (session_id) REFERENCES sessions(session_id),
@@ -35,7 +45,7 @@ db.serialize(() => {
     // UserChats table
     db.run(`CREATE TABLE IF NOT EXISTS userchats (
     message_id INTEGER PRIMARY KEY,
-    user_id INTEGER,
+    user_id TEXT,
     message TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
@@ -50,7 +60,7 @@ db.serialize(() => {
   )`);
 });
 
-function writeUserChatMessage(userId, message) {
+async function writeUserChatMessage(userId, message) {
     db.run('INSERT INTO userchats (user_id, message) VALUES (?, ?)', [userId, message], function (err) {
         if (err) {
             console.error('Error writing side chat message:', err);
@@ -60,8 +70,34 @@ function writeUserChatMessage(userId, message) {
     });
 }
 
+async function readUserChat() {
+    return new Promise((resolve, reject) => {
+        const query = `
+            SELECT u.username, u.username_color AS userColor, uc.message
+            FROM userchats uc
+            JOIN users u ON uc.user_id = u.user_id
+            ORDER BY uc.timestamp ASC
+        `;
+
+        db.all(query, [], (err, rows) => {
+            if (err) {
+                console.error('An error occurred while reading from the database:', err);
+                reject(err);
+            } else {
+                // Map the rows to the desired JSON structure
+                const formattedData = rows.map(row => ({
+                    username: row.username,
+                    content: row.message,
+                    userColor: row.userColor
+                }));
+                resolve(JSON.stringify(formattedData));
+            }
+        });
+    });
+}
+
 // Write an AI chat message to the database, use the current active session, create a new session if needed
-function writeAIChatMessage(userId, message) {
+async function writeAIChatMessage(userId, message) {
     // Create a new session if there is no active session
     db.get('SELECT session_id FROM sessions WHERE is_active = TRUE', (err, row) => {
         if (err) {
@@ -105,7 +141,7 @@ function newSession() {
 
 // create or update the user in the database, adds last seen timestamp, color, and username
 function upsertUser(uuid, username, color) {
-    db.run('INSERT OR REPLACE INTO users (uuid, username, username_color, last_seen_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [uuid, username, color], function (err) {
+    db.run('INSERT OR REPLACE INTO users (user_id, username, username_color, last_seen_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [uuid, username, color], function (err) {
         if (err) {
             console.error('Error writing user:', err);
         } else {
@@ -114,10 +150,20 @@ function upsertUser(uuid, username, color) {
     });
 }
 
+function upsertChar(uuid, displayname, color) {
+    db.run('INSERT OR REPLACE INTO characters (char_id, displayname, display_color, last_seen_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [uuid, displayname, color], function (err) {
+        if (err) {
+            console.error('Error writing character:', err);
+        } else {
+            console.debug(`A character was inserted with char_id ${this.lastID}`);
+        }
+    });
+}
+
 //get user info from the database
-function getUser(uuid) {
+async function getUser(uuid) {
     return new Promise((resolve, reject) => {
-        db.get('SELECT * FROM users WHERE uuid = ?', [uuid], (err, row) => {
+        db.get('SELECT * FROM users WHERE user_id = ?', [uuid], (err, row) => {
             if (err) {
                 console.error('Error getting user:', err);
                 reject(err);
@@ -135,10 +181,23 @@ function getUser(uuid) {
 async function readAIChat() {
     return new Promise((resolve, reject) => {
         const query = `
-            SELECT u.username, a.message, u.username_color AS userColor
+            SELECT 
+                CASE 
+                    WHEN u.user_id IS NULL THEN 
+                        (SELECT c.displayname FROM characters c WHERE c.char_id = a.user_id)
+                    ELSE 
+                        u.username
+                END AS username,
+                a.message,
+                CASE
+                    WHEN u.user_id IS NULL THEN 
+                        (SELECT c.display_color FROM characters c WHERE c.char_id = a.user_id)
+                    ELSE 
+                        u.username_color
+                END AS userColor
             FROM aichats a
-            JOIN users u ON a.user_id = u.user_id
-            ORDER BY a.timestamp ASC
+            LEFT JOIN users u ON a.user_id = u.user_id
+            ORDER BY a.timestamp ASC;
         `;
 
         db.all(query, [], (err, rows) => {
@@ -164,5 +223,7 @@ module.exports = {
     newSession: newSession,
     upsertUser: upsertUser,
     getUser: getUser,
-    readAIChat: readAIChat
+    readAIChat: readAIChat,
+    readUserChat: readUserChat,
+    upsertChar: upsertChar
 };

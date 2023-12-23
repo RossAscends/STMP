@@ -285,9 +285,11 @@ async function getSamplerPresetList() {
 async function broadcast(message) {
     console.log('broadcasting this:')
     console.log(message)
+    console.log(clientsObject)
     Object.keys(clientsObject).forEach(clientUUID => {
         const client = clientsObject[clientUUID];
         const socket = client.socket;
+        console.log(`sending to ${clientUUID}`)
 
         if (socket.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify(message));
@@ -339,7 +341,7 @@ async function saveAndClearChat(type) {
         currentChatData = await db.readAIChat();
     } else {
         fileprefix = 'UserChat_'
-        currentChatData = await readUserChat();
+        currentChatData = await db.readUserChat();
     }
 
     let currentTimestamp = humanizedTimestamp()
@@ -392,7 +394,8 @@ async function handleConnections(ws, type, request) {
     const instructList = await getInstructList()
     const samplerPresetList = await getSamplerPresetList()
     var AIChatJSON = await db.readAIChat();
-    var userChatJSON = await readUserChat()
+    var userChatJSON = await db.readUserChat()
+    console.log(`userChatJSON: ${userChatJSON}`);
 
     if (!liveConfig.selectedCharacter || liveConfig.selectedCharacter === '') {
         console.log('No selected character found, setting to default character...')
@@ -696,14 +699,13 @@ async function handleConnections(ws, type, request) {
                 }
                 //read the current userChat file
                 if (chatID === 'UserChat') {
-                    let data = await readUserChat()
+                    let data = await db.readUserChat()
                     let jsonArray = JSON.parse(data);
                     // Add the new object to the array
                     jsonArray.push(parsedMessage);
                     const updatedData = JSON.stringify(jsonArray, null, 2);
                     // Write the updated array back to the file
-                    await writeUserChat(updatedData)
-                    writeUserChatMessage(1, userInput)
+                    await db.writeUserChatMessage(uuid, parsedMessage.content)
                     const newUserChatMessage = {
                         chatID: chatID,
                         username: username,
@@ -761,19 +763,8 @@ async function handleConnections(ws, type, request) {
                         AIResponse = trimIncompleteSentences(await requestToTabby(APICallParams))
                     }
 
-                    const AIResponseForChatJSON = {
-                        username: `${charName}`,
-                        content: AIResponse.trim(),
-                        userColor: parsedMessage.userColor
-                    }
-                    //add the response to the chat file
-                    let data = await db.readAIChat()
-                    jsonArray = JSON.parse(data);
-                    jsonArray.push(AIResponseForChatJSON);
+                    db.upsertChar(charName, charName, parsedMessage.userColor);
                     db.writeAIChatMessage(charName, AIResponse);
-                    const updatedData = JSON.stringify(jsonArray, null, 2);
-                    // Write the formatted AI response array back to the file
-                    await writeAIChat(updatedData)
 
                     return AIResponse
 
@@ -810,50 +801,6 @@ async function writeAIChat(data) {
             return;
         }
         console.log('AIChat.json updated.');
-        releaseLock()
-    });
-}
-
-/**
- * Reads user chat data from a JSON file. If the file doesn't exist, creates it.
- * @returns {Promise<string>} A promise that resolves with the file content.
- */
-async function readUserChat() {
-    await acquireLock()
-    return new Promise((resolve, reject) => {
-        fs.readFile('public/chats/UserChat.json', 'utf8', (err, data) => {
-            if (err) {
-                if (err.code === 'ENOENT') {
-                    console.log('UserChat.json not found, creating it now.');
-                    writeUserChat('[]').then(() => {
-                        resolve('[]');
-                    }).catch(writeErr => {
-                        console.error('An error occurred while creating the file:', writeErr);
-                        releaseLock()
-                        reject(writeErr);
-                    });
-                } else {
-                    console.error('An error occurred while reading the file:', err);
-                    releaseLock()
-                    reject(err);
-                }
-            } else {
-                releaseLock()
-                resolve(data);
-            }
-        });
-    });
-}
-
-async function writeUserChat(data) {
-    await acquireLock()
-    fs.writeFile('public/chats/UserChat.json', data, 'utf8', (writeErr) => {
-        if (writeErr) {
-            console.error('An error occurred while writing to the file:', writeErr);
-            releaseLock()
-            return;
-        }
-        console.log('UserChat.json updated.');
         releaseLock()
     });
 }

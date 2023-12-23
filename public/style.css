@@ -82,12 +82,13 @@ textarea {
     align-items: center;
     align-content: center;
     justify-content: center;
-    background-color: #313338
+    background-color: #313338;
+    border-radius: 0 0 10px 10px;
 }
 
 .inputAndIconsWrapper {
     border-radius: 10px;
-    margin: 10px;
+    margin: 5px;
     background-color: #393a3f;
     width: 100%;
 }
@@ -357,6 +358,8 @@ input::placeholder {
     overflow-y: auto;
     height: 100%;
     max-height: 100%;
+    background-color: #313338;
+    border-radius: 10px 10px 0px 0px;
 }
 
 #chat,
@@ -380,6 +383,9 @@ input::placeholder {
 #AIChatUserList {
     background: #2c2d31;
     overflow: hidden;
+    padding: 0 5px;
+    margin: 5px 5px 0 5px;
+    border-radius: 10px;
 }
 
 #userList ul,

@@ -321,12 +321,26 @@ pre {
 
 #messageInput,
 #AIMessageInput {
-    height: 3em;
+    height: 2.2em;
+    min-height: 2.2em;
     flex-grow: 1;
     background-color: transparent;
     padding: 5px 10px;
     font-size: 1em;
+    max-height: 50vh;
+    overflow-y: auto;
+    line-height: 1.4em;
+    padding-top: 5px;
+}
 
+#AIChatInputButtons,
+#UserChatInputButtons {
+    top: 0px;
+    right: 5px;
+}
+
+#AIChatInputButtons button {
+    padding: 0
 }
 
 input::placeholder {
@@ -376,6 +390,7 @@ input::placeholder {
     height: 100%;
     max-height: 100%;
     overflow-y: auto;
+    padding-top: 5px;
 }
 
 #userList,
@@ -443,7 +458,9 @@ input::placeholder {
 }
 
 #pastChatsList::-webkit-scrollbar-track,
-#finalInstruction::-webkit-scrollbar-track {
+#finalInstruction::-webkit-scrollbar-track,
+#AIMessageInput::-webkit-scrollbar-track,
+#messageInput::-webkit-scrollbar-track {
     display: none;
 }
 

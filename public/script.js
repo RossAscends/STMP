@@ -924,6 +924,29 @@ $(async function () {
             });
     });
 
+    $('#AIMessageInput, #messageInput').on('input', function () {
+        const activeInputboxID = $(this).prop('id')
+        let paddingRight, chatBlock
+        console.log(activeInputboxID)
+        const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+        if (activeInputboxID === 'AIMessageInput') {
+            chatBlock = $('#AIchat');
+            paddingRight = $("#AIChatInputButtons").outerWidth() + 5 + 'px'
+        } else {
+            chatBlock = $('#chat');
+            paddingRight = $("#UserChatInputButtons").outerWidth() + 5 + 'px'
+        }
+        const originalScrollBottom = chatBlock[0].scrollHeight - (chatBlock.scrollTop() + chatBlock.outerHeight());
+        this.style.paddingRight = paddingRight
+        this.style.height = window.getComputedStyle(this).getPropertyValue('min-height');
+        this.style.height = this.scrollHeight + 0.3 + 'px';
+
+        if (!isFirefox) {
+            const newScrollTop = Math.round(chatBlock[0].scrollHeight - (chatBlock.outerHeight() + originalScrollBottom));
+            chatBlock.scrollTop(newScrollTop);
+        }
+    });
+
 
 
 

@@ -114,13 +114,13 @@
                     </div>
                 </div>
                 <div id="AIInputBlock" class="flexbox noWrap">
-                    <div class="inputAndIconsWrapper flexbox transition250">
+                    <div class="inputAndIconsWrapper flexbox transition250 positionRelative">
                         <textarea id="AIMessageInput" class="" placeholder="Message the AI Chat"></textarea>
-                        <div class="flexbox marginRight5">
-                            <button id="AISendButton" class="bgTransparent greyscale square1p5em fontSize1p5em  textshadow">✏️</button>
-                            <button id="deleteLastMessageButton" class="bgTransparent hostControls square1p5em fontSize1p5em greyscale  textshadow">✂️</button>
-                            <button id="triggerAIResponse" class="bgTransparent hostControls square1p5em fontSize1p5em greyscale  textshadow">🤖</button>
-                            <button id="AIRetry" class="bgTransparent greyscale square1p5em fontSize1p5em  textshadow">🔄</button>
+                        <div id="AIChatInputButtons" class="flexbox marginRight5 positionAbsolute">
+                            <button id="AISendButton" class="bgTransparent greyscale  fontSize1p5em  textshadow">✏️</button>
+                            <button id="deleteLastMessageButton" class="bgTransparent hostControls  fontSize1p5em greyscale  textshadow">✂️</button>
+                            <button id="triggerAIResponse" class="bgTransparent hostControls  fontSize1p5em greyscale  textshadow">🤖</button>
+                            <button id="AIRetry" class="bgTransparent greyscale  fontSize1p5em  textshadow">🔄</button>
                         </div>
                     </div>
                 </div>
@@ -149,9 +149,9 @@
                 </div>
 
                 <div id="inputBlock" class="flexbox noWrap">
-                    <div class="inputAndIconsWrapper flexbox  transition250">
+                    <div class="inputAndIconsWrapper flexbox  transition250 positionRelative">
                         <textarea id="messageInput" class="" placeholder="Message the User Chat"></textarea>
-                        <div class="flexbox">
+                        <div id="UserChatInputButtons" class="flexbox marginRight5 positionAbsolute">
                             <button id="sendButton" class="bgTransparent  greyscale square1p5em fontSize1p5em textshadow">✏️</button>
                         </div>
                     </div>

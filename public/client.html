@@ -24,82 +24,90 @@
     <div id="bodywrap" class="flexbox noWrap noGap Hcentered">
         <div id="controlPanel" class="margin5 flexbox flexFlowCol" style="display:none;">
             <div class="hostControls flexbox flexFlowCol">
-                <h4>AI Controls</h4>
-                <div class="flexbox Vcentered">
-                    <span class="flex1">API</span>
-                    <div id="toggleMode" class="tabbyMode fontSize1p5em greyscale bgBrightUp textshadow transition250" title="Toggle Mode">🐈</div>
-                </div>
+                <div name="AIControls">
+                    <h4>AI Controls</h4>
+                    <div class="flexbox Vcentered">
+                        <span class="flex1">API</span>
+                        <div id="toggleMode" class="tabbyMode fontSize1p5em greyscale bgBrightUp textshadow transition250" title="Toggle Mode">🐈</div>
+                    </div>
 
-                <div class="flexbox Vcentered">
-                    <span class="flex1">Context</span>
-                    <div class="custom-select">
-                        <select id="maxContext">
-                            <option value="1024">1024</option>
-                            <option value="2048">2048</option>
-                            <option value="4096">4096</option>
-                            <option value="8196">8192</option>
-                        </select>
+                    <div class="flexbox Vcentered">
+                        <span class="flex1">Context</span>
+                        <div class="custom-select">
+                            <select id="maxContext">
+                                <option value="1024">1024</option>
+                                <option value="2048">2048</option>
+                                <option value="4096">4096</option>
+                                <option value="8196">8192</option>
+                            </select>
+                        </div>
                     </div>
-                </div>
-                <div class="flexbox Vcentered">
-                    <span class="flex1">Response</span>
-                    <div class="custom-select">
-                        <select id="responseLength">
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                            <option value="200">200</option>
-                            <option value="300">300</option>
-                            <option value="400">400</option>
-                        </select>
+                    <div class="flexbox Vcentered">
+                        <span class="flex1">Response</span>
+                        <div class="custom-select">
+                            <select id="responseLength">
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                                <option value="200">200</option>
+                                <option value="300">300</option>
+                                <option value="400">400</option>
+                            </select>
+                        </div>
                     </div>
-                </div>
-                <div class="flexbox Vcentered">
-                    <span class="flex1">Samplers</span>
-                    <div class="custom-select">
-                        <select id="samplerPreset"></select>
+                    <div class="flexbox Vcentered">
+                        <span class="flex1">Samplers</span>
+                        <div class="custom-select">
+                            <select id="samplerPreset"></select>
+                        </div>
                     </div>
-                </div>
-                <div class="flexbox Vcentered">
-                    <span class="flex1">Instruct</span>
-                    <div class="custom-select">
-                        <select id="instructStyle">
+                    <div class="flexbox Vcentered">
+                        <span class="flex1">Instruct</span>
+                        <div class="custom-select">
+                            <select id="instructStyle">
 
-                        </select>
+                            </select>
+                        </div>
                     </div>
-                </div>
-                <div class="flexbox"><span class="flex1">Char</span>
-                    <div class="custom-select">
-                        <select id="characters" class="flex1"></select>
+                    <div class="flexbox"><span class="flex1">Char</span>
+                        <div class="custom-select">
+                            <select id="characters" class="flex1"></select>
+                        </div>
                     </div>
-                </div>
-                <div class="flexbox">
-                    <label for="AIAutoResponse" class="Vcentered checkbox_label">
-                        <span class="flex1">AutoResponse</span>
-                        <input type="checkbox" class="Vcentered" id="AIAutoResponse">
-                    </label>
-                </div>
-                <div class="flexbox Hcentered justifySpaceBetween margin5">
-                    <button id="clearAIChat" class="fontSize1p5em greyscale bgBrightUp textshadow">🗑️</button>
-                    <button id="triggerAIResponse" class="fontSize1p5em greyscale bgBrightUp textshadow">🤖💬</button>
-                    <button id="deleteLastMessageButton" class="fontSize1p5em greyscale bgBrightUp textshadow">✂️</button>
-                </div>
+                    <div class="flexbox">
+                        <label for="AIAutoResponse" class="Vcentered checkbox_label">
+                            <span class="flex1">AutoResponse</span>
+                            <input type="checkbox" class="Vcentered" id="AIAutoResponse">
+                        </label>
+                    </div>
+                    <div class="flexbox Hcentered justifySpaceBetween margin5">
+                        <button id="clearAIChat" class="fontSize1p5em greyscale bgBrightUp textshadow">🗑️</button>
+                        <button id="triggerAIResponse" class="fontSize1p5em greyscale bgBrightUp textshadow">🤖💬</button>
+                        <button id="deleteLastMessageButton" class="fontSize1p5em greyscale bgBrightUp textshadow">✂️</button>
+                    </div>
 
-                <div class="flexbox flexFlowCol">
-                    <span class="flex1">Final Instruction (D1 JB)</span>
-                    <textarea class="Vcentered brightUp" rows=6 id="finalInstruction" placeholder="Put your Depth 1 prompt instruction here"></textarea>
+                    <div class="flexbox flexFlowCol">
+                        <span class="flex1">Final Instruction (D1 JB)</span>
+                        <textarea class="Vcentered brightUp" rows=6 id="finalInstruction" placeholder="Put your Depth 1 prompt instruction here"></textarea>
+                    </div>
                 </div>
                 <hr>
-                <h4>UserChat Controls</h4>
-                <div class="flexbox Hcentered margin5">
-                    <button id="clearUserChat" class="fontSize1p5em greyscale bgBrightUp textshadow">🗑️</button>
+                <div name="userchatControls">
+                    <h4>UserChat Controls</h4>
+                    <div class="flexbox Hcentered margin5">
+                        <button id="clearUserChat" class="fontSize1p5em greyscale bgBrightUp textshadow">🗑️</button>
+                    </div>
+                </div>
+                <div name="misccontrols" class="flexbox">
+                    <div class="flexbox flexFlowCol Hcentered margin5">
+                        <button id="showPastChats">Past chats</button>
+                        <div id="pastChatsList"></div>
+                    </div>
                 </div>
             </div>
         </div>
         <div id="chatWrap" class="flexbox flex1 noGap">
             <div id="LLMChatWrapper" class="flexbox flexFlowCol flex1 noGap">
                 <div class="Hcentered Vcentered flexbox chatHeader">
-                    <!-- A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI to reflect the change. -->
-                    <!-- Reveals mode on hover -->
                     Chat with<span id="charName"></span>as <input type="text" id="AIUsernameInput" class="brightUp" placeholder="Username">
                 </div>
                 <div id="AIchat" data-chat-id="AIChat"></div>
@@ -135,8 +143,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- <div id="footer" class="flexbox Hcentered Vcentered"></div> -->
     </div>
 </body>
 

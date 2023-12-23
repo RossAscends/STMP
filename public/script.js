@@ -408,6 +408,24 @@ function connectWebSocket() {
                     updateD1JB(newJB, 'forced');
                 }
                 break;
+            case 'pastChatsList':
+                let chatList = parsedMessage.pastChats
+                showPastChats(chatList)
+                break;
+            case 'pastChatToLoad':
+                console.log('loading past chat session');
+                $("#AIchat").empty();
+                let pastChatHistory = parsedMessage.pastChatHistory;
+                pastChatHistory.forEach((obj) => {
+                    let username = obj.username;
+                    let userColor = obj.userColor;
+                    let message = converter.makeHtml(obj.content);
+                    let newDiv = $(`<div></div>`);
+                    newDiv.html(`<span style="color:${userColor}" class="chatUserName">${username}</span>${message}`);
+                    $("#AIchat").append(newDiv);
+                });
+                break;
+
             default:
                 console.log('saw chat message')
                 var { chatID, username, content, userColor, workerName, hordeModel, kudosCost } = JSON.parse(message);
@@ -424,6 +442,54 @@ function connectWebSocket() {
                 break;
         }
     });
+}
+
+function showPastChats(chatList) {
+    $("#pastChatsList").empty();
+    let JSONChatList = chatList;
+
+    for (let sessionID in JSONChatList) {
+        if (JSONChatList.hasOwnProperty(sessionID)) {
+            let item = JSONChatList[sessionID];
+
+            // Create a new div element for each item
+            var divElement = $(`<div class="pastChatItem hoverglow flexbox flexFlowCol" data-session_id="${item.session_id}">`);
+            var timestamp = item.latestTimestamp;
+
+            // Format the timestamp
+            var formattedTimestamp = formatSQLTimestamp(timestamp);
+
+            // Set the session_id as the text content of the div
+            var sessionText = $(`<span>`).text(`${item.aiName} (${item.messageCount})`);
+            var timestampText = $(`<small>`).text(`${formattedTimestamp}`);
+            divElement.append(sessionText).append(timestampText);
+            $('#pastChatsList').append(divElement);
+        }
+    }
+
+    $(".pastChatItem").off('click').on('click', function () {
+        console.log(`requesting to load chat from session ${$(this).data('session_id')}...`)
+        const pastChatListRequest = {
+            UUID: myUUID,
+            type: "loadPastChat",
+            session: $(this).data('session_id')
+        }
+        messageServer(pastChatListRequest)
+    })
+}
+
+function formatSQLTimestamp(timestamp) {
+    // Convert the timestamp to a JavaScript Date object
+    var date = new Date(timestamp);
+
+    // Format the date and time components
+    var formattedDate = date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    var formattedTime = date.toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+
+    // Combine the formatted date and time components
+    var formattedTimestamp = formattedDate + ' ' + formattedTime;
+
+    return formattedTimestamp;
 }
 
 function handleSocketOpening() {
@@ -785,6 +851,15 @@ $(async function () {
             $("#AISendButton").trigger('click');
         }
     });
+
+    $("#showPastChats").on('click', function () {
+        console.log('requesting past chat list')
+        const pastChatListRequest = {
+            UUID: myUUID,
+            type: "pastChatsRequest"
+        }
+        messageServer(pastChatListRequest)
+    })
 
     $(window).on('orientationchange', function () {
         var orientation = window.orientation;

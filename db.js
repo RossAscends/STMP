@@ -67,6 +67,62 @@ async function writeUserChatMessage(userId, message) {
     }
 }
 
+async function getPastChats(type) {
+    console.log(`Getting data for all past ${type} chats...`);
+    const db = await dbPromise;
+    try {
+        const rows = await db.all(`
+            SELECT s.session_id, s.started_at, s.ended_at, s.is_active, a.user_id, a.timestamp,
+            strftime('%Y-%m-%d %H:%M:%S', a.timestamp, 'localtime') AS local_timestamp
+            FROM sessions s
+            JOIN aichats a ON s.session_id = a.session_id
+            JOIN sessions s2 ON s.session_id = s2.session_id
+            ORDER BY s.started_at ASC
+        `);
+
+        const result = {};
+
+        for (const row of rows) {
+            const sessionID = row.session_id;
+
+            // Create a 'messages' object for each unique session_id
+            if (!result[sessionID]) {
+                result[sessionID] = {
+                    session_id: row.session_id,
+                    started_at: row.started_at,
+                    ended_at: row.ended_at,
+                    is_active: row.is_active,
+                    aiName: null,
+                    messageCount: 0,
+                    latestTimestamp: null
+                };
+            }
+
+            // Check if the user_id does not contain a hyphen to determine if it's an AI user
+            if (!row.user_id.includes('-')) {
+                const aiName = row.user_id;
+                if (!result[sessionID].aiName) {
+                    result[sessionID].aiName = aiName;
+                } else if (!result[sessionID].aiName.includes(aiName)) {
+                    result[sessionID].aiName += `, ${aiName}`;
+                }
+            }
+
+            // Use the local_timestamp directly from the row
+            const localTimestamp = row.local_timestamp;
+
+            // Update the message count and latest timestamp for the session
+            result[sessionID].messageCount++;
+            result[sessionID].latestTimestamp = localTimestamp;
+        }
+
+        return result;
+    } catch (err) {
+        console.error('An error occurred while reading from the database:', err);
+        throw err;
+    }
+}
+
 async function readUserChat() {
     console.log('Reading user chat...');
     const db = await dbPromise;
@@ -171,9 +227,19 @@ async function getUser(uuid) {
 }
 
 // Read AI chat data from the SQLite database
-async function readAIChat() {
+async function readAIChat(sessionID = null) {
     console.log('Reading AI chat...');
     const db = await dbPromise;
+    let sessionWhereClause = '';
+    let params = [];
+
+    if (sessionID) {
+        sessionWhereClause = 'WHERE a.session_id = ?';
+        params = [sessionID];
+    } else {
+        sessionWhereClause = 'WHERE a.session_id = (SELECT session_id FROM sessions WHERE is_active = TRUE)';
+    }
+
     try {
         const rows = await db.all(`
             SELECT 
@@ -192,15 +258,24 @@ async function readAIChat() {
                 END AS userColor
             FROM aichats a
             LEFT JOIN users u ON a.user_id = u.user_id
-            WHERE a.session_id = (SELECT session_id FROM sessions WHERE is_active = TRUE)
+            ${sessionWhereClause}
             ORDER BY a.timestamp ASC
-        `);
+        `, params);
+
         console.log(rows);
-        return JSON.stringify(rows.map(row => ({
+        const result = JSON.stringify(rows.map(row => ({
             username: row.username,
             content: row.message,
             userColor: row.userColor
         })));
+
+        // Update the active session if sessionID is provided
+        if (sessionID) {
+            await db.run('UPDATE sessions SET is_active = FALSE');
+            await db.run('UPDATE sessions SET is_active = TRUE WHERE session_id = ?', [sessionID]);
+        }
+
+        return result;
     } catch (err) {
         console.error('An error occurred while reading from the database:', err);
         throw err;
@@ -218,5 +293,6 @@ module.exports = {
     readAIChat: readAIChat,
     readUserChat: readUserChat,
     upsertChar: upsertChar,
-    removeLastAIChatMessage: removeLastAIChatMessage
+    removeLastAIChatMessage: removeLastAIChatMessage,
+    getPastChats: getPastChats
 };

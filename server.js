@@ -171,7 +171,7 @@ async function initFiles() {
     defaultConfig.samplers = samplerData
 
     defaultConfig.selectedCharDisplayName = "Coding Sensei"
-    
+
     // Default values for secrets.json
     const defaultSecrets = {
         api_key: 'YourAPIKey',
@@ -294,7 +294,7 @@ async function broadcast(message) {
         const client = clientsObject[clientUUID];
         const socket = client.socket;
 
-        if (socket.readyState === WebSocket.OPEN) {
+        if (socket?.readyState === WebSocket.OPEN) {
             socket.send(JSON.stringify(message));
         }
     });
@@ -424,7 +424,7 @@ async function handleConnections(ws, type, request) {
                 };
                 clientsObject[parsedMessage.UUID] = clientObject;
             }
-            
+
             //console.log(`==========ALL CLIENTS==========`)
             let allClientUUIDs = Object.keys(clientsObject)
 
@@ -441,7 +441,7 @@ async function handleConnections(ws, type, request) {
 
             //first check if the sender is host, and if so, process possible host commands
             if (senderUUID === hostUUID) {
-                //console.log(`saw message from host, type (${parsedMessage.type})`)
+                console.log(`saw message from host, type (${parsedMessage.type})`)
                 if (parsedMessage.type === 'clearChat') {
 
                     //clear the UserChat.json file
@@ -567,6 +567,25 @@ async function handleConnections(ws, type, request) {
                     liveConfig.engineMode = engineMode
                     await writeConfig(liveConfig, 'engineMode', engineMode)
                     await broadcast(modeChangeMessage);
+                    return
+                }
+                else if (parsedMessage.type === 'pastChatsRequest') {
+                    const pastChats = await db.getPastChats()
+                    const pastChatsListMessage = {
+                        type: 'pastChatsList',
+                        pastChats: pastChats
+                    }
+                    await broadcast(pastChatsListMessage)
+                    return
+                }
+                else if (parsedMessage.type === 'loadPastChat') {
+                    const pastChat = await db.readAIChat(parsedMessage.session)
+                    let jsonArray = JSON.parse(pastChat)
+                    const pastChatsLoadMessage = {
+                        type: 'pastChatToLoad',
+                        pastChatHistory: jsonArray
+                    }
+                    await broadcast(pastChatsLoadMessage)
                     return
                 }
             }

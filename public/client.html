@@ -72,24 +72,17 @@
                             </div>
                         </div>
                     </div>
-                    <div class="flexbox justifySpaceBetween alignItemsCenter">
-
-
-                    </div>
-
                     <div id="finalInstructionBlock" class="flexbox flexFlowCol Hcentered dummyBG">
                         <span class="widthFitContent alignSelfCenter">Final Instruction (D1 JB)</span>
                         <textarea class="bgBrightUp" rows=6 id="finalInstruction" placeholder="Put your Depth 1 prompt instruction here"></textarea>
                     </div>
                 </div>
                 <hr>
-
                 <div id="pastChatsBlock" class="flexbox flexFlowCol scrollY">
                     <div class="flexbox Hcentered Vcentered">
                         <h4>Past Chats</h4><button id="showPastChats" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow">🔄</button>
                     </div>
                     <div class="flexbox flexFlowCol Hcentered">
-
                     </div>
                     <div id="pastChatsList" class="flexbox"></div>
                 </div>
@@ -98,7 +91,9 @@
         <div id="chatWrap" class="flexbox flex1">
 
             <div id="LLMChatWrapper" class="flexbox flexFlowCol flex1 noGap">
-                <div class="Hcentered Vcentered flexbox chatHeader">
+
+                <div class="Hcentered Vcentered flexbox chatHeader positionRelative">
+                    <button id="controlPanelToggle" class="closePanel positionAbsolute Vcentered bgTransparent fontSize1p25em mutedColor textshadow">◀️</button>
                     Chat with
                     <div class="custom-select hostControls">
                         <select id="characters" class="flex1"></select>

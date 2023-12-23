@@ -874,6 +874,56 @@ $(async function () {
         messageServer(pastChatListRequest)
     })
 
+    $(document).on('click', '#controlPanelToggle.closePanel', function () {
+        var $controlPanelToggle = $("#controlPanelToggle");
+        var $controlPanel = $("#controlPanel");
+        var $controlPanelContents = $("#controlPanel div");
+        $controlPanelToggle.removeClass('closePanel').addClass('openPanel')
+            .animate({ deg: 180 }, {
+                duration: 250,
+                step: function (now) {
+                    $controlPanelToggle.css({ transform: 'rotate(' + now + 'deg)' });
+                },
+                complete: function () {
+                    $controlPanelContents.animate({ opacity: 0 }, {
+                        duration: 250,
+                        complete: function () {
+                            var allAnimationsComplete = $controlPanelContents.filter(':animated').length === 0;
+                            if (allAnimationsComplete) {
+                                $controlPanel.css('min-width', 'unset')
+                                $controlPanel.animate({ width: 'toggle' }, { duration: 250 });
+                            };
+                        }
+                    })
+                }
+            });
+    });
+
+    $(document).on('click', '#controlPanelToggle.openPanel', function () {
+        var $controlPanelToggle = $("#controlPanelToggle");
+        var $controlPanel = $("#controlPanel");
+        var $controlPanelContents = $("#controlPanel div");
+        $controlPanelToggle.removeClass('openPanel').addClass('closePanel')
+            .animate({ deg: 0 }, {
+                duration: 250,
+                step: function (now) {
+                    $controlPanelToggle.css({ transform: 'rotate(' + now + 'deg)' });
+                },
+                complete: function () {
+                    $controlPanel.animate({ width: 'toggle' }, {
+                        duration: 250,
+                        complete: function () {
+                            $controlPanel.css('min-width', '200px');
+                            $controlPanelContents.animate({ opacity: 1 }, { duration: 50 });
+                        }
+                    });
+                }
+            });
+    });
+
+
+
+
     $(window).on('orientationchange', function () {
         var orientation = window.orientation;
         if (isPhone && (orientation === 90 || orientation === -90)) {

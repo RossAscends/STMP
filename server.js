@@ -329,9 +329,13 @@ async function handleConnections(ws, type, request) {
     } else {
         console.log('Client connected without UUID');
     }
+    let thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
     // Store the connected client in the appropriate array based on the server
+    let user = await db.getUser(uuid);
+    if (user) {
+        thisUserColor = user.username_color;
+    }
 
-    const thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
     const thisUserUniqueId = uuid || uuidv4();
     clientsObject[thisUserUniqueId] = {
         socket: ws,

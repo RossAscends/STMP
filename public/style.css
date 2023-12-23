@@ -347,11 +347,6 @@ input::placeholder {
     left: 5px;
 }
 
-#controlPanel .flexbox>* {
-    box-sizing: border-box;
-    flex-shrink: 0;
-}
-
 #userRole {
     font-size: 0.8em;
     color: #666

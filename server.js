@@ -172,6 +172,7 @@ async function initFiles() {
         console.log('Creating config.json with default values...');
         await writeFileAsync(configPath, JSON.stringify(defaultConfig, null, 2));
         console.log('config.json created.');
+        liveConfig = await readConfig()
     } else {
         console.log('Loading config.json...');
         liveConfig = await readConfig()

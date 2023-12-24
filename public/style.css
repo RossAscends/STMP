@@ -587,6 +587,10 @@ hr {
     width: 100px
 }
 
+.width50px {
+    width: 50px
+}
+
 .fontSize1p5em {
     font-size: 1.5em
 }

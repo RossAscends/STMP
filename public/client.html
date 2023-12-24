@@ -86,6 +86,24 @@
                     </div>
                     <div id="pastChatsList" class="flexbox Hcentered"></div>
                 </div>
+                <div id="crowdControlBlock" class="flexbox flexFlowCol scrollY alignItemsCenter">
+                    <div class="flexbox Hcentered Vcentered">
+                        <h4>Crowd Control</h4>
+                    </div>
+                    <div class="flexbox">
+                        <button id="disableInput" class="flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable User Input">🤐</button>
+                        <button id="turnBasedMode" class="flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔠</button>
+                    </div>
+
+                    <label for="AIChatInputDelay" class="flexbox noWrap">
+                        <div class="fontSize1p25em mutedColor textshadow " title="AI Chat Delay">🤖⏳</div>
+                        <input type="number" id="AIChatInputDelay" class=" flexbox Vcentered width50px" min="0" max="600" value="2" title="AI Chat Delay">sec
+                    </label>
+                    <label for="UserChatInputDelay" class="flexbox noWrap">
+                        <div class="fontSize1p25em mutedColor textshadow " title="User Chat Delay">🧑‍🧑‍🧒‍🧒⏳</div>
+                        <input type="number" id="UserChatInputDelay" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="User Chat Delay">sec
+                    </label>
+                </div>
             </div>
         </div>
         <div id="chatWrap" class="flexbox flex1">

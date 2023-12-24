@@ -65,6 +65,8 @@ var myUUID, myUsername
 var socket = null
 var isHost
 
+var AIChatDelay, userChatDelay
+
 function messageServer(message) {
     socket.send(JSON.stringify(message))
 }
@@ -664,6 +666,9 @@ $(async function () {
 
     // Send a message to the user chat
     $("#sendButton").off('click').on("click", function () {
+
+        if ($(this).hasClass('disabledButton')) { return }
+
         if ($("#usernameInput").val().trim() === '') {
             alert("Can't send chat message with no username!");
             return;
@@ -673,6 +678,12 @@ $(async function () {
             alert("Can't send empty message!");
             return;
         }
+
+        $(this).addClass('disabledButton').text('🚫')
+        setTimeout(() => {
+            $(this).removeClass('disabledButton').text('✏️')
+        }, userChatDelay)
+
         username = $("#usernameInput").val();
         var markdownContent = `${messageInput.val()}`;
         var htmlContent = converter.makeHtml(markdownContent);
@@ -743,7 +754,16 @@ $(async function () {
     })
 
     $("#AISendButton").off('click').on('click', function () {
+
+        if ($(this).hasClass('disabledButton')) { return }
+
         sendMessageToAIChat()
+
+        $(this).addClass('disabledButton').text('🚫')
+        setTimeout(() => {
+            $(this).removeClass('disabledButton').text('✏️')
+        }, AIChatDelay)
+
     })
 
     $("#clearUserChat").off('click').on('click', function () {
@@ -809,7 +829,7 @@ $(async function () {
                 return;
             }
             event.preventDefault();
-            $("#sendButton").click();
+            $("#sendButton").trigger('click');
         }
     });
     //same for AI chat
@@ -895,7 +915,16 @@ $(async function () {
         }
     });
 
+    AIChatDelay = ($("#AIChatInputDelay").val()) * 1000
+    userChatDelay = ($("#UserChatInputDelay").val()) * 1000
 
+    $("#UserChatInputDelay").on('change', function () {
+        userChatDelay = ($("#UserChatInputDelay").val()) * 1000
+    })
+
+    $("#AIChatInputDelay").on('change', function () {
+        AIChatDelay = ($("#AIChatInputDelay").val()) * 1000
+    })
 
 
     $(window).on('orientationchange', function () {

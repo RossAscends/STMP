@@ -883,21 +883,13 @@ $(async function () {
         var $controlPanelContents = $("#controlPanel div");
         $controlPanelToggle.removeClass('closePanel').addClass('openPanel')
             .animate({ deg: 180 }, {
-                duration: 250,
+                duration: 100,
                 step: function (now) {
                     $controlPanelToggle.css({ transform: 'rotate(' + now + 'deg)' });
                 },
                 complete: function () {
-                    $controlPanelContents.animate({ opacity: 0 }, {
-                        duration: 250,
-                        complete: function () {
-                            var allAnimationsComplete = $controlPanelContents.filter(':animated').length === 0;
-                            if (allAnimationsComplete) {
-                                $controlPanel.css('min-width', 'unset')
-                                $controlPanel.animate({ width: 'toggle' }, { duration: 250 });
-                            };
-                        }
-                    })
+                    $controlPanel.css('min-width', 'unset')
+                    $controlPanel.animate({ opacity: 0, width: 'toggle' }, { duration: 100 })
                 }
             });
     });
@@ -908,16 +900,16 @@ $(async function () {
         var $controlPanelContents = $("#controlPanel div");
         $controlPanelToggle.removeClass('openPanel').addClass('closePanel')
             .animate({ deg: 0 }, {
-                duration: 250,
+                duration: 100,
                 step: function (now) {
                     $controlPanelToggle.css({ transform: 'rotate(' + now + 'deg)' });
                 },
                 complete: function () {
-                    $controlPanel.animate({ width: 'toggle' }, {
-                        duration: 250,
+                    $controlPanel.animate({ opacity: 1, width: 'toggle' }, {
+                        duration: 100,
                         complete: function () {
                             $controlPanel.css('min-width', '200px');
-                            $controlPanelContents.animate({ opacity: 1 }, { duration: 50 });
+
                         }
                     });
                 }

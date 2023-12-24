@@ -177,6 +177,21 @@ function updateUIUserList(userList) {
     });
 }
 
+function updateAIUserList(userList) {
+    console.debug(userList)
+    if (userList.length === 0) {
+        console.log('saw empty userList, will wait for another..')
+        return
+    }
+    console.log('populating user list...')
+    const userListElement = $('#AIChatUserList ul');
+    userListElement.empty() // Clear the existing user list
+    userList.forEach(username => {
+        const listItem = `<li data-foruser="${username}" title="${username}">${username}</li>`;
+        userListElement.append(listItem);
+    });
+}
+
 async function requestUserList() {
     const userListRequestMessage = {
         type: 'userListRequest',

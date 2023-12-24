@@ -95,7 +95,6 @@ This must be done AFTER completing all installation steps above.
 - Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button (✏️), or pressing Enter.
 - `Shift+Enter` can be used to add newlines to the input.
 - [Markdown formatting](https://github.com/showdownjs/showdown/wiki/Showdown%27s-Markdown-syntax) is respected.
-- Pressing the retry button (🔄) will remove the last chat message and prompt the AI character to give a new response.
 - Manual disconnect/reconnect via the (▶️/⏸️) button at the top right.
 
 ### Hosting
@@ -123,6 +122,7 @@ The host will see the following controls for:
 
 - Manually triggering an AI response without user Input (🤖)
 - Deleting the last message in the AI Chat (✂️)
+- Pressing the retry button (🔄) will remove the last chat message and prompt the AI character to give a new response.
 
 ### Changing usernames
 
@@ -143,12 +143,14 @@ The host will see the following controls for:
 - Drag-sort list to set User Turn Order for AI chatting?
 - Allow API key/Authentication information to be set via the UI.
 - Ability to rename chats.
+- ability to remove any message in the chat, not just the last.
+- ability to edit the text of a chat
+- ability to grant Host-like controls to a non-Host user
 
 ### Low-priority but Nice-to-have Features
 
 - Multiple AI characters active at once (group chats)
 - Download chats as text, JSON, or SillyTavern-compatible JSONL?
 - UI themes?
-- Updated list of active entities in AI Chat (based on contents of last prompt?)
 - Custom API endpoint selection (for OAI-compatible text completion APIs)
 - Bridge extension for SillyTavern to enable intra-server communication.

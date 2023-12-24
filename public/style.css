@@ -318,7 +318,7 @@ pre {
 #chat div p,
 #AIchat div p {
     margin: 0;
-    padding: 0;
+    padding-bottom: 10px;
 }
 
 #messageInput,

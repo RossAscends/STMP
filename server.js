@@ -651,7 +651,7 @@ async function handleConnections(ws, type, request) {
                     let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     if (!isEmptyTrigger) {
-                        await db.writeAIChatMessage(senderUUID, userInput);
+                        await db.writeAIChatMessage(username, senderUUID, userInput, 'user');
                         await broadcast(userPrompt)
                     }
                     if (liveConfig.isAutoResponse || isEmptyTrigger) {
@@ -734,7 +734,7 @@ async function handleConnections(ws, type, request) {
                     }
 
                     await db.upsertChar(charName, charName, parsedMessage.userColor);
-                    await db.writeAIChatMessage(charName, AIResponse);
+                    await db.writeAIChatMessage(charName, charName, AIResponse, 'AI');
 
                     return AIResponse
 

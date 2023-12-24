@@ -32,7 +32,9 @@ async function createTables() {
         message_id INTEGER PRIMARY KEY,
         session_id INTEGER,
         user_id TEXT,
+        username TEXT,
         message TEXT,
+        entity TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (session_id) REFERENCES sessions(session_id),
         FOREIGN KEY (user_id) REFERENCES users(user_id)
@@ -144,20 +146,24 @@ async function readUserChat() {
     }
 }
 
-//Remove last AI chat message from the database
+//Remove last AI chat in the current session from the database
 async function removeLastAIChatMessage() {
     console.log('Removing last AI chat message from database...');
     const db = await dbPromise;
+    //Get the last message_id from the current session
     try {
-        await db.run('DELETE FROM aichats WHERE message_id = (SELECT MAX(message_id) FROM aichats)');
-        console.debug('An AI chat message was removed');
+        const row = await db.get('SELECT message_id FROM aichats WHERE session_id = (SELECT session_id FROM sessions WHERE is_active = TRUE) ORDER BY message_id DESC LIMIT 1');
+        if (row) {
+            await db.run('DELETE FROM aichats WHERE message_id = ?', [row.message_id]);
+            console.debug('A message was deleted');
+        }
     } catch (err) {
-        console.error('Error removing AI chat message:', err);
+        console.error('Error deleting message:', err);
     }
 }
 
 // Write an AI chat message to the database
-async function writeAIChatMessage(userId, message) {
+async function writeAIChatMessage(username, userId, message, entity) {
     console.log('Writing AI chat message to database...');
     const db = await dbPromise;
     try {
@@ -171,7 +177,7 @@ async function writeAIChatMessage(userId, message) {
         } else {
             sessionId = row.session_id;
         }
-        await db.run('INSERT INTO aichats (session_id, user_id, message) VALUES (?, ?, ?)', [sessionId, userId, message]);
+        await db.run('INSERT INTO aichats (session_id, user_id, message, username, entity) VALUES (?, ?, ?, ?, ?)', [sessionId, userId, message, username, entity]);
         console.debug('An AI chat message was inserted');
     } catch (err) {
         console.error('Error writing AI chat message:', err);
@@ -243,19 +249,16 @@ async function readAIChat(sessionID = null) {
     try {
         const rows = await db.all(`
             SELECT 
-                CASE 
-                    WHEN u.user_id IS NULL THEN 
-                        (SELECT c.displayname FROM characters c WHERE c.char_id = a.user_id)
-                    ELSE 
-                        u.username
-                END AS username,
+                a.username,
                 a.message,
                 CASE
                     WHEN u.user_id IS NULL THEN 
                         (SELECT c.display_color FROM characters c WHERE c.char_id = a.user_id)
                     ELSE 
                         u.username_color
-                END AS userColor
+                END AS userColor,
+                a.message_id,
+                a.entity
             FROM aichats a
             LEFT JOIN users u ON a.user_id = u.user_id
             ${sessionWhereClause}
@@ -266,7 +269,9 @@ async function readAIChat(sessionID = null) {
         const result = JSON.stringify(rows.map(row => ({
             username: row.username,
             content: row.message,
-            userColor: row.userColor
+            userColor: row.userColor,
+            messageID: row.message_id,
+            entity: row.entity
         })));
 
         // Update the active session if sessionID is provided
@@ -278,6 +283,28 @@ async function readAIChat(sessionID = null) {
         return result;
     } catch (err) {
         console.error('An error occurred while reading from the database:', err);
+        throw err;
+    }
+}
+
+async function deleteMessage(messageID) {
+    console.log('Deleting message...');
+    const db = await dbPromise;
+    try {
+        await db.run('DELETE FROM aichats WHERE message_id = ?', [messageID]);
+        console.debug('A message was deleted');
+    } catch (err) {
+        console.error('Error deleting message:', err);
+    }
+}
+
+async function getMessage(messageID) {
+    console.log('Getting message...');
+    const db = await dbPromise;
+    try {
+        return await db.get('SELECT * FROM aichats WHERE message_id = ?', [messageID]);
+    } catch (err) {
+        console.error('Error getting message:', err);
         throw err;
     }
 }
@@ -294,5 +321,7 @@ module.exports = {
     readUserChat: readUserChat,
     upsertChar: upsertChar,
     removeLastAIChatMessage: removeLastAIChatMessage,
-    getPastChats: getPastChats
+    getPastChats: getPastChats,
+    deleteMessage: deleteMessage,
+    getMessage: getMessage
 };

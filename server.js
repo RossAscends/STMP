@@ -346,7 +346,7 @@ async function handleConnections(ws, type, request) {
     //get the username from the encodedURI parameters
     const encodedUsername = urlParams.get('username');
 
-    let thisUserColor, thisUserUsername
+    let thisUserColor, thisUserUsername, thisUserRole
     // Retrieve the UUID from the query parameters
     let uuid = urlParams.get('uuid');
 
@@ -364,9 +364,12 @@ async function handleConnections(ws, type, request) {
         //if we know them, user DB values
         thisUserColor = user.username_color;
         thisUserUsername = user.username
+        thisUserRole = user.role
     } else {
         //if we don't know them code a random color
         thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
+        thisUserRole = type;
+        await db.upsertUserRole(uuid, thisUserRole);
         //attempt to decode the username
         thisUserUsername = decodeURIComponent(encodedUsername);
         if (thisUserUsername === null || thisUserUsername === undefined) {
@@ -380,7 +383,7 @@ async function handleConnections(ws, type, request) {
     clientsObject[uuid] = {
         socket: ws,
         color: thisUserColor,
-        role: type,
+        role: thisUserRole,
         username: thisUserUsername
     };
 
@@ -415,11 +418,11 @@ async function handleConnections(ws, type, request) {
         chatHistory: userChatJSON,
         AIChatHistory: AIChatJSON,
         color: thisUserColor,
-        role: type,
+        role: thisUserRole,
         selectedCharacterDisplayName: liveConfig.selectedCharDisplayName
     }
     //send control-related metadata to the Host user
-    if (type === 'host') {
+    if (thisUserRole === 'host') {
         console.log("HOST CONNECTED")
         hostUUID = uuid
         connectionConfirmedMessage["cardList"] = cardList

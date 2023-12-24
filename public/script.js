@@ -3,25 +3,30 @@ var username, storedUsername, AIChatUsername, storedAIChatUsername, isAutoRespon
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
-async function startupUsernames() {
-    storedUsername = localStorage.getItem('username');
-    storedAIChatUsername = localStorage.getItem('AIChatUsername');
 
-    username = storedUsername !== null && storedUsername !== '' ? storedUsername : await initializeUsername();
-    myUUID = localStorage.getItem('UUID') !== null ? localStorage.getItem('UUID') : '';
-    AIChatUsername = storedAIChatUsername !== null && storedAIChatUsername !== '' ? storedAIChatUsername : username;
-    console.debug(`[localStorage] username:${username}, AIChatUsername:${AIChatUsername}`)
-}
-
-async function initializeUsername() {
-    var userInput = prompt("Enter your username:");
-    if (userInput !== null && userInput !== "") {
-        localStorage.setItem('username', userInput);
-        console.log(`set localStorage 'username' to ${userInput}`)
-        return String(userInput)
-    } else {
-        initializeUsername()
+function startupUsernames() {
+    async function initializeUsername() {
+        const userInput = prompt("Enter your username:");
+        if (userInput !== null && userInput !== "") {
+            localStorage.setItem('username', userInput);
+            console.log(`Set localStorage 'username' to ${userInput}`);
+            return String(userInput);
+        } else {
+            return await initializeUsername();
+        }
     }
+
+    return new Promise(async (resolve) => {
+        const storedUsername = localStorage.getItem('username');
+        const storedAIChatUsername = localStorage.getItem('AIChatUsername');
+
+        let username = storedUsername !== null && storedUsername !== '' ? storedUsername : await initializeUsername();
+        const myUUID = localStorage.getItem('UUID') !== null ? localStorage.getItem('UUID') : '';
+        let AIChatUsername = storedAIChatUsername !== null && storedAIChatUsername !== '' ? storedAIChatUsername : username;
+        console.debug(`[localStorage] username:${username}, AIChatUsername:${AIChatUsername}`);
+
+        resolve({ username, AIChatUsername });
+    });
 }
 
 var sanitizeExtension = {
@@ -55,149 +60,33 @@ var hostname = window.location.hostname;
 var port = window.location?.port;
 var wsType = window.location.hostname === (`localhost` || `127.0.0.1`) ? 'ws' : 'wss'
 var serverUrl = `${wsType}://${hostname}:${port}`
-var myUUID
+var myUUID, myUsername
 
 var socket = null
 var isHost
-
-//API_PARAMS_FOR_TABBY
-var TabbyAPICallParams = {
-    "prompt": "",
-    "stream": false,
-    "truncation_length": 4096,
-    "max_tokens": 200,
-    "temperature": 2,
-    "top_k": 0,
-    "top_p": 1,
-    "min_p": 0.2,
-    "typical_p": 1,
-    "tfs": 1,
-    "repetition_penalty": 1.1,
-    "repetition_penalty_range": 400,
-    "seed": -1,
-    "skip_special_tokens": true,
-    "mirostat_mode": 0,
-    "mirostat_tau": 5,
-    "mirostat_eta": 0.1,
-    "grammar_string": "",
-    "custom_token_bans": "",
-    "stop": []
-}
-//END_OF_TABBY_PARAMETERS
-
-//API_PARAMS_FOR_HORDE
-var HordeAPICallParams = {
-    "prompt": "",
-    "params": {
-        "gui_settings": false,
-        "sampler_order": [
-            6,
-            0,
-            1,
-            2,
-            3,
-            4,
-            5
-        ],
-        "max_context_length": 2048,
-        "max_length": 400,
-        "rep_pen_slope": 1,
-        "temperature": 1,
-        "tfs": 0.95,
-        "top_a": 0,
-        "top_k": 100,
-        "top_p": 0.9,
-        "typical": 1,
-        "s1": 6,
-        "s2": 0,
-        "s3": 1,
-        "s4": 2,
-        "s5": 3,
-        "s6": 4,
-        "s7": 5,
-        "use_world_info": false,
-        "singleline": false,
-        "streaming": false,
-        "can_abort": false,
-        "n": 1,
-        "frmtadsnsp": false,
-        "frmtrmblln": false,
-        "frmtrmspch": false,
-        "frmttriminc": false,
-        "stop_sequence": [`${username}:`]
-    },
-    "trusted_workers": true,
-    "models": [
-        "koboldcpp/mistral-pygmalion-7b.Q5_K_M",
-        "koboldcpp/Toppy-M-7B",
-        "koboldcpp/LLaMA2-13B-Tiefighter",
-        "aphrodite/jebcarter/psyonic-cetacean-20B",
-        "aphrodite/DiscoResearch/DiscoLM-120b",
-        "aphrodite/KoboldAI/LLaMA2-13B-Psyfighter2",
-        "aphrodite/Undi95/Toppy-M-7B",
-        "koboldcpp/Noromaid-7b-v0.1.1",
-        "koboldcpp/Mistral-7B-claude-chat",
-        "aphrodite/alpindale/goliath-120b",
-        "koboldcpp/Mistral-7B-claude-chat",
-        "aphrodite/KoboldAI/LLaMA2-13B-Tiefighter",
-        "aphrodite/KoboldAI/LLaMA2-13B-TiefighterLR",
-        "aphrodite/Undi95/MLewd-ReMM-L2-Chat-20B-Inverted",
-        "aphrodite/Undi95/Xwin-MLewd-13B-V0.2",
-        "aphrodite/NeverSleep/Echidna-13b-v0.1",
-        "aphrodite/PygmalionAI/mythalion-13b",
-        "aphrodite/NeverSleep/Echidna-13b-v0.3",
-        "PygmalionAI/pygmalion-2-7b",
-        "RossAscends/Mistral7B_Dolphin2.1_LIMARP0.5_4bpw_exl2",
-        "aphrodite/Undi95/Emerhyst-20B"
-    ],
-    "disuedmodels": [
-    ]
-}
-//END_OF_HORDE_PAREMETERS
-
-//default to TabbyAPI
-var APICallParams = TabbyAPICallParams;
 
 function messageServer(message) {
     socket.send(JSON.stringify(message))
 }
 
-function updateUIUserList(userList) {
-    console.debug(userList)
-    if (userList.length === 0) {
-        console.log('saw empty userList, will wait for another..')
-        return
+function updateUIUserList(message) {
+    console.debug(message);
+    const userList = message;
+
+    if (!userList || userList.length === 0) {
+        console.log('Saw an empty userList or userList is undefined, will wait for another...');
+        return;
     }
-    console.log('populating user list...')
+
+    console.log('Populating user list...');
     const userListElement = $('#userList ul');
-    userListElement.empty() // Clear the existing user list
-    userList.forEach(username => {
-        const listItem = `<li data-foruser="${username}" title="${username}">${username}</li>`;
+    userListElement.empty(); // Clear the existing user list
+
+    userList.forEach(user => {
+        const { username, color } = user;
+        const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${username}</li>`;
         userListElement.append(listItem);
     });
-}
-
-function updateAIUserList(userList) {
-    console.debug(userList)
-    if (userList.length === 0) {
-        console.log('saw empty userList, will wait for another..')
-        return
-    }
-    console.log('populating user list...')
-    const userListElement = $('#AIChatUserList ul');
-    userListElement.empty() // Clear the existing user list
-    userList.forEach(username => {
-        const listItem = `<li data-foruser="${username}" title="${username}">${username}</li>`;
-        userListElement.append(listItem);
-    });
-}
-
-async function requestUserList() {
-    const userListRequestMessage = {
-        type: 'userListRequest',
-        UUID: myUUID
-    }
-    messageServer(userListRequestMessage)
 }
 
 function updateSelectedChar(char, displayName, type) {
@@ -324,13 +213,6 @@ async function processConfirmedConnection(parsedMessage) {
 
     $("#chat").scrollTop($("#chat").prop("scrollHeight"));
     $("#AIchat").scrollTop($("#AIchat").prop("scrollHeight"));
-    const connectionMessage = {
-        type: 'connect',
-        UUID: myUUID,
-        username: username
-    };
-    console.log('sending connection message..')
-    messageServer(connectionMessage);
 }
 
 function appendMessagesWithConverter(messages, elementSelector) {
@@ -343,10 +225,13 @@ function appendMessagesWithConverter(messages, elementSelector) {
     });
 }
 
-function connectWebSocket() {
-    console.log(`trying to connect to ${serverUrl}`)
+async function connectWebSocket(username) {
+    var username, AIChatUsername
+    myUsername = localStorage.getItem('username') !== null ? localStorage.getItem('username') : { username, AIChatUsername } = await startupUsernames();
+
     myUUID = localStorage.getItem('UUID') !== null ? localStorage.getItem('UUID') : '';
-    socket = new WebSocket(serverUrl + '?uuid=' + myUUID);
+    console.log(`trying to connect to ${serverUrl} with ${myUUID}, ${myUsername} or ${username}`)
+    socket = new WebSocket(serverUrl + '?uuid=' + myUUID + '&username=' + encodeURIComponent(username));
     console.log('socket connected!')
     socket.onopen = handleSocketOpening;
     socket.onclose = disconnectWebSocket;
@@ -355,7 +240,7 @@ function connectWebSocket() {
         var message = event.data;
         console.debug('Received server message:', message);
         let parsedMessage = JSON.parse(message);
-        const userList = parsedMessage.userList;
+
 
         switch (parsedMessage?.type) {
             case 'clearChat':
@@ -385,6 +270,7 @@ function connectWebSocket() {
             case 'userList':
             case 'userConnect':
             case 'userDisconnect':
+                const userList = parsedMessage.userList;
                 updateUIUserList(userList);
                 break;
             case 'forceDisconnect':
@@ -570,12 +456,6 @@ function disconnectWebSocket() {
         $("#userList ul").empty()
         $("#messageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
         $("#AIMessageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
-        const disconnectMessage = {
-            type: 'disconnect',
-            UUID: myUUID,
-            username: username
-        };
-        messageServer(disconnectMessage);
         socket.close();
     }
 }
@@ -600,7 +480,7 @@ function doAIRetry() {
         UUID: myUUID,
         chatID: 'AIChat',
         username: username,
-        APICallParams: APICallParams,
+        //APICallParams: APICallParams,
         char: char
     }
     messageServer(retryMessage)
@@ -656,13 +536,13 @@ function setEngineMode(mode) {
         $("#toggleMode").removeClass('tabbyMode').addClass('hordeMode').text('🧟');
         $("#toggleMode").attr('title', 'Click to switch to Tabby Mode');
         //copy the horde parameters into the APICallParams object
-        APICallParams = JSON.parse(JSON.stringify(HordeAPICallParams));
+        //APICallParams = JSON.parse(JSON.stringify(HordeAPICallParams));
         console.log('Switching to Horde Mode')
     } else {
         $("#toggleMode").removeClass('hordeMode').addClass('tabbyMode').text('🐈');
         $("#toggleMode").attr('title', 'Click to switch to Horde Mode');
         //copy the tabby parameters into the APICallParams object
-        APICallParams = JSON.parse(JSON.stringify(TabbyAPICallParams));
+        //APICallParams = JSON.parse(JSON.stringify(TabbyAPICallParams));
         console.debug('Switching to Tabby Mode')
     }
 }
@@ -687,16 +567,15 @@ async function sendMessageToAIChat(type) {
     //Move it to server-side. client side has no idea on its own.
 
     var markdownContent = `${messageInput.val()}`;
-    var htmlContent = converter.makeHtml(markdownContent);
-    var char = $('#characters').val();
+    //var htmlContent = converter.makeHtml(markdownContent);
+    //var char = $('#characters').val();
     var stringToSend = markdownContent
-    APICallParams.prompt = stringToSend;
+    //APICallParams.prompt = stringToSend;
     var websocketRequest = {
         type: 'chatMessage',
         chatID: 'AIChat',
         UUID: myUUID,
         username: username,
-        APICallParams: APICallParams,
         userInput: markdownContent,
     }
     localStorage.setItem('AIChatUsername', username);
@@ -716,8 +595,11 @@ window.addEventListener('beforeunload', () => {
 
 $(async function () {
     console.log('document is ready')
+    let { username, AIChatUsername } = await startupUsernames();
+    $("#usernameInput").val(username)
+    $("#AIUsernameInput").val(AIChatUsername)
 
-    connectWebSocket();
+    connectWebSocket(username);
 
     var isPhone = /Mobile/.test(navigator.userAgent);
     //handle disconnect and reconnect
@@ -868,9 +750,7 @@ $(async function () {
         messageServer(delLastMessage);
     })
 
-    await startupUsernames()
-    $("#usernameInput").val(username)
-    $("#AIUsernameInput").val(AIChatUsername)
+
 
     $('#clearLocalStorage').on('click', function () {
         $("#usernameInput").val('')

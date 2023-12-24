@@ -51,8 +51,26 @@ const usernameColors = [
 const wsPort = 8181; //WS for host
 const wssPort = 8182; //WSS for guests
 
+var TabbyAPIDefaults, HordeAPIDefaults
+
 //set the engine mode to either 'tabby' or 'horde'
 let engineMode = 'tabby'
+
+async function getAPIDefaults() {
+    try {
+        const fileContents = await readFile('default-API-Parameters.json');
+        const jsonData = JSON.parse(fileContents);
+        const { TabbyAPICallParams, HordeAPICallParams } = jsonData[0];
+        TabbyAPIDefaults = TabbyAPICallParams;
+        HordeAPIDefaults = HordeAPICallParams;
+    } catch (error) {
+        console.error('Error reading or parsing the default API Param JSON file:', error);
+    }
+}
+
+getAPIDefaults()
+
+
 
 // Configuration
 const apiKey = "_YOUR_API_KEY_HERE_";
@@ -111,17 +129,6 @@ const guestServer = http.createServer(remoteApp);
 
 const TabbyURL = 'http://127.0.0.1:5000';
 const TabbyGenEndpoint = '/v1/completions';
-
-//message templates
-var sysMessage = {
-    'chatID': 'UserChat',
-    'type': '',
-    'targetUsername': '',
-    'userList': [],
-    'username': '[System]',
-    'content': ''
-}
-
 const secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
 const tabbyAPIkey = secretsObj.api_key_tabby
 const STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string
@@ -134,7 +141,7 @@ wssServer.setMaxListeners(0);
 
 // Arrays to store connected clients of each server
 var clientsObject = [];
-var connectedUserNames = [];
+var connectedUsers = [];
 var hostUUID
 
 //default values
@@ -288,8 +295,12 @@ async function getSamplerPresetList() {
 }
 
 async function broadcast(message) {
-    console.log('broadcasting this:')
-    console.log(message)
+    //alter the type check for bug checking purposes, otherwise this is turned off
+    if (message.type === "BuggyTypeHere") {
+        console.log('broadcasting this:')
+        console.log(message)
+    }
+
     Object.keys(clientsObject).forEach(clientUUID => {
         const client = clientsObject[clientUUID];
         const socket = client.socket;
@@ -304,10 +315,12 @@ async function broadcast(message) {
 async function broadcastUserList() {
     const userListMessage = {
         type: 'userList',
-        userList: connectedUserNames.sort()
+        userList: connectedUsers
     };
+    //console.log('-----broadcastUserList() is about to send this as a userlist:')
+    console.log(connectedUsers)
     broadcast(userListMessage);
-    console.log(`[BroadCast]: ${JSON.stringify(userListMessage)}`)
+    //console.log(`[BroadCast]: ${JSON.stringify(userListMessage)}`)
 }
 
 async function removeLastAIChatMessage() {
@@ -330,33 +343,62 @@ async function handleConnections(ws, type, request) {
     // Parse the URL to get the query parameters
     const urlParams = new URLSearchParams(request.url.split('?')[1]);
 
+    //get the username from the encodedURI parameters
+    const encodedUsername = urlParams.get('username');
+
+    let thisUserColor, thisUserUsername
     // Retrieve the UUID from the query parameters
-    const uuid = urlParams.get('uuid');
-    if (uuid !== null && uuid !== undefined) {
-        console.log('Client connected with UUID:', uuid);
+    let uuid = urlParams.get('uuid');
+
+    if (uuid === null || uuid === undefined || uuid === '') {
+        console.log('Client connected without UUID...assigning a new one..');
+        //assign them a UUID
+        uuid = uuidv4()
+        console.log(`uuid assigned as ${uuid}`)
     } else {
-        console.log('Client connected without UUID');
+        console.log('Client connected with UUID:', uuid);
     }
-    let thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
-    // Store the connected client in the appropriate array based on the server
+    //check if we have them in the DB
     let user = await db.getUser(uuid);
     if (user) {
+        //if we know them, user DB values
         thisUserColor = user.username_color;
+        thisUserUsername = user.username
+    } else {
+        //if we don't know them code a random color
+        thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
+        //attempt to decode the username
+        thisUserUsername = decodeURIComponent(encodedUsername);
+        if (thisUserUsername === null || thisUserUsername === undefined) {
+            console.log('COULD NOT FIND USERNAME FOR CLIENT')
+            console.log('CONNECTION REJECTED')
+            ws.close()
+            return
+        }
     }
 
-    const thisUserUniqueId = uuid || uuidv4();
-    clientsObject[thisUserUniqueId] = {
+    clientsObject[uuid] = {
         socket: ws,
         color: thisUserColor,
-        role: type
+        role: type,
+        username: thisUserUsername
     };
+
+    await db.upsertUser(uuid, thisUserUsername, thisUserColor);
+    console.log(`Adding ${thisUserUsername} to connected user list..`)
+    updateConnectedUsers()
+    console.log('CONNECTED USERS')
+    console.log(connectedUsers)
+    //console.log('CLIENTS OBJECT')
+    //console.log(clientsObject)
+
+    await broadcastUserList()
 
     const cardList = await getCardList()
     const instructList = await getInstructList()
     const samplerPresetList = await getSamplerPresetList()
     var AIChatJSON = await db.readAIChat();
     var userChatJSON = await db.readUserChat()
-    console.log(`userChatJSON: ${userChatJSON}`);
 
     if (!liveConfig.selectedCharacter || liveConfig.selectedCharacter === '') {
         console.log('No selected character found, setting to default character...')
@@ -368,22 +410,18 @@ async function handleConnections(ws, type, request) {
 
     //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
     let connectionConfirmedMessage = {
-        clientUUID: thisUserUniqueId,
+        clientUUID: uuid,
         type: 'connectionConfirmed',
         chatHistory: userChatJSON,
         AIChatHistory: AIChatJSON,
-        userList: connectedUserNames,
-        engineMode: engineMode,
-        isAutoResponse: isAutoResponse,
-        contextSize: contextSize,
-        responseLength: responseLength,
         color: thisUserColor,
         role: type,
         selectedCharacterDisplayName: liveConfig.selectedCharDisplayName
     }
+    //send control-related metadata to the Host user
     if (type === 'host') {
         console.log("HOST CONNECTED")
-        hostUUID = thisUserUniqueId
+        hostUUID = uuid
         connectionConfirmedMessage["cardList"] = cardList
         connectionConfirmedMessage["instructList"] = instructList
         connectionConfirmedMessage["samplerPresetList"] = samplerPresetList
@@ -397,11 +435,15 @@ async function handleConnections(ws, type, request) {
         connectionConfirmedMessage["instructFormat"] = liveConfig.instructFormat
     }
 
-    //send connection confirmation along with chat history
-    //console.log(connectionConfirmedMessage)
     ws.send(JSON.stringify(connectionConfirmedMessage))
-    //broadcastUserList()
 
+    function updateConnectedUsers() {
+        const userList = Object.values(clientsObject).map(client => ({
+            username: client.username,
+            color: client.color
+        }));
+        connectedUsers = userList;
+    }
 
     // Handle incoming messages from clients
     ws.on('message', async function (message) {
@@ -409,35 +451,22 @@ async function handleConnections(ws, type, request) {
         // Parse the incoming message as JSON
         let parsedMessage;
 
-
         try {
-            console.log('')
             parsedMessage = JSON.parse(message);
             const senderUUID = parsedMessage.UUID
+            let userColor = await db.getUserColor(senderUUID)
+            let thisClientObj = clientsObject[parsedMessage.UUID];
 
             //If there is no UUID, then this is a new client and we need to add it to the clientsObject
-            let clientObject = clientsObject[parsedMessage.UUID];
-            if (!clientObject) {
-                clientObject = {
+            if (!thisClientObj) {
+                thisClientObj = {
                     username: '',
                     color: '',
-                    role: ''
+                    role: '',
                 };
-                clientsObject[parsedMessage.UUID] = clientObject;
+                clientsObject[parsedMessage.UUID] = thisClientObj;
             }
 
-            //console.log(`==========ALL CLIENTS==========`)
-            let allClientUUIDs = Object.keys(clientsObject)
-
-            //console.log(allClientUUIDs)
-            //console.log(`connectedUsernames: ${connectedUserNames}`)
-            //console.log(`==========INCOMING MESSAGE==========`)
-            //console.log(parsedMessage)
-
-
-            //console.log('==========CLIENT OBJECT==========')
-            //console.log(clientObject.username, clientObject.role)
-            //stringifiedMessage = JSON.stringify(message)
             console.log('Received message from client:', parsedMessage);
 
             //first check if the sender is host, and if so, process possible host commands
@@ -550,7 +579,7 @@ async function handleConnections(ws, type, request) {
                             content: AIResponse,
                             username: `${liveConfig.selectedCharDisplayName}`,
                             type: 'AIResponse',
-                            userColor: parsedMessage.userColor
+                            userColor: userColor
                         }
                         broadcast(AIResponseMessage)
                         return
@@ -609,38 +638,17 @@ async function handleConnections(ws, type, request) {
             //process universal message types
             console.log(`processing universal message types...`)
 
-            if (parsedMessage.type === 'connect') {
-                console.log('saw connect message from client')
-                clientObject.username = parsedMessage.username;
-                await db.upsertUser(senderUUID, clientObject.username, thisUserColor);
-                console.log(`Adding ${clientObject.username} to connected user list..`)
-                //the intent with this IF check is to give special charater to the host name
-                //but it causes problems elsewhere (can't filter from the userList, gets sent to AI chat calls)
-                if (senderUUID === hostUUID) {
-                    connectedUserNames.push(`${clientObject.username}`)
-                } else {
-                    connectedUserNames.push(clientObject.username)
-                }
-                await broadcastUserList()
 
-            }
-            else if (parsedMessage.type === 'disconnect') {
-                const disconnectedUsername = clientObject.username;
-                console.log(`Removing ${disconnectedUsername} from the User List...`)
-                connectedUserNames = connectedUserNames.filter(username => username !== disconnectedUsername);
-                await broadcastUserList()
-
-            }
-            else if (parsedMessage.type === 'usernameChange') {
+            if (parsedMessage.type === 'usernameChange') {
                 const oldName = parsedMessage.oldName;
-                connectedUserNames = connectedUserNames.filter(username => username !== oldName);
+                connectedUsers = connectedUsers.filter(username => username !== oldName);
                 ws.username = parsedMessage.newName
-                connectedUserNames.push(parsedMessage.newName)
+                connectedUsers.push(parsedMessage.newName)
                 const nameChangeNotification = {
                     type: 'userChangedName',
                     content: `[System]: ${oldName} >>> ${parsedMessage.newName}`
                 }
-                console.log(nameChangeNotification)
+                //console.log(nameChangeNotification)
                 console.log('sending notification of username change')
                 await broadcast(nameChangeNotification);
                 await broadcastUserList()
@@ -651,8 +659,8 @@ async function handleConnections(ws, type, request) {
                 const chatID = parsedMessage.chatID;
                 const username = parsedMessage.username
                 const userColor = thisUserColor
-                const userInput = parsedMessage.userInput
-                const hordePrompt = parsedMessage.content?.prompt
+                const userInput = parsedMessage?.userInput
+                const hordePrompt = parsedMessage?.userInput
                 var userPrompt
 
                 //setup the userPrompt arrayin order to send the input into the AIChat box
@@ -708,7 +716,14 @@ async function handleConnections(ws, type, request) {
 
             async function getAIResponse() {
                 try {
-                    let jsonArray = [];
+                    console.log(engineMode)
+                    let APICallParams
+                    if (engineMode === 'tabby') {
+                        APICallParams = TabbyAPIDefaults
+                    } else {
+                        APICallParams = HordeAPIDefaults
+                    }
+
                     let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
                     console.log(`Is this an empty trigger? ${isEmptyTrigger}`)
 
@@ -722,32 +737,34 @@ async function handleConnections(ws, type, request) {
                     var finalCharName = JSON.stringify(`\n${charName}:`);
                     //strips out HTML tags from last message
                     var fixedFinalCharName = JSON.parse(finalCharName.replace(/<[^>]+>/g, ''));
-
+                    //a careful observer might notice that we don't set the userInput string into the 'prompt' section of the API Params at this point.
+                    //this is because the userInput has already been saved into the chat session, and the next function will read 
+                    //that file and parse the contents from there. All we need to do is pass the cardDefs, charName. and userName.
                     const fullPromptforAI = await addCharDefsToPrompt(charFile, fixedFinalCharName, parsedMessage.username)
                     const samplers = JSON.parse(liveConfig.samplers);
                     //apply the selected preset values to the API call
                     for (const [key, value] of Object.entries(samplers)) {
-                        parsedMessage.APICallParams[key] = value;
+                        APICallParams[key] = value;
                     }
                     //add full prompt to API call
-                    parsedMessage.APICallParams.prompt = fullPromptforAI;
+                    APICallParams.prompt = fullPromptforAI;
                     //ctx and response length for Tabby
-                    parsedMessage.APICallParams.truncation_length = Number(liveConfig.contextSize)
-                    parsedMessage.APICallParams.max_tokens = Number(liveConfig.responseLength)
+                    APICallParams.truncation_length = Number(liveConfig.contextSize)
+                    APICallParams.max_tokens = Number(liveConfig.responseLength)
                     //ctx and response length for Horde
-                    parsedMessage.APICallParams.max_context_length = Number(liveConfig.contextSize)
-                    parsedMessage.APICallParams.max_length = Number(liveConfig.responseLength)
+                    APICallParams.max_context_length = Number(liveConfig.contextSize)
+                    APICallParams.max_length = Number(liveConfig.responseLength)
 
                     //add stop strings
-                    const APICallParams = await setStopStrings(parsedMessage.APICallParams)
+                    const finalAPICallParams = await setStopStrings(APICallParams)
 
                     var AIResponse = '';
                     if (liveConfig.engineMode === 'horde') {
-                        const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(APICallParams);
+                        const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(finalAPICallParams);
                         AIResponse = hordeResponse;
                     }
                     else {
-                        AIResponse = trimIncompleteSentences(await requestToTabby(APICallParams))
+                        AIResponse = trimIncompleteSentences(await requestToTabby(finalAPICallParams))
                     }
 
                     await db.upsertChar(charName, charName, parsedMessage.userColor);
@@ -765,14 +782,14 @@ async function handleConnections(ws, type, request) {
         }
     });
 
-    ws.on('close', () => {
+    ws.on('close', async () => {
         // Remove the disconnected client from the clientsObject
-        console.debug('Client disconnected:', uuid);
-        console.log(clientsObject)
-        // Pop the client from the clientsObject
+        console.debug(`Client ${uuid} disconnected..removing from clientsObject`);
         delete clientsObject[uuid];
-        console.log(clientsObject)
+        updateConnectedUsers()
+        await broadcastUserList();
     });
+
 };
 
 

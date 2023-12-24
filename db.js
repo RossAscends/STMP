@@ -285,7 +285,7 @@ async function readAIChat(sessionID = null) {
             ORDER BY a.timestamp ASC
         `, params);
 
-        console.log(rows);
+        //console.log(rows);
         const result = JSON.stringify(rows.map(row => ({
             username: row.username,
             content: row.message,
@@ -322,6 +322,25 @@ async function deleteMessage(messageID) {
     }
 }
 
+async function getUserColor(UUID) {
+    console.debug('Getting user color...');
+    const db = await dbPromise;
+    try {
+        const row = await db.get('SELECT username_color FROM users WHERE user_id = ?', [UUID]);
+        if (row) {
+            const userColor = row.username_color;
+            console.log(`User color: ${userColor}`);
+            return userColor;
+        } else {
+            console.log(`User not found for UUID: ${UUID}`);
+            return null;
+        }
+    } catch (err) {
+        console.error('Error getting user color:', err);
+        throw err;
+    }
+}
+
 async function getMessage(messageID) {
     console.log('Getting message...');
     const db = await dbPromise;
@@ -348,5 +367,6 @@ module.exports = {
     getPastChats: getPastChats,
     deleteMessage: deleteMessage,
     getMessage: getMessage,
-    deletePastChat: deletePastChat
+    deletePastChat: deletePastChat,
+    getUserColor: getUserColor
 };

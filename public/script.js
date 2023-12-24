@@ -69,7 +69,7 @@ function messageServer(message) {
     socket.send(JSON.stringify(message))
 }
 
-function updateUIUserList(message) {
+function updateUserChatUserList(message) {
     console.debug(message);
     const userList = message;
 
@@ -80,6 +80,25 @@ function updateUIUserList(message) {
 
     console.log('Populating user list...');
     const userListElement = $('#userList ul');
+    userListElement.empty(); // Clear the existing user list
+
+    userList.forEach(user => {
+        const { username, color } = user;
+        const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${username}</li>`;
+        userListElement.append(listItem);
+    });
+}
+
+function updateAIChatUserList(message) {
+    console.debug(message);
+    const userList = message;
+    if (!userList || userList.length === 0) {
+        console.log('Saw an empty or undefined AI Chat userList or userList, aborting update');
+        return;
+    }
+
+    console.log('Populating AI Chat user list...');
+    const userListElement = $('#AIChatUserList ul');
     userListElement.empty(); // Clear the existing user list
 
     userList.forEach(user => {
@@ -197,7 +216,7 @@ async function processConfirmedConnection(parsedMessage) {
 
     $("#chat").empty();
     $("#AIchat").empty();
-    updateUIUserList(userList);
+    updateUserChatUserList(userList);
 
     if (chatHistory) {
         const trimmedChatHistoryString = chatHistory.trim();
@@ -271,7 +290,7 @@ async function connectWebSocket(username) {
             case 'userConnect':
             case 'userDisconnect':
                 const userList = parsedMessage.userList;
-                updateUIUserList(userList);
+                updateUserChatUserList(userList);
                 break;
             case 'forceDisconnect':
                 disconnectWebSocket();
@@ -325,6 +344,7 @@ async function connectWebSocket(username) {
 
 
                 $("#AIchat").empty();
+                $("#AIChatUserList ul").empty();
                 let pastChatHistory = parsedMessage.pastChatHistory;
                 let sessionID = parsedMessage.sessionID
                 $("#pastChatsList .activeChat").removeClass('activeChat')
@@ -346,7 +366,7 @@ async function connectWebSocket(username) {
                 $("#showPastChats").trigger('click')
             default:
                 console.log('saw chat message')
-                var { chatID, username, content, userColor, workerName, hordeModel, kudosCost } = JSON.parse(message);
+                var { chatID, username, content, userColor, workerName, hordeModel, kudosCost, AIChatUserList } = JSON.parse(message);
                 console.log(`saw chat message: [${chatID}]${username}:${content}`)
                 const HTMLizedMessage = converter.makeHtml(content);
                 const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
@@ -359,6 +379,9 @@ async function connectWebSocket(username) {
                 $(`div[data-chat-id="${chatID}"]`).append(newChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
                 if (chatID === 'AIChat') {
                     $("#showPastChats").trigger('click') //autoupdate the past chat list with each AI chat message
+                }
+                if (chatID === 'AIChat') {
+                    updateAIChatUserList(AIChatUserList)
                 }
                 break;
 

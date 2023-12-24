@@ -32,7 +32,9 @@ async function createTables() {
         message_id INTEGER PRIMARY KEY,
         session_id INTEGER,
         user_id TEXT,
+        username TEXT,
         message TEXT,
+        entity TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (session_id) REFERENCES sessions(session_id),
         FOREIGN KEY (user_id) REFERENCES users(user_id)
@@ -161,7 +163,7 @@ async function removeLastAIChatMessage() {
 }
 
 // Write an AI chat message to the database
-async function writeAIChatMessage(userId, message) {
+async function writeAIChatMessage(username, userId, message, entity) {
     console.log('Writing AI chat message to database...');
     const db = await dbPromise;
     try {
@@ -175,7 +177,7 @@ async function writeAIChatMessage(userId, message) {
         } else {
             sessionId = row.session_id;
         }
-        await db.run('INSERT INTO aichats (session_id, user_id, message) VALUES (?, ?, ?)', [sessionId, userId, message]);
+        await db.run('INSERT INTO aichats (session_id, user_id, message, username, entity) VALUES (?, ?, ?, ?, ?)', [sessionId, userId, message, username, entity]);
         console.debug('An AI chat message was inserted');
     } catch (err) {
         console.error('Error writing AI chat message:', err);
@@ -247,12 +249,7 @@ async function readAIChat(sessionID = null) {
     try {
         const rows = await db.all(`
             SELECT 
-                CASE 
-                    WHEN u.user_id IS NULL THEN 
-                        (SELECT c.displayname FROM characters c WHERE c.char_id = a.user_id)
-                    ELSE 
-                        u.username
-                END AS username,
+                a.username,
                 a.message,
                 CASE
                     WHEN u.user_id IS NULL THEN 
@@ -260,7 +257,8 @@ async function readAIChat(sessionID = null) {
                     ELSE 
                         u.username_color
                 END AS userColor,
-                a.message_id
+                a.message_id,
+                a.entity
             FROM aichats a
             LEFT JOIN users u ON a.user_id = u.user_id
             ${sessionWhereClause}
@@ -272,7 +270,8 @@ async function readAIChat(sessionID = null) {
             username: row.username,
             content: row.message,
             userColor: row.userColor,
-            messageID: row.message_id
+            messageID: row.message_id,
+            entity: row.entity
         })));
 
         // Update the active session if sessionID is provided

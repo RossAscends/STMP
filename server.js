@@ -640,13 +640,11 @@ async function handleConnections(ws, type, request) {
 
 
             if (parsedMessage.type === 'usernameChange') {
-                const oldName = parsedMessage.oldName;
-                connectedUsers = connectedUsers.filter(username => username !== oldName);
-                ws.username = parsedMessage.newName
-                connectedUsers.push(parsedMessage.newName)
+                clientsObject[uuid].username = parsedMessage.newName;
+                updateConnectedUsers()
                 const nameChangeNotification = {
                     type: 'userChangedName',
-                    content: `[System]: ${oldName} >>> ${parsedMessage.newName}`
+                    content: `[System]: ${parsedMessage.oldName} >>> ${parsedMessage.newName}`
                 }
                 //console.log(nameChangeNotification)
                 console.log('sending notification of username change')

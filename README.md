@@ -148,8 +148,9 @@ The host will see the following controls for:
 ### Low-priority but Nice-to-have Features
 
 - Multiple AI characters active at once (group chats)
-- Download chats as text or JSON?
+- Download chats as text, JSON, or SillyTavern-compatible JSONL?
 - UI themes?
 - Names in UserList match colors in chat
 - Updated list of active entities in AI Chat (based on contents of last prompt?)
 - Custom API endpoint selection (for OAI-compatible text completion APIs)
+- Bridge extension for SillyTavern to enable intra-server communication.

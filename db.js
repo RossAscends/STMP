@@ -125,6 +125,26 @@ async function getPastChats(type) {
     }
 }
 
+async function deletePastChat(sessionID) {
+    console.log(`Deleting AI Chat session ${sessionID}...`);
+    const db = await dbPromise;
+    let wasActive = false;
+    try {
+        const row = await db.get('SELECT * FROM sessions WHERE session_id = ?', [sessionID]);
+        if (row) {
+            await db.run('DELETE FROM aichats WHERE session_id = ?', [sessionID]);
+            if (row.is_active) {
+                wasActive = true;
+            }
+            await db.run('DELETE FROM sessions WHERE session_id = ?', [row.session_id]);
+            console.debug(`Session ${sessionID} was deleted`);
+        }
+        return ['ok', wasActive];
+    } catch (err) {
+        console.error('Error deleting session:', err);
+    }
+}
+
 async function readUserChat() {
     console.log('Reading user chat...');
     const db = await dbPromise;
@@ -279,8 +299,12 @@ async function readAIChat(sessionID = null) {
             await db.run('UPDATE sessions SET is_active = FALSE');
             await db.run('UPDATE sessions SET is_active = TRUE WHERE session_id = ?', [sessionID]);
         }
+        if (sessionID === null) { //happens when loading initial AIchat on page load
+            return result;
+        } else { //happens when user loads a past chat later.
+            return [result, sessionID];
+        }
 
-        return result;
     } catch (err) {
         console.error('An error occurred while reading from the database:', err);
         throw err;
@@ -323,5 +347,6 @@ module.exports = {
     removeLastAIChatMessage: removeLastAIChatMessage,
     getPastChats: getPastChats,
     deleteMessage: deleteMessage,
-    getMessage: getMessage
+    getMessage: getMessage,
+    deletePastChat: deletePastChat
 };

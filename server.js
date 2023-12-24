@@ -398,6 +398,7 @@ async function handleConnections(ws, type, request) {
     }
 
     //send connection confirmation along with chat history
+    //console.log(connectionConfirmedMessage)
     ws.send(JSON.stringify(connectionConfirmedMessage))
     //broadcastUserList()
 
@@ -579,14 +580,30 @@ async function handleConnections(ws, type, request) {
                     return
                 }
                 else if (parsedMessage.type === 'loadPastChat') {
-                    const pastChat = await db.readAIChat(parsedMessage.session)
+                    const [pastChat, sessionID] = await db.readAIChat(parsedMessage.session)
                     let jsonArray = JSON.parse(pastChat)
                     const pastChatsLoadMessage = {
                         type: 'pastChatToLoad',
-                        pastChatHistory: jsonArray
+                        pastChatHistory: jsonArray,
+                        sessionID: sessionID
                     }
                     await broadcast(pastChatsLoadMessage)
                     return
+                }
+                else if (parsedMessage.type === 'pastChatDelete') {
+                    const sessionID = parsedMessage.sessionID
+                    let [result, wasActive] = await db.deletePastChat(sessionID)
+                    console.log(result, wasActive)
+                    if (result === 'ok') {
+                        const pastChatsDeleteConfirmation = {
+                            type: 'pastChatDeleted',
+                            wasActive: wasActive
+                        }
+                        await broadcast(pastChatsDeleteConfirmation)
+                        return
+                    } else {
+                        return
+                    }
                 }
             }
             //process universal message types

@@ -436,8 +436,13 @@ function connectWebSocket() {
                 break;
             case 'pastChatToLoad':
                 console.log('loading past chat session');
+
+
                 $("#AIchat").empty();
                 let pastChatHistory = parsedMessage.pastChatHistory;
+                let sessionID = parsedMessage.sessionID
+                $("#pastChatsList .activeChat").removeClass('activeChat')
+                $("#pastChatsList").find(`div[data-session_id="${sessionID}"]`).addClass('activeChat')
                 pastChatHistory.forEach((obj) => {
                     let username = obj.username;
                     let userColor = obj.userColor;
@@ -447,7 +452,12 @@ function connectWebSocket() {
                     $("#AIchat").append(newDiv);
                 });
                 break;
-
+            case 'pastChatDeleted':
+                let wasActive = parsedMessage?.wasActive
+                if (wasActive) {
+                    $("#clearAIChat").trigger('click')
+                }
+                $("#showPastChats").trigger('click')
             default:
                 console.log('saw chat message')
                 var { chatID, username, content, userColor, workerName, hordeModel, kudosCost } = JSON.parse(message);
@@ -461,13 +471,22 @@ function connectWebSocket() {
                 }
                 console.log('appending new mesage to chat')
                 $(`div[data-chat-id="${chatID}"]`).append(newChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
+                if (chatID === 'AIChat') {
+                    $("#showPastChats").trigger('click') //autoupdate the past chat list with each AI chat message
+                }
                 break;
+
         }
     });
 }
 
 function showPastChats(chatList) {
     $("#pastChatsList").empty();
+    console.log(Object.keys(chatList).length)
+    if (Object.keys(chatList).length === 0) {
+        $("#pastChatsList").html('<span class="flexbox Hcentered" style="margin-left: -15px;">No past chats yet!</span>')
+        return
+    }
     let JSONChatList = chatList;
 
     for (let sessionID in JSONChatList) {
@@ -475,21 +494,40 @@ function showPastChats(chatList) {
             let item = JSONChatList[sessionID];
 
             // Create a new div element for each item
-            var divElement = $(`<div class="pastChatItem transition250 flexbox flexFlowCol" data-session_id="${item.session_id}">`);
+            var divElement = $(`<div class="pastChatItem flexbox transition250" data-session_id="${item.session_id}">`);
+            if (item.is_active) {
+                divElement.addClass('activeChat')
+            }
             var timestamp = item.latestTimestamp;
 
             // Format the timestamp
             var formattedTimestamp = formatSQLTimestamp(timestamp);
 
             // Set the session_id as the text content of the div
-            var sessionText = $(`<span>`).text(`${item.aiName} (${item.messageCount})`);
+
+            var sessionText = $('<span>').text(`${item.aiName} (${item.messageCount})`);
+            var nameAndTimestampDiv = $(`<div data-session_id="${item.session_id}" class="pastChatInfo flexbox flexFlowCol flex1">`)
             var timestampText = $(`<small>`).text(`${formattedTimestamp}`);
-            divElement.append(sessionText).append(timestampText);
+            var delButton = $(`<button data-session_id="${item.session_id}" class="pastChatDelButton opacityHalf bgTransparent">🗑️</button>`)
+            divElement.append(nameAndTimestampDiv).append(delButton);
+            nameAndTimestampDiv.append(sessionText).append(timestampText)
             $('#pastChatsList').append(divElement);
         }
     }
 
-    $(".pastChatItem").off('click').on('click', function () {
+    $('.pastChatDelButton').off('click').on('click', function (e) {
+        e.preventDefault()
+        let sessionID = $(this).data('session_id')
+        console.log(sessionID)
+        const pastChatDelMessage = {
+            type: 'pastChatDelete',
+            UUID: myUUID,
+            sessionID: sessionID
+        }
+        messageServer(pastChatDelMessage)
+    })
+
+    $(".pastChatInfo").off('click').on('click', function () {
         console.log(`requesting to load chat from session ${$(this).data('session_id')}...`)
         const pastChatListRequest = {
             UUID: myUUID,

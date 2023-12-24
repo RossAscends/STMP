@@ -442,6 +442,14 @@ input::placeholder {
     width: 100%
 }
 
+.pastChatItem.activeChat {
+    background-color: #383e5e;
+}
+
+.pastChatItem.activeChat:hover {
+    background-color: #2e3b80;
+}
+
 #pastChatsList:hover {
     /* this makes the scrollbar fade in */
     background-color: #1e1f23;
@@ -616,6 +624,14 @@ hr {
 
 .bgTransparent {
     background-color: transparent;
+}
+
+.opacityHalf {
+    filter: opacity(0.5);
+}
+
+.opacityHalf:hover {
+    filter: opacity(1)
 }
 
 .greyscale:hover,

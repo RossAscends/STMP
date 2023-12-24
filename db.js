@@ -18,6 +18,13 @@ async function createTables() {
         last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    //user roles table
+    await db.run(`CREATE TABLE IF NOT EXISTS user_roles (
+        user_id TEXT,
+        role TEXT DEFAULT 'user',
+        FOREIGN KEY (user_id) REFERENCES users(user_id)
+    )`);
+
     // Characters table
     await db.run(`CREATE TABLE IF NOT EXISTS characters (
         char_id TEXT UNIQUE PRIMARY KEY,
@@ -228,6 +235,17 @@ async function upsertUser(uuid, username, color) {
     }
 }
 
+async function upsertUserRole(uuid, role) {
+    console.log('Upserting user role...');
+    const db = await dbPromise;
+    try {
+        await db.run('INSERT OR REPLACE INTO user_roles (user_id, role) VALUES (?, ?)', [uuid, role]);
+        console.debug('A user role was upserted');
+    } catch (err) {
+        console.error('Error writing user role:', err);
+    }
+}
+
 // Create or update the character in the database
 async function upsertChar(uuid, displayname, color) {
     console.log('Upserting character...');
@@ -240,12 +258,12 @@ async function upsertChar(uuid, displayname, color) {
     }
 }
 
-// Get user info from the database
+// Get user info from the database, including the role
 async function getUser(uuid) {
     console.log('Getting user...');
     const db = await dbPromise;
     try {
-        return await db.get('SELECT * FROM users WHERE user_id = ?', uuid);
+        return await db.get('SELECT u.user_id, u.username, u.username_color, u.created_at, u.last_seen_at, ur.role FROM users u LEFT JOIN user_roles ur ON u.user_id = ur.user_id WHERE u.user_id = ?', [uuid]);
     } catch (err) {
         console.error('Error getting user:', err);
         throw err;
@@ -368,5 +386,6 @@ module.exports = {
     deleteMessage: deleteMessage,
     getMessage: getMessage,
     deletePastChat: deletePastChat,
-    getUserColor: getUserColor
+    getUserColor: getUserColor,
+    upsertUserRole: upsertUserRole
 };

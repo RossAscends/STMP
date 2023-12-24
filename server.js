@@ -385,6 +385,7 @@ async function handleConnections(ws, type, request) {
     };
 
     await db.upsertUser(uuid, thisUserUsername, thisUserColor);
+    await db.upsertUserRole(uuid, type);
     console.log(`Adding ${thisUserUsername} to connected user list..`)
     updateConnectedUsers()
     console.log('CONNECTED USERS')

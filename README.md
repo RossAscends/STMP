@@ -136,22 +136,19 @@ The host will see the following controls for:
 ### Core Functionality
 
 - Smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
-- Display character's first message in AI Chat (currently it's added silently to prompt on first generation)
 
 ### Host Controls
 
 - Toggle for locking AI chat for users? (this is already kind of done with AutoResponse off)
 - Drag-sort list to set User Turn Order for AI chatting?
-- Move API parameter creation fully into the server
 - Allow API key/Authentication information to be set via the UI.
-- Ability to rename or delete past chats.
+- Ability to rename chats.
 
 ### Low-priority but Nice-to-have Features
 
 - Multiple AI characters active at once (group chats)
 - Download chats as text, JSON, or SillyTavern-compatible JSONL?
 - UI themes?
-- Names in UserList match colors in chat
 - Updated list of active entities in AI Chat (based on contents of last prompt?)
 - Custom API endpoint selection (for OAI-compatible text completion APIs)
 - Bridge extension for SillyTavern to enable intra-server communication.

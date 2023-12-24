@@ -509,6 +509,23 @@ async function handleConnections(ws, type, request) {
                         type: 'clearAIChat'
                     }
                     await broadcast(clearAIChatInstruction);
+                    let charFile = liveConfig.selectedCharacter
+                    console.log(`selected character: ${charFile}`)
+                    let cardData = await charaRead(charFile, 'png')
+                    let cardJSON = JSON.parse(cardData)
+                    let firstMes = cardJSON.first_mes
+                    let charName = cardJSON.name
+                    firstMes = replaceMacros(firstMes)
+                    const newAIChatFirstMessage = {
+                        type: 'chatMessage',
+                        chatID: 'AIChat',
+                        content: firstMes,
+                        username: charName
+                    }
+                    console.log('adding the first mesage to the chat file')
+                    await db.writeAIChatMessage(charName, charName, firstMes, 'AI');
+                    console.log(`Sending ${charName}'s first message to AI Chat..`)
+                    await broadcast(newAIChatFirstMessage)
                     return
                 }
                 else if (parsedMessage.type === 'deleteLast') {
@@ -986,6 +1003,13 @@ async function setStopStrings(APICallParams) {
     return APICallParams
 }
 
+function replaceMacros(string, username, charname) {
+    var replacedString = string.replace(/{{user}}/g, username);
+    replacedString = replacedString.replace(/{{char}}/g, charname);
+
+    return replacedString
+}
+
 async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username) {
     return new Promise(async function (resolve, reject) {
         try {
@@ -996,14 +1020,12 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
             const jsonData = JSON.parse(charData)
             const charName = jsonData.name
             const jsonString = JSON.stringify(jsonData);
-            var replacedString = jsonString.replace(/{{user}}/g, username);
-            replacedString = replacedString.replace(/{{char}}/g, jsonData.name);
+            let replacedString = replaceMacros(jsonString, username, jsonData.name)
             const replacedData = JSON.parse(replacedString);
 
             //replace {{user}} and {{char}} for D1JB
-            var D1JB = liveConfig.D1JB || ''
-            var replacedD1JB = D1JB.replace(/{{user}}/g, username);
-            replacedD1JB = replacedD1JB.replace(/{{char}}/g, jsonData.name);
+            var D1JB = replaceMacros(liveConfig.D1JB, username, jsonData.name) || ''
+
 
             const instructSequence = JSON.parse(liveConfig.instructSequences)
             const inputSequence = instructSequence.input_sequence
@@ -1014,7 +1036,7 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
 
             //add the char description, personality, scenario, and first message
             var stringToReturn =
-                `${systemSequence}${systemMessage}\n${replacedData?.description}\n${replacedData?.personality.trim()}\n${replacedData?.scenario.trim()}${endSequence}${outputSequence}${replacedData.name.trim()}: ${replacedData?.first_mes.trim()}\n${endSequence}`
+                `${systemSequence}${systemMessage}\n${replacedData?.description}\n${replacedData?.personality.trim()}\n${replacedData?.scenario.trim()}${endSequence}`
             //add the chat history
             let promptTokens = countTokens(stringToReturn)
             //console.log(`before adding ChatHIstory, Prompt is: ~${promptTokens}`)
@@ -1041,7 +1063,7 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
             let insertedChatHistory = reversedItems.join('');
             stringToReturn += insertedChatHistory
             //add the final first mes and userInput        
-            stringToReturn += `${systemSequence}${replacedD1JB}\n${endSequence}`
+            stringToReturn += `${systemSequence}${D1JB}\n${endSequence}`
             stringToReturn += `${outputSequence}${lastUserMesageAndCharName.trim()}`;
             stringToReturn = stringToReturn.trim()
             resolve(stringToReturn);

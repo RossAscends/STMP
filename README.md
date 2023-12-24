@@ -143,6 +143,7 @@ The host will see the following controls for:
 - Toggle for locking AI chat for users? (this is already kind of done with AutoResponse off)
 - Drag-sort list to set User Turn Order for AI chatting?
 - Move API parameter creation fully into the server
+- Allow API key/Authentication information to be set via the UI.
 
 ### Low-priority but Nice-to-have Features
 
@@ -151,3 +152,4 @@ The host will see the following controls for:
 - UI themes?
 - Names in UserList match colors in chat
 - Updated list of active entities in AI Chat (based on contents of last prompt?)
+- Custom API endpoint selection (for OAI-compatible text completion APIs)

@@ -75,19 +75,16 @@ This must be done AFTER completing all installation steps above.
 
 ## Use
 
-### Adding Characters
+### Managing Characters
 
 - Place any SillyTavern compatible character card into the `/characters/` folder and refresh the page.
-- Character can be selected at the top left of the AI Chat panel.
+- Character can be selected at the top of the AI Chat panel.
 - If new characters are added while the server is running, the Host must refresh their browser page to see them.
-
-### Changing Characters
-
 - the AI character can be changed at any time without resetting the chat.
 
 ### Adding Presets
 
-- If you want to add more presets for Instruct formats or hyperparameter Samplers, drop the JSON file into the appropciate folder
+- If you want to add more presets for Instruct formats or hyperparameter Samplers, put the JSON file into the appropciate folder:
 - Samplers go in `/public/api-presets/`
 - Instruct formats go in`/public/instructFormats/`
 - It's highly reccomended to review the structure of the default STMP preset files.
@@ -129,16 +126,17 @@ The host will see the following controls for:
 
 ### Changing usernames
 
-Use the text boxes at the top of the screen to change your username(s) at any time.
-You can have a different name for the User Chat and AI Chat.
-Usernames are stored in browser localStorage, and can be cleared using the red icon (⛔) button at the top right.
+- Use the text boxes at the top of the screen to change your username(s) at any time.
+- You can have a different name for the User Chat and AI Chat.
+- Usernames are stored in browser localStorage.
+- Saved Usernames anad UniqueID can cleared by clicking the (⛔) button at the top of User Chat.
 
 ## Planned Features
 
 ### Core Functionality
 
 - Smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
-- Display character's first message into the chat display (currently it's added silently to prompt on first generation)
+- Display character's first message in AI Chat (currently it's added silently to prompt on first generation)
 
 ### Host Controls
 
@@ -149,7 +147,7 @@ Usernames are stored in browser localStorage, and can be cleared using the red i
 ### Low-priority but Nice-to-have Features
 
 - Multiple AI characters active at once (group chats)
-- Exporting/download chats as text or JSON?
+- Download chats as text or JSON?
 - UI themes?
-- names in UserList match colors in chat
-- list of active entities in AI Chat (based on contents of last prompt?)
+- Names in UserList match colors in chat
+- Updated list of active entities in AI Chat (based on contents of last prompt?)

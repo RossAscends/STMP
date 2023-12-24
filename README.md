@@ -10,7 +10,7 @@ If this software brings you and your friend's joy, donations to Ross can be made
   <tr>
     <td>
   <a href="https://ko-fi.com/rossascends" target="_blank"><img src="https://files.catbox.moe/ktbc70.png" style="height:3em;"></a><br>
-<a href="https://ko-fi.com/rossascends" target="_blank">Ko-fi</a>      
+<a href="https://ko-fi.com/rossascends" target="_blank">Ko-fi</a>
     </td>
     <td>
   <a href="https://www.patreon.com/RossAscends" target="_blank"><img src="https://files.catbox.moe/qqncsx.png" style="height:3em;"></a><br>
@@ -18,7 +18,6 @@ If this software brings you and your friend's joy, donations to Ross can be made
     </td>
   </tr>
 </table>
-
 
 For tech support or to contact RossAscends directly, join the [SillyTavern Discord](https://discord.gg/sillytavern).
 
@@ -86,37 +85,60 @@ This must be done AFTER completing all installation steps above.
 
 - the AI character can be changed at any time without resetting the chat.
 
+### Adding Presets
+
+- If you want to add more presets for Instruct formats or hyperparameter Samplers, drop the JSON file into the appropciate folder
+- Samplers go in `/public/api-presets/`
+- Instruct formats go in`/public/instructFormats/`
+- It's highly reccomended to review the structure of the default STMP preset files.
+- SillyTavern preset files may not work, or may have unintended effects!
+
 ### Chatting
 
 - Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button (✏️), or pressing Enter.
 - `Shift+Enter` can be used to add newlines to the input.
 - [Markdown formatting](https://github.com/showdownjs/showdown/wiki/Showdown%27s-Markdown-syntax) is respected.
 - Pressing the retry button (🔄) will remove the last chat message and prompt the AI character to give a new response.
+- Manual disconnect/reconnect via the (▶️/⏸️) button at the top right.
 
 ### Hosting
 
-The host will see controls on the left for:
+The host will see the following controls for:
 
-- Changing API controls such as: API (Tabby(🐈) or horde(🧟)), context size, response length, Sampler presets, Instruct formats
-- Changing the active AI character
-- Manually triggering an AI response without user Input (🤖💬)
-- Toggle to determine whether the AI should respond to every user input (AutoResponse)
-- Clearing either chat windows (🗑️)
+#### Control Panel (left side)
+
+- Changing API controls such as: `API` (Tabby(🐈) or HordeAI(🧟)), `Context` size, `Response` length, `Sampler` presets, `Instruct` formats
+- `AutoAI` Toggle to determine whether the AI should respond to every user input, or only on command from the Host.
+- A text box to define the `Final Instruction` to send as system at Depth 1 in the prompt.
+- A list of past AI Chats, click to load one.
+- A (🔄) button to refresh the past AI Chats List.
+- *the Control Panel can be hidden with the arrow button (◀️) at the top left.*
+
+#### AI Chat Header
+
+- A selector to set the active AI character
+
+#### In the Chat Windows
+
+- Trashcan button (🗑️) to clear either chat.
+
+#### AI Chat Input Bar
+
+- Manually triggering an AI response without user Input (🤖)
 - Deleting the last message in the AI Chat (✂️)
-- A text box to define the final Instruction to send as system at Depth 1 in the prompt.
 
 ### Changing usernames
 
 Use the text boxes at the top of the screen to change your username(s) at any time.
 You can have a different name for the User Chat and AI Chat.
-Usernames are stored in browser localStorage, and can be cleared using the inverted pencil (✏️) button at the top right.
+Usernames are stored in browser localStorage, and can be cleared using the red icon (⛔) button at the top right.
 
 ## Planned Features
 
 ### Core Functionality
 
 - Smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
-- Ability to load old chat files
+- Display character's first message into the chat display (currently it's added silently to prompt on first generation)
 
 ### Host Controls
 
@@ -127,5 +149,7 @@ Usernames are stored in browser localStorage, and can be cleared using the inver
 ### Low-priority but Nice-to-have Features
 
 - Multiple AI characters active at once (group chats)
-- Exporting chat files as text or JSON?
-- UI themes
+- Exporting/download chats as text or JSON?
+- UI themes?
+- names in UserList match colors in chat
+- list of active entities in AI Chat (based on contents of last prompt?)

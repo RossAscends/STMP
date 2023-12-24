@@ -144,6 +144,7 @@ The host will see the following controls for:
 - Drag-sort list to set User Turn Order for AI chatting?
 - Move API parameter creation fully into the server
 - Allow API key/Authentication information to be set via the UI.
+- Ability to rename or delete past chats.
 
 ### Low-priority but Nice-to-have Features
 

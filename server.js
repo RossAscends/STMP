@@ -518,12 +518,14 @@ async function handleConnections(ws, type, request) {
                     let cardJSON = JSON.parse(cardData)
                     let firstMes = cardJSON.first_mes
                     let charName = cardJSON.name
+                    let charColor = await db.getCharacterColor(charName)
                     firstMes = replaceMacros(firstMes)
                     const newAIChatFirstMessage = {
                         type: 'chatMessage',
                         chatID: 'AIChat',
                         content: firstMes,
-                        username: charName
+                        username: charName,
+                        AIChatUserList: [{ username: charName, color: charColor }]
                     }
                     console.log('adding the first mesage to the chat file')
                     await db.writeAIChatMessage(charName, charName, firstMes, 'AI');
@@ -593,13 +595,14 @@ async function handleConnections(ws, type, request) {
                             'username': parsedMessage.username,
                             'content': '',
                         }
-                        let AIResponse = await getAIResponse()
+                        let [AIResponse, AIChatUserList] = await getAIResponse()
                         const AIResponseMessage = {
                             chatID: parsedMessage.chatID,
                             content: AIResponse,
                             username: `${liveConfig.selectedCharDisplayName}`,
                             type: 'AIResponse',
-                            userColor: userColor
+                            userColor: userColor,
+                            AIChatUserList: AIChatUserList
                         }
                         broadcast(AIResponseMessage)
                         return
@@ -698,13 +701,14 @@ async function handleConnections(ws, type, request) {
                         await broadcast(userPrompt)
                     }
                     if (liveConfig.isAutoResponse || isEmptyTrigger) {
-                        let AIResponse = await getAIResponse()
+                        let [AIResponse, AIChatUserList] = await getAIResponse()
                         const AIResponseMessage = {
                             chatID: parsedMessage.chatID,
                             content: AIResponse,
                             username: `${liveConfig.selectedCharDisplayName}`,
                             type: 'AIResponse',
-                            userColor: parsedMessage.userColor
+                            userColor: parsedMessage.userColor,
+                            AIChatUserList: AIChatUserList
                         }
                         broadcast(AIResponseMessage)
 
@@ -758,7 +762,7 @@ async function handleConnections(ws, type, request) {
                     //a careful observer might notice that we don't set the userInput string into the 'prompt' section of the API Params at this point.
                     //this is because the userInput has already been saved into the chat session, and the next function will read 
                     //that file and parse the contents from there. All we need to do is pass the cardDefs, charName. and userName.
-                    const fullPromptforAI = await addCharDefsToPrompt(charFile, fixedFinalCharName, parsedMessage.username)
+                    const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(charFile, fixedFinalCharName, parsedMessage.username)
                     const samplers = JSON.parse(liveConfig.samplers);
                     //apply the selected preset values to the API call
                     for (const [key, value] of Object.entries(samplers)) {
@@ -774,7 +778,9 @@ async function handleConnections(ws, type, request) {
                     APICallParams.max_length = Number(liveConfig.responseLength)
 
                     //add stop strings
-                    const finalAPICallParams = await setStopStrings(APICallParams)
+                    const [finalAPICallParams, entitiesList] = await setStopStrings(APICallParams, includedChatObjects)
+
+
 
                     var AIResponse = '';
                     if (liveConfig.engineMode === 'horde') {
@@ -788,7 +794,9 @@ async function handleConnections(ws, type, request) {
                     await db.upsertChar(charName, charName, parsedMessage.userColor);
                     await db.writeAIChatMessage(charName, charName, AIResponse, 'AI');
 
-                    return AIResponse
+                    let AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
+
+                    return [AIResponse, AIChatUserList]
 
                 } catch (error) {
                     console.log(error);
@@ -810,6 +818,32 @@ async function handleConnections(ws, type, request) {
 
 };
 
+//entityList is a set of entities drawn from setStopStrings, which gathers names for all entities in the chat history.
+//chatHistoryFromPrompt is a JSON array of chat messages which made it into the prompt for the AI, as set by addCharDefsToPrompt
+//this function compares the entity username from the set against the username in the chat object arrray
+//if a match is found, the username and associated color are added into the AIChatUserList array
+//this array is returned and sent along with the AI response, in order to populate the AI Chat UserList.
+
+async function makeAIChatUserList(entitiesList, chatHistoryFromPrompt) {
+    const chatHistoryEntitiesSet = new Set(entitiesList);
+
+    const fullChatDataJSON = chatHistoryFromPrompt;
+    const AIChatUserList = [];
+
+    for (const entity of chatHistoryEntitiesSet) {
+        for (const chat of fullChatDataJSON) {
+            if (chat.username === entity) {
+                const userColor = chat.userColor;
+                AIChatUserList.push({ username: entity, color: userColor });
+                break; // Once a match is found, no need to continue the inner loop
+            }
+        }
+    }
+
+    console.log(`Latest AI Chat User List:`);
+    console.log(AIChatUserList);
+    return AIChatUserList;
+}
 
 function countTokens(str) {
     let chars = str.length
@@ -975,9 +1009,11 @@ async function ObjectifyChatHistory() {
     });
 }
 
-async function setStopStrings(APICallParams) {
+async function setStopStrings(APICallParams, includedChatObjects) {
 
-    let chatHistory = await ObjectifyChatHistory();
+    //an array of chat message objects which made it into the AI prompt context limit
+    let chatHistory = includedChatObjects;
+    //create a set of usernames to pass back for processing for AIChat UserList
     let usernames = new Set();
 
     // Iterate over chatHistory and extract unique usernames
@@ -988,6 +1024,7 @@ async function setStopStrings(APICallParams) {
     let targetObj = []
 
     // Generate permutations for each unique username
+    //TODO: find a sensible way to optimize this. 4 strings per entity is a lot..
     for (const username of usernames) {
         targetObj.push(
             `${username}:`,
@@ -1002,8 +1039,7 @@ async function setStopStrings(APICallParams) {
     } else {
         APICallParams.params.stop_sequence = targetObj
     }
-
-    return APICallParams
+    return [APICallParams, usernames]
 }
 
 function replaceMacros(string, username, charname) {
@@ -1018,6 +1054,7 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
         try {
             let charData = await charaRead(charFile, 'png')
             let chatHistory = await ObjectifyChatHistory()
+            let ChatObjsInPrompt = []
 
             //replace {{user}} and {{char}} for character definitions
             const jsonData = JSON.parse(charData)
@@ -1056,6 +1093,7 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
                 let newItemTokens = countTokens(newItem);
                 if (promptTokens + newItemTokens < liveConfig.contextSize) {
                     promptTokens += newItemTokens;
+                    ChatObjsInPrompt.push(obj)
                     //console.log(`added new item, prompt tokens: ~${promptTokens}`);
                     insertedItems.push(newItem); // Add new item to the array
                 }
@@ -1069,7 +1107,7 @@ async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username
             stringToReturn += `${systemSequence}${D1JB}\n${endSequence}`
             stringToReturn += `${outputSequence}${lastUserMesageAndCharName.trim()}`;
             stringToReturn = stringToReturn.trim()
-            resolve(stringToReturn);
+            resolve([stringToReturn, ChatObjsInPrompt]);
         } catch (error) {
             console.error('Error reading file:', error);
             reject(error)

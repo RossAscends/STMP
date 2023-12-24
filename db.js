@@ -359,6 +359,25 @@ async function getUserColor(UUID) {
     }
 }
 
+async function getCharacterColor(charName) {
+    console.debug('Getting character color...');
+    const db = await dbPromise;
+    try {
+        const row = await db.get('SELECT display_color FROM characters WHERE char_id = ?', [charName]);
+        if (row) {
+            const charColor = row.display_color;
+            console.log(`User color: ${charColor}`);
+            return charColor;
+        } else {
+            console.log(`Character not found for: ${charName}`);
+            return null;
+        }
+    } catch (err) {
+        console.error('Error getting user color:', err);
+        throw err;
+    }
+}
+
 async function getMessage(messageID) {
     console.log('Getting message...');
     const db = await dbPromise;
@@ -387,5 +406,6 @@ module.exports = {
     getMessage: getMessage,
     deletePastChat: deletePastChat,
     getUserColor: getUserColor,
-    upsertUserRole: upsertUserRole
+    upsertUserRole: upsertUserRole,
+    getCharacterColor: getCharacterColor
 };

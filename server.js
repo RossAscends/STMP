@@ -514,7 +514,7 @@ async function handleConnections(ws, type, request) {
                     let firstMes = cardJSON.first_mes
                     let charName = cardJSON.name
                     let charColor = await db.getCharacterColor(charName)
-                    firstMes = api.replaceMacros(firstMes)
+                    firstMes = api.replaceMacros(firstMes, thisUserUsername, charName)
                     const newAIChatFirstMessage = {
                         type: 'chatMessage',
                         chatID: 'AIChat',

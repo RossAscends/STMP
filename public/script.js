@@ -80,7 +80,11 @@ dummyElement.remove();
 
 var hostname = window.location.hostname;
 var port = window.location?.port;
-var wsType = window.location.hostname === (`localhost` || `127.0.0.1`) ? 'ws' : 'wss'
+//var wsType = window.location.hostname === (`localhost` || `127.0.0.1`) ? 'ws' : 'wss'
+
+//disclaimer: this works, but i can't speak for the robustness of this check. 
+var wsType = /[a-zA-Z]/.test(window.location.hostname) && window.location.hostname !== 'localhost' ? 'wss' : 'ws';
+console.log(`We will connect to "${wsType}" server..`)
 var serverUrl = `${wsType}://${hostname}:${port}`
 export var myUUID, myUsername
 

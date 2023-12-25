@@ -3,7 +3,7 @@ const sqlite = require('sqlite');
 
 // Connect to the SQLite database
 const dbPromise = sqlite.open({
-    filename: './stmp.db',
+    filename: '../stmp.db',
     driver: sqlite3.Database
 });
 

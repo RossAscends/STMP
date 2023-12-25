@@ -1,6 +1,8 @@
 # SillyTavern MultiPlayer (STMP)
 
-SillyTavern MultiPlayer is a multiuser LLM chat interface created by RossAscends.
+SillyTavern MultiPlayer is an LLM chat interface that allows multiple users to chat together with an AI.
+
+- Created by RossAscends.
 
 ## Support and Donations
 
@@ -41,15 +43,16 @@ For tech support or to contact RossAscends directly, join the [SillyTavern Disco
 
 ## API Setup
 
-Currently STMP supports Tabby and HordeAI, with Tabby active by default.
+Currently STMP supports Text Completions (TC) and HordeAI, with TC active by default.
 
-**NOTE:** Initial API parameters are sent by the Client and processed in the Server.
+### Using Text Completions
 
-### Using Tabby
-
-- Obviously, the host must have Tabby installed and working on their device. Instructions for this can be found on the [TabbyAPI Github](https://github.com/theroyallab/tabbyAPI).
-- STMP assumes the default server URL of `http://127.0.0.1:5000/v1/completions` for Tabby requests.
-- Copy the TabbyAPI key from the Tabby console and paste it into `secrets.json`.
+- Obviously, the host must have a Text Completions compatible backend installed and working on their device.
+- [TabbyAPI](https://github.com/theroyallab/tabbyAPI) and [KoboldCPP](https://github.com/LostRuins/koboldcpp) are confirmed to work with STMP's TC API mode.
+- STMP assumes the default server URL of `http://127.0.0.1:5000/v1/completions` for TC requests.
+- **KoboldCPP should be run with the --multiUser flag enabled.**
+- If your TC API requires a key, paste it into `secrets.json`.
+- Other OpenAI-compatible TC APIs are being tested.
 
 ### Using Horde
 
@@ -62,15 +65,15 @@ Currently STMP supports Tabby and HordeAI, with Tabby active by default.
 ### Changing API
 
 - The Host can click the emoji icon at the top left to change which API is used.
-- 🐈 = Tabby text completions
+- 📑 = Text Completions
 - 🧟 = Horde
 
 ## Multiuser Setup
 
 This must be done AFTER completing all installation steps above.
 
-1. Run `Remote-Link.cmd` to download (only one time, 57MB) and run `cloudflared.exe` to get a randomly generated tunnel URL for your server.
-2. Share the generated clourflared URL with the guest users.
+1. Run `Remote-Link.cmd` to download (only one time, 57MB) and auto-run `cloudflared.exe` to get a randomly generated tunnel URL for your server.
+2. Share the generated cloudflared URL with the guest users.
 3. User will be able to directly and securely connect to your PC using the Cloudflare URL.
 
 ## Use
@@ -84,7 +87,7 @@ This must be done AFTER completing all installation steps above.
 
 ### Adding Presets
 
-- If you want to add more presets for Instruct formats or hyperparameter Samplers, put the JSON file into the appropciate folder:
+- If you want to add more presets for Instruct formats or hyperparameter Samplers, put the JSON file into the appropriate folder:
 - Samplers go in `/public/api-presets/`
 - Instruct formats go in`/public/instructFormats/`
 - It's highly reccomended to review the structure of the default STMP preset files.
@@ -95,22 +98,20 @@ This must be done AFTER completing all installation steps above.
 - Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button (✏️), or pressing Enter.
 - `Shift+Enter` can be used to add newlines to the input.
 - [Markdown formatting](https://github.com/showdownjs/showdown/wiki/Showdown%27s-Markdown-syntax) is respected.
-- Manual disconnect/reconnect via the (▶️/⏸️) button at the top right.
+- (▶️/⏸️) allows for manual disconnect/reconnect to the server.
 
 ### Hosting
 
-The host will see the following controls for:
+The host will see the following controls:
 
 #### Control Panel (left side)
 
-- Changing API controls such as: `API` (Tabby(🐈) or HordeAI(🧟)), `Context` size, `Response` length, `Sampler` presets, `Instruct` formats
-- **While in Tabby mode, any OpenAI text completetion compatible API will work as long as it's running on localhost port 5000.**
-- currently tested and working backends: KoboldCPP
+- Controls for changing API settings such as: `API` (Text Completions(📑) or HordeAI(🧟)), `Context` size, `Response` length, `Sampler` presets, and `Instruct` formats
 - `AutoAI` Toggle to determine whether the AI should respond to every user input, or only on command from the Host.
 - A text box to define the `Final Instruction` to send as system at Depth 1 in the prompt.
 - A list of past AI Chats, click to load one.
-- A (🔄) button to refresh the past AI Chats List.
-- *the Control Panel can be hidden with the arrow button (◀️) at the top left.*
+- (🔄) refreshes the Past AI Chats list (usually not necessary as it is auto-refreshed with each new AI chat message)
+- (◀️) toggles visibility of the Host Control Panel.
 
 #### AI Chat Header
 
@@ -118,32 +119,34 @@ The host will see the following controls for:
 
 #### In the Chat Windows
 
-- Trashcan button (🗑️) to clear either chat.
+- (🗑️) to clear either chat.
 
 #### Top Right
 
-- The (🔑) button will open a text box when clicked, which allows any user to input the host key to gain the Host role.
+- (🔑) opens a text box for input of the Host key in order to gain the Host role.
+- once the key has been entered, the page will automatically refresh to show the host controls.
 - **the Host key can be found in the server console at startup.**
 - After the user enters the key and presses Enter, their page will refresh and they will see the Host controls.
 
 #### AI Chat Input Bar
 
-- Manually triggering an AI response without user Input (🤖)
-- Deleting the last message in the AI Chat (✂️)
-- Pressing the retry button (🔄) will remove the last chat message and prompt the AI character to give a new response.
+- (🤖) Manually triggering an AI response without user Input
+- (✂️) Deleting the last message in the AI Chat
+- (🔄) Retry, i.e. Remove the last chat message and prompt the AI character to give a new response.
 
 ### Changing usernames
 
 - Use the text boxes at the top of the screen to change your username(s) at any time.
 - You can have a different name for the User Chat and AI Chat.
 - Usernames are stored in browser localStorage.
-- Saved Usernames anad UniqueID can cleared by clicking the (⛔) button at the top of User Chat.
+- (⛔) clears the saved Usernames and UniqueID from localStorage.
 
 ## Planned Features
 
 ### Core Functionality
 
 - Smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
+- Custom OpenAI text completion compatible API endpoint selection
 
 ### Host Controls
 
@@ -153,12 +156,12 @@ The host will see the following controls for:
 - Ability to rename chats.
 - ability to remove any message in the chat, not just the last.
 - ability to edit the text of a chat
-- ability to grant Host-like controls to a non-Host user
+- ability for Host to edit a User's role from the UI
+- ability to change the max length of chat inputs (currently 1000 characters)
 
 ### Low-priority but Nice-to-have Features
 
 - Multiple AI characters active at once (group chats)
 - Download chats as text, JSON, or SillyTavern-compatible JSONL?
 - UI themes?
-- Custom API endpoint selection (for OAI-compatible text completion APIs)
 - Bridge extension for SillyTavern to enable intra-server communication.

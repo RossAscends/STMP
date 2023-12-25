@@ -1,4 +1,6 @@
-var username, storedUsername, AIChatUsername, storedAIChatUsername, isAutoResponse
+var username, storedUsername, AIChatUsername, storedAIChatUsername, isAutoResponse, contextSize, responseLength
+
+import control from './src/controls.js'
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -60,14 +62,14 @@ var hostname = window.location.hostname;
 var port = window.location?.port;
 var wsType = window.location.hostname === (`localhost` || `127.0.0.1`) ? 'ws' : 'wss'
 var serverUrl = `${wsType}://${hostname}:${port}`
-var myUUID, myUsername
+export var myUUID, myUsername
 
 var socket = null
 var isHost
 
 var AIChatDelay, userChatDelay
 
-function messageServer(message) {
+export function messageServer(message) {
     socket.send(JSON.stringify(message))
 }
 
@@ -112,78 +114,16 @@ function updateAIChatUserList(message) {
     userListElement.empty(); // Clear the existing user list
 
     userList.forEach(user => {
-        const { username, color } = user;
-        const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${username}</li>`;
+        const { username, color, entity } = user;
+        let usernameText
+        if (entity === 'AI') {
+            usernameText = `${username} 🤖`
+        } else {
+            usernameText = username
+        }
+        const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${usernameText}</li>`;
         userListElement.append(listItem);
     });
-}
-
-function updateSelectedChar(char, displayName, type) {
-    console.debug(char, displayName)
-    $("#charName").text(displayName)
-    if (type === 'forced') { //if server ordered it
-        console.debug('changing Char from server command')
-        $("#characters").find(`option[value="${char}"]`).prop('selected', true)
-    } else { //if user did it
-        //let newChar = String($("#characters").val())
-        console.debug('I manually changed char, and updating to server')
-        let newCharDisplayName = $("#characters").find(`option[value="${char}"]`).text()
-        let changeCharacterRequest = {
-            type: 'changeCharacterRequest',
-            UUID: myUUID,
-            newChar: char,
-            newCharDisplayName: newCharDisplayName
-        }
-        messageServer(changeCharacterRequest);
-    }
-}
-
-function updateSelectedSamplerPreset(preset, type) {
-    console.debug(preset)
-    if (type === 'forced') {
-        console.debug('changing preset from server command')
-        $("#samplerPreset").find(`option[value="${preset}"]`).prop('selected', true)
-    } else {
-        console.debug('I manually changed char, and updating to server')
-        let changeSamplerPresetMessage = {
-            type: 'changeSamplerPreset',
-            UUID: myUUID,
-            newPreset: preset
-        }
-        messageServer(changeSamplerPresetMessage);
-    }
-}
-
-function updateInstructFormat(format, type) {
-    console.debug(format)
-    if (type === 'forced') {
-        console.debug('changing Instruct format from server command')
-        $("#instructStyle").find(`option[value="${format}"]`).prop('selected', true)
-    } else {
-        console.debug('I manually changed Instruct format, and updating to server')
-        let changeInstructFormatMessage = {
-            type: 'changeInstructFormat',
-            UUID: myUUID,
-            newInstructFormat: format
-        }
-        messageServer(changeInstructFormatMessage);
-    }
-}
-
-function updateD1JB(jb, type) {
-    console.debug(jb, type)
-    if (type === 'forced') {
-        console.debug('changing D1JB from server command')
-        $("#finalInstruction").val(jb)
-    } else {
-        console.debug('I manually changed D1JB, and updating to server')
-        let changeD1JBMessage = {
-            type: 'changeD1JB',
-            UUID: myUUID,
-            newD1JB: jb
-        }
-        messageServer(changeD1JBMessage);
-    }
 }
 
 async function processConfirmedConnection(parsedMessage) {
@@ -195,10 +135,12 @@ async function processConfirmedConnection(parsedMessage) {
     if (newAIChatDelay) {
         AIChatDelay = newAIChatDelay * 1000
         $("#AIChatInputDelay").val(newAIChatDelay)
+        flashElement('AIChatInputDelay', 'good')
     }
     if (newUserChatDelay) {
         userChatDelay = newUserChatDelay * 1000
         $("#UserChatInputDelay").val(newUserChatDelay)
+        flashElement('UserChatInputDelay', 'good')
     }
     myUUID = myUUID === '' ? clientUUID : myUUID;
     localStorage.setItem('UUID', myUUID);
@@ -215,21 +157,24 @@ async function processConfirmedConnection(parsedMessage) {
         }
         $(".hostControls").show()
 
-        await delay(100)
         $("#AIAutoResponse").prop('checked', isAutoResponse)
-        await delay(100)
+        flashElement('AIAutoResponse', 'good')
+
         $("#maxContext").find(`option[value="${contextSize}"]`).prop('selected', true)
-        await delay(100)
+        flashElement('maxContext', 'good')
+
         $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
-        populateCardSelector(cardList);
-        populateInstructSelector(instructList);
-        populateSamplerSelector(samplerPresetList);
+        flashElement('responseLength', 'good')
+
+        control.populateCardSelector(cardList);
+        control.populateInstructSelector(instructList);
+        control.populateSamplerSelector(samplerPresetList);
         console.log('updating UI to match server state...')
-        updateSelectedChar(selectedCharacter, selectedCharacterDisplayName, 'forced');
-        updateSelectedSamplerPreset(selectedSamplerPreset, 'forced');
-        updateInstructFormat(instructFormat, 'forced');
-        updateD1JB(D1JB, 'forced')
-        setEngineMode(engineMode);
+        control.updateSelectedChar(myUUID, selectedCharacter, selectedCharacterDisplayName, 'forced');
+        control.updateSelectedSamplerPreset(myUUID, selectedSamplerPreset, 'forced');
+        control.updateInstructFormat(myUUID, instructFormat, 'forced');
+        control.updateD1JB(myUUID, D1JB, 'forced')
+        control.setEngineMode(myUUID, engineMode);
         $("#showPastChats").trigger('click')
     } else {
         $("#controlPanel, .hostControls").remove()
@@ -305,7 +250,7 @@ async function connectWebSocket(username) {
                 });
                 break;
             case 'modeChange':
-                setEngineMode(parsedMessage.engineMode);
+                control.setEngineMode(parsedMessage.engineMode);
                 break;
             case 'userList':
             case 'userConnect':
@@ -332,34 +277,41 @@ async function connectWebSocket(username) {
                 let currentChar = $("#characters").val()
                 let newChar = parsedMessage.char
                 if (currentChar !== newChar) {
-                    updateSelectedChar(newChar, parsedMessage.charDisplayName, 'forced');
+                    control.updateSelectedChar(myUUID, newChar, parsedMessage.charDisplayName, 'forced');
                 }
                 break;
             case 'changeSamplerPreset':
                 let currentPreset = $("#samplerPreset").val()
                 let newPreset = parsedMessage.newPreset
                 if (currentPreset !== newPreset) {
-                    updateSelectedSamplerPreset(newPreset, 'forced');
+                    control.updateSelectedSamplerPreset(myUUID, newPreset, 'forced');
                 }
                 break;
             case 'changeInstructFormat':
                 let currentFormat = $("#instructStyle").val()
                 let newFormat = parsedMessage.newInstructFormat
                 if (currentFormat !== newFormat) {
-                    updateInstructFormat(newFormat, 'forced');
+                    control.updateInstructFormat(myUUID, newFormat, 'forced');
                 }
                 break;
             case 'changeD1JB':
                 let currentJB = $("#finalInstruction").val()
                 let newJB = parsedMessage.newD1JB
                 if (currentJB !== newJB) {
-                    updateD1JB(newJB, 'forced');
+                    control.updateD1JB(myUUID, newJB, 'forced');
                 }
                 break;
             case 'keyAccepted':
                 //refresh page to get new info, could be done differently in the future
+                await flashElement('roleKeyInput', 'good')
                 console.log('key accepted, refreshing page...')
                 location.reload();
+                break;
+            case 'keyRejected':
+                //refresh page to get new info, could be done differently in the future
+                console.log('key rejected')
+                $("#roleKeyInput").val('')
+                await flashElement('roleKeyInput', 'bad')
                 break;
             case 'pastChatsList':
                 let chatList = parsedMessage.pastChats
@@ -428,6 +380,7 @@ async function connectWebSocket(username) {
                     $("#showPastChats").trigger('click') //autoupdate the past chat list with each AI chat message
                 }
                 if (chatID === 'AIChat') {
+                    //console.log(AIChatUserList)
                     updateAIChatUserList(AIChatUserList)
                 }
                 break;
@@ -435,6 +388,29 @@ async function connectWebSocket(username) {
         }
     });
 }
+
+export async function flashElement(elementID, type, flashDelay = 400, times = 1) {
+    var element = $('#' + elementID);
+    let color
+    switch (type) {
+        case 'good':
+            color = '#496951'
+            break;
+        case 'bad':
+            color = '#8a4f4e'
+            break;
+        case 'warn':
+            color = '#a4a155'
+            break;
+    }
+    for (var i = 0; i < times; i++) {
+        element.css('background-color', color);
+        await delay(flashDelay);
+        element.css('background-color', '');
+        await delay(flashDelay);
+    }
+}
+
 
 function showPastChats(chatList) {
     $("#pastChatsList").empty();
@@ -471,16 +447,24 @@ function showPastChats(chatList) {
         }
     }
 
-    $('.pastChatDelButton').off('click').on('click', function (e) {
-        e.preventDefault()
-        let sessionID = $(this).data('session_id')
-        console.log(sessionID)
-        const pastChatDelMessage = {
-            type: 'pastChatDelete',
-            UUID: myUUID,
-            sessionID: sessionID
-        }
-        messageServer(pastChatDelMessage)
+    $('.pastChatDelButton').off('click').on('click', async function (e) {
+        $(this).parent().animate({ opacity: 0, height: 0 }, {
+            duration: 250,
+            complete: async function () {
+                await delay(250);
+                $(this).hide()
+                console.log('animation done');
+                e.preventDefault();
+                let sessionID = $(this).data('session_id');
+                console.log(sessionID);
+                const pastChatDelMessage = {
+                    type: 'pastChatDelete',
+                    UUID: myUUID,
+                    sessionID: sessionID
+                };
+                messageServer(pastChatDelMessage);
+            }
+        });
     })
 
     $(".pastChatInfo").off('click').on('click', function () {
@@ -530,29 +514,6 @@ function disconnectWebSocket() {
     }
 }
 
-function updateUserName() {
-    let nameChangeMessage = {
-        type: 'usernameChange',
-        UUID: myUUID,
-        newName: $("#usernameInput").val(),
-        oldName: username
-    }
-    username = $("#usernameInput").val()
-    localStorage.setItem('username', username)
-    console.log(`Set localstorage "username" key to ${username}`)
-    messageServer(nameChangeMessage)
-}
-
-function submitKey() {
-    let key = $("#roleKeyInput").val()
-    let keyMessage = {
-        type: 'submitKey',
-        UUID: myUUID,
-        key: key
-    }
-    messageServer(keyMessage)
-}
-
 function doAIRetry() {
     let char = $('#characters').val();
     let retryMessage = {
@@ -566,66 +527,7 @@ function doAIRetry() {
     messageServer(retryMessage)
 }
 
-//Just update Localstorage, no need to send anything to server for this.
-//but possibly add it in the future if we want to let users track which user is speaking as which entity in AI Chat.
-function updateAIChatUserName() {
-    username = $("#AIUsernameInput").val()
-    localStorage.setItem('AIChatUsername', username)
-    console.log(`Set localstorage "AIChatUsername" key to ${username}`)
-}
 
-async function populateCardSelector(cardList) {
-    console.debug(cardList)
-    let cardSelectElement = $("#characters");
-    cardSelectElement.empty()
-    for (const card of cardList) {
-        let newElem = $('<option>');
-        newElem.val(card.filename);
-        newElem.text(card.name);
-        cardSelectElement.append(newElem);
-    }
-}
-
-async function populateInstructSelector(instrustList) {
-    console.debug(instrustList)
-    let instructSelectElement = $("#instructStyle");
-    instructSelectElement.empty()
-    for (const style of instrustList) {
-        let newElem = $('<option>');
-        newElem.val(style.filename);
-        newElem.text(style.name);
-        instructSelectElement.append(newElem);
-    }
-}
-
-async function populateSamplerSelector(presetList) {
-    console.debug(presetList)
-    let samplerSelectElement = $("#samplerPreset");
-    samplerSelectElement.empty()
-    for (const preset of presetList) {
-        let newElem = $('<option>');
-        newElem.val(preset.filename);
-        newElem.text(preset.name);
-        samplerSelectElement.append(newElem);
-    }
-}
-
-// set the engine mode to either horde or tabby based on a value from the websocket
-function setEngineMode(mode) {
-    if (mode === 'horde') {
-        $("#toggleMode").removeClass('tabbyMode').addClass('hordeMode').text('🧟');
-        $("#toggleMode").attr('title', 'Click to switch to Tabby Mode');
-        //copy the horde parameters into the APICallParams object
-        //APICallParams = JSON.parse(JSON.stringify(HordeAPICallParams));
-        console.log('Switching to Horde Mode')
-    } else {
-        $("#toggleMode").removeClass('hordeMode').addClass('tabbyMode').text('🐈');
-        $("#toggleMode").attr('title', 'Click to switch to Horde Mode');
-        //copy the tabby parameters into the APICallParams object
-        //APICallParams = JSON.parse(JSON.stringify(TabbyAPICallParams));
-        console.debug('Switching to Tabby Mode')
-    }
-}
 
 async function sendMessageToAIChat(type) {
     //hordeAPICallParams.params.stop_sequence = stoppingStrings;
@@ -641,16 +543,7 @@ async function sendMessageToAIChat(type) {
         return;
     }
     username = $("#AIUsernameInput").val()
-    let charDisplayName = $('#characters option:selected').text();
-    //TODO: make this function grab usernames for all entities in chat history
-    //and move it inside the Prompt crafting function
-    //Move it to server-side. client side has no idea on its own.
-
     var markdownContent = `${messageInput.val()}`;
-    //var htmlContent = converter.makeHtml(markdownContent);
-    //var char = $('#characters').val();
-    var stringToSend = markdownContent
-    //APICallParams.prompt = stringToSend;
     var websocketRequest = {
         type: 'chatMessage',
         chatID: 'AIChat',
@@ -677,7 +570,9 @@ $(async function () {
     console.log('document is ready')
     let { username, AIChatUsername } = await startupUsernames();
     $("#usernameInput").val(username)
+    flashElement('usernameInput', 'good')
     $("#AIUsernameInput").val(AIChatUsername)
+    flashElement('AIUsernameInput', 'good')
 
     connectWebSocket(username);
 
@@ -699,7 +594,7 @@ $(async function () {
     //when roleKeyInput has 16 characters, submit the key
     $("#roleKeyInput").on('input', function () {
         if ($(this).val().length === 32) {
-            submitKey()
+            control.submitKey()
         }
     })
 
@@ -712,6 +607,7 @@ $(async function () {
             value: isAutoResponse
         }
         messageServer(autoResponseStateMessage);
+        flashElement('AIAutoResponse', 'good')
     })
     $("#maxContext").on('input', function () {
         contextSize = $(this).find(`option:selected`).val()
@@ -721,6 +617,7 @@ $(async function () {
             value: contextSize
         }
         messageServer(adjustCtxMes);
+        flashElement('maxContext', 'good')
     })
     $("#responseLength").on('input', function () {
         responseLength = $(this).find(`option:selected`).val()
@@ -730,6 +627,7 @@ $(async function () {
             value: responseLength
         }
         messageServer(adjustResponseLength);
+        flashElement('responseLength', 'good')
     })
 
     // Send a message to the user chat
@@ -780,24 +678,24 @@ $(async function () {
 
     $("#characters").on('change', function () {
         let displayName = $("#characters").find('option:selected').text()
-        updateSelectedChar($(this).val(), displayName)
+        control.updateSelectedChar(myUUID, $(this).val(), displayName)
     })
 
     $("#samplerPreset").on('change', function () {
-        updateSelectedSamplerPreset($(this).val())
+        control.updateSelectedSamplerPreset(myUUID, $(this).val())
     })
 
     $("#instructStyle").on('change', function () {
-        updateInstructFormat($(this).val())
+        control.updateInstructFormat(myUUID, $(this).val())
     })
 
     $("#finalInstruction").on('blur', function () {
-        updateD1JB($(this).val())
+        control.updateD1JB(myUUID, $(this).val())
     })
 
-    //A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.
+    //A clickable icon that toggles between Text Completions and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.
     $("#toggleMode").off('click').on('click', function () {
-        let newMode = $("#toggleMode").hasClass('hordeMode') ? 'tabby' : 'horde';
+        let newMode = $("#toggleMode").hasClass('hordeMode') ? 'TC' : 'horde';
         let modeChangeMessage = {
             type: 'modeChange',
             UUID: myUUID,
@@ -812,26 +710,23 @@ $(async function () {
         let currentUsername = $("#usernameInput").val()
         if (oldUsername !== currentUsername) {
             console.log('notifying server of UserChat username change...')
-            updateUserName()
+            control.updateUserName(myUUID, currentUsername)
         }
     })
 
     $("#AIUsernameInput").on('blur', function () {
         //$("#usernameInput").trigger('change')
-        updateAIChatUserName()
+        control.updateAIChatUserName()
     })
 
     $("#AISendButton").off('click').on('click', function () {
-
         if ($(this).hasClass('disabledButton')) { return }
 
         sendMessageToAIChat()
-
         $(this).addClass('disabledButton').text('🚫')
         setTimeout(() => {
             $(this).removeClass('disabledButton').text('✏️')
         }, AIChatDelay)
-
     })
 
     $("#clearUserChat").off('click').on('click', function () {
@@ -993,6 +888,7 @@ $(async function () {
             value: $("#UserChatInputDelay").val()
         }
         messageServer(settingsChangeMessage)
+        flashElement('UserChatInputDelay', 'good')
     })
 
     $("#AIChatInputDelay").on('change', function () {
@@ -1002,6 +898,7 @@ $(async function () {
             value: $("#AIChatInputDelay").val()
         }
         messageServer(settingsChangeMessage)
+        flashElement('AIChatInputDelay', 'good')
     })
 
 

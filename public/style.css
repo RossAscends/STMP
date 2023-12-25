@@ -321,6 +321,11 @@ pre {
     padding-bottom: 10px;
 }
 
+#chat div p em,
+#AIchat div p em {
+    color: #797d86
+}
+
 #messageInput,
 #AIMessageInput {
     height: 2.2em;
@@ -427,7 +432,9 @@ input::placeholder {
 
 #pastChatsList {
     overflow-y: auto;
+    overflow-x: hidden;
     max-height: 33svh;
+    height: 33svh;
     border-radius: 5px;
     padding: 0 4px 0 12px;
 
@@ -441,7 +448,8 @@ input::placeholder {
     border-radius: 5px;
     /* border: 1px solid #666; */
     background-color: #393a3f;
-    width: 100%
+    width: 100%;
+    height: fit-content
 }
 
 .pastChatItem.activeChat {
@@ -523,6 +531,11 @@ hr {
     align-content: center;
 }
 
+.alignContentStart {
+    align-content: start;
+}
+
+
 .alignSelfCenter {
     align-self: center
 }
@@ -583,6 +596,18 @@ hr {
 
 .widthFitContent {
     width: fit-content
+}
+
+.width100p {
+    width: 100%
+}
+
+.maxWidth100px {
+    max-width: 100px;
+}
+
+.maxWidth50px {
+    max-width: 50px;
 }
 
 .width100px {

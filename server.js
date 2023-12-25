@@ -703,7 +703,7 @@ async function handleConnections(ws, type, request) {
                     }
                     db.upsertUserRole(uuid, 'host');
                     await ws.send(JSON.stringify(keyAcceptedMessage))
-                    await broadcast(keyAcceptedMessage);
+                    //await broadcast(keyAcceptedMessage);
                 }
                 else if (parsedMessage.key === modKey) {
                     const keyAcceptedMessage = {

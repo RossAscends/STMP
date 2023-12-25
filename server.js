@@ -246,7 +246,6 @@ async function broadcastToHosts(message) {
     let hostsObjects = Object.values(clientsObject).filter(obj => obj.role === 'host');
     //console.log(hostsObjects)
 
-
     Object.keys(hostsObjects).forEach(clientUUID => {
         const client = hostsObjects[clientUUID];
         const socket = client.socket;
@@ -256,7 +255,6 @@ async function broadcastToHosts(message) {
         }
     });
 }
-
 
 // Broadcast the updated array of connected usernames to all clients
 async function broadcastUserList() {
@@ -516,7 +514,7 @@ async function handleConnections(ws, type, request) {
                     let firstMes = cardJSON.first_mes
                     let charName = cardJSON.name
                     let charColor = await db.getCharacterColor(charName)
-                    firstMes = replaceMacros(firstMes)
+                    firstMes = api.replaceMacros(firstMes)
                     const newAIChatFirstMessage = {
                         type: 'chatMessage',
                         chatID: 'AIChat',

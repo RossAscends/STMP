@@ -433,4 +433,5 @@ async function requestToTC(APICallParamsAndPrompt) {
 module.exports = {
     getAIResponse: getAIResponse,
     getAPIDefaults: getAPIDefaults,
+    replaceMacros: replaceMacros,
 }

@@ -316,7 +316,7 @@ async function broadcast(message) {
     //alter the type check for bug checking purposes, otherwise this is turned off
     if (message.type === "BuggyTypeHere") {
         console.log('broadcasting this:')
-        console.log(message)
+        //console.log(message)
     }
 
     Object.keys(clientsObject).forEach(clientUUID => {
@@ -335,10 +335,10 @@ async function broadcastToHosts(message) {
     console.log('HOST BROADCAST:')
     console.log(message)
 
-    console.log(clientsObject)
+    //console.log(clientsObject)
 
     let hostsObjects = Object.values(clientsObject).filter(obj => obj.role === 'host');
-    console.log(hostsObjects)
+    //console.log(hostsObjects)
 
 
     Object.keys(hostsObjects).forEach(clientUUID => {
@@ -359,7 +359,7 @@ async function broadcastUserList() {
         userList: connectedUsers
     };
     //console.log('-----broadcastUserList() is about to send this as a userlist:')
-    console.log(connectedUsers)
+    //console.log(connectedUsers)
     broadcast(userListMessage);
     //console.log(`[BroadCast]: ${JSON.stringify(userListMessage)}`)
 }
@@ -392,12 +392,12 @@ async function handleConnections(ws, type, request) {
     let uuid = urlParams.get('uuid');
 
     if (uuid === null || uuid === undefined || uuid === '') {
-        console.log('Client connected without UUID...assigning a new one..');
+        //console.log('Client connected without UUID...assigning a new one..');
         //assign them a UUID
         uuid = uuidv4()
-        console.log(`uuid assigned as ${uuid}`)
+        //console.log(`uuid assigned as ${uuid}`)
     } else {
-        console.log('Client connected with UUID:', uuid);
+        //console.log('Client connected with UUID:', uuid);
     }
     //check if we have them in the DB
     let user = await db.getUser(uuid);
@@ -431,8 +431,8 @@ async function handleConnections(ws, type, request) {
     await db.upsertUser(uuid, thisUserUsername, thisUserColor);
     console.log(`Adding ${thisUserUsername} to connected user list..`)
     updateConnectedUsers()
-    console.log('CONNECTED USERS')
-    console.log(connectedUsers)
+    //console.log('CONNECTED USERS')
+    //console.log(connectedUsers)
     //console.log('CLIENTS OBJECT')
     //console.log(clientsObject)
 
@@ -583,7 +583,7 @@ async function handleConnections(ws, type, request) {
                         username: charName,
                         AIChatUserList: [{ username: charName, color: charColor }]
                     }
-                    console.log('adding the first mesage to the chat file')
+                    //console.log('adding the first mesage to the chat file')
                     await db.writeAIChatMessage(charName, charName, firstMes, 'AI');
                     console.log(`Sending ${charName}'s first message to AI Chat..`)
                     await broadcast(newAIChatFirstMessage)
@@ -715,7 +715,7 @@ async function handleConnections(ws, type, request) {
                 }
             }
             //process universal message types
-            console.log(`processing universal message types...`)
+            //console.log(`processing universal message types...`)
 
 
             if (parsedMessage.type === 'usernameChange') {
@@ -834,12 +834,12 @@ async function handleConnections(ws, type, request) {
                     }
 
                     let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
-                    console.log(`Is this an empty trigger? ${isEmptyTrigger}`)
+                    //console.log(`Is this an empty trigger? ${isEmptyTrigger}`)
 
                     //if it's not an empty trigger from host
                     //if userInput is empty we can just request the AI directly
                     let charFile = liveConfig.selectedCharacter
-                    console.log(`selected character: ${charFile}`)
+                    //console.log(`selected character: ${charFile}`)
                     let cardData = await charaRead(charFile, 'png')
                     let cardJSON = JSON.parse(cardData)
                     let charName = cardJSON.name
@@ -927,8 +927,8 @@ async function makeAIChatUserList(entitiesList, chatHistoryFromPrompt) {
         }
     }
 
-    console.log(`Latest AI Chat User List:`);
-    console.log(AIChatUserList);
+    //console.log(`Latest AI Chat User List:`);
+    //console.log(AIChatUserList);
     return AIChatUserList;
 }
 

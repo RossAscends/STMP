@@ -76,11 +76,11 @@ function updateUserChatUserList(message) {
     const userList = message;
 
     if (!userList || userList.length === 0) {
-        console.log('Saw an empty userList or userList is undefined, will wait for another...');
+        //console.log('Saw an empty userList or userList is undefined, will wait for another...');
         return;
     }
 
-    console.log('Populating user list...');
+    //console.log('Populating user list...');
     const userListElement = $('#userList ul');
     userListElement.empty(); // Clear the existing user list
 
@@ -95,11 +95,11 @@ function updateAIChatUserList(message) {
     console.debug(message);
     const userList = message;
     if (!userList || userList.length === 0) {
-        console.log('Saw an empty or undefined AI Chat userList or userList, aborting update');
+        //console.log('Saw an empty or undefined AI Chat userList or userList, aborting update');
         return;
     }
 
-    console.log('Populating AI Chat user list...');
+    //console.log('Populating AI Chat user list...');
     const userListElement = $('#AIChatUserList ul');
     userListElement.empty(); // Clear the existing user list
 

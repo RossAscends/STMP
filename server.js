@@ -72,16 +72,18 @@ async function getAPIDefaults() {
         console.error('Error reading or parsing the default API Param JSON file:', error);
     }
 }
-
+releaseLock()
 getAPIDefaults()
-
 
 // Configuration
 const apiKey = "_YOUR_API_KEY_HERE_";
 const authString = "_STUsername_:_STPassword_";
 const secretsPath = path.join(__dirname, 'secrets.json');
 
-console.log("===========================");
+console.log("");
+console.log("")
+console.log("")
+console.log('===========================')
 console.log("SillyTavern MultiPlayer");
 
 // Create directory if it does not exist
@@ -167,8 +169,8 @@ function generateAndPrintKeys() {
     modKey = crypto.randomBytes(16).toString('hex');
 
     // Print the keys
-    console.log(`Host Key: ${hostKey}`);
-    console.log(`Mod Key: ${modKey}`);
+    console.log(`${color.yellow(`Host Key: ${hostKey}`)}`);
+    console.log(`${color.yellow(`Mod Key: ${modKey}`)}`);
 }
 
 async function initFiles() {
@@ -210,7 +212,7 @@ async function initFiles() {
     } else {
         console.log('Loading config.json...');
         liveConfig = await readConfig()
-        console.log(liveConfig)
+        //console.log(liveConfig)
 
     }
 
@@ -249,7 +251,7 @@ async function getCardList() {
     const files = await fs.promises.readdir(path);
     var cards = []
     var i = 0
-    //console.log('Files in directory:');
+    //console.log('Files in character directory:');
     for (const file of files) {
         try {
             let fullPath = `${path}/${file}`
@@ -265,6 +267,7 @@ async function getCardList() {
         }
         i++
     }
+    //console.log(cards)
     return cards;
 }
 
@@ -273,11 +276,13 @@ async function getInstructList() {
     const files = await fs.promises.readdir(path);
     var instructs = []
     var i = 0
-    console.log('Files in directory:');
+    //console.log('Files in Instruct directory:');
     for (const file of files) {
         try {
             let fullPath = `${path}/${file}`
+            //console.log(fullPath)
             const cardData = await readFile(fullPath);
+            //console.log('got data')
             var jsonData = JSON.parse(cardData);
             jsonData.filename = `${path}/${file}`
             instructs[i] = {
@@ -289,6 +294,7 @@ async function getInstructList() {
         }
         i++
     }
+    //console.log(instructs)
     return instructs;
 }
 
@@ -387,7 +393,7 @@ async function handleConnections(ws, type, request) {
     //get the username from the encodedURI parameters
     const encodedUsername = urlParams.get('username');
 
-    let thisUserColor, thisUserUsername, thisUserRole
+    let thisUserColor, thisUserUsername, thisUserRole, user
     // Retrieve the UUID from the query parameters
     let uuid = urlParams.get('uuid');
 
@@ -400,9 +406,11 @@ async function handleConnections(ws, type, request) {
         //console.log('Client connected with UUID:', uuid);
     }
     //check if we have them in the DB
-    let user = await db.getUser(uuid);
-    if (user) {
-        //if we know them, user DB values
+    user = await db.getUser(uuid);
+    //console.log('initial user check:')
+    //console.log(user)
+    if (user !== undefined && user !== null) {
+        //if we know them, use DB values
         thisUserColor = user.username_color;
         thisUserUsername = user.username
         thisUserRole = user.role
@@ -428,6 +436,10 @@ async function handleConnections(ws, type, request) {
         username: thisUserUsername
     };
 
+    user = clientsObject[uuid]
+
+
+
     await db.upsertUser(uuid, thisUserUsername, thisUserColor);
     console.log(`Adding ${thisUserUsername} to connected user list..`)
     updateConnectedUsers()
@@ -435,6 +447,8 @@ async function handleConnections(ws, type, request) {
     //console.log(connectedUsers)
     //console.log('CLIENTS OBJECT')
     //console.log(clientsObject)
+    //console.log("USER =======")
+    //console.log(user)
 
     await broadcastUserList()
 
@@ -464,7 +478,7 @@ async function handleConnections(ws, type, request) {
     }
     //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
-        console.log("HOST CONNECTED")
+        console.log("including metadata for host")
         hostUUID = uuid
         connectionConfirmedMessage["cardList"] = cardList
         connectionConfirmedMessage["instructList"] = instructList
@@ -491,6 +505,7 @@ async function handleConnections(ws, type, request) {
 
     // Handle incoming messages from clients
     ws.on('message', async function (message) {
+
         console.log(`--- MESSAGE IN`)
         // Parse the incoming message as JSON
         let parsedMessage;
@@ -515,7 +530,7 @@ async function handleConnections(ws, type, request) {
 
             //first check if the sender is host, and if so, process possible host commands
             if (user.role === 'host') {
-                console.log(`saw message from host, type (${parsedMessage.type})`)
+                //console.log(`saw message from host, type (${parsedMessage.type})`)
                 if (parsedMessage.type === 'clearChat') {
 
                     //clear the UserChat.json file
@@ -1046,15 +1061,24 @@ async function releaseLock() {
     const stackTrace = new Error().stack;
     const callingFunctionName = stackTrace.split('\n')[2].trim().split(' ')[1];
     //console.log(`${callingFunctionName} releasing lock..`)
-    let lockfilePath = 'lockfile.lock'
+    const lockfilePath = 'lockfile.lock';
+
     try {
+        // Check if the lock file exists
+        await fs.promises.access(lockfilePath, fs.constants.F_OK);
+
+        // Delete the lock file
         await fs.promises.unlink(lockfilePath);
+        //console.log('Lock file deleted successfully.');
     } catch (error) {
-        console.log(error)
+        if (error.code !== 'ENOENT') {
+            console.error('Error deleting lock file:', error);
+        }
     }
 }
 
 function trimIncompleteSentences(input, include_newline = false) {
+    console.log(input)
     const punctuation = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit
     let last = -1;
     //console.log(`--- BEFORE:`)
@@ -1076,7 +1100,7 @@ function trimIncompleteSentences(input, include_newline = false) {
         return input.trimEnd();
     }
     let trimmedString = input.substring(0, last + 1).trimEnd();
-
+    //console.log('TRIMMEDSTRING')
     //console.log(trimmedString)
     return trimmedString;
 }
@@ -1278,7 +1302,6 @@ async function requestToTabby(APICallParamsAndPrompt) {
     //message needs to be the ENTIRE API call, including params and chat history..
     try {
         console.log('Sending Tabby request..');
-
         const url = TabbyURL + TabbyGenEndpoint;
 
         const headers = {
@@ -1304,10 +1327,14 @@ async function requestToTabby(APICallParamsAndPrompt) {
             body: body,
             timeout: 0,
         })
+        //console.log("RAW LLM API RESPONSE")
+        //console.log(response)
         let JSONResponse = await response.json()
+        console.log('--- API RESPONSE')
         console.log(JSONResponse)
         let text = JSONResponse.choices[0].text
-
+        //console.log('AI CHAT API RESPONSE')
+        //console.log(text)
         return text;
     } catch (error) {
         console.log('Error while requesting ST-Tabby');

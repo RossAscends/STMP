@@ -77,7 +77,7 @@ async function writeUserChatMessage(userId, message) {
 }
 
 async function getPastChats(type) {
-    console.log(`Getting data for all past ${type} chats...`);
+    //console.log(`Getting data for all past ${type} chats...`);
     const db = await dbPromise;
     try {
         const rows = await db.all(`
@@ -347,7 +347,7 @@ async function getUserColor(UUID) {
         const row = await db.get('SELECT username_color FROM users WHERE user_id = ?', [UUID]);
         if (row) {
             const userColor = row.username_color;
-            console.log(`User color: ${userColor}`);
+            //console.log(`User color: ${userColor}`);
             return userColor;
         } else {
             console.log(`User not found for UUID: ${UUID}`);

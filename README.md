@@ -41,9 +41,9 @@ For tech support or to contact RossAscends directly, join the [SillyTavern Disco
 
 ## API Setup
 
-Currently STMP supports Tabby and HordeAI, with Tabby active by default.
-
-**NOTE:** Initial API parameters are sent by the Client and processed in the Server.
+- Currently STMP supports Tabby and HordeAI, with Tabby active by default.
+- other OpenAI-compatible text completion APIs are being tested. 
+- currently KoboldCCP is confirmed to work on the Tabby APi mode as long as KCPP is running locally on port 5000. 
 
 ### Using Tabby
 
@@ -62,7 +62,7 @@ Currently STMP supports Tabby and HordeAI, with Tabby active by default.
 ### Changing API
 
 - The Host can click the emoji icon at the top left to change which API is used.
-- 🐈 = Tabby text completions
+- 🐈 = text completions (Tabby)
 - 🧟 = Horde
 
 ## Multiuser Setup
@@ -84,7 +84,7 @@ This must be done AFTER completing all installation steps above.
 
 ### Adding Presets
 
-- If you want to add more presets for Instruct formats or hyperparameter Samplers, put the JSON file into the appropciate folder:
+- If you want to add more presets for Instruct formats or hyperparameter Samplers, put the JSON file into the appropriate folder:
 - Samplers go in `/public/api-presets/`
 - Instruct formats go in`/public/instructFormats/`
 - It's highly reccomended to review the structure of the default STMP preset files.
@@ -144,6 +144,7 @@ The host will see the following controls for:
 ### Core Functionality
 
 - Smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
+- Custom OpenAI text completion compatible API endpoint selection
 
 ### Host Controls
 
@@ -153,12 +154,12 @@ The host will see the following controls for:
 - Ability to rename chats.
 - ability to remove any message in the chat, not just the last.
 - ability to edit the text of a chat
-- ability to grant Host-like controls to a non-Host user
+- ability for Host to edit a User's role from the UI
+- ability to change the max length of chat inputs (currently 1000 characters)
 
 ### Low-priority but Nice-to-have Features
 
 - Multiple AI characters active at once (group chats)
 - Download chats as text, JSON, or SillyTavern-compatible JSONL?
 - UI themes?
-- Custom API endpoint selection (for OAI-compatible text completion APIs)
 - Bridge extension for SillyTavern to enable intra-server communication.

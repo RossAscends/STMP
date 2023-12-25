@@ -1,25 +1,29 @@
 const http = require('http');
 const fs = require('fs');
+const fsp = require('fs').promises;
 const util = require('util');
-const { v4: uuidv4 } = require('uuid');
+const WebSocket = require('ws');
+const crypto = require('crypto');
+
 const writeFileAsync = util.promisify(fs.writeFile);
 const existsAsync = util.promisify(fs.exists);
-const fsp = require('fs').promises;
+
+const { v4: uuidv4 } = require('uuid');
 const path = require('path');
-const WebSocket = require('ws');
+
 const $ = require('jquery');
-const characterCardParser = require('./character-card-parser.js');
 const express = require('express');
 const { url } = require('inspector');
 const localApp = express();
 const remoteApp = express();
-const crypto = require('crypto');
 
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
 
-//Import db handler from STMP/db.js
-const db = require('./db.js');
+const characterCardParser = require('./src/character-card-parser.js');
+//Import db handler from STMP/scripts/db.js
+const db = require('./src/db.js');
+const fio = require('./src/file-io.js')
 
 //for console coloring
 const color = {
@@ -63,7 +67,7 @@ let engineMode = 'TC'
 
 async function getAPIDefaults() {
     try {
-        const fileContents = await readFile('default-API-Parameters.json');
+        const fileContents = await fio.readFile('default-API-Parameters.json');
         const jsonData = JSON.parse(fileContents);
         const { TCAPICallParams, HordeAPICallParams } = jsonData[0];
         TCAPIDefaults = TCAPICallParams;
@@ -72,7 +76,7 @@ async function getAPIDefaults() {
         console.error('Error reading or parsing the default API Param JSON file:', error);
     }
 }
-releaseLock()
+fio.releaseLock()
 getAPIDefaults()
 
 // Configuration
@@ -87,17 +91,6 @@ console.log('===========================')
 console.log("SillyTavern MultiPlayer");
 
 // Create directory if it does not exist
-function createDirectoryIfNotExist(path) {
-    if (!fs.existsSync(path)) {
-        try {
-            fs.mkdirSync(path, { recursive: true });
-            console.log(`-- Created '${path}' folder.`);
-        } catch (err) {
-            console.error(`Failed to create '${path}' folder. Check permissions or path.`);
-            process.exit(1);
-        }
-    }
-}
 
 localApp.get('/', (req, res) => {
     const filePath = path.join(__dirname, '/public/client.html');
@@ -189,10 +182,10 @@ async function initFiles() {
         D1JB: ''
     };
 
-    const instructSequences = await readFile(defaultConfig.instructFormat)
+    const instructSequences = await fio.readFile(defaultConfig.instructFormat)
     defaultConfig.instructSequences = instructSequences
 
-    const samplerData = await readFile(defaultConfig.selectedPreset)
+    const samplerData = await fio.readFile(defaultConfig.selectedPreset)
     defaultConfig.samplers = samplerData
 
     defaultConfig.selectedCharDisplayName = "Coding Sensei"
@@ -208,10 +201,10 @@ async function initFiles() {
         console.log('Creating config.json with default values...');
         await writeFileAsync(configPath, JSON.stringify(defaultConfig, null, 2));
         console.log('config.json created.');
-        liveConfig = await readConfig()
+        liveConfig = await fio.readConfig()
     } else {
         console.log('Loading config.json...');
-        liveConfig = await readConfig()
+        liveConfig = await fio.readConfig()
         //console.log(liveConfig)
 
     }
@@ -225,7 +218,7 @@ async function initFiles() {
 }
 
 // Create directories
-createDirectoryIfNotExist("./public/api-presets");
+fio.createDirectoryIfNotExist("./public/api-presets");
 
 generateAndPrintKeys();
 
@@ -242,81 +235,7 @@ wssServer.on('connection', (ws, request) => {
     handleConnections(ws, 'guest', request);
 });
 
-async function charaRead(img_url, input_format) {
-    return characterCardParser.parse(img_url, input_format);
-}
 
-async function getCardList() {
-    const path = 'public/characters'
-    const files = await fs.promises.readdir(path);
-    var cards = []
-    var i = 0
-    //console.log('Files in character directory:');
-    for (const file of files) {
-        try {
-            let fullPath = `${path}/${file}`
-            const cardData = await charaRead(fullPath);
-            var jsonData = JSON.parse(cardData);
-            jsonData.filename = `${path}/${file}`
-            cards[i] = {
-                name: jsonData.name,
-                filename: jsonData.filename
-            }
-        } catch (error) {
-            console.error(`Error reading file ${file}:`, error);
-        }
-        i++
-    }
-    //console.log(cards)
-    return cards;
-}
-
-async function getInstructList() {
-    const path = 'public/instructFormats'
-    const files = await fs.promises.readdir(path);
-    var instructs = []
-    var i = 0
-    //console.log('Files in Instruct directory:');
-    for (const file of files) {
-        try {
-            let fullPath = `${path}/${file}`
-            //console.log(fullPath)
-            const cardData = await readFile(fullPath);
-            //console.log('got data')
-            var jsonData = JSON.parse(cardData);
-            jsonData.filename = `${path}/${file}`
-            instructs[i] = {
-                name: jsonData.name,
-                filename: jsonData.filename
-            }
-        } catch (error) {
-            console.error(`Error reading file ${file}:`, error);
-        }
-        i++
-    }
-    //console.log(instructs)
-    return instructs;
-}
-
-async function getSamplerPresetList() {
-    const path = 'public/api-presets'
-    const files = await fs.promises.readdir(path);
-    var presets = []
-    var i = 0
-    for (const file of files) {
-        try {
-            let fullPath = `${path}/${file}`
-            presets[i] = {
-                name: file.replace('.json', ''),
-                filename: fullPath,
-            }
-        } catch (error) {
-            console.error(`Error reading file ${file}:`, error);
-        }
-        i++
-    }
-    return presets;
-}
 
 async function broadcast(message) {
     //alter the type check for bug checking purposes, otherwise this is turned off
@@ -452,9 +371,9 @@ async function handleConnections(ws, type, request) {
     //console.log(user)
 
 
-    const cardList = await getCardList()
-    const instructList = await getInstructList()
-    const samplerPresetList = await getSamplerPresetList()
+    const cardList = await fio.getCardList()
+    const instructList = await fio.getInstructList()
+    const samplerPresetList = await fio.getSamplerPresetList()
     var AIChatJSON = await db.readAIChat();
     var userChatJSON = await db.readUserChat()
 
@@ -462,8 +381,8 @@ async function handleConnections(ws, type, request) {
         console.log('No selected character found, setting to default character...')
         liveConfig.selectedCharacter = cardList[0].filename;
         liveConfig.selectedCharDisplayName = cardList[0].name;
-        await writeConfig(liveConfig, 'selectedCharacter', liveConfig.selectedCharacter)
-        await writeConfig(liveConfig, 'selectedCharDisplayName', liveConfig.selectedCharDisplayName)
+        await fio.writeConfig(liveConfig, 'selectedCharacter', liveConfig.selectedCharacter)
+        await fio.writeConfig(liveConfig, 'selectedCharDisplayName', liveConfig.selectedCharDisplayName)
     }
 
     //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
@@ -551,7 +470,7 @@ async function handleConnections(ws, type, request) {
                 else if (parsedMessage.type === 'toggleAutoResponse') {
                     isAutoResponse = parsedMessage.value
                     liveConfig.isAutoResponse = isAutoResponse
-                    await writeConfig(liveConfig, 'isAutoResponse', isAutoResponse)
+                    await fio.writeConfig(liveConfig, 'isAutoResponse', isAutoResponse)
                     let settingChangeMessage = {
                         type: 'autoAItoggleUpdate',
                         value: liveConfig.isAutoResponse
@@ -562,7 +481,7 @@ async function handleConnections(ws, type, request) {
                 else if (parsedMessage.type === 'adjustContextSize') {
                     contextSize = parsedMessage.value
                     liveConfig.contextSize = contextSize
-                    await writeConfig(liveConfig, 'contextSize', contextSize)
+                    await fio.writeConfig(liveConfig, 'contextSize', contextSize)
                     let settingChangeMessage = {
                         type: 'contextSizeChange',
                         value: liveConfig.contextSize
@@ -574,7 +493,7 @@ async function handleConnections(ws, type, request) {
                 else if (parsedMessage.type === 'adjustResponseLength') {
                     responseLength = parsedMessage.value
                     liveConfig.responseLength = responseLength
-                    await writeConfig(liveConfig, 'responseLength', responseLength)
+                    await fio.writeConfig(liveConfig, 'responseLength', responseLength)
                     let settingChangeMessage = {
                         type: 'responseLengthChange',
                         value: liveConfig.responseLength
@@ -586,7 +505,7 @@ async function handleConnections(ws, type, request) {
                 else if (parsedMessage.type === 'AIChatDelayChange') {
                     AIChatDelay = parsedMessage.value
                     liveConfig.AIChatDelay = AIChatDelay
-                    await writeConfig(liveConfig, 'AIChatDelay', AIChatDelay)
+                    await fio.writeConfig(liveConfig, 'AIChatDelay', AIChatDelay)
                     let settingChangeMessage = {
                         type: 'AIChatDelayChange',
                         value: liveConfig.AIChatDelay
@@ -597,7 +516,7 @@ async function handleConnections(ws, type, request) {
                 else if (parsedMessage.type === 'userChatDelayChange') {
                     userChatDelay = parsedMessage.value
                     liveConfig.userChatDelay = userChatDelay
-                    await writeConfig(liveConfig, 'userChatDelay', userChatDelay)
+                    await fio.writeConfig(liveConfig, 'userChatDelay', userChatDelay)
                     let settingChangeMessage = {
                         type: 'userChatDelayChange',
                         value: liveConfig.userChatDelay
@@ -614,7 +533,7 @@ async function handleConnections(ws, type, request) {
                     await broadcast(clearAIChatInstruction);
                     let charFile = liveConfig.selectedCharacter
                     console.log(`selected character: ${charFile}`)
-                    let cardData = await charaRead(charFile, 'png')
+                    let cardData = await fio.charaRead(charFile, 'png')
                     let cardJSON = JSON.parse(cardData)
                     let firstMes = cardJSON.first_mes
                     let charName = cardJSON.name
@@ -645,7 +564,7 @@ async function handleConnections(ws, type, request) {
                     }
                     liveConfig.selectedCharacter = parsedMessage.newChar
                     liveConfig.selectedCharDisplayName = parsedMessage.newCharDisplayName
-                    await writeConfig(liveConfig)
+                    await fio.writeConfig(liveConfig)
                     await broadcast(changeCharMessage);
                     return
                 }
@@ -656,10 +575,10 @@ async function handleConnections(ws, type, request) {
                     }
                     selectedPreset = parsedMessage.newPreset
                     liveConfig.selectedPreset = selectedPreset
-                    const samplerData = await readFile(selectedPreset)
+                    const samplerData = await fio.readFile(selectedPreset)
                     liveConfig.samplers = samplerData
-                    await writeConfig(liveConfig, 'samplers', liveConfig.samplers)
-                    await writeConfig(liveConfig, 'selectedPreset', selectedPreset)
+                    await fio.writeConfig(liveConfig, 'samplers', liveConfig.samplers)
+                    await fio.writeConfig(liveConfig, 'selectedPreset', selectedPreset)
                     await broadcast(changePresetMessage);
                     return
                 }
@@ -669,10 +588,10 @@ async function handleConnections(ws, type, request) {
                         newInstructFormat: parsedMessage.newInstructFormat
                     }
                     liveConfig.instructFormat = parsedMessage.newInstructFormat
-                    const instructSequences = await readFile(liveConfig.instructFormat)
+                    const instructSequences = await fio.readFile(liveConfig.instructFormat)
                     liveConfig.instructSequences = instructSequences
-                    await writeConfig(liveConfig, 'instructSequences', liveConfig.instructSequences)
-                    await writeConfig(liveConfig, 'instructFormat', parsedMessage.newInstructFormat)
+                    await fio.writeConfig(liveConfig, 'instructSequences', liveConfig.instructSequences)
+                    await fio.writeConfig(liveConfig, 'instructFormat', parsedMessage.newInstructFormat)
                     await broadcast(changeInstructMessage);
                     return
                 }
@@ -682,7 +601,7 @@ async function handleConnections(ws, type, request) {
                         newD1JB: parsedMessage.newD1JB
                     }
                     liveConfig.D1JB = parsedMessage.newD1JB
-                    await writeConfig(liveConfig)
+                    await fio.writeConfig(liveConfig)
                     await broadcast(changeD1JBMessage);
                     return
                 }
@@ -718,7 +637,7 @@ async function handleConnections(ws, type, request) {
                         engineMode: engineMode
                     }
                     liveConfig.engineMode = engineMode
-                    await writeConfig(liveConfig, 'engineMode', engineMode)
+                    await fio.writeConfig(liveConfig, 'engineMode', engineMode)
                     await broadcast(modeChangeMessage);
                     return
                 }
@@ -884,7 +803,7 @@ async function handleConnections(ws, type, request) {
                     //if userInput is empty we can just request the AI directly
                     let charFile = liveConfig.selectedCharacter
                     //console.log(`selected character: ${charFile}`)
-                    let cardData = await charaRead(charFile, 'png')
+                    let cardData = await fio.charaRead(charFile, 'png')
                     let cardJSON = JSON.parse(cardData)
                     let charName = cardJSON.name
                     var finalCharName = JSON.stringify(`\n${charName}:`);
@@ -991,129 +910,6 @@ function countTokens(str) {
     return tokens
 }
 
-
-async function readConfig() {
-    await acquireLock()
-    //await delay(100)
-    //console.log('--- READ CONFIG started')
-    return new Promise(async (resolve, reject) => {
-        fs.readFile('config.json', 'utf8', async (err, data) => {
-            if (err) {
-                if (err.code === 'ENOENT') {
-                    console.log('config.json not found, initializing with default values.');
-                    try {
-                        //console.log('--- READ CONFIG calling initconfig')
-                        //await delay(100)
-                        await initConfig();
-                        //console.log('----- CREATED NEW CONFIG FILE, RETURNING IT')
-                        releaseLock()
-                        resolve(liveConfig); // Assuming liveconfig is accessible here
-                    } catch (initErr) {
-                        console.error('An error occurred while initializing the file:', initErr);
-                        releaseLock()
-                        reject(initErr);
-                    }
-                } else {
-                    console.error('An error occurred while reading the file:', err);
-                    releaseLock()
-                    reject(err);
-                }
-            } else {
-                try {
-                    //await delay(100)
-                    const configData = JSON.parse(data); // Parse the content as JSON
-                    releaseLock()
-                    resolve(configData);
-                } catch (parseErr) {
-                    console.error('An error occurred while parsing the JSON:', parseErr);
-                    releaseLock()
-                    reject(parseErr);
-                }
-            }
-        });
-    });
-}
-
-async function writeConfig(configObj, key, value) {
-    await acquireLock()
-    await delay(100)
-    //let newObject = await readConfig()
-    if (key) {
-        configObj[key] = value;
-        console.log(`Config updated: ${key}`); // = ${value}`);
-    }
-    const writableConfig = JSON.stringify(configObj, null, 2); // Serialize the object with indentation
-    fs.writeFile('config.json', writableConfig, 'utf8', writeErr => {
-        if (writeErr) {
-            console.error('An error occurred while writing to the file:', writeErr);
-            releaseLock()
-            return;
-        }
-        console.log('config.json updated.');
-        releaseLock()
-    });
-}
-
-async function readFile(file) {
-    await acquireLock()
-    //console.log(`[readFile()] Reading ${file}...`)
-    return new Promise((resolve, reject) => {
-        fs.readFile(file, 'utf8', (err, data) => {
-            if (err) {
-                if (err.code === 'ENOENT') {
-                    console.log(`ERROR: ${file} not found`);
-                } else {
-                    console.error('An error occurred while reading the file:', err);
-                    releaseLock()
-                    reject(err);
-                }
-            } else {
-                releaseLock()
-                resolve(data);
-            }
-        });
-    });
-}
-
-async function acquireLock() {
-    const stackTrace = new Error().stack;
-    const callingFunctionName = stackTrace.split('\n')[2].trim().split(' ')[1];
-    //console.log(`${callingFunctionName} trying to acquiring lock..`)
-    let lockfilePath = 'lockfile.lock'
-    while (true) {
-        try {
-            // Attempt to create the lock file exclusively
-            await fs.promises.writeFile(lockfilePath, '', { flag: 'wx' });
-            //console.log('lock acquired')
-            return;
-        } catch (error) {
-            //console.log('lockfile already exists')
-            // File already exists, wait and retry
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-    }
-}
-
-async function releaseLock() {
-    const stackTrace = new Error().stack;
-    const callingFunctionName = stackTrace.split('\n')[2].trim().split(' ')[1];
-    //console.log(`${callingFunctionName} releasing lock..`)
-    const lockfilePath = 'lockfile.lock';
-
-    try {
-        // Check if the lock file exists
-        await fs.promises.access(lockfilePath, fs.constants.F_OK);
-
-        // Delete the lock file
-        await fs.promises.unlink(lockfilePath);
-        //console.log('Lock file deleted successfully.');
-    } catch (error) {
-        if (error.code !== 'ENOENT') {
-            console.error('Error deleting lock file:', error);
-        }
-    }
-}
-
 function trimIncompleteSentences(input, include_newline = false) {
     console.log(input)
     const punctuation = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit
@@ -1208,7 +1004,7 @@ function replaceMacros(string, username, charname) {
 async function addCharDefsToPrompt(charFile, lastUserMesageAndCharName, username) {
     return new Promise(async function (resolve, reject) {
         try {
-            let charData = await charaRead(charFile, 'png')
+            let charData = await fio.charaRead(charFile, 'png')
             let chatHistory = await ObjectifyChatHistory()
             let ChatObjsInPrompt = []
 

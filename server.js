@@ -367,7 +367,8 @@ async function broadcastUserList() {
     //console.log('-----broadcastUserList() is about to send this as a userlist:')
     //console.log(connectedUsers)
     broadcast(userListMessage);
-    //console.log(`[BroadCast]: ${JSON.stringify(userListMessage)}`)
+    //console.log(`[UserList BroadCast]:`)
+    //console.log(connectedUsers)
 }
 
 async function removeLastAIChatMessage() {
@@ -450,7 +451,6 @@ async function handleConnections(ws, type, request) {
     //console.log("USER =======")
     //console.log(user)
 
-    await broadcastUserList()
 
     const cardList = await getCardList()
     const instructList = await getInstructList()
@@ -476,7 +476,8 @@ async function handleConnections(ws, type, request) {
         role: thisUserRole,
         selectedCharacterDisplayName: liveConfig.selectedCharDisplayName,
         newUserChatDelay: liveConfig?.userChatDelay,
-        newAIChatDelay: liveConfig?.AIChatDelay
+        newAIChatDelay: liveConfig?.AIChatDelay,
+        userList: connectedUsers
     }
     //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
@@ -495,12 +496,15 @@ async function handleConnections(ws, type, request) {
         connectionConfirmedMessage["instructFormat"] = liveConfig.instructFormat
     }
 
+    await broadcastUserList()
+
     ws.send(JSON.stringify(connectionConfirmedMessage))
 
     function updateConnectedUsers() {
         const userList = Object.values(clientsObject).map(client => ({
             username: client.username,
-            color: client.color
+            color: client.color,
+            role: client.role
         }));
         connectedUsers = userList;
     }

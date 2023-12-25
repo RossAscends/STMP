@@ -403,7 +403,7 @@ input::placeholder {
     padding: 0 5px;
     margin: 5px 5px 0 5px;
     border-radius: 10px;
-    max-height: 90%;
+    max-height: 99%;
     overflow-y: auto;
 }
 

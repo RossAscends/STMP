@@ -72,7 +72,8 @@ function messageServer(message) {
 }
 
 function updateUserChatUserList(message) {
-    //console.debug(message);
+    console.log('updating user chat user list')
+    console.debug(message);
     const userList = message;
 
     if (!userList || userList.length === 0 || userList === undefined) {
@@ -86,7 +87,14 @@ function updateUserChatUserList(message) {
 
     userList.forEach(user => {
         const { username, color } = user;
-        const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${username}</li>`;
+        let usernameText
+        if (user.role === 'host') {
+            usernameText = `${username} 🔑`
+        } else {
+            usernameText = username
+        }
+        const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${usernameText}</li>`;
+
         userListElement.append(listItem);
     });
 }

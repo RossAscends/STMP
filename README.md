@@ -104,6 +104,8 @@ The host will see the following controls for:
 #### Control Panel (left side)
 
 - Changing API controls such as: `API` (Tabby(🐈) or HordeAI(🧟)), `Context` size, `Response` length, `Sampler` presets, `Instruct` formats
+- **While in Tabby mode, any OpenAI text completetion compatible API will work as long as it's running on localhost port 5000.**
+- currently tested and working backends: KoboldCPP
 - `AutoAI` Toggle to determine whether the AI should respond to every user input, or only on command from the Host.
 - A text box to define the `Final Instruction` to send as system at Depth 1 in the prompt.
 - A list of past AI Chats, click to load one.
@@ -117,6 +119,12 @@ The host will see the following controls for:
 #### In the Chat Windows
 
 - Trashcan button (🗑️) to clear either chat.
+
+#### Top Right
+
+- The (🔑) button will open a text box when clicked, which allows any user to input the host key to gain the Host role.
+- **the Host key can be found in the server console at startup.**
+- After the user enters the key and presses Enter, their page will refresh and they will see the Host controls.
 
 #### AI Chat Input Bar
 

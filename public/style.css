@@ -289,7 +289,7 @@ code {
     font-family: monospace;
     background: #232428;
     border-radius: 5px;
-    padding: 3px;
+    padding: 2px 4px;
     margin: 5px;
     line-height: 1.4em;
     font-size: 1.1em;
@@ -297,11 +297,16 @@ code {
 
 pre {
     /* border: 1px solid white; */
-    padding: 3px;
+    padding: 0px 5px;
     background: #232428;
     margin: 5px;
     border-radius: 5px;
     width: min-content;
+}
+
+.invisible-quotation::before,
+.invisible-quotation::after {
+    display: none;
 }
 
 #chat div,
@@ -324,6 +329,11 @@ pre {
 #chat div p em,
 #AIchat div p em {
     color: #797d86
+}
+
+#chat div p q,
+#AIchat div p q {
+    color: #8ca3d9
 }
 
 #messageInput,

@@ -42,6 +42,26 @@ var sanitizeExtension = {
     }
 };
 
+var quotesExtension = function () {
+    var regexes = [
+        { regex: /“([^“”]*)”/g, replace: '<q class="invisible-quotation">“$1”</q>' },
+        { regex: /‘([^‘’]*)’/g, replace: '<q class="invisible-quotation">‘$1’</q>' },
+        { regex: /«([^«»]*)»/g, replace: '<q class="invisible-quotation">«$1»</q>' },
+        { regex: /「([^「」]*)」/g, replace: '<q class="invisible-quotation">「$1」</q>' },
+        { regex: /『([^『』]*)』/g, replace: '<q class="invisible-quotation">『$1』</q>' },
+        { regex: /【([^【】]*)】/g, replace: '<q class="invisible-quotation">【$1】</q>' },
+        { regex: /《([^《》]*)》/g, replace: '<q class="invisible-quotation">《$1》</q>' }
+    ];
+
+    return regexes.map(function (rule) {
+        return {
+            type: 'output',
+            regex: rule.regex,
+            replace: rule.replace
+        };
+    });
+};
+
 var converter = new showdown.Converter({
     simpleLineBreaks: true,
     openLinksInNewWindow: true,
@@ -50,7 +70,7 @@ var converter = new showdown.Converter({
     backslashEscapesHTMLTags: true,
     literalMidWordUnderscores: true,
     strikethrough: true,
-    extensions: [sanitizeExtension]
+    extensions: [sanitizeExtension, quotesExtension]
 });
 
 //routine to check if we are on an iOS device or not

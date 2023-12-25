@@ -777,13 +777,13 @@ async function handleConnections(ws, type, request) {
 };
 
 // Start the server
-localServer.listen(wsPort, () => {
+localServer.listen(wsPort, '0.0.0.0', () => {
     console.log('===========================')
-    console.log(color.yellow(`Host Server is listening on http://localhost:${wsPort}`));
-    console.log('The Host User (you) should connect to this address.')
+    console.log(`Host Server is listening on all available network interfaces on port ${wsPort}`);
+    console.log(`Typically, the Host should access ${color.yellow(`http://localhost:${wsPort}/`)} in your web browser.`)
     console.log('===========================')
 });
-guestServer.listen(wssPort, () => {
+guestServer.listen(wssPort, '0.0.0.0', () => {
     console.log(`The Guest Server is listening on port ${wssPort}`);
     console.log(`Run the ${color.yellow('Remote-Link.cmd')} file in the STMP directory`)
     console.log('to setup a Cloudflare tunnel for remote Guest connections.')

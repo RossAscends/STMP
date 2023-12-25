@@ -1,6 +1,6 @@
 [
     {
-        "TabbyAPICallParams": {
+        "TCAPICallParams": {
             "prompt": "",
             "stream": false,
             "truncation_length": 4096,

@@ -617,20 +617,16 @@ async function populateSamplerSelector(presetList) {
     }
 }
 
-// set the engine mode to either horde or tabby based on a value from the websocket
+// set the engine mode to either horde or Text Completions based on a value from the websocket
 function setEngineMode(mode) {
     if (mode === 'horde') {
-        $("#toggleMode").removeClass('tabbyMode').addClass('hordeMode').text('🧟');
-        $("#toggleMode").attr('title', 'Click to switch to Tabby Mode');
-        //copy the horde parameters into the APICallParams object
-        //APICallParams = JSON.parse(JSON.stringify(HordeAPICallParams));
+        $("#toggleMode").removeClass('TCMode').addClass('hordeMode').text('🧟');
+        $("#toggleMode").attr('title', 'Click to switch to Text Completions Mode');
         console.log('Switching to Horde Mode')
     } else {
-        $("#toggleMode").removeClass('hordeMode').addClass('tabbyMode').text('🐈');
+        $("#toggleMode").removeClass('hordeMode').addClass('TCMode').text('📑');
         $("#toggleMode").attr('title', 'Click to switch to Horde Mode');
-        //copy the tabby parameters into the APICallParams object
-        //APICallParams = JSON.parse(JSON.stringify(TabbyAPICallParams));
-        console.debug('Switching to Tabby Mode')
+        console.debug('Switching to Text Completions Mode')
     }
 }
 
@@ -802,9 +798,9 @@ $(async function () {
         updateD1JB($(this).val())
     })
 
-    //A clickable icon that toggles between tabby and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.
+    //A clickable icon that toggles between Text Completions and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.
     $("#toggleMode").off('click').on('click', function () {
-        let newMode = $("#toggleMode").hasClass('hordeMode') ? 'tabby' : 'horde';
+        let newMode = $("#toggleMode").hasClass('hordeMode') ? 'TC' : 'horde';
         let modeChangeMessage = {
             type: 'modeChange',
             UUID: myUUID,

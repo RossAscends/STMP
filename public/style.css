@@ -585,6 +585,18 @@ hr {
     width: fit-content
 }
 
+.width100p {
+    width: 100%
+}
+
+.maxWidth100px {
+    max-width: 100px;
+}
+
+.maxWidth50px {
+    max-width: 50px;
+}
+
 .width100px {
     width: 100px
 }

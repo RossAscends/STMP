@@ -56,17 +56,17 @@ const wssPort = 8182; //WSS for guests
 let modKey = ''
 let hostKey = ''
 
-var TabbyAPIDefaults, HordeAPIDefaults
+var TCAPIDefaults, HordeAPIDefaults
 
-//set the engine mode to either 'tabby' or 'horde'
-let engineMode = 'tabby'
+//set the engine mode to either 'TC' or 'horde'
+let engineMode = 'TC'
 
 async function getAPIDefaults() {
     try {
         const fileContents = await readFile('default-API-Parameters.json');
         const jsonData = JSON.parse(fileContents);
-        const { TabbyAPICallParams, HordeAPICallParams } = jsonData[0];
-        TabbyAPIDefaults = TabbyAPICallParams;
+        const { TCAPICallParams, HordeAPICallParams } = jsonData[0];
+        TCAPIDefaults = TCAPICallParams;
         HordeAPIDefaults = HordeAPICallParams;
     } catch (error) {
         console.error('Error reading or parsing the default API Param JSON file:', error);
@@ -133,10 +133,10 @@ remoteApp.use((req, res) => {
 const localServer = http.createServer(localApp);
 const guestServer = http.createServer(remoteApp);
 
-const TabbyURL = 'http://127.0.0.1:5000';
-const TabbyGenEndpoint = '/v1/completions';
+const TCURL = 'http://127.0.0.1:5000';
+const TCGenEndpoint = '/v1/completions';
 const secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
-const tabbyAPIkey = secretsObj.api_key_tabby
+const TCAPIkey = secretsObj.api_key_TC
 const STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string
 
 // Create a WebSocket server
@@ -179,12 +179,12 @@ async function initFiles() {
 
     // Default values for config.json
     const defaultConfig = {
-        engineMode: 'tabby',
+        engineMode: 'TC',
         selectedCharacter: 'public/characters/CodingSensei.png',
         responseLength: 200,
         contextSize: 2048,
         isAutoResponse: true,
-        selectedPreset: "public/api-presets/Tabby-Temp-2_MinP-0.2.json",
+        selectedPreset: "public/api-presets/TC-Temp-2_MinP-0.2.json",
         instructFormat: "public/instructFormats/ChatML.json",
         D1JB: ''
     };
@@ -871,8 +871,8 @@ async function handleConnections(ws, type, request) {
                 try {
                     console.log(engineMode)
                     let APICallParams
-                    if (engineMode === 'tabby') {
-                        APICallParams = TabbyAPIDefaults
+                    if (engineMode === 'TC') {
+                        APICallParams = TCAPIDefaults
                     } else {
                         APICallParams = HordeAPIDefaults
                     }
@@ -895,13 +895,14 @@ async function handleConnections(ws, type, request) {
                     //that file and parse the contents from there. All we need to do is pass the cardDefs, charName. and userName.
                     const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(charFile, fixedFinalCharName, parsedMessage.username)
                     const samplers = JSON.parse(liveConfig.samplers);
+                    console.log(samplers)
                     //apply the selected preset values to the API call
                     for (const [key, value] of Object.entries(samplers)) {
                         APICallParams[key] = value;
                     }
                     //add full prompt to API call
                     APICallParams.prompt = fullPromptforAI;
-                    //ctx and response length for Tabby
+                    //ctx and response length for Text Completion API
                     APICallParams.truncation_length = Number(liveConfig.contextSize)
                     APICallParams.max_tokens = Number(liveConfig.responseLength)
                     //ctx and response length for Horde
@@ -919,7 +920,7 @@ async function handleConnections(ws, type, request) {
                         AIResponse = hordeResponse;
                     }
                     else {
-                        AIResponse = trimIncompleteSentences(await requestToTabby(finalAPICallParams))
+                        AIResponse = trimIncompleteSentences(await requestToTC(finalAPICallParams))
                     }
 
                     await db.upsertChar(charName, charName, parsedMessage.userColor);
@@ -1189,7 +1190,7 @@ async function setStopStrings(APICallParams, includedChatObjects) {
         );
     }
 
-    if (liveConfig.engineMode === 'tabby') {
+    if (liveConfig.engineMode === 'TC') {
         APICallParams.stop = targetObj
     } else {
         APICallParams.params.stop_sequence = targetObj
@@ -1342,25 +1343,25 @@ async function requestToHorde(stringToSend, stoppingStrings = '') {
     };
 }
 
-async function requestToTabby(APICallParamsAndPrompt) {
+async function requestToTC(APICallParamsAndPrompt) {
     //message needs to be the ENTIRE API call, including params and chat history..
     try {
-        console.log('Sending Tabby request..');
-        const url = TabbyURL + TabbyGenEndpoint;
+        console.log('Sending Text Completion API request..');
+        const url = TCURL + TCGenEndpoint;
 
         const headers = {
             'Content-Type': 'application/json',
             'Cache': 'no-cache',
-            'x-api-key': tabbyAPIkey,
-            'Authorization': `Bearer ${tabbyAPIkey}`,
+            'x-api-key': TCAPIkey,
+            'Authorization': `Bearer ${TCAPIkey}`,
         };
 
         //old code for pulling from an external JSON file to get gen params, currently these are provided by client.html WS messages
         //TODO: revert to external JSON and only pull necessary variables from client.html WS pings.
 
-        //const TabbyAPICallParams = JSON.parse(fs.readFileSync('TabbyAPICall.json', 'utf-8'));
-        //TabbyAPICallParams['prompt'] = stringToSend;
-        //TabbyAPICallParams['stopping_strings'] = stoppingStrings;
+        //const TCAPICallParams = JSON.parse(fs.readFileSync('TCAPICall.json', 'utf-8'));
+        //TCAPICallParams['prompt'] = stringToSend;
+        //TCAPICallParams['stopping_strings'] = stoppingStrings;
 
         const body = JSON.stringify(APICallParamsAndPrompt);
         console.log(APICallParamsAndPrompt)
@@ -1381,7 +1382,7 @@ async function requestToTabby(APICallParamsAndPrompt) {
         //console.log(text)
         return text;
     } catch (error) {
-        console.log('Error while requesting ST-Tabby');
+        console.log('Error while requesting Text Completion API');
         const line = error.stack.split('\n').pop().split(':').pop();
         console.log(line);
         console.log(error);

@@ -112,8 +112,14 @@ function updateAIChatUserList(message) {
     userListElement.empty(); // Clear the existing user list
 
     userList.forEach(user => {
-        const { username, color } = user;
-        const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${username}</li>`;
+        const { username, color, entity } = user;
+        let usernameText
+        if (entity === 'AI') {
+            usernameText = `${username} 🤖`
+        } else {
+            usernameText = username
+        }
+        const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${usernameText}</li>`;
         userListElement.append(listItem);
     });
 }
@@ -428,6 +434,7 @@ async function connectWebSocket(username) {
                     $("#showPastChats").trigger('click') //autoupdate the past chat list with each AI chat message
                 }
                 if (chatID === 'AIChat') {
+                    //console.log(AIChatUserList)
                     updateAIChatUserList(AIChatUserList)
                 }
                 break;

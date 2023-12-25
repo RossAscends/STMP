@@ -956,22 +956,29 @@ async function handleConnections(ws, type, request) {
 //this array is returned and sent along with the AI response, in order to populate the AI Chat UserList.
 
 async function makeAIChatUserList(entitiesList, chatHistoryFromPrompt) {
-    const chatHistoryEntitiesSet = new Set(entitiesList);
-
+    //console.log('-----------MAKING ENTITIES LIST NOW');
+    const chatHistoryEntities = entitiesList;
+    //console.log(chatHistoryEntities)
     const fullChatDataJSON = chatHistoryFromPrompt;
     const AIChatUserList = [];
 
-    for (const entity of chatHistoryEntitiesSet) {
+    for (const entity of chatHistoryEntities) {
+        //console.log(entity);
         for (const chat of fullChatDataJSON) {
-            if (chat.username === entity) {
+            //console.log(chat);
+            //console.log(`${chat.username} vs ${entity.username}`);
+            if (chat.username === entity.username) {
+                //console.log('found match');
                 const userColor = chat.userColor;
-                AIChatUserList.push({ username: entity, color: userColor });
+                const username = chat.username;
+                const entityType = chat.entity;
+                AIChatUserList.push({ username: username, color: userColor, entity: entityType });
                 break; // Once a match is found, no need to continue the inner loop
             }
         }
     }
 
-    //console.log(`Latest AI Chat User List:`);
+    //console.log('Latest AI Chat User List:');
     //console.log(AIChatUserList);
     return AIChatUserList;
 }
@@ -1153,24 +1160,32 @@ async function setStopStrings(APICallParams, includedChatObjects) {
 
     //an array of chat message objects which made it into the AI prompt context limit
     let chatHistory = includedChatObjects;
-    //create a set of usernames to pass back for processing for AIChat UserList
-    let usernames = new Set();
-
-    // Iterate over chatHistory and extract unique usernames
+    //create a array of usernames and entity types to pass back for processing for AIChat UserList
+    let usernames = [];
+    const knownUsernames = new Set();
+    // Iterate over chatHistory and extract unique usernames and their entity type
     for (const obj of chatHistory) {
         const username = obj.username;
-        usernames.add(username);
+        const entity = obj.entity
+        const key = `${username}_${entity}`
+        if (!knownUsernames.has(key)) {
+            knownUsernames.add(key);
+            usernames.push({ username: username, entity: entity });
+        }
+
     }
+    //console.log('-------- USERNAMES FOUND')
+    //console.log(usernames)
     let targetObj = []
 
     // Generate permutations for each unique username
     //TODO: find a sensible way to optimize this. 4 strings per entity is a lot..
-    for (const username of usernames) {
+    for (const entity of usernames) {
         targetObj.push(
-            `${username}:`,
-            `\n${username}:`,
-            ` ${username}:`,
-            `\n ${username}:`
+            `${entity.username}:`,
+            `\n${entity.username}:`,
+            ` ${entity.username}:`,
+            `\n ${entity.username}:`
         );
     }
 

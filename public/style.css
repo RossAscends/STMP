@@ -321,6 +321,11 @@ pre {
     padding-bottom: 10px;
 }
 
+#chat div p em,
+#AIchat div p em {
+    color: #797d86
+}
+
 #messageInput,
 #AIMessageInput {
     height: 2.2em;

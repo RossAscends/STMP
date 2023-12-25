@@ -20,7 +20,7 @@ async function createTables() {
 
     //user roles table
     await db.run(`CREATE TABLE IF NOT EXISTS user_roles (
-        user_id TEXT,
+        user_id TEXT UNIQUE PRIMARY KEY,
         role TEXT DEFAULT 'user',
         FOREIGN KEY (user_id) REFERENCES users(user_id)
     )`);

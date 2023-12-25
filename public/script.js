@@ -337,6 +337,11 @@ async function connectWebSocket(username) {
                     updateD1JB(newJB, 'forced');
                 }
                 break;
+            case 'keyAccepted':
+                //refresh page to get new info, could be done differently in the future
+                console.log('key accepted, refreshing page...')
+                location.reload();
+                break;
             case 'pastChatsList':
                 let chatList = parsedMessage.pastChats
                 showPastChats(chatList)
@@ -498,6 +503,16 @@ function updateUserName() {
     messageServer(nameChangeMessage)
 }
 
+function submitKey() {
+    let key = $("#roleKeyInput").val()
+    let keyMessage = {
+        type: 'submitKey',
+        UUID: myUUID,
+        key: key
+    }
+    messageServer(keyMessage)
+}
+
 function doAIRetry() {
     let char = $('#characters').val();
     let retryMessage = {
@@ -633,6 +648,19 @@ $(async function () {
     })
     $("#disconnectButton").off('click').on('click', function () {
         disconnectWebSocket()
+    })
+
+    //handle key submission
+    $("#submitkey").off('click').on('click', function () {
+        //show/hide roleKeyInput
+        $("#roleKeyInput").toggle()
+    })
+    
+    //when roleKeyInput has 16 characters, submit the key
+    $("#roleKeyInput").on('input', function () {
+        if ($(this).val().length === 32) {
+            submitKey()
+        }
     })
 
     $("#AIAutoResponse").on('input', function () {

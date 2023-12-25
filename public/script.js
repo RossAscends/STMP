@@ -72,10 +72,10 @@ function messageServer(message) {
 }
 
 function updateUserChatUserList(message) {
-    console.debug(message);
+    //console.debug(message);
     const userList = message;
 
-    if (!userList || userList.length === 0) {
+    if (!userList || userList.length === 0 || userList === undefined) {
         //console.log('Saw an empty userList or userList is undefined, will wait for another...');
         return;
     }
@@ -180,7 +180,18 @@ function updateD1JB(jb, type) {
 
 async function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
-    const { clientUUID, role, D1JB, instructList, instructFormat, selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory, AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize, responseLength, engineMode } = parsedMessage;
+    const { clientUUID, newAIChatDelay, newUserChatDelay, role, D1JB, instructList, instructFormat,
+        selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory,
+        AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize,
+        responseLength, engineMode } = parsedMessage;
+    if (newAIChatDelay) {
+        AIChatDelay = newAIChatDelay * 1000
+        $("#AIChatInputDelay").val(newAIChatDelay)
+    }
+    if (newUserChatDelay) {
+        userChatDelay = newUserChatDelay * 1000
+        $("#UserChatInputDelay").val(newUserChatDelay)
+    }
     myUUID = myUUID === '' ? clientUUID : myUUID;
     localStorage.setItem('UUID', myUUID);
     isHost = role === 'host' ? true : false
@@ -371,15 +382,27 @@ async function connectWebSocket(username) {
                     $("#clearAIChat").trigger('click')
                 }
                 $("#showPastChats").trigger('click')
+                break
             case 'autoAItoggleUpdate':
                 $("#AIAutoResponse").prop('checked', parsedMessage.value)
                 console.log('autoAI toggle updated')
+                break
             case 'contextSizeChange':
                 $("#maxContext").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
                 console.log('maxContext  updated')
+                break
             case 'responseLengthChange':
                 $("#responseLength").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
                 console.log('responseLength updated')
+                break
+            case 'AIChatDelayChange':
+                AIChatDelay = parsedMessage.value * 1000
+                console.log('AI Chat delay updated')
+                break
+            case 'userChatDelayChange':
+                userChatDelay = parsedMessage.value * 1000
+                console.log('User Chat delay updated')
+                break
             default:
                 console.log('saw chat message')
                 var { chatID, username, content, userColor, workerName, hordeModel, kudosCost, AIChatUserList } = JSON.parse(message);
@@ -956,11 +979,21 @@ $(async function () {
     userChatDelay = ($("#UserChatInputDelay").val()) * 1000
 
     $("#UserChatInputDelay").on('change', function () {
-        userChatDelay = ($("#UserChatInputDelay").val()) * 1000
+        //userChatDelay = ($("#UserChatInputDelay").val()) * 1000
+        const settingsChangeMessage = {
+            type: 'userChatDelayChange',
+            value: $("#UserChatInputDelay").val()
+        }
+        messageServer(settingsChangeMessage)
     })
 
     $("#AIChatInputDelay").on('change', function () {
-        AIChatDelay = ($("#AIChatInputDelay").val()) * 1000
+        //AIChatDelay = ($("#AIChatInputDelay").val()) * 1000
+        const settingsChangeMessage = {
+            type: 'AIChatDelayChange',
+            value: $("#AIChatInputDelay").val()
+        }
+        messageServer(settingsChangeMessage)
     })
 
 

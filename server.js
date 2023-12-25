@@ -474,7 +474,9 @@ async function handleConnections(ws, type, request) {
         AIChatHistory: AIChatJSON,
         color: thisUserColor,
         role: thisUserRole,
-        selectedCharacterDisplayName: liveConfig.selectedCharDisplayName
+        selectedCharacterDisplayName: liveConfig.selectedCharDisplayName,
+        newUserChatDelay: liveConfig?.userChatDelay,
+        newAIChatDelay: liveConfig?.AIChatDelay
     }
     //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
@@ -577,6 +579,29 @@ async function handleConnections(ws, type, request) {
                     return
 
                 }
+                else if (parsedMessage.type === 'AIChatDelayChange') {
+                    AIChatDelay = parsedMessage.value
+                    liveConfig.AIChatDelay = AIChatDelay
+                    await writeConfig(liveConfig, 'AIChatDelay', AIChatDelay)
+                    let settingChangeMessage = {
+                        type: 'AIChatDelayChange',
+                        value: liveConfig.AIChatDelay
+                    }
+                    await broadcast(settingChangeMessage)
+                    return
+                }
+                else if (parsedMessage.type === 'userChatDelayChange') {
+                    userChatDelay = parsedMessage.value
+                    liveConfig.userChatDelay = userChatDelay
+                    await writeConfig(liveConfig, 'userChatDelay', userChatDelay)
+                    let settingChangeMessage = {
+                        type: 'userChatDelayChange',
+                        value: liveConfig.userChatDelay
+                    }
+                    await broadcast(settingChangeMessage)
+                    return
+                }
+
                 else if (parsedMessage.type === 'clearAIChat') {
                     await saveAndClearChat('AIChat')
                     const clearAIChatInstruction = {

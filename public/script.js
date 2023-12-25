@@ -338,9 +338,9 @@ async function connectWebSocket(username) {
                 }
                 break;
             case 'keyAccepted':
-                console.log('key accepted, hiding key input field')
-                $("#roleKeyInput").val('')
-                $("#roleKeyInput").hide()
+                //refresh page to get new info, could be done differently in the future
+                console.log('key accepted, refreshing page...')
+                location.reload();
                 break;
             case 'pastChatsList':
                 let chatList = parsedMessage.pastChats

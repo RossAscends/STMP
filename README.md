@@ -1,6 +1,8 @@
 # SillyTavern MultiPlayer (STMP)
 
-SillyTavern MultiPlayer is a multiuser LLM chat interface created by RossAscends.
+SillyTavern MultiPlayer is an LLM chat interface that allows multiple users to chat together with an AI. 
+
+- Created by RossAscends.
 
 ## Support and Donations
 

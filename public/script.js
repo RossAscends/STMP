@@ -371,6 +371,15 @@ async function connectWebSocket(username) {
                     $("#clearAIChat").trigger('click')
                 }
                 $("#showPastChats").trigger('click')
+            case 'autoAItoggleUpdate':
+                $("#AIAutoResponse").prop('checked', parsedMessage.value)
+                console.log('autoAI toggle updated')
+            case 'contextSizeChange':
+                $("#maxContext").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
+                console.log('maxContext  updated')
+            case 'responseLengthChange':
+                $("#responseLength").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
+                console.log('responseLength updated')
             default:
                 console.log('saw chat message')
                 var { chatID, username, content, userColor, workerName, hordeModel, kudosCost, AIChatUserList } = JSON.parse(message);
@@ -655,7 +664,7 @@ $(async function () {
         //show/hide roleKeyInput
         $("#roleKeyInput").toggle()
     })
-    
+
     //when roleKeyInput has 16 characters, submit the key
     $("#roleKeyInput").on('input', function () {
         if ($(this).val().length === 32) {

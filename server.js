@@ -329,6 +329,29 @@ async function broadcast(message) {
     });
 }
 
+async function broadcastToHosts(message) {
+    //alter the type check for bug checking purposes, otherwise this is turned off
+
+    console.log('HOST BROADCAST:')
+    console.log(message)
+
+    console.log(clientsObject)
+
+    let hostsObjects = Object.values(clientsObject).filter(obj => obj.role === 'host');
+    console.log(hostsObjects)
+
+
+    Object.keys(hostsObjects).forEach(clientUUID => {
+        const client = hostsObjects[clientUUID];
+        const socket = client.socket;
+
+        if (socket?.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify(message));
+        }
+    });
+}
+
+
 // Broadcast the updated array of connected usernames to all clients
 async function broadcastUserList() {
     const userListMessage = {
@@ -491,7 +514,7 @@ async function handleConnections(ws, type, request) {
             console.log('Received message from client:', parsedMessage);
 
             //first check if the sender is host, and if so, process possible host commands
-            if (senderUUID === hostUUID) {
+            if (user.role === 'host') {
                 console.log(`saw message from host, type (${parsedMessage.type})`)
                 if (parsedMessage.type === 'clearChat') {
 
@@ -508,12 +531,22 @@ async function handleConnections(ws, type, request) {
                     isAutoResponse = parsedMessage.value
                     liveConfig.isAutoResponse = isAutoResponse
                     await writeConfig(liveConfig, 'isAutoResponse', isAutoResponse)
+                    let settingChangeMessage = {
+                        type: 'autoAItoggleUpdate',
+                        value: liveConfig.isAutoResponse
+                    }
+                    await broadcastToHosts(settingChangeMessage)
                     return
                 }
                 else if (parsedMessage.type === 'adjustContextSize') {
                     contextSize = parsedMessage.value
                     liveConfig.contextSize = contextSize
                     await writeConfig(liveConfig, 'contextSize', contextSize)
+                    let settingChangeMessage = {
+                        type: 'contextSizeChange',
+                        value: liveConfig.contextSize
+                    }
+                    await broadcastToHosts(settingChangeMessage)
                     return
 
                 }
@@ -521,6 +554,11 @@ async function handleConnections(ws, type, request) {
                     responseLength = parsedMessage.value
                     liveConfig.responseLength = responseLength
                     await writeConfig(liveConfig, 'responseLength', responseLength)
+                    let settingChangeMessage = {
+                        type: 'responseLengthChange',
+                        value: liveConfig.responseLength
+                    }
+                    await broadcastToHosts(settingChangeMessage)
                     return
 
                 }

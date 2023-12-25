@@ -13,6 +13,8 @@ const express = require('express');
 const { url } = require('inspector');
 const localApp = express();
 const remoteApp = express();
+const crypto = require('crypto');
+
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
 
@@ -51,6 +53,9 @@ const usernameColors = [
 const wsPort = 8181; //WS for host
 const wssPort = 8182; //WSS for guests
 
+let modKey = ''
+let hostKey = ''
+
 var TabbyAPIDefaults, HordeAPIDefaults
 
 //set the engine mode to either 'tabby' or 'horde'
@@ -69,7 +74,6 @@ async function getAPIDefaults() {
 }
 
 getAPIDefaults()
-
 
 
 // Configuration
@@ -155,6 +159,18 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function generateAndPrintKeys() {
+    // Generate a 16-byte hex string for the host key
+    hostKey = crypto.randomBytes(16).toString('hex');
+
+    // Generate a 16-byte hex string for the mod key
+    modKey = crypto.randomBytes(16).toString('hex');
+
+    // Print the keys
+    console.log(`Host Key: ${hostKey}`);
+    console.log(`Mod Key: ${modKey}`);
+}
+
 async function initFiles() {
     const configPath = 'config.json';
     const secretsPath = 'secrets.json';
@@ -209,6 +225,8 @@ async function initFiles() {
 // Create directories
 createDirectoryIfNotExist("./public/api-presets");
 
+generateAndPrintKeys();
+
 // Call the function to initialize the files
 initFiles();
 
@@ -255,7 +273,7 @@ async function getInstructList() {
     const files = await fs.promises.readdir(path);
     var instructs = []
     var i = 0
-    //console.log('Files in directory:');
+    console.log('Files in directory:');
     for (const file of files) {
         try {
             let fullPath = `${path}/${file}`
@@ -673,6 +691,37 @@ async function handleConnections(ws, type, request) {
                 console.log('sending notification of username change')
                 await broadcast(nameChangeNotification);
                 await broadcastUserList()
+            }
+            else if (parsedMessage.type === 'submitKey') {
+                console.log(hostKey)
+                console.log(parsedMessage.key)
+                console.log(modKey)
+                if (parsedMessage.key === hostKey) {
+                    const keyAcceptedMessage = {
+                        type: 'keyAccepted',
+                        role: 'host'
+                    }
+                    db.upsertUserRole(uuid, 'host');
+                    await ws.send(JSON.stringify(keyAcceptedMessage))
+                    await broadcast(keyAcceptedMessage);
+                }
+                else if (parsedMessage.key === modKey) {
+                    const keyAcceptedMessage = {
+                        type: 'keyAccepted',
+                        role: 'mod'
+                    }
+                    db.upsertUserRole(uuid, 'mod');
+                    await ws.send(JSON.stringify(keyAcceptedMessage))
+                    //await broadcast(keyAcceptedMessage);
+                }
+                else {
+                    const keyRejectedMessage = {
+                        type: 'keyRejected'
+                    }
+                    console.error(`Key rejected: ${parsedMessage.key} from ${senderUUID}`)
+                    await ws.send(JSON.stringify(keyRejectedMessage))
+                    //await broadcast(keyRejectedMessage);
+                }
             }
             else if (parsedMessage.type === 'chatMessage') { //handle normal chat messages
                 //having this enable sends the user's colors along with the response message if it uses parsedMessage as the base..

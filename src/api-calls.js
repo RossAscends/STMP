@@ -272,7 +272,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
 
             //add the char description, personality, scenario, and first message
             var stringToReturn =
-                `${systemSequence}${systemMessage}\n${replacedData?.description}\n${replacedData?.personality.trim()}\n${replacedData?.scenario.trim()}${endSequence}`
+                `${systemSequence}${systemMessage}\n${replacedData?.description}\n${replacedData?.personality.trim()}\n${replacedData?.scenario.trim()}`
             //add the chat history
             let promptTokens = countTokens(stringToReturn)
             //console.log(`before adding ChatHIstory, Prompt is: ~${promptTokens}`)

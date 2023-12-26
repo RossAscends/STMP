@@ -19,17 +19,22 @@ const $ = require('jquery');
 const db = require('./db.js');
 const fio = require('./file-io.js')
 
-const TCURL = 'http://127.0.0.1:5000';
-const TCGenEndpoint = '/v1/completions';
+let TCURL = 'http://127.0.0.1:5000';
+let TCGenEndpoint = '/v1/completions';
 const secretsObj = JSON.parse(fs.readFileSync('./secrets.json', { encoding: 'utf8' }));
-const TCAPIkey = secretsObj.api_key_TC
+let TCAPIkey = secretsObj.api_key_TC
 const STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-
+function setNewAPI(url, endpoint, key){
+    TCURL = url
+    TCGenEndpoint = endpoint
+    TCAPIkey = key
+    console.log(`New API set: ${TCURL}${TCGenEndpoint} with key ${TCAPIkey}`)
+}
 
 var TCAPIDefaults, HordeAPIDefaults
 
@@ -438,4 +443,5 @@ module.exports = {
     getAIResponse: getAIResponse,
     getAPIDefaults: getAPIDefaults,
     replaceMacros: replaceMacros,
+    setNewAPI: setNewAPI,
 }

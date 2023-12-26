@@ -960,6 +960,13 @@ $(async function () {
             $("#addNewAPI").show()
         } else {
             $("#addNewAPI").hide()
+            // send a message to the server to update the API key
+            const APIChangeMessage = {
+                type: 'APIChange',
+                UUID: myUUID,
+                newAPI: $(this).val()
+            }
+            messageServer(APIChangeMessage);
         }
     })
 

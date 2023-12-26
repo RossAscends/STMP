@@ -150,7 +150,7 @@ async function populateAPISelector(API) {
     APISelectElement.append($('<option>').val('addNewAPI').text('Add New API'));
     for (const api of API) {
         let newElem = $('<option>');
-        newElem.val(api.api_id);
+        newElem.val(api.name);
         newElem.text(api.name);
         APISelectElement.append(newElem);
     }

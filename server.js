@@ -513,13 +513,28 @@ async function handleConnections(ws, type, request) {
                         endpoint: parsedMessage.endpoint,
                         api_key: parsedMessage.key
                     }
-                    await db.upsertAPI(newAPI.name, newAPI.url, newAPI.api_key)
+                    await db.upsertAPI(newAPI.name, newAPI.endpoint, newAPI.api_key)
                     let apis = await db.getAPIs();
+                    // remove keys from the API list before sending to clients
+                    for (const api of apis) {
+                        delete api.key
+                    }
                     let APIListMessage = {
                         type: 'APIList',
                         APIList: apis
                     }
                     await broadcast(APIListMessage)
+                }
+                else if (parsedMessage.type === 'APIChange') {
+                    const changeAPI = {
+                        type: 'changeAPI',
+                        newAPI: parsedMessage.newAPI
+                    }
+                    newAPI = await db.getAPI(parsedMessage.newAPI)
+                    api.setNewAPI(newAPI.endpoint.split('/')[2], newAPI.endpoint.split('/').slice(3).join('/'), newAPI.key)
+                    
+                    await broadcast(changeAPI);
+                    return
                 }
 
                 else if (parsedMessage.type === 'clearAIChat') {

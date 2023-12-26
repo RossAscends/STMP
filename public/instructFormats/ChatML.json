@@ -3,7 +3,7 @@
     "system_sequence": "<|im_start|>system\n",
     "input_sequence": "<|im_start|>user\n",
     "output_sequence": "<|im_start|>assistant\n",
-    "end_sequence": "<|im_end|>\n",
+    "end_sequence": "<|im_end|>",
     "first_output_sequence": "<|im_start|>assistant\n",
     "last_output_sequence": "",
     "system_sequence_suffix": ""

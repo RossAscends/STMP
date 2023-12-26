@@ -44,6 +44,7 @@ var sanitizeExtension = {
 
 var quotesExtension = function () {
     var regexes = [
+        { regex: /"([^""]*)"/g, replace: '<q>$1</q>' },
         { regex: /“([^“”]*)”/g, replace: '<q class="invisible-quotation">“$1”</q>' },
         { regex: /‘([^‘’]*)’/g, replace: '<q class="invisible-quotation">‘$1’</q>' },
         { regex: /«([^«»]*)»/g, replace: '<q class="invisible-quotation">«$1»</q>' },
@@ -51,6 +52,7 @@ var quotesExtension = function () {
         { regex: /『([^『』]*)』/g, replace: '<q class="invisible-quotation">『$1』</q>' },
         { regex: /【([^【】]*)】/g, replace: '<q class="invisible-quotation">【$1】</q>' },
         { regex: /《([^《》]*)》/g, replace: '<q class="invisible-quotation">《$1》</q>' }
+
     ];
 
     return regexes.map(function (rule) {

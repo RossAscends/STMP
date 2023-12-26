@@ -88,7 +88,7 @@ async function writeConfig(configObj, key, value) {
         console.log(`Config updated: ${key}`); // = ${value}`);
     }
     const writableConfig = JSON.stringify(configObj, null, 2); // Serialize the object with indentation
-    fs.writeFile('../config.json', writableConfig, 'utf8', writeErr => {
+    fs.writeFile('./config.json', writableConfig, 'utf8', writeErr => {
         if (writeErr) {
             console.error('An error occurred while writing to the file:', writeErr);
             releaseLock()

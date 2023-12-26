@@ -45,10 +45,8 @@ async function getAPIDefaults() {
     }
 }
 
-async function getAIResponse(engineMode, parsedMessage, userPrompt, liveConfig) {
-
+async function getAIResponse(engineMode, userObj, userPrompt, liveConfig) {
     try {
-        console.log(engineMode)
         let APICallParams
         if (engineMode === 'TC') {
             APICallParams = TCAPIDefaults
@@ -73,7 +71,7 @@ async function getAIResponse(engineMode, parsedMessage, userPrompt, liveConfig) 
         //a careful observer might notice that we don't set the userInput string into the 'prompt' section of the API Params at this point.
         //this is because the userInput has already been saved into the chat session, and the next function will read 
         //that file and parse the contents from there. All we need to do is pass the cardDefs, charName. and userName.
-        const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, fixedFinalCharName, parsedMessage.username)
+        const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, fixedFinalCharName, userObj.username)
         const samplers = JSON.parse(liveConfig.samplers);
         console.log(samplers)
         //apply the selected preset values to the API call
@@ -101,7 +99,7 @@ async function getAIResponse(engineMode, parsedMessage, userPrompt, liveConfig) 
             AIResponse = trimIncompleteSentences(await requestToTC(finalAPICallParams))
         }
 
-        await db.upsertChar(charName, charName, parsedMessage.userColor);
+        await db.upsertChar(charName, charName, userObj.color);
         await db.writeAIChatMessage(charName, charName, AIResponse, 'AI');
 
         let AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
@@ -247,6 +245,7 @@ function replaceMacros(string, username, charname) {
 }
 
 async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharName, username) {
+    console.log(`addCharDefsToPrompt: ${username}`)
     return new Promise(async function (resolve, reject) {
         try {
             let charData = await fio.charaRead(charFile, 'png')
@@ -254,21 +253,21 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             let ChatObjsInPrompt = []
 
             //replace {{user}} and {{char}} for character definitions
-            const jsonData = JSON.parse(charData)
-            const charName = jsonData.name
-            const jsonString = JSON.stringify(jsonData);
-            let replacedString = replaceMacros(jsonString, username, jsonData.name)
+            const charJSON = JSON.parse(charData)
+            const charName = charJSON.name
+            const jsonString = JSON.stringify(charJSON);
+            let replacedString = replaceMacros(jsonString, username, charJSON.name)
             const replacedData = JSON.parse(replacedString);
 
             //replace {{user}} and {{char}} for D1JB
-            var D1JB = replaceMacros(liveConfig.D1JB, username, jsonData.name) || ''
+            var D1JB = replaceMacros(liveConfig.D1JB, username, charJSON.name) || ''
 
 
             const instructSequence = JSON.parse(liveConfig.instructSequences)
-            const inputSequence = instructSequence.input_sequence
-            const outputSequence = instructSequence.output_sequence
-            const systemSequence = instructSequence.system_sequence
-            const endSequence = instructSequence.end_sequence
+            const inputSequence = replaceMacros(instructSequence.input_sequence, username, charJSON.name)
+            const outputSequence = replaceMacros(instructSequence.output_sequence, username, charJSON.name)
+            const systemSequence = replaceMacros(instructSequence.system_sequence, username, charJSON.name)
+            const endSequence = replaceMacros(instructSequence.end_sequence, username, charJSON.name)
             const systemMessage = `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
 
             //add the char description, personality, scenario, and first message
@@ -282,9 +281,9 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 let obj = chatHistory[i];
                 let newItem
                 if (obj.username === charName) {
-                    newItem = `${outputSequence}${obj.username}: ${obj.content}\n${endSequence}`;
+                    newItem = `${endSequence}${outputSequence}${obj.username}: ${obj.content}\n`;
                 } else {
-                    newItem = `${inputSequence}${obj.username}: ${obj.content}\n${endSequence}`;
+                    newItem = `${endSequence}${inputSequence}${obj.username}: ${obj.content}\n`;
                 }
 
                 let newItemTokens = countTokens(newItem);

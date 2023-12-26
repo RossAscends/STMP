@@ -143,6 +143,19 @@ async function populateSamplerSelector(presetList) {
     }
 }
 
+async function populateAPISelector(API) {
+    console.debug(API);
+    let APISelectElement = $("#apiList");
+    APISelectElement.empty()
+    APISelectElement.append($('<option>').val('addNewAPI').text('Add New API'));
+    for (const api of API) {
+        let newElem = $('<option>');
+        newElem.val(api.api_id);
+        newElem.text(api.name);
+        APISelectElement.append(newElem);
+    }
+}
+
 // set the engine mode to either horde or Text Completions based on a value from the websocket
 function setEngineMode(mode) {
     if (mode === 'horde') {
@@ -162,6 +175,7 @@ export default {
 
     setEngineMode: setEngineMode,
     populateSamplerSelector: populateSamplerSelector,
+    populateAPISelector: populateAPISelector,
     populateInstructSelector: populateInstructSelector,
     populateCardSelector: populateCardSelector,
     submitKey: submitKey,

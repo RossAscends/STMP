@@ -152,12 +152,34 @@ function updateAIChatUserList(message) {
     });
 }
 
+function getAPIList() {
+    const APIListRequest = {
+        type: 'APIListRequest',
+        UUID: myUUID
+    }
+    messageServer(APIListRequest)
+}
+
+async function addNewAPI() {
+    messageServer({
+        type: 'addNewAPI',
+        name: $("#newAPIName").val(),
+        endpoint: $("#newAPIEndpoint").val(),
+        key: $("#newAPIKey").val(),
+        UUID: myUUID
+    })
+    $("#newAPIName").val('')
+    $("#newAPIEndpoint").val('')
+    $("#newAPIKey").val('')
+    $("#addNewAPI").hide()
+}
+
 async function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
     const { clientUUID, newAIChatDelay, newUserChatDelay, role, D1JB, instructList, instructFormat,
         selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory,
         AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize,
-        responseLength, engineMode } = parsedMessage;
+        responseLength, engineMode, APIList } = parsedMessage;
     if (newAIChatDelay) {
         AIChatDelay = newAIChatDelay * 1000
         $("#AIChatInputDelay").val(newAIChatDelay)
@@ -195,6 +217,7 @@ async function processConfirmedConnection(parsedMessage) {
         control.populateCardSelector(cardList);
         control.populateInstructSelector(instructList);
         control.populateSamplerSelector(samplerPresetList);
+        control.populateAPISelector(APIList);
         console.log('updating UI to match server state...')
         control.updateSelectedChar(myUUID, selectedCharacter, selectedCharacterDisplayName, 'forced');
         control.updateSelectedSamplerPreset(myUUID, selectedSamplerPreset, 'forced');
@@ -342,6 +365,10 @@ async function connectWebSocket(username) {
             case 'pastChatsList':
                 let chatList = parsedMessage.pastChats
                 showPastChats(chatList)
+                break;
+            case 'APIList':
+                let APIList = parsedMessage.APIList;
+                control.populateAPISelector(APIList);
                 break;
             case 'pastChatToLoad':
                 console.log('loading past chat session');
@@ -925,6 +952,19 @@ $(async function () {
         }
         messageServer(settingsChangeMessage)
         flashElement('AIChatInputDelay', 'good')
+    })
+
+    //When a user clicks the api list and selects "add new API", show the addNewAPI div
+    $("#apiList").on('change', function () {
+        if ($(this).val() === 'addNewAPI') {
+            $("#addNewAPI").show()
+        } else {
+            $("#addNewAPI").hide()
+        }
+    })
+
+    $("#addNewAPIButton").on('click', function () {
+        addNewAPI()
     })
 
 

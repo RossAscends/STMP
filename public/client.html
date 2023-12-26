@@ -74,6 +74,24 @@
                             </div>
                         </div>
                         <div class="flexbox flexFlowCol">
+                            <small class="alignSelfCenter">API</small>
+                            <div class="custom-select">
+                                <select id="apiList"></select>
+                            </div>
+                        </div>
+                        <!-- Hidden until js reveals it -->
+                        <div id="addNewAPI" class="flexbox flexFlowCol" style="display:none;">
+                            <small class="alignSelfCenter">Add New API</small>
+                            <div class="flexbox flexFlowCol">
+                                    <small>Name</small><input id="newAPIName" class="" placeholder="API Name">
+                                    <small>Endpoint</small><input id="newAPIEndpoint" class="" placeholder="http://localhost:5000">
+                                    <small>Key</small><input id="newAPIKey" class="" placeholder="API Key">
+                                <div class="flexbox justifySpaceBetween Vcentered">
+                                    <div class="flexbox Vcentered"><button id="addNewAPIButton">Add</button></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flexbox flexFlowCol">
                             <small class="alignSelfCenter">Samplers</small>
                             <div class="custom-select">
                                 <select id="samplerPreset"></select>

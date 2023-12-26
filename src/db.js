@@ -63,6 +63,15 @@ async function createTables() {
         ended_at DATETIME,
         is_active BOOLEAN DEFAULT TRUE
     )`);
+
+    // APIs table
+    await db.run(`CREATE TABLE IF NOT EXISTS apis (
+        name TEXT UNIQUE PRIMARY KEY,
+        endpoint TEXT,
+        key TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_used_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
 }
 
 async function writeUserChatMessage(userId, message) {
@@ -389,6 +398,39 @@ async function getMessage(messageID) {
     }
 }
 
+async function upsertAPI(name, endpoint, key) {
+    console.log('Upserting API...');
+    const db = await dbPromise;
+    try {
+        await db.run('INSERT OR REPLACE INTO apis (name, endpoint, key) VALUES (?, ?, ?)', [name, endpoint, key]);
+        console.debug('An API was upserted');
+    } catch (err) {
+        console.error('Error writing API:', err);
+    }
+}
+
+async function getAPIs() {
+    console.log('Getting APIs...');
+    const db = await dbPromise;
+    try {
+        return await db.all('SELECT * FROM apis');
+    } catch (err) {
+        console.error('Error getting APIs:', err);
+        throw err;
+    }
+}
+
+async function getAPI(name) {
+    console.log('Getting API...');
+    const db = await dbPromise;
+    try {
+        return await db.get('SELECT * FROM apis WHERE name = ?', [name]);
+    } catch (err) {
+        console.error('Error getting API:', err);
+        throw err;
+    }
+}
+
 createTables().catch(console.error);
 
 module.exports = {
@@ -407,5 +449,8 @@ module.exports = {
     deletePastChat: deletePastChat,
     getUserColor: getUserColor,
     upsertUserRole: upsertUserRole,
-    getCharacterColor: getCharacterColor
+    getCharacterColor: getCharacterColor,
+    upsertAPI: upsertAPI,
+    getAPIs: getAPIs,
+    getAPI: getAPI
 };

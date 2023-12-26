@@ -179,6 +179,8 @@ async function initFiles() {
         authString: 'YourAuthString'
     };
 
+    db.upsertAPI('Default', 'localhost:5000', '');
+
     // Check and create config.json if it doesn't exist
     if (!await existsAsync(configPath)) {
         console.log('Creating config.json with default values...');
@@ -376,6 +378,9 @@ async function handleConnections(ws, type, request) {
     }
     //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
+        let apis = await db.getAPIs();
+        console.log('APIs:')
+        console.log(apis)
         console.log("including metadata for host")
         hostUUID = uuid
         connectionConfirmedMessage["cardList"] = cardList
@@ -389,6 +394,7 @@ async function handleConnections(ws, type, request) {
         connectionConfirmedMessage["responseLength"] = liveConfig.responseLength
         connectionConfirmedMessage["D1JB"] = liveConfig.D1JB
         connectionConfirmedMessage["instructFormat"] = liveConfig.instructFormat
+        connectionConfirmedMessage["APIList"] = apis
     }
 
     await broadcastUserList()
@@ -499,6 +505,21 @@ async function handleConnections(ws, type, request) {
                     }
                     await broadcast(settingChangeMessage)
                     return
+                }
+
+                else if (parsedMessage.type === 'addNewAPI') {
+                    const newAPI = {
+                        name: parsedMessage.name,
+                        endpoint: parsedMessage.endpoint,
+                        api_key: parsedMessage.key
+                    }
+                    await db.upsertAPI(newAPI.name, newAPI.url, newAPI.api_key)
+                    let apis = await db.getAPIs();
+                    let APIListMessage = {
+                        type: 'APIList',
+                        APIList: apis
+                    }
+                    await broadcast(APIListMessage)
                 }
 
                 else if (parsedMessage.type === 'clearAIChat') {

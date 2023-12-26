@@ -24,7 +24,7 @@ const characterCardParser = require('./src/character-card-parser.js');
 //Import db handler from STMP/scripts/db.js
 const db = require('./src/db.js');
 const fio = require('./src/file-io.js')
-const api = require('./src/api-calls.js')
+const api = require('./src/api-calls.js');
 
 //for console coloring
 const color = {
@@ -379,9 +379,8 @@ async function handleConnections(ws, type, request) {
     //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
         let apis = await db.getAPIs();
-        console.log('APIs:')
-        console.log(apis)
-        console.log("including metadata for host")
+        let { TCNAME, TCURL, TCGenEndpoint, TCAPIkey }  = api.getTCInfo();
+        console.log(`TCNAME: ${TCNAME}`)
         hostUUID = uuid
         connectionConfirmedMessage["cardList"] = cardList
         connectionConfirmedMessage["instructList"] = instructList
@@ -395,6 +394,7 @@ async function handleConnections(ws, type, request) {
         connectionConfirmedMessage["D1JB"] = liveConfig.D1JB
         connectionConfirmedMessage["instructFormat"] = liveConfig.instructFormat
         connectionConfirmedMessage["APIList"] = apis
+        connectionConfirmedMessage["selectedAPI"] = TCNAME
     }
 
     await broadcastUserList()
@@ -527,11 +527,11 @@ async function handleConnections(ws, type, request) {
                 }
                 else if (parsedMessage.type === 'APIChange') {
                     const changeAPI = {
-                        type: 'changeAPI',
-                        newAPI: parsedMessage.newAPI
+                        type: 'apiChange',
+                        value: parsedMessage.newAPI
                     }
                     newAPI = await db.getAPI(parsedMessage.newAPI)
-                    api.setNewAPI(newAPI.endpoint.split('/')[2], newAPI.endpoint.split('/').slice(3).join('/'), newAPI.key)
+                    api.setNewAPI(newAPI.name, newAPI.endpoint.split('/')[2], newAPI.endpoint.split('/').slice(3).join('/'), newAPI.key)
                     
                     await broadcast(changeAPI);
                     return

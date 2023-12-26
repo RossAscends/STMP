@@ -87,6 +87,17 @@ function updateUserName(myUUID, username) {
     flashElement('usernameInput', 'good')
 }
 
+function updateAPI(myUUID, api) {
+    let apiChangeMessage = {
+        type: 'apiChange',
+        UUID: myUUID,
+        newAPI: api
+    }
+    messageServer(apiChangeMessage)
+    flashElement('apiList', 'good')
+}
+
+
 //Just update Localstorage, no need to send anything to server for this.
 //but possibly add it in the future if we want to let users track which user is speaking as which entity in AI Chat.
 function updateAIChatUserName() {
@@ -184,5 +195,6 @@ export default {
     updateInstructFormat: updateInstructFormat,
     updateSelectedSamplerPreset: updateSelectedSamplerPreset,
     updateSelectedChar: updateSelectedChar,
-    updateAIChatUserName: updateAIChatUserName
+    updateAIChatUserName: updateAIChatUserName,
+    updateAPI: updateAPI
 }

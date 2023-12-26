@@ -179,7 +179,7 @@ async function processConfirmedConnection(parsedMessage) {
     const { clientUUID, newAIChatDelay, newUserChatDelay, role, D1JB, instructList, instructFormat,
         selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory,
         AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize,
-        responseLength, engineMode, APIList } = parsedMessage;
+        responseLength, engineMode, APIList, selectedAPI } = parsedMessage;
     if (newAIChatDelay) {
         AIChatDelay = newAIChatDelay * 1000
         $("#AIChatInputDelay").val(newAIChatDelay)
@@ -214,10 +214,13 @@ async function processConfirmedConnection(parsedMessage) {
         $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
         flashElement('responseLength', 'good')
 
+        control.populateAPISelector(APIList);
+        $("#apiList").find(`option[value="${selectedAPI}"]`).prop('selected', true)
+        flashElement('apiList', 'good')
+
         control.populateCardSelector(cardList);
         control.populateInstructSelector(instructList);
         control.populateSamplerSelector(samplerPresetList);
-        control.populateAPISelector(APIList);
         console.log('updating UI to match server state...')
         control.updateSelectedChar(myUUID, selectedCharacter, selectedCharacterDisplayName, 'forced');
         control.updateSelectedSamplerPreset(myUUID, selectedSamplerPreset, 'forced');
@@ -403,6 +406,10 @@ async function connectWebSocket(username) {
             case 'contextSizeChange':
                 $("#maxContext").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
                 console.log('maxContext  updated')
+                break
+            case 'apiChange':
+                $("#apiList").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
+                console.log('api updated')
                 break
             case 'responseLengthChange':
                 $("#responseLength").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
@@ -967,6 +974,7 @@ $(async function () {
                 newAPI: $(this).val()
             }
             messageServer(APIChangeMessage);
+            flashElement('apiList', 'good')
         }
     })
 

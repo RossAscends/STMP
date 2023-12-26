@@ -19,6 +19,7 @@ const $ = require('jquery');
 const db = require('./db.js');
 const fio = require('./file-io.js')
 
+let TCNAME = 'local';
 let TCURL = 'http://127.0.0.1:5000';
 let TCGenEndpoint = '/v1/completions';
 const secretsObj = JSON.parse(fs.readFileSync('./secrets.json', { encoding: 'utf8' }));
@@ -29,11 +30,16 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function setNewAPI(url, endpoint, key){
+function setNewAPI(name, url, endpoint, key){
+    TCNAME = name
     TCURL = url
     TCGenEndpoint = endpoint
     TCAPIkey = key
     console.log(`New API set: ${TCURL}${TCGenEndpoint} with key ${TCAPIkey}`)
+}
+
+function getTCInfo() {
+    return {TCNAME, TCURL, TCGenEndpoint, TCAPIkey}
 }
 
 var TCAPIDefaults, HordeAPIDefaults
@@ -444,4 +450,5 @@ module.exports = {
     getAPIDefaults: getAPIDefaults,
     replaceMacros: replaceMacros,
     setNewAPI: setNewAPI,
+    getTCInfo: getTCInfo,
 }

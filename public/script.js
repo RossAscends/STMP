@@ -1,4 +1,5 @@
-var username, storedUsername, AIChatUsername, storedAIChatUsername, isAutoResponse, contextSize, responseLength
+var username, storedUsername, AIChatUsername, storedAIChatUsername, isAutoResponse, contextSize, responseLength,
+    isPhone
 
 import control from './src/controls.js'
 
@@ -177,11 +178,35 @@ async function processConfirmedConnection(parsedMessage) {
     $("#charName").text(selectedCharacterDisplayName)
     if (isHost) {
         $("#charName").hide()
-        //only force show the control panel if the user has not set it to be closed with the toggle
-        if ($("#controlPanelToggle.closePanel").length !== 0) {
-            $("#controlPanel").show()
+
+        //on page load controlPanel is 'open' but has display:none,
+        //and the toggle has 'closePanel' in the HTML file, indicating that its next click will close the panel.
+        //the assumption is, for PC users, the panel should be shown for Hosts automatically.
+        //however, in the case of reconnect without page load, the panel might be closed by user.
+        //we should respecst that so...check if toggle is prepped to close panel
+
+        //if 'closePanel' doesn't exist, we can assume user closed the panel already and it should stay closed.
+        if ($("#controlPanelToggle").hasClass('closePanel')) {
+            //however for phones the panel should not be loaded automatically, so make sure we are not on a phone
+            if (!isPhone) {
+                //...and then display the panel.
+                $("#controlPanel").css('display', 'flex')
+            } else {
+                //or if we ARE on a phone, swap the toggle class
+                $("#controlPanelToggle").removeClass('closePanel').addClass('openPanel')
+                    //and do the animation to make sure it is facing the right way.
+                    .animate({ deg: 180 }, {
+                        duration: 100,
+                        step: function (now) {
+                            $("#controlPanelToggle").css({ transform: 'rotate(' + now + 'deg)' });
+                        }
+                    })
+                //and make sure to hide the panel to the next width toggle works right..
+                $("#controlPanel").hide()
+            }
         }
-        $(".hostControls").show()
+
+        $(".hostControls").css('display', 'flex')
 
         $("#AIAutoResponse").prop('checked', isAutoResponse)
         flashElement('AIAutoResponse', 'good')
@@ -602,7 +627,9 @@ $(async function () {
 
     connectWebSocket(username);
 
-    var isPhone = /Mobile/.test(navigator.userAgent);
+    isPhone = /Mobile/.test(navigator.userAgent);
+    console.log(`Is this a phone? ${isPhone}`)
+
     //handle disconnect and reconnect
     $("#reconnectButton").off('click').on('click', function () {
         connectWebSocket()
@@ -810,6 +837,16 @@ $(async function () {
                 .css('padding', '0')
         }
     }
+
+    if (/Mobile/.test(navigator.userAgent) && isIOS) {
+        $('body').css({
+            'padding-left': '0px',
+            'padding-right': '0px',
+            'width': '100sfw',
+            'height': 'calc(100svh - 15px)'
+        })
+    }
+
     //do message send on Enter
     $("#messageInput").on("keypress", function (event) {
         if (event.which === 13) {
@@ -842,44 +879,141 @@ $(async function () {
         messageServer(pastChatListRequest)
     })
 
-    $(document).on('click', '#controlPanelToggle.closePanel', function () {
+    $(document).on('click', '#controlPanelToggle', function () {
         var $controlPanelToggle = $("#controlPanelToggle");
         var $controlPanel = $("#controlPanel");
-        var $controlPanelContents = $("#controlPanel div");
-        $controlPanelToggle.removeClass('closePanel').addClass('openPanel')
-            .animate({ deg: 180 }, {
+        console.log($controlPanel.css('width'))
+        let degree, isOpening
+        if ($("#controlPanelToggle").hasClass('closePanel') && $("#controlPanel").css('display', 'flex')) {
+            degree = 180
+            isOpening = false
+        } else {
+            degree = 0
+            isOpening = true
+        }
+        $controlPanelToggle.toggleClass('closePanel openPanel')
+            .animate({ deg: degree }, {
                 duration: 100,
                 step: function (now) {
                     $controlPanelToggle.css({ transform: 'rotate(' + now + 'deg)' });
                 },
                 complete: function () {
-                    $controlPanel.css('min-width', 'unset')
-                    $controlPanel.animate({ opacity: 0, width: 'toggle' }, { duration: 100 })
+                    if (isOpening) {
+                        $controlPanel.animate({ opacity: 1, width: 'toggle' }, { duration: 100 })
+                    } else {
+                        $controlPanel.animate({ opacity: 0, width: 'toggle' }, { duration: 100 })
+                    }
                 }
-            });
+            })
     });
 
-    $(document).on('click', '#controlPanelToggle.openPanel', function () {
-        var $controlPanelToggle = $("#controlPanelToggle");
-        var $controlPanel = $("#controlPanel");
-        var $controlPanelContents = $("#controlPanel div");
-        $controlPanelToggle.removeClass('openPanel').addClass('closePanel')
-            .animate({ deg: 0 }, {
-                duration: 100,
-                step: function (now) {
-                    $controlPanelToggle.css({ transform: 'rotate(' + now + 'deg)' });
-                },
-                complete: function () {
-                    $controlPanel.animate({ opacity: 1, width: 'toggle' }, {
-                        duration: 100,
-                        complete: function () {
-                            $controlPanel.css('min-width', '200px');
+    $("#AIChatToggle").off('click').on('click', function () {
+        $(this).parent().parent().find('.chatHideDivWrapper').slideToggle()
+    })
 
-                        }
-                    });
-                }
-            });
-    });
+    $("#chatsToggle").off('click').on('click', async function () {
+        //second we shrink LLM chat, and show user chat.
+        if ($(this).hasClass('shrinkLLMChat')) {
+            horizontalSlideToggle($('#OOCChatWrapper'), false)
+            await delay(250)
+            horizontalSlideToggle($('#LLMChatWrapper'), false)
+            $(this).removeClass('shrinkLLMChat').addClass('returnToNormal')
+
+        } else if ($(this).hasClass('returnToNormal')) {
+            horizontalSlideToggle($('#LLMChatWrapper'), false)
+            $(this).removeClass('returnToNormal')
+            //first we shrink User chat..
+        } else {
+            horizontalSlideToggle($('#OOCChatWrapper'), false)
+            $(this).removeClass('shrinkUserChat').addClass('shrinkLLMChat')
+        }
+    })
+    $("#userListsToggle").off('click').on('click', function () {
+        horizontalSlideToggle($("#AIChatUserList"))
+        horizontalSlideToggle($("#userList"))
+    })
+
+    function horizontalSlideToggle(target, isUserList = true) {
+        console.log(target)
+
+        let originalWidth = target.css('width')
+        let originalHeight = target.css('height')
+        let windowHeight = $(window).height()
+        let windowWidth = $(window).width()
+        let isPortrait = windowWidth < windowHeight
+
+
+        if (!target.hasClass('needsReset')) {
+            //do vertical shifts for phones in portait mode
+            if (isPhone && !isUserList && isPortrait) {
+                target.css({
+                    'height': originalHeight,
+                    'min-height': 'unset',
+                    'max-height': 'unset',
+                    'flex': 'unset',
+                }).addClass('needsReset')
+                target.animate({ height: 'toggle' }, {
+                    duration: 250,
+                    step: function (now) {
+                        target.css({ height: now + 'px' });
+                    },
+                    complete: async function () {
+                    }
+                })
+            } else {
+                target.css({
+                    'width': originalWidth,
+                    'min-width': 'unset',
+                    'max-width': 'unset',
+                    'flex': 'unset',
+                }).addClass('needsReset')
+                target.animate({ width: 'toggle' }, {
+                    duration: 250,
+                    step: function (now) {
+                        target.css({ width: now + 'px' });
+                    },
+                    complete: async function () {
+                    }
+                })
+            }
+        } else {
+            if (isPhone && !isUserList && isPortrait) {
+                target.removeClass('needsReset')
+                target.animate({ height: 'toggle' }, {
+                    duration: 250,
+                    step: function (now) {
+                        target.css({ height: now + 'px' });
+                    },
+                    complete: async function () {
+
+                        target.css({
+                            'height': '',
+                            'min-height': '',
+                            'max-height': '',
+                            'flex': '',
+                        })
+                    }
+                })
+            }
+            else {
+                target.removeClass('needsReset')
+                target.animate({ width: 'toggle' }, {
+                    duration: 250,
+                    step: function (now) {
+                        target.css({ width: now + 'px' });
+                    },
+                    complete: async function () {
+                        target.css({
+                            'width': '',
+                            'min-width': '',
+                            'max-width': '',
+                            'flex': '',
+                        })
+                    }
+                })
+            }
+        }
+    }
 
     $('#AIMessageInput, #messageInput').on('input', function () {
         const activeInputboxID = $(this).prop('id')
@@ -927,8 +1061,17 @@ $(async function () {
         flashElement('AIChatInputDelay', 'good')
     })
 
+    function correctSizeChats() {
+        let universalControlsHeight = $("#universalControls").outerHeight()
+        let chatHeaderHeight = $(".chatHeader").first().outerHeight()
+        let upperBlockHeight = universalControlsHeight + chatHeaderHeight
+        let totalHeight = $(window).height()
+        let chatHeight = totalHeight - upperBlockHeight - 60 + 'px'
+        $("#userChatAndUserList, #AIChatAndAIUserList").animate({ height: chatHeight }, { duration: 1 })
+    }
 
-    $(window).on('orientationchange', function () {
+    function correctSizeWindow() {
+        console.log('window resize')
         var orientation = window.orientation;
         if (isPhone && (orientation === 90 || orientation === -90)) {
             // Landscape orientation on iOS
@@ -944,8 +1087,19 @@ $(async function () {
             // Portrait orientation
             $('body').css({
                 'padding': '0px',
-                'height': '100svh'
+                'width': 'calc(100svw - 10px)',
+                'height': '100svh',
+                'margin': 'auto'
             });
         }
-    });
-});
+        correctSizeChats()
+    };
+
+    $(window).on('resize', async function () {
+        correctSizeWindow()
+    })
+    correctSizeWindow()
+    correctSizeChats()
+})
+
+

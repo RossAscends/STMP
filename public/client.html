@@ -22,7 +22,7 @@
 
 <body class="Hcentered">
     <div id="bodywrap" class="flexbox noWrap noGap Hcentered">
-        <div id="controlPanel" class="padding5 flexbox flexFlowCol scrollY" style="display:none;">
+        <div id="controlPanel" class="openedControlPanel padding5 flexbox flexFlowCol scrollY" style="display:none;">
             <div class="hostControls flexbox flexFlowCol">
                 <div name="AIControls" class="flexbox flexFlowCol">
                     <h4>AI Controls</h4>
@@ -114,75 +114,75 @@
                 </div>
             </div>
         </div>
-        <div id="chatWrap" class="flexbox flex1">
-
-            <div id="LLMChatWrapper" class="flexbox flexFlowCol flex1 noGap">
-
-                <div class="Hcentered Vcentered flexbox chatHeader positionRelative">
-                    <button id="controlPanelToggle" class="hostControls closePanel positionAbsolute Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Toggle Control Panel">◀️</button>
-                    Chat with
-                    <div class="custom-select hostControls">
-                        <select id="characters" class="flex1"></select>
-                    </div>
-                    <span id="charName"></span>as <input type="text" maxlength="12" id="AIUsernameInput" class="width100px bgBrightUp" placeholder="Username">
-                </div>
-                <div id="AIChatAndAIUserList" class="flexbox positionRelative noGap">
-                    <div class="chatAndTrashWrap flexbox positionRelative flex1">
-                        <button id="clearAIChat" class="hostControls positionAbsolute chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear AI Chat History">🗑️</button>
-                        <div id="AIchat" data-chat-id="AIChat"></div>
-                    </div>
-                    <div id="AIChatUserList">
-                        <ul>
-                        </ul>
-                    </div>
-                </div>
-                <div id="AIInputBlock" class="flexbox noWrap">
-                    <div class="inputAndIconsWrapper flexbox transition250 positionRelative">
-                        <textarea id="AIMessageInput" class="" maxlength="1000" placeholder="Message the AI Chat"></textarea>
-                        <div id="AIChatInputButtons" class="flexbox marginRight5 positionAbsolute">
-                            <button id="AISendButton" class="bgTransparent greyscale  fontSize1p5em  textshadow" title="Send a message">✏️</button>
-                            <button id="deleteLastMessageButton" class="bgTransparent hostControls  fontSize1p5em greyscale  textshadow" title="Remove last message from chat">✂️</button>
-                            <button id="triggerAIResponse" class="bgTransparent hostControls  fontSize1p5em greyscale  textshadow" title="Request AI Response">🤖</button>
-                            <button id="AIRetry" class="hostControls bgTransparent greyscale  fontSize1p5em  textshadow" title="Regenerate AI Response">🔄</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div id="chatWrap" class="flexbox flexFlowCol flex1 noGap noWrap">
             <div id="universalControls">
+                <button id="controlPanelToggle" class="hostControls closePanel Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Toggle Control Panel">◀️</button>
+                <button id="chatsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor  textshadow">🖼️</button>
                 <input type="text" maxlength="32" id="roleKeyInput" class="width100px bgBrightUp" placeholder="Role Key" hidden>
                 <button id="submitkey" class="Vcentered bgTransparent fontSize1p25em mutedColor  textshadow" title="Submit Role Key">🔑</button>
-                <button id="reconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor  textshadow" title="Connect">▶️</button>
-                <button id="disconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor  textshadow" title="Disconnect">⏸</button>
+                <button id="reconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" style="display:none;" title="Connect">▶️</button>
+                <button id="disconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Disconnect">⏸</button>
+                <button id="userListsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor  textshadow">📜</button>
             </div>
-
-            <div id="OOCChatWrapper" class="flexbox flexFlowCol flex1 noGap">
-
-                <div class="Hcentered Vcentered flexbox chatHeader">
-                    Chat with Users as <input type="text" maxlength="12" id="usernameInput" class="width100px bgBrightUp" placeholder="Username">
-                    <button id="clearLocalStorage" class="bgTransparent mutedColor textshadow" title="Delete Username and Unique ID">⛔</button>
-                </div>
-
-                <div id="userChatAndUserList" class="flexbox positionRelative noGap">
-                    <div class="chatAndTrashWrap flexbox positionRelative flex1">
-                        <button id="clearUserChat" class="hostControls positionAbsolute chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear User Chat History">🗑️</button>
-                        <div id="chat" data-chat-id="UserChat"></div>
+            <div id="innerChatWrap" class="flexbox">
+                <div id="LLMChatWrapper" class="flexbox flexFlowCol flex1 noGap">
+                    <div class="chatHeader Hcentered Vcentered flexbox positionRelative">
+                        Chat with
+                        <div class="custom-select hostControls">
+                            <select id="characters" class="flex1"></select>
+                        </div>
+                        <span id="charName"></span>as <input type="text" maxlength="12" id="AIUsernameInput" class="width100px bgBrightUp" placeholder="Username">
                     </div>
-                    <div id="userList">
-                        <ul></ul>
-                    </div>
-                </div>
+                    <div id="AIChatAndAIUserList" class="flexbox positionRelative noGap">
+                        <div class="chatAndTrashWrap flexbox positionRelative flex1">
+                            <button id="clearAIChat" class="hostControls positionAbsolute chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear AI Chat History">🗑️</button>
+                            <div id="AIchat" data-chat-id="AIChat"></div>
+                        </div>
+                        <div id="AIChatUserList" class="flexbox">
+                            <ul></ul>
+                        </div>
 
-                <div id="inputBlock" class="flexbox noWrap">
-                    <div class="inputAndIconsWrapper flexbox  transition250 positionRelative">
-                        <textarea id="messageInput" class="" maxlength="1000" placeholder="Message the User Chat"></textarea>
-                        <div id="UserChatInputButtons" class="flexbox marginRight5 positionAbsolute">
-                            <button id="sendButton" class="bgTransparent  greyscale square1p5em fontSize1p5em textshadow" title="Send a Message to User Chat">✏️</button>
+                    </div>
+                    <div id="AIInputBlock" class="flexbox noWrap">
+                        <div class="inputAndIconsWrapper flexbox transition250 positionRelative">
+                            <textarea id="AIMessageInput" class="" maxlength="1000" placeholder="Message the AI Chat"></textarea>
+                            <div id="AIChatInputButtons" class="flexbox marginRight5 positionAbsolute">
+                                <button id="AISendButton" class="bgTransparent greyscale  fontSize1p5em  textshadow" title="Send a message">✏️</button>
+                                <button id="deleteLastMessageButton" class="bgTransparent hostControls  fontSize1p5em greyscale  textshadow" title="Remove last message from chat">✂️</button>
+                                <button id="triggerAIResponse" class="bgTransparent hostControls  fontSize1p5em greyscale  textshadow" title="Request AI Response">🤖</button>
+                                <button id="AIRetry" class="hostControls bgTransparent greyscale  fontSize1p5em  textshadow" title="Regenerate AI Response">🔄</button>
+                            </div>
                         </div>
                     </div>
                 </div>
+                <div id="OOCChatWrapper" class="flexbox flexFlowCol flex1 noGap">
+                    <div class="chatHeader Hcentered Vcentered flexbox positionRelative">
 
+                        Chat with Users as <input type="text" maxlength="12" id="usernameInput" class="width100px bgBrightUp" placeholder="Username">
+                        <button id="clearLocalStorage" class="bgTransparent mutedColor textshadow" title="Delete Username and Unique ID">⛔</button>
+
+                    </div>
+                    <div id="userChatAndUserList" class="flexbox positionRelative noGap">
+                        <div class="chatAndTrashWrap flexbox positionRelative flex1">
+                            <button id="clearUserChat" class="hostControls positionAbsolute chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear User Chat History">🗑️</button>
+                            <div id="chat" data-chat-id="UserChat"></div>
+                        </div>
+
+                        <div id="userList" class="flexbox">
+                            <ul></ul>
+                        </div>
+
+                    </div>
+                    <div id="inputBlock" class="flexbox noWrap">
+                        <div class="inputAndIconsWrapper flexbox transition250 positionRelative">
+                            <textarea id="messageInput" class="" maxlength="1000" placeholder="Message the User Chat"></textarea>
+                            <div id="UserChatInputButtons" class="flexbox marginRight5 positionAbsolute">
+                                <button id="sendButton" class="bgTransparent  greyscale square1p5em fontSize1p5em textshadow" title="Send a Message to User Chat">✏️</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-
         </div>
     </div>
 </body>

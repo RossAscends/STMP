@@ -154,7 +154,6 @@ function countTokens(str) {
 }
 
 function trimIncompleteSentences(input, include_newline = false) {
-    console.log(input)
     const punctuation = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit
     let last = -1;
     //console.log(`--- BEFORE:`)
@@ -300,7 +299,9 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             let insertedChatHistory = reversedItems.join('');
             stringToReturn += insertedChatHistory
             //add the final first mes and userInput        
-            stringToReturn += `${systemSequence}${D1JB}\n${endSequence}`
+            if (D1JB.length !== 0 && D1JB !== '' && D1JB !== undefined && D1JB !== null) {
+                stringToReturn += `${systemSequence}${D1JB}\n${endSequence}`
+            }
             stringToReturn += `${outputSequence}${lastUserMesageAndCharName.trim()}`;
             stringToReturn = stringToReturn.trim()
             resolve([stringToReturn, ChatObjsInPrompt]);

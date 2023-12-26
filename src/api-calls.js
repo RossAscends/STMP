@@ -273,6 +273,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             var stringToReturn =
                 `${systemSequence}${systemMessage}\n${replacedData?.description}\n${replacedData?.personality.trim()}\n${replacedData?.scenario.trim()}`
             //add the chat history
+            stringToReturn = stringToReturn.trim()
             let promptTokens = countTokens(stringToReturn)
             //console.log(`before adding ChatHIstory, Prompt is: ~${promptTokens}`)
             let insertedItems = []
@@ -280,9 +281,9 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 let obj = chatHistory[i];
                 let newItem
                 if (obj.username === charName) {
-                    newItem = `${endSequence}${outputSequence}${obj.username}: ${obj.content}\n`;
+                    newItem = `${endSequence}${outputSequence}${obj.username}: ${obj.content}`;
                 } else {
-                    newItem = `${endSequence}${inputSequence}${obj.username}: ${obj.content}\n`;
+                    newItem = `${endSequence}${inputSequence}${obj.username}: ${obj.content}`;
                 }
 
                 let newItemTokens = countTokens(newItem);
@@ -294,10 +295,13 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 }
             }
 
+
+
             // Reverse the array before appending to insertedChatHistory
             let reversedItems = insertedItems.reverse();
             let insertedChatHistory = reversedItems.join('');
             stringToReturn += insertedChatHistory
+            stringToReturn += `${endSequence}`
             //add the final first mes and userInput        
             if (D1JB.length !== 0 && D1JB !== '' && D1JB !== undefined && D1JB !== null) {
                 stringToReturn += `${systemSequence}${D1JB}\n${endSequence}`

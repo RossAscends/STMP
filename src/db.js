@@ -69,6 +69,7 @@ async function createTables() {
         name TEXT UNIQUE PRIMARY KEY,
         endpoint TEXT,
         key TEXT,
+        type TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         last_used_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);

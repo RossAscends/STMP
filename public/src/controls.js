@@ -167,10 +167,7 @@ function setEngineMode(mode) {
 
 export default {
     setEngineMode: setEngineMode,
-    populateSamplerSelector: populateSamplerSelector,
     populateAPISelector: populateAPISelector,
-    populateInstructSelector: populateInstructSelector,
-    populateCardSelector: populateCardSelector,
     populateSelector: populateSelector,
     submitKey: submitKey,
     updateUserName: updateUserName,

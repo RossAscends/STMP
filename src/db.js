@@ -76,7 +76,7 @@ async function createTables() {
 }
 
 async function writeUserChatMessage(userId, message) {
-    console.log('Writing user chat message to database...');
+    console.debug('Writing user chat message to database...');
     const db = await dbPromise;
     try {
         await db.run('INSERT INTO userchats (user_id, message) VALUES (?, ?)', [userId, message]);
@@ -87,7 +87,7 @@ async function writeUserChatMessage(userId, message) {
 }
 
 async function getPastChats(type) {
-    //console.log(`Getting data for all past ${type} chats...`);
+    console.debug(`Getting data for all past ${type} chats...`);
     const db = await dbPromise;
     try {
         const rows = await db.all(`
@@ -143,7 +143,7 @@ async function getPastChats(type) {
 }
 
 async function deletePastChat(sessionID) {
-    console.log(`Deleting AI Chat session ${sessionID}...`);
+    console.debug('Deleting past chat... ' + sessionID);
     const db = await dbPromise;
     let wasActive = false;
     try {
@@ -163,7 +163,7 @@ async function deletePastChat(sessionID) {
 }
 
 async function readUserChat() {
-    console.log('Reading user chat...');
+    console.debug('Reading user chat...');
     const db = await dbPromise;
     try {
         const rows = await db.all(`
@@ -185,7 +185,7 @@ async function readUserChat() {
 
 //Remove last AI chat in the current session from the database
 async function removeLastAIChatMessage() {
-    console.log('Removing last AI chat message from database...');
+    console.debug('Removing last AI chat message from database...');
     const db = await dbPromise;
     //Get the last message_id from the current session
     try {
@@ -201,7 +201,7 @@ async function removeLastAIChatMessage() {
 
 // Write an AI chat message to the database
 async function writeAIChatMessage(username, userId, message, entity) {
-    console.log('Writing AI chat message to database...');
+    console.debug('Writing AI chat message to database...' + username + ' ' + userId + ' ' + message + ' ' + entity);
     const db = await dbPromise;
     try {
         let sessionId;
@@ -223,7 +223,7 @@ async function writeAIChatMessage(username, userId, message, entity) {
 
 // Update all messages in the current session to a new session ID and clear the current session
 async function newSession() {
-    console.log('Creating a new session...');
+    console.debug('Creating a new session...');
     const db = await dbPromise;
     try {
         await db.run('UPDATE sessions SET is_active = FALSE, ended_at = CURRENT_TIMESTAMP WHERE is_active = TRUE');
@@ -235,7 +235,7 @@ async function newSession() {
 
 // Create or update the user in the database
 async function upsertUser(uuid, username, color) {
-    console.log('Upserting user...');
+    console.debug('Adding/updating user...' + uuid);
     const db = await dbPromise;
     try {
         await db.run('INSERT OR REPLACE INTO users (user_id, username, username_color, last_seen_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [uuid, username, color]);
@@ -246,7 +246,7 @@ async function upsertUser(uuid, username, color) {
 }
 
 async function upsertUserRole(uuid, role) {
-    console.log('Upserting user role...');
+    console.debug('Adding/updating user role...' + uuid + ' ' + role);
     const db = await dbPromise;
     try {
         await db.run('INSERT OR REPLACE INTO user_roles (user_id, role) VALUES (?, ?)', [uuid, role]);
@@ -258,7 +258,7 @@ async function upsertUserRole(uuid, role) {
 
 // Create or update the character in the database
 async function upsertChar(uuid, displayname, color) {
-    console.log('Upserting character...');
+    console.debug('Adding/updating character...' + uuid);
     const db = await dbPromise;
     try {
         await db.run('INSERT OR REPLACE INTO characters (char_id, displayname, display_color, last_seen_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [uuid, displayname, color]);
@@ -270,7 +270,7 @@ async function upsertChar(uuid, displayname, color) {
 
 // Get user info from the database, including the role
 async function getUser(uuid) {
-    console.log('Getting user...');
+    console.debug('Getting user...' + uuid);
     const db = await dbPromise;
     try {
         return await db.get('SELECT u.user_id, u.username, u.username_color, u.created_at, u.last_seen_at, ur.role FROM users u LEFT JOIN user_roles ur ON u.user_id = ur.user_id WHERE u.user_id = ?', [uuid]);
@@ -282,7 +282,7 @@ async function getUser(uuid) {
 
 // Read AI chat data from the SQLite database
 async function readAIChat(sessionID = null) {
-    console.log('Reading AI chat...');
+    console.debug('Reading AI chat...');
     const db = await dbPromise;
     let sessionWhereClause = '';
     let params = [];
@@ -340,7 +340,7 @@ async function readAIChat(sessionID = null) {
 }
 
 async function deleteMessage(messageID) {
-    console.log('Deleting message...');
+    console.debug('Deleting message...');
     const db = await dbPromise;
     try {
         await db.run('DELETE FROM aichats WHERE message_id = ?', [messageID]);
@@ -351,7 +351,7 @@ async function deleteMessage(messageID) {
 }
 
 async function getUserColor(UUID) {
-    console.debug('Getting user color...');
+    console.debug('Getting user color...' + UUID);
     const db = await dbPromise;
     try {
         const row = await db.get('SELECT username_color FROM users WHERE user_id = ?', [UUID]);
@@ -370,7 +370,7 @@ async function getUserColor(UUID) {
 }
 
 async function getCharacterColor(charName) {
-    console.debug('Getting character color...');
+    console.debug('Getting character color...' + charName);
     const db = await dbPromise;
     try {
         const row = await db.get('SELECT display_color FROM characters WHERE char_id = ?', [charName]);
@@ -389,7 +389,7 @@ async function getCharacterColor(charName) {
 }
 
 async function getMessage(messageID) {
-    console.log('Getting message...');
+    console.debug('Getting message...' + messageID);
     const db = await dbPromise;
     try {
         return await db.get('SELECT * FROM aichats WHERE message_id = ?', [messageID]);
@@ -400,7 +400,7 @@ async function getMessage(messageID) {
 }
 
 async function upsertAPI(name, endpoint, key) {
-    console.log('Upserting API...');
+    console.debug('Adding/updating API...' + name);
     const db = await dbPromise;
     try {
         await db.run('INSERT OR REPLACE INTO apis (name, endpoint, key) VALUES (?, ?, ?)', [name, endpoint, key]);
@@ -411,7 +411,7 @@ async function upsertAPI(name, endpoint, key) {
 }
 
 async function getAPIs() {
-    console.log('Getting APIs...');
+    console.debug('Getting APIs...');
     const db = await dbPromise;
     try {
         return await db.all('SELECT * FROM apis');
@@ -422,7 +422,7 @@ async function getAPIs() {
 }
 
 async function getAPI(name) {
-    console.log('Getting API...');
+    console.debug('Getting API...' + name);
     const db = await dbPromise;
     try {
         return await db.get('SELECT * FROM apis WHERE name = ?', [name]);

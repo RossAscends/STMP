@@ -69,7 +69,7 @@ textarea {
     width: 100%;
 }
 
-#universalControls div {
+#universalControls>div {
     gap: 1em
 }
 
@@ -281,6 +281,7 @@ input {
 .bgBrightUp:hover,
 .bgBrightUp:focus {
     background-color: #52545b;
+    border: 0;
 }
 
 #OOCChatWrapper img,
@@ -749,12 +750,67 @@ hr {
     height: 100%
 }
 
+.heightFitContent {
+    height: fit-content;
+}
+
 .hidden {
     display: none
 }
 
+#profileManagementMenu {
+    right: 0;
+    top: 2.25em;
+    background-color: #393a3f;
+    width: min-content;
+    padding: 5px;
+    z-index: 10;
+    border-radius: 10px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+}
+
 #innerChatWrap {
     overflow-y: auto;
+}
+
+.ui-widget-overlay {
+    background: rgba(0, 0, 0, 1);
+    opacity: 0.5;
+    backdrop-filter: blur(20px);
+}
+
+.ui-widget,
+.ui-widget *,
+.ui-dialog,
+.ui-dialog *,
+.ui-widget-content,
+.ui-widget.ui-widget-content,
+.ui-widget-content * {
+    background: #2c2d31;
+    border: 0;
+    border-radius: 10px;
+    color: #bcbec2;
+}
+
+.ui-dialog {
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+}
+
+.ui-button {
+    border-radius: 5px;
+    border: 0;
+    background-color: #393a3f;
+    color: #afb1b6;
+    outline: none;
+}
+
+.ui-button:hover,
+.ui-button:focus {
+    border: 0;
+}
+
+.ui-dialog-titlebar-close {
+    displaY: none;
 }
 
 @media (max-width: 800px) {
@@ -780,6 +836,7 @@ hr {
         min-height: 50%;
         height: calc(100% - 3em);
         bottom: 0px;
+        left: 0px;
         position: absolute;
         border-radius: 0;
         z-index: 10;

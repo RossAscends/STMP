@@ -466,7 +466,7 @@ export async function flashElement(elementID, type, flashDelay = 400, times = 1)
 
 function showPastChats(chatList) {
     $("#pastChatsList").empty();
-    console.log(Object.keys(chatList).length)
+    //console.log(Object.keys(chatList).length)
     if (Object.keys(chatList).length === 0) {
         $("#pastChatsList").html('<span class="flexbox Hcentered" style="margin-left: -15px;">No past chats yet!</span>')
         return
@@ -642,7 +642,11 @@ $(async function () {
     //handle key submission
     $("#submitkey").off('click').on('click', function () {
         //show/hide roleKeyInput
-        $("#roleKeyInputDiv").toggle()
+        if (isPhone) {
+            horizontalSlideToggle($("#profileManagementMenu"))
+        }
+        $("#roleKeyInputDiv").css('height', 'unset').toggleClass('needsReset').fadeToggle()
+        //$("#roleKeyInputDiv").toggle()
     })
 
     //when roleKeyInput has 16 characters, submit the key
@@ -811,13 +815,37 @@ $(async function () {
         messageServer(delLastMessage);
     })
 
-
+    $("#profileManagementButton").on('click', function () {
+        horizontalSlideToggle($("#profileManagementMenu"))
+    })
 
     $('#clearLocalStorage').on('click', function () {
-        $("#usernameInput").val('')
-        $("#AIUsernameInput").val('')
-        localStorage.clear();
-        alert('Deleted saved usernames!');
+        horizontalSlideToggle($("#profileManagementMenu"))
+        $("<div></div>").dialog({
+            draggable: false,
+            resizable: false,
+            modal: true,
+            position: { my: "center", at: "center top+25%", of: window },
+            title: "Delete user data?",
+            buttons: {
+
+                Ok: function () {
+                    $("#usernameInput").val('');
+                    $("#AIUsernameInput").val('');
+                    localStorage.clear();
+                    alert('Deleted saved usernames!');
+                    $(this).dialog("close");
+                },
+                Cancel: function () {
+                    $(this).dialog("close");
+                }
+            },
+            open: function () {
+                $(".ui-button").trigger('blur')
+            },
+            close: function () {
+            }
+        }).html("This will clear your saved usernames and unique ID.<br><br><b style='color: #cd334d;'>!! You will lose any roles you had !!");
     });
 
     if (window.matchMedia("(orientation: landscape)").matches && /Mobile/.test(navigator.userAgent)) {
@@ -881,6 +909,21 @@ $(async function () {
         messageServer(pastChatListRequest)
     })
 
+    $(document).on('click', async function (e) {
+        var $target = $(e.target);
+        if (!$target.is("#profileManagementButton")
+            && !$target.parents("#profileManagementMenu").length
+            && !$target.is("#roleKeyInput")) {
+            if ($("#profileManagementMenu").hasClass('needsReset')) {
+                horizontalSlideToggle($("#profileManagementMenu"));
+            }
+            if ($("#roleKeyInputDiv").hasClass('needsReset')) {
+                $("#roleKeyInputDiv").fadeToggle().removeClass('needsReset')
+            }
+
+        }
+    });
+
     $(document).on('click', '#controlPanelToggle', function () {
         var $controlPanelToggle = $("#controlPanelToggle");
         var $controlPanel = $("#controlPanel");
@@ -936,7 +979,8 @@ $(async function () {
     })
 
     function horizontalSlideToggle(target, isUserList = true) {
-        console.log(target)
+        console.log(`H-toggling ${target.attr('id')}`)
+        //console.log(target)
 
         let originalWidth = target.css('width')
         let originalHeight = target.css('height')

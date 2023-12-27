@@ -128,7 +128,6 @@ async function populateInstructSelector(instrustList) {
         newElem.text(style.name);
         instructSelectElement.append(newElem);
     }
-    console.log(instructSelectElement)
 }
 
 async function populateSamplerSelector(presetList) {

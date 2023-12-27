@@ -550,10 +550,9 @@ async function handleConnections(ws, type, request) {
                         type: 'apiChange',
                         name: newAPI.name,
                         endpoint: newAPI.endpoint,
-                        key: newAPI.key
+                        key: newAPI.key,
+                        endpointType: newAPI.type
                     }
-                    newAPI = await db.getAPI(parsedMessage.newAPI)
-                    //api.setNewAPI(newAPI.name, newAPI.endpoint.split('/')[2], newAPI.endpoint.split('/').slice(3).join('/'), newAPI.key)
                     selectedAPI = newAPI.name
                     await broadcast(changeAPI, 'host');
                     return

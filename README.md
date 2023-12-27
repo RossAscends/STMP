@@ -41,7 +41,7 @@ For tech support or to contact RossAscends directly, join the [SillyTavern Disco
 
 (instructions coming soon)
 
-## API Setup
+## Setup
 
 Currently STMP supports Text Completions (TC) and HordeAI, with TC active by default.
 
@@ -57,26 +57,100 @@ Currently STMP supports Text Completions (TC) and HordeAI, with TC active by def
 ### Using Horde
 
 - Using Horde requires a SillyTavern server to be running on your local machine to handle the Horde requests.
-- **IMPORTANT: ST must be running with CSRF turned off.**
-- **IMPORTANT:** STMP assumes you have BasicAuthentication enabled on your ST server, and requires you to input your `username:pass` into `secrets.json`.
+> **IMPORTANT: ST must be running with CSRF turned off.**
+  - the easiest way to do this is to make a new `.bat` or `.sh` file with the following contents: 
+```
+cd c:\_path_\_to_your_\SillyTavern
+call npm install --no-audit
+node server.js --disableCsrf
+pause
+popd
+```
+> **IMPORTANT:** STMP assumes you have [BasicAuthentication enabled on your ST server](https://docs.sillytavern.app/usage/remoteconnections/#http-basic-authentication).
+
+> Input your ST Authentication `username:pass` into `secrets.json` on the appropriate line between the quotation marks.
 - STMP assumes the default ST server URL of `http://127.0.0.1:8000/api/horde/generate-text` for Horde requests.
 - If you have a HordeID set in SillyTavern, those credentials and kudos will be used.
 
-### Changing API
-
-- The Host can click the emoji icon at the top left to change which API is used.
-- 📑 = Text Completions
-- 🧟 = Horde
-
-## Multiuser Setup
+### Multiuser Setup
 
 This must be done AFTER completing all installation steps above.
 
-1. Run `Remote-Link.cmd` to download (only one time, 57MB) and auto-run `cloudflared.exe` to get a randomly generated tunnel URL for your server.
-2. Share the generated cloudflared URL with the guest users.
-3. User will be able to directly and securely connect to your PC using the Cloudflare URL.
+0. Make sure your STMP server is running.
+1. Run `Remote-Link.cmd` to download `cloudflared.exe` (only one time, 57MB).
+2. the Cloudflared server will auto-start and generate a random tunnel URL for your STMP server.
+3. Copy the URL displayed in the middle of the large box in the center of the console window.
+> ***DO NOT CLOSE THE CLOUDFLARE CONSOLE WINDOW***
+4. Share the generated cloudflared URL with the guest users. 
+5. User will be able to directly and securely connect to your PC by opening the URL in their browser.
 
-## Use
+## Play
+
+### Chatting
+
+- User can change their display name at any time using either of the inputs at the top of the respective chat displays.
+  - You can have a different name for the User Chat and AI Chat.
+  - Usernames are stored in browser localStorage.
+- Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button (✏️), or pressing Enter.
+- `Shift+Enter` can be used to add newlines to the input.
+- [Markdown formatting](https://github.com/showdownjs/showdown/wiki/Showdown%27s-Markdown-syntax) is respected.
+
+
+## Hosting
+
+The host will see the following controls:
+
+### Control Panel (left side)
+
+#### AI Controls
+
+- `API` type
+  - 📑 = Text Completions
+  - 🧟 = Horde
+- `Context` defines how long your API prompt should be. Longer = more chat history sent, but slower processing times.
+- `Response` defines how many tokens long the AI response can be.
+- `Sampler` sets the hyperparameter preset, which affects the response style.
+- `Instruct` sets the type of instruct sequences to use when crafting the API prompt.
+- `AutoAI` Toggle to determine whether the AI should respond to every user input, or only on command from the Host.
+- `Final Instruction` textbox sets what to send as a system message at Depth 1 in the prompt.
+
+#### Past Chats
+
+- A list of past AI Chats, click to load one.
+- (🔄) refreshes the Past AI Chats list (usually not necessary as it is auto-refreshed with each new AI chat message)
+
+#### Crowd Controls
+
+- (🤖⏳) sets the number of seconds delay between inputs to the AI Chat.
+- (🧑⏳) does the same, but for the User-to-User chat.
+- During the delay period the (✏️) for that chat will become (🚫), and no input will be possible.
+
+#### Top Left
+
+- The golden (◀️) toggles visibility of the Host Control Panel.
+- (🖼️) toggles the chat windows between three modes: maximize AI chat >> maximize User Chat >> return to normal dual display.
+  - **this is very helpful for mobile users!**
+- (📜) toggles display of both User lists.
+
+#### Top Right
+
+- (▶️/⏸️) allows for manual disconnect/reconnect to the server.
+- (🔑) opens a text box for input of the Host key in order to gain the Host role.
+  - Once a vlid key has been entered, the page will automatically refresh to show the host controls.
+  - **The Host key can be found in the server console at startup.**
+  - After the user enters the key and presses Enter, their page will refresh and they will see the Host controls.
+- (⛔) clears the saved Usernames and UniqueID from localStorage.
+
+#### In the Chat Windows
+
+- A selector to set the active AI character
+- (🗑️) to clear either chat.
+
+#### AI Chat Input Bar
+
+- (🤖) Manually triggering an AI response without user Input
+- (✂️) Deleting the last message in the AI Chat
+- (🔄) Retry, i.e. Remove the last chat message and prompt the AI character to give a new response.
 
 ### Managing Characters
 
@@ -92,54 +166,6 @@ This must be done AFTER completing all installation steps above.
 - Instruct formats go in`/public/instructFormats/`
 - It's highly reccomended to review the structure of the default STMP preset files.
 - SillyTavern preset files may not work, or may have unintended effects!
-
-### Chatting
-
-- Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button (✏️), or pressing Enter.
-- `Shift+Enter` can be used to add newlines to the input.
-- [Markdown formatting](https://github.com/showdownjs/showdown/wiki/Showdown%27s-Markdown-syntax) is respected.
-- (▶️/⏸️) allows for manual disconnect/reconnect to the server.
-
-### Hosting
-
-The host will see the following controls:
-
-#### Control Panel (left side)
-
-- Controls for changing API settings such as: `API` (Text Completions(📑) or HordeAI(🧟)), `Context` size, `Response` length, `Sampler` presets, and `Instruct` formats
-- `AutoAI` Toggle to determine whether the AI should respond to every user input, or only on command from the Host.
-- A text box to define the `Final Instruction` to send as system at Depth 1 in the prompt.
-- A list of past AI Chats, click to load one.
-- (🔄) refreshes the Past AI Chats list (usually not necessary as it is auto-refreshed with each new AI chat message)
-- (◀️) toggles visibility of the Host Control Panel.
-
-#### AI Chat Header
-
-- A selector to set the active AI character
-
-#### In the Chat Windows
-
-- (🗑️) to clear either chat.
-
-#### Top Right
-
-- (🔑) opens a text box for input of the Host key in order to gain the Host role.
-- once the key has been entered, the page will automatically refresh to show the host controls.
-- **the Host key can be found in the server console at startup.**
-- After the user enters the key and presses Enter, their page will refresh and they will see the Host controls.
-
-#### AI Chat Input Bar
-
-- (🤖) Manually triggering an AI response without user Input
-- (✂️) Deleting the last message in the AI Chat
-- (🔄) Retry, i.e. Remove the last chat message and prompt the AI character to give a new response.
-
-### Changing usernames
-
-- Use the text boxes at the top of the screen to change your username(s) at any time.
-- You can have a different name for the User Chat and AI Chat.
-- Usernames are stored in browser localStorage.
-- (⛔) clears the saved Usernames and UniqueID from localStorage.
 
 ## Planned Features
 

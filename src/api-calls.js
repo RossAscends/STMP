@@ -53,7 +53,7 @@ async function getAPIDefaults() {
     }
 }
 
-async function getAIResponse(TCAPIkey, engineMode, userObj, userPrompt, liveConfig) {
+async function getAIResponse(TCAPIkey, STBasicAuthCredentials, engineMode, userObj, userPrompt, liveConfig) {
     try {
         let APICallParams
         if (engineMode === 'TC') {
@@ -100,7 +100,7 @@ async function getAIResponse(TCAPIkey, engineMode, userObj, userPrompt, liveConf
 
         var AIResponse = '';
         if (liveConfig.engineMode === 'horde') {
-            const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(finalAPICallParams);
+            const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(STBasicAuthCredentials, finalAPICallParams);
             AIResponse = hordeResponse;
         }
         else {
@@ -324,7 +324,8 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
     })
 }
 
-async function requestToHorde(stringToSend, stoppingStrings = '') {
+
+async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     console.log('Sending Horde request...');
     //the ST server must be running with CSRF turned off in order for this to work.
     var url = 'http://127.0.0.1:8000/api/horde/generate-text';

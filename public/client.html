@@ -13,8 +13,10 @@
     <meta name="viewport" content="width=device-width, viewport-fit=cover, initial-scale=1, maximum-scale=1.0, user-scalable=no">
     <title>SillyTavern Multiplayer</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.1/jquery-ui.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.3.0/purify.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/showdown@latest/dist/showdown.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.1/themes/base/jquery-ui.css">
     <script type="module" src="script.js"></script>
     <link rel="stylesheet" type="text/css" href="style.css">
     <link href="webfonts/NotoSans/stylesheet.css" rel="stylesheet">
@@ -146,16 +148,19 @@
         <div id="chatWrap" class="flexbox flexFlowCol flex1 noGap noWrap">
 
             <div id="universalControls">
-                <div class="flexbox">
-                    <button id="controlPanelToggle" class="hostControls closePanel Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Toggle Control Panel">◀️</button>
-                    <button id="chatsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor  textshadow">🖼️</button>
+                <div class="flexbox noWrap heightFitcontent">
+                    <button id="controlPanelToggle" class="hostControls closePanel Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Toggle Control Panel">🎛️</button>
+                    <button id="chatsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor textshadow">🖼️</button>
                     <button id="userListsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor textshadow">📜</button>
                 </div>
-                <div class="flexbox">
+                <div class="flexbox noWrap heightFitcontent">
                     <button id="reconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" hidden title="Connect">▶️</button>
                     <button id="disconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Disconnect">⏸</button>
-                    <button id="submitkey" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Submit Role Key">🔑</button>
-                    <button id="clearLocalStorage" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Delete Username and Unique ID">⛔</button>
+                    <button id="profileManagementButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Manage Profile">🛠️</button>
+                    <div id="profileManagementMenu" class="flexbox noWrap flexFlowCol positionAbsolute" style="display:none;">
+                        <button id="submitkey" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Submit Role Key">🔑</button>
+                        <button id="clearLocalStorage" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Delete Username and Unique ID">⛔</button>
+                    </div>
                 </div>
             </div>
             <div id="roleKeyInputDiv" class=" justifyContentCenter positionAbsolute marginBot5 marginTop5 flexbox width100p" style="display:none;">

@@ -63,7 +63,7 @@ textarea {
 }
 
 #universalControls {
-    justify-content: center;
+    justify-content: space-between;
     display: flex;
     position: relative;
     width: 100%;
@@ -385,6 +385,10 @@ input::placeholder {
     color: #666
 }
 
+#roleKeyInput {
+    width: 32em;
+}
+
 #userChatAndUserList,
 #AIChatAndAIUserList {
     overflow-y: auto;
@@ -692,6 +696,10 @@ hr {
 
 .justifySpaceAround {
     justify-content: space-around;
+}
+
+.justifyContentCenter {
+    justify-content: center;
 }
 
 .textshadow {

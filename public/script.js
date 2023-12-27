@@ -203,6 +203,7 @@ async function processConfirmedConnection(parsedMessage) {
                     })
                 //and make sure to hide the panel to the next width toggle works right..
                 $("#controlPanel").hide()
+                $("#roleKeyInputDiv").removeClass('positionAbsolute')
             }
         }
 
@@ -641,7 +642,7 @@ $(async function () {
     //handle key submission
     $("#submitkey").off('click').on('click', function () {
         //show/hide roleKeyInput
-        $("#roleKeyInput").toggle()
+        $("#roleKeyInputDiv").toggle()
     })
 
     //when roleKeyInput has 16 characters, submit the key

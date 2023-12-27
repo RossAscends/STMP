@@ -67,6 +67,9 @@ textarea {
     display: flex;
     position: relative;
     width: 100%;
+}
+
+#universalControls div {
     gap: 1em
 }
 
@@ -387,6 +390,7 @@ input::placeholder {
 
 #roleKeyInput {
     width: 32em;
+    height: 2em
 }
 
 #userChatAndUserList,
@@ -785,10 +789,11 @@ hr {
         /* height: 50%; */
         flex: 1;
         box-sizing: border-box;
+        padding-top: 5px;
     }
 
     .chatHeader {
-        padding-bottom: 5px;
+        padding-bottom: 10px;
     }
 
     .chatHideDivWrapper {
@@ -800,4 +805,24 @@ hr {
         max-height: 100svh;
         flex-flow: column;
     }
+
+    #roleKeyInput,
+    #characters,
+    #AIUsernameInput,
+    #usernameInput,
+    input,
+    select {
+        height: 2em;
+        font-size: 1em
+    }
+
+    input[type='checkbox'] {
+        height: 2em;
+        width: 2em;
+    }
+
+
+
+
+
 }

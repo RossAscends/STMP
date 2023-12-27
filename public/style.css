@@ -822,7 +822,6 @@ hr {
 
     #innerChatWrap {
         flex-flow: column;
-        overflow-y: auto;
     }
 
     #universalControls {

@@ -1,5 +1,5 @@
 var username, storedUsername, AIChatUsername, storedAIChatUsername, isAutoResponse, contextSize, responseLength,
-    isPhone
+    isPhone, isHorizontalChats
 
 import control from './src/controls.js'
 
@@ -22,7 +22,6 @@ function startupUsernames() {
     return new Promise(async (resolve) => {
         const storedUsername = localStorage.getItem('username');
         const storedAIChatUsername = localStorage.getItem('AIChatUsername');
-
         let username = storedUsername !== null && storedUsername !== '' ? storedUsername : await initializeUsername();
         const myUUID = localStorage.getItem('UUID') !== null ? localStorage.getItem('UUID') : '';
         let AIChatUsername = storedAIChatUsername !== null && storedAIChatUsername !== '' ? storedAIChatUsername : username;
@@ -100,54 +99,35 @@ export function messageServer(message) {
     socket.send(JSON.stringify(message))
 }
 
-function updateUserChatUserList(message) {
-    console.log('updating user chat user list')
-    console.debug(message);
-    const userList = message;
-
-    if (!userList || userList.length === 0 || userList === undefined) {
-        //console.log('Saw an empty userList or userList is undefined, will wait for another...');
+function updateUserChatUserList(userList) {
+    console.log("updating user chat user list");
+    console.debug(userList);
+    if (!userList || userList.length === 0) {
         return;
     }
 
-    //console.log('Populating user list...');
-    const userListElement = $('#userList ul');
+    const userListElement = $("#userList ul");
     userListElement.empty(); // Clear the existing user list
 
-    userList.forEach(user => {
-        const { username, color } = user;
-        let usernameText
-        if (user.role === 'host') {
-            usernameText = `${username} 🔑`
-        } else {
-            usernameText = username
-        }
+    userList.forEach(({ username, role, color }) => {
+        const usernameText = role === "host" ? `${username} 🔑` : username;
         const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${usernameText}</li>`;
-
         userListElement.append(listItem);
     });
 }
 
 function updateAIChatUserList(message) {
     console.debug(message);
-    const userList = message;
-    if (!userList || userList.length === 0) {
-        //console.log('Saw an empty or undefined AI Chat userList or userList, aborting update');
+
+    if (!message || message.length === 0) {
         return;
     }
 
-    //console.log('Populating AI Chat user list...');
     const userListElement = $('#AIChatUserList ul');
     userListElement.empty(); // Clear the existing user list
 
-    userList.forEach(user => {
-        const { username, color, entity } = user;
-        let usernameText
-        if (entity === 'AI') {
-            usernameText = `${username} 🤖`
-        } else {
-            usernameText = username
-        }
+    message.forEach(({ username, color, entity }) => {
+        const usernameText = entity === 'AI' ? `${username} 🤖` : username;
         const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${usernameText}</li>`;
         userListElement.append(listItem);
     });
@@ -201,7 +181,7 @@ async function processConfirmedConnection(parsedMessage) {
                             $("#controlPanelToggle").css({ transform: 'rotate(' + now + 'deg)' });
                         }
                     })
-                //and make sure to hide the panel to the next width toggle works right..
+                //and make sure to hide the panel so the next width toggle works correctly.
                 $("#controlPanel").hide()
                 $("#roleKeyInputDiv").removeClass('positionAbsolute')
             }
@@ -253,11 +233,9 @@ async function processConfirmedConnection(parsedMessage) {
 }
 
 function appendMessagesWithConverter(messages, elementSelector) {
-    messages.forEach((obj) => {
-        const { username, userColor, content } = obj;
+    messages.forEach(({ username, userColor, content }) => {
         const message = converter.makeHtml(content);
-        const newDiv = $("<div></div>");
-        newDiv.html(`<span style="color:${userColor}" class="chatUserName">${username}</span>${message}`);
+        const newDiv = $("<div></div>").html(`<span style="color:${userColor}" class="chatUserName">${username}</span>${message}`);
         $(elementSelector).append(newDiv);
     });
 }
@@ -277,8 +255,6 @@ async function connectWebSocket(username) {
         var message = event.data;
         console.debug('Received server message:', message);
         let parsedMessage = JSON.parse(message);
-
-
         switch (parsedMessage?.type) {
             case 'clearChat':
                 console.log('Clearing User Chat')
@@ -371,8 +347,6 @@ async function connectWebSocket(username) {
                 break;
             case 'pastChatToLoad':
                 console.log('loading past chat session');
-
-
                 $("#AIchat").empty();
                 $("#AIChatUserList ul").empty();
                 let pastChatHistory = parsedMessage.pastChatHistory;
@@ -463,51 +437,43 @@ export async function flashElement(elementID, type, flashDelay = 400, times = 1)
     }
 }
 
-
 function showPastChats(chatList) {
-    $("#pastChatsList").empty();
-    //console.log(Object.keys(chatList).length)
+    const $pastChatsList = $("#pastChatsList");
+    $pastChatsList.empty();
+
     if (Object.keys(chatList).length === 0) {
-        $("#pastChatsList").html('<span class="flexbox Hcentered" style="margin-left: -15px;">No past chats yet!</span>')
-        return
+        $pastChatsList.html('<span class="flexbox Hcentered" style="margin-left: -15px;">No past chats yet!</span>');
+        return;
     }
-    let JSONChatList = chatList;
 
-    for (let sessionID in JSONChatList) {
-        if (JSONChatList.hasOwnProperty(sessionID)) {
-            let item = JSONChatList[sessionID];
-
-            // Create a new div element for each item
-            var divElement = $(`<div class="pastChatItem flexbox transition250" data-session_id="${item.session_id}">`);
+    for (let sessionID in chatList) {
+        if (chatList.hasOwnProperty(sessionID)) {
+            const item = chatList[sessionID];
+            const divElement = $(`<div class="pastChatItem flexbox transition250" data-session_id="${item.session_id}">`);
             if (item.is_active) {
-                divElement.addClass('activeChat')
+                divElement.addClass('activeChat');
             }
-            var timestamp = item.latestTimestamp;
-
-            // Format the timestamp
-            var formattedTimestamp = formatSQLTimestamp(timestamp);
-
-            // Set the session_id as the text content of the div
-
-            var sessionText = $('<span>').text(`${item.aiName} (${item.messageCount})`);
-            var nameAndTimestampDiv = $(`<div data-session_id="${item.session_id}" class="pastChatInfo flexbox flexFlowCol flex1">`)
-            var timestampText = $(`<small>`).text(`${formattedTimestamp}`);
-            var delButton = $(`<button data-session_id="${item.session_id}" class="pastChatDelButton opacityHalf bgTransparent">🗑️</button>`)
+            const formattedTimestamp = formatSQLTimestamp(item.latestTimestamp);
+            const sessionText = $(`<span>${item.aiName} (${item.messageCount})</span>`);
+            const nameAndTimestampDiv = $(`<div data-session_id="${item.session_id}" class="pastChatInfo flexbox flexFlowCol flex1">`);
+            const timestampText = $(`<small>${formattedTimestamp}</small>`);
+            const delButton = $(`<button data-session_id="${item.session_id}" class="pastChatDelButton opacityHalf bgTransparent">🗑️</button>`);
             divElement.append(nameAndTimestampDiv).append(delButton);
-            nameAndTimestampDiv.append(sessionText).append(timestampText)
-            $('#pastChatsList').append(divElement);
+            nameAndTimestampDiv.append(sessionText).append(timestampText);
+            $pastChatsList.append(divElement);
         }
     }
 
-    $('.pastChatDelButton').off('click').on('click', async function (e) {
-        $(this).parent().animate({ opacity: 0, height: 0 }, {
+    $pastChatsList.off('click', '.pastChatDelButton').on('click', '.pastChatDelButton', async function (e) {
+        const $parent = $(this).parent();
+        $parent.animate({ opacity: 0, height: 0 }, {
             duration: 250,
             complete: async function () {
                 await delay(250);
-                $(this).hide()
+                $parent.hide();
                 console.log('animation done');
                 e.preventDefault();
-                let sessionID = $(this).data('session_id');
+                const sessionID = $parent.data('session_id');
                 console.log(sessionID);
                 const pastChatDelMessage = {
                     type: 'pastChatDelete',
@@ -517,30 +483,25 @@ function showPastChats(chatList) {
                 messageServer(pastChatDelMessage);
             }
         });
-    })
+    });
 
-    $(".pastChatInfo").off('click').on('click', function () {
-        console.log(`requesting to load chat from session ${$(this).data('session_id')}...`)
+    $pastChatsList.off('click', '.pastChatInfo').on('click', '.pastChatInfo', function () {
+        const sessionID = $(this).data('session_id');
+        console.log(`requesting to load chat from session ${sessionID}...`);
         const pastChatListRequest = {
             UUID: myUUID,
             type: "loadPastChat",
-            session: $(this).data('session_id')
-        }
-        messageServer(pastChatListRequest)
-    })
+            session: sessionID
+        };
+        messageServer(pastChatListRequest);
+    });
 }
 
 function formatSQLTimestamp(timestamp) {
-    // Convert the timestamp to a JavaScript Date object
     var date = new Date(timestamp);
-
-    // Format the date and time components
     var formattedDate = date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     var formattedTime = date.toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
-
-    // Combine the formatted date and time components
     var formattedTimestamp = formattedDate + ' ' + formattedTime;
-
     return formattedTimestamp;
 }
 
@@ -573,17 +534,12 @@ function doAIRetry() {
         UUID: myUUID,
         chatID: 'AIChat',
         username: username,
-        //APICallParams: APICallParams,
         char: char
     }
     messageServer(retryMessage)
 }
 
-
-
 async function sendMessageToAIChat(type) {
-    //hordeAPICallParams.params.stop_sequence = stoppingStrings;
-
     if ($("#AIUsernameInput").val().trim() === '') {
         alert("Can't send chat message with no username!");
         return;
@@ -605,14 +561,13 @@ async function sendMessageToAIChat(type) {
     }
     localStorage.setItem('AIChatUsername', username);
     messageServer(websocketRequest);
-    messageInput.val('');
-    messageInput.trigger('focus');
+    messageInput.val('').trigger('focus');
 }
 
 let isDisconnecting = false;
+// Send a disconnect message to the server before unloading the page
 window.addEventListener('beforeunload', () => {
     if (!isDisconnecting) {
-        // Send a disconnect message to the server before unloading the page
         disconnectWebSocket()
         isDisconnecting = true;
     }
@@ -631,7 +586,6 @@ $(async function () {
     isPhone = /Mobile/.test(navigator.userAgent);
     console.log(`Is this a phone? ${isPhone}`)
 
-    //handle disconnect and reconnect
     $("#reconnectButton").off('click').on('click', function () {
         connectWebSocket()
     })
@@ -639,17 +593,13 @@ $(async function () {
         disconnectWebSocket()
     })
 
-    //handle key submission
     $("#submitkey").off('click').on('click', function () {
-        //show/hide roleKeyInput
         if (isPhone) {
-            horizontalSlideToggle($("#profileManagementMenu"))
+            betterSlideToggle($("#profileManagementMenu"))
         }
         $("#roleKeyInputDiv").css('height', 'unset').toggleClass('needsReset').fadeToggle()
-        //$("#roleKeyInputDiv").toggle()
     })
 
-    //when roleKeyInput has 16 characters, submit the key
     $("#roleKeyInput").on('input', function () {
         if ($(this).val().length === 32) {
             control.submitKey()
@@ -658,7 +608,7 @@ $(async function () {
 
     $("#AIAutoResponse").on('input', function () {
         isAutoResponse = $(this).prop('checked')
-        console.log(isAutoResponse)
+        console.debug(`AutoResponse = ${isAutoResponse}`)
         const autoResponseStateMessage = {
             type: 'toggleAutoResponse',
             UUID: myUUID,
@@ -667,6 +617,7 @@ $(async function () {
         messageServer(autoResponseStateMessage);
         flashElement('AIAutoResponse', 'good')
     })
+
     $("#maxContext").on('input', function () {
         contextSize = $(this).find(`option:selected`).val()
         const adjustCtxMes = {
@@ -677,6 +628,7 @@ $(async function () {
         messageServer(adjustCtxMes);
         flashElement('maxContext', 'good')
     })
+
     $("#responseLength").on('input', function () {
         responseLength = $(this).find(`option:selected`).val()
         const adjustResponseLength = {
@@ -692,7 +644,6 @@ $(async function () {
     $("#sendButton").off('click').on("click", function () {
 
         if ($(this).hasClass('disabledButton')) { return }
-
         if ($("#usernameInput").val().trim() === '') {
             alert("Can't send chat message with no username!");
             return;
@@ -710,7 +661,7 @@ $(async function () {
 
         username = $("#usernameInput").val();
         var markdownContent = `${messageInput.val()}`;
-        var htmlContent = converter.makeHtml(markdownContent);
+        //var htmlContent = converter.makeHtml(markdownContent);
         var messageObj = {
             type: 'chatMessage',
             chatID: "UserChat",
@@ -719,13 +670,11 @@ $(async function () {
             content: markdownContent,
         };
         localStorage.setItem('username', username);
-        //messageServer(messageObj)
-        messageServer(messageObj); //why is this one NOT strigified?
-
+        messageServer(messageObj);
         messageInput.val('');
         messageInput.trigger('focus').trigger('input');
     });
-    //this just circumvents the logic of requiring a username and input message before pushing send.
+
     $("#triggerAIResponse").off('click').on("click", function () {
         sendMessageToAIChat('forced')
     })
@@ -773,13 +722,11 @@ $(async function () {
     })
 
     $("#AIUsernameInput").on('blur', function () {
-        //$("#usernameInput").trigger('change')
         control.updateAIChatUserName()
     })
 
     $("#AISendButton").off('click').on('click', function () {
         if ($(this).hasClass('disabledButton')) { return }
-
         sendMessageToAIChat()
         $("#AIMessageInput").trigger('input')
         $(this).addClass('disabledButton').text('🚫')
@@ -816,11 +763,11 @@ $(async function () {
     })
 
     $("#profileManagementButton").on('click', function () {
-        horizontalSlideToggle($("#profileManagementMenu"))
+        betterSlideToggle($("#profileManagementMenu"))
     })
 
     $('#clearLocalStorage').on('click', function () {
-        horizontalSlideToggle($("#profileManagementMenu"))
+        betterSlideToggle($("#profileManagementMenu"))
         $("<div></div>").dialog({
             draggable: false,
             resizable: false,
@@ -877,27 +824,23 @@ $(async function () {
         })
     }
 
-    //do message send on Enter
+    function enterToSendChat(event, buttonElementId) {
+        if (event.which === 13) {
+            if (event.shiftKey || event.metaKey || isPhone) {
+                // Ctrl+Enter was pressed, allow default behavior
+                return;
+            }
+            event.preventDefault();
+            $(buttonElementId).trigger('click');
+        }
+    }
+
     $("#messageInput").on("keypress", function (event) {
-        if (event.which === 13) {
-            if (event.shiftKey || event.metaKey) {
-                // Ctrl+Enter was pressed, allow default behavior
-                return;
-            }
-            event.preventDefault();
-            $("#sendButton").trigger('click');
-        }
+        enterToSendChat(event, "#sendButton");
     });
-    //same for AI chat
+
     $("#AIMessageInput").on("keypress", function (event) {
-        if (event.which === 13) {
-            if (event.shiftKey || event.metaKey) {
-                // Ctrl+Enter was pressed, allow default behavior
-                return;
-            }
-            event.preventDefault();
-            $("#AISendButton").trigger('click');
-        }
+        enterToSendChat(event, "#AISendButton");
     });
 
     $("#showPastChats").on('click', function () {
@@ -915,7 +858,7 @@ $(async function () {
             && !$target.parents("#profileManagementMenu").length
             && !$target.is("#roleKeyInput")) {
             if ($("#profileManagementMenu").hasClass('needsReset')) {
-                horizontalSlideToggle($("#profileManagementMenu"));
+                betterSlideToggle($("#profileManagementMenu"));
             }
             if ($("#roleKeyInputDiv").hasClass('needsReset')) {
                 $("#roleKeyInputDiv").fadeToggle().removeClass('needsReset')
@@ -956,178 +899,117 @@ $(async function () {
         $(this).parent().parent().find('.chatHideDivWrapper').slideToggle()
     })
 
+    const $LLMChatWrapper = $('#LLMChatWrapper');
+    const $OOCChatWrapper = $('#OOCChatWrapper');
+    const $AIChatInputButtons = $("#AIChatInputButtons");
+    const $UserChatInputButtons = $("#UserChatInputButtons");
+
     $("#chatsToggle").off('click').on('click', async function () {
         //second we shrink LLM chat, and show user chat.
         if ($(this).hasClass('shrinkLLMChat')) {
-            horizontalSlideToggle($('#OOCChatWrapper'), false)
+            betterSlideToggle($OOCChatWrapper, false)
             await delay(250)
-            horizontalSlideToggle($('#LLMChatWrapper'), false)
-            $(this).removeClass('shrinkLLMChat').addClass('returnToNormal')
-
+            betterSlideToggle($LLMChatWrapper, false)
+            $(this).toggleClass('shrinkLLMChat returnToNormal');
         } else if ($(this).hasClass('returnToNormal')) {
-            horizontalSlideToggle($('#LLMChatWrapper'), false)
+            betterSlideToggle($LLMChatWrapper, false)
             $(this).removeClass('returnToNormal')
             //first we shrink User chat..
         } else {
-            horizontalSlideToggle($('#OOCChatWrapper'), false)
-            $(this).removeClass('shrinkUserChat').addClass('shrinkLLMChat')
+            betterSlideToggle($OOCChatWrapper, false)
+            $(this).toggleClass('shrinkUserChat shrinkLLMChat');
         }
     })
+
     $("#userListsToggle").off('click').on('click', function () {
-        horizontalSlideToggle($("#AIChatUserList"))
-        horizontalSlideToggle($("#userList"))
+        betterSlideToggle($("#AIChatUserList"))
+        betterSlideToggle($("#userList"))
     })
 
-    function horizontalSlideToggle(target, isUserList = true) {
-        console.log(`H-toggling ${target.attr('id')}`)
-        //console.log(target)
-
-        let originalWidth = target.css('width')
-        let originalHeight = target.css('height')
-        let windowHeight = $(window).height()
-        let windowWidth = $(window).width()
-        let isPortrait = windowWidth < windowHeight
-
-
-        if (!target.hasClass('needsReset')) {
-            //do vertical shifts for phones in portait mode
-            if (isPhone && !isUserList && isPortrait) {
-                target.css({
-                    'height': originalHeight,
-                    'min-height': 'unset',
-                    'max-height': 'unset',
-                    'flex': 'unset',
-                }).addClass('needsReset')
-                target.animate({ height: 'toggle' }, {
-                    duration: 250,
-                    step: function (now) {
-                        target.css({ height: now + 'px' });
-                    },
-                    complete: async function () {
-                    }
-                })
-            } else {
-                target.css({
-                    'width': originalWidth,
-                    'min-width': 'unset',
-                    'max-width': 'unset',
-                    'flex': 'unset',
-                }).addClass('needsReset')
-                target.animate({ width: 'toggle' }, {
-                    duration: 250,
-                    step: function (now) {
-                        target.css({ width: now + 'px' });
-                    },
-                    complete: async function () {
-                    }
-                })
-            }
-        } else {
-            if (isPhone && !isUserList && isPortrait) {
-                target.removeClass('needsReset')
-                target.animate({ height: 'toggle' }, {
-                    duration: 250,
-                    step: function (now) {
-                        target.css({ height: now + 'px' });
-                    },
-                    complete: async function () {
-
-                        target.css({
-                            'height': '',
-                            'min-height': '',
-                            'max-height': '',
-                            'flex': '',
-                        })
-                    }
-                })
-            }
-            else {
-                target.removeClass('needsReset')
-                target.animate({ width: 'toggle' }, {
-                    duration: 250,
-                    step: function (now) {
-                        target.css({ width: now + 'px' });
-                    },
-                    complete: async function () {
-                        target.css({
-                            'width': '',
-                            'min-width': '',
-                            'max-width': '',
-                            'flex': '',
-                        })
-                    }
-                })
-            }
+    function betterSlideToggle(target, forceHorizontal = true) {
+        const isChatDiv = target.parent().attr('id') === 'innerChatWrap';
+        const shouldDoHorizontalAnimation = forceHorizontal || (isChatDiv && isHorizontalChats);
+        const animatedDimension = shouldDoHorizontalAnimation ? 'width' : 'height';
+        const isNeedsReset = target.hasClass('needsReset');
+        let originalDimensionValue = shouldDoHorizontalAnimation ? target.css('width') : target.css('height')
+        let appliedStyleValue = target.hasClass('needsReset') ? '' : 'unset'
+        let appliedStyle = {
+            [animatedDimension]: originalDimensionValue,
+            [`min-${animatedDimension}`]: appliedStyleValue,
+            [`max-${animatedDimension}`]: appliedStyleValue,
+            'flex': appliedStyleValue
+        };
+        target.toggleClass('needsReset', !isNeedsReset)
+        if (!isNeedsReset) {
+            target.css(appliedStyle)
         }
+        target.animate({ [animatedDimension]: 'toggle' }, {
+            duration: 250,
+            step: (now) => {
+                target.css({ [animatedDimension]: now + 'px' });
+            },
+            complete: () => {
+                if (isNeedsReset) {
+                    target.css(appliedStyle);
+                }
+            }
+        });
     }
 
     $('#AIMessageInput, #messageInput').on('input', function () {
-        const activeInputboxID = $(this).prop('id')
-        let paddingRight, chatBlock
-        console.log(activeInputboxID)
-        const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
-        if (activeInputboxID === 'AIMessageInput') {
-            chatBlock = $('#LLMChatWrapper');
-            paddingRight = $("#AIChatInputButtons").outerWidth() + 5 + 'px'
-        } else {
-            chatBlock = $('#OOCChatWrapper');
-            paddingRight = $("#UserChatInputButtons").outerWidth() + 5 + 'px'
-        }
-        $(this).css('max-height', chatBlock.outerHeight() / 2)
-        const originalScrollBottom = chatBlock[0].scrollHeight - (chatBlock.scrollTop() + chatBlock.outerHeight());
-        console.log($(this).outerHeight() < chatBlock.outerHeight())
-        //if ($(this).outerHeight() < (chatBlock.outerHeight() / 2)) {
-        this.style.paddingRight = paddingRight
-        this.style.height = window.getComputedStyle(this).getPropertyValue('min-height');
-        this.style.height = this.scrollHeight + 0.3 + 'px';
-        //} else { this.style.height = Math.min(chatBlock.outerHeight() / 2), window.getComputedStyle(this).getPropertyValue('min-height') }
+        const activeInputboxID = this.id;
+        const isAIMessageInput = activeInputboxID === 'AIMessageInput';
+        const chatBlock = isAIMessageInput ? $LLMChatWrapper : $OOCChatWrapper;
+        const inputButtons = isAIMessageInput ? $AIChatInputButtons : $UserChatInputButtons;
 
-        if (!isFirefox) {
-            const newScrollTop = Math.round(chatBlock[0].scrollHeight - (chatBlock.outerHeight() + originalScrollBottom));
-            chatBlock.scrollTop(newScrollTop);
+        const paddingRight = inputButtons.outerWidth() + 5 + 'px';
+        const maxHeight = chatBlock.outerHeight() / 2 + 'px';
+
+        $(this).css({
+            'max-height': maxHeight,
+            'padding-right': paddingRight
+        });
+
+        this.style.height = ''; // Reset height to default value
+        this.style.height = this.scrollHeight + 'px'; // Set height based on content
+
+        if (navigator.userAgent.toLowerCase().indexOf('firefox') === -1) {
+            const scrollHeight = chatBlock.prop('scrollHeight');
+            const scrollTop = chatBlock.prop('scrollTop');
+            const outerHeight = chatBlock.outerHeight();
+            const originalScrollBottom = scrollHeight - (scrollTop + outerHeight);
+            const newScrollTop = Math.max(scrollHeight - (outerHeight + originalScrollBottom), 0);
+            chatBlock.prop('scrollTop', newScrollTop);
         }
     });
 
     AIChatDelay = ($("#AIChatInputDelay").val()) * 1000
     userChatDelay = ($("#UserChatInputDelay").val()) * 1000
 
-    $("#UserChatInputDelay").on('change', function () {
-        //userChatDelay = ($("#UserChatInputDelay").val()) * 1000
+    $("#UserChatInputDelay, #AIChatInputDelay").on('change', function () {
+        const messageType = this.id === 'UserChatInputDelay' ? 'userChatDelayChange' : 'AIChatDelayChange';
         const settingsChangeMessage = {
-            type: 'userChatDelayChange',
-            value: $("#UserChatInputDelay").val()
-        }
-        messageServer(settingsChangeMessage)
-        flashElement('UserChatInputDelay', 'good')
-    })
-
-    $("#AIChatInputDelay").on('change', function () {
-        //AIChatDelay = ($("#AIChatInputDelay").val()) * 1000
-        const settingsChangeMessage = {
-            type: 'AIChatDelayChange',
-            value: $("#AIChatInputDelay").val()
-        }
-        messageServer(settingsChangeMessage)
-        flashElement('AIChatInputDelay', 'good')
-    })
+            type: messageType,
+            value: $(this).val()
+        };
+        messageServer(settingsChangeMessage);
+        flashElement(this.id, 'good');
+    });
 
     function correctSizeChats() {
         let universalControlsHeight = $("#universalControls").outerHeight()
-        //let chatHeaderHeight = $(".chatHeader").first().outerHeight()
-        //let upperBlockHeight = universalControlsHeight + chatHeaderHeight
         let totalHeight = $(window).height()
         let chatHeight = totalHeight - universalControlsHeight - 10 + 'px'
-        $("#OOCChatWrapper, #LLMChatWrapper").animate({ height: chatHeight }, { duration: 1 })
+        $("#OOCChatWrapper, #LLMChatWrapper, #innerChatWrap").animate({ height: chatHeight }, { duration: 1 })
     }
 
-    function correctSizeWindow() {
+    function correctSizeBody() {
         console.log('window resize')
         var orientation = window.orientation;
         if (isPhone && (orientation === 90 || orientation === -90)) {
             // Landscape orientation on iOS
             if (isIOS) {
                 $('body').css({
-                    //'padding-left': '15px',
                     'padding-right': '0px',
                     'width': 'calc(100svw - 10px)',
                     'height': 'calc(100svh - 36px)'
@@ -1144,13 +1026,27 @@ $(async function () {
             });
         }
         correctSizeChats()
+        checkChatOrientation()
     };
 
     $(window).on('resize', async function () {
-        correctSizeWindow()
+        correctSizeBody()
     })
-    correctSizeWindow()
+    correctSizeBody()
     correctSizeChats()
+
+    function checkChatOrientation() {
+        if ($("#innerChatWrap").css('flex-flow') === 'column nowrap') {
+            console.log('chat is vertical')
+            isHorizontalChats = false
+        } else {
+            console.log('chat is vertical')
+            isHorizontalChats = true
+        }
+    }
+
+    checkChatOrientation()
+
 })
 
 

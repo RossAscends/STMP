@@ -153,6 +153,7 @@ function showAddNewAPIDiv() {
     $("#newAPIName").prop('readonly', false)
     $("#newAPIEndpoint").prop('readonly', false)
     $("#newAPIKey").prop('readonly', false)
+    $("#apiTitle").text('New API Info')
 }
 
 function hideAddNewAPIDiv() {
@@ -170,6 +171,8 @@ function enableAPIEdit(){
     $("#newAPIKey").prop('readonly', false)
     $("#newAPIEndpointType").prop('readonly', false)
     $("#saveAPIButton").show()
+    //Set the title 
+    $("#apiTitle").text('Edit API Info')
 }
 
 async function populateAPIValues(api) {
@@ -181,6 +184,7 @@ async function populateAPIValues(api) {
     // hide the add button 
     $("#addNewAPIButton").hide()
     $("#editAPIButton").show()
+    $("#apiTitle").text('API Info')
 }
 
 // set the engine mode to either horde or Text Completions based on a value from the websocket

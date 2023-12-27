@@ -196,8 +196,6 @@ async function initFiles() {
         authString: 'YourAuthString'
     };
 
-    db.upsertAPI('Default', 'localhost:5000', '', 'TC');
-
     // Check and create config.json if it doesn't exist
     if (!await existsAsync(configPath)) {
         console.log('Creating config.json with default values...');

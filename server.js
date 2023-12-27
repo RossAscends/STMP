@@ -593,7 +593,7 @@ async function handleConnections(ws, type, request) {
                             'username': parsedMessage.username,
                             'content': '',
                         }
-                        let [AIResponse, AIChatUserList] = await api.getAIResponse(TCAPIkey, engineMode, user, userPrompt, liveConfig)
+                        let [AIResponse, AIChatUserList] = await api.getAIResponse(TCAPIkey, STBasicAuthCredentials, engineMode, user, userPrompt, liveConfig)
                         const AIResponseMessage = {
                             chatID: parsedMessage.chatID,
                             content: AIResponse,
@@ -728,7 +728,7 @@ async function handleConnections(ws, type, request) {
                         await broadcast(userPrompt)
                     }
                     if (liveConfig.isAutoResponse || isEmptyTrigger) {
-                        let [AIResponse, AIChatUserList] = await api.getAIResponse(TCAPIkey, engineMode, user, userPrompt, liveConfig)
+                        let [AIResponse, AIChatUserList] = await api.getAIResponse(TCAPIkey, STBasicAuthCredentials, engineMode, user, userPrompt, liveConfig)
                         const AIResponseMessage = {
                             chatID: parsedMessage.chatID,
                             content: AIResponse,

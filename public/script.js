@@ -162,11 +162,29 @@ function getAPIList() {
 }
 
 async function addNewAPI() {
+    //check each field for validity, flashElement if invalid
+    let name = $("#newAPIName").val()
+    let endpoint = $("#newAPIEndpoint").val()
+    let key = $("#newAPIKey").val()
+
+    if (name === '') {
+        await flashElement('newAPIName', 'bad')
+        return
+    }
+    if (endpoint === '') {
+        await flashElement('newAPIEndpoint', 'bad')
+        return
+    }
+    if (key === '') {
+        await flashElement('newAPIKey', 'bad')
+        return
+    }
+
     messageServer({
         type: 'addNewAPI',
-        name: $("#newAPIName").val(),
-        endpoint: $("#newAPIEndpoint").val(),
-        key: $("#newAPIKey").val(),
+        name: name,
+        endpoint: endpoint,
+        key: key,
         UUID: myUUID
     })
 }
@@ -1116,14 +1134,16 @@ $(async function () {
             $("#newAPIName").val('')
             $("#newAPIEndpoint").val('')
             $("#newAPIKey").val('')
+            $("#newAPIName").prop('readonly', false)
+            $("#newAPIEndpoint").prop('readonly', false)
+            $("#newAPIKey").prop('readonly', false)
         } else {
             $("#addNewAPIButton").hide()
             $("#editAPIButton").show()
-            // Make name, endpoint, and key fields read-only
             $("#newAPIName").prop('readonly', true)
             $("#newAPIEndpoint").prop('readonly', true)
             $("#newAPIKey").prop('readonly', true)
-            // send a message to the server to update the API key
+
             const APIChangeMessage = {
                 type: 'APIChange',
                 UUID: myUUID,

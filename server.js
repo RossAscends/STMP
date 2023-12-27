@@ -19,8 +19,10 @@ remoteApp.use(express.static('public'));
 const db = require('./src/db.js');
 //flat file manipulation
 const fio = require('./src/file-io.js')
-//calls to LLM APIs
-const api = require('./src/api-calls.js')
+const api = require('./src/api-calls.js');
+
+let selectedAPI = 'Default'
+
 
 //for console coloring
 const color = {
@@ -142,11 +144,22 @@ function delay(ms) {
 }
 
 function generateAndPrintKeys() {
+
     // Generate a 16-byte hex string for the host key
     hostKey = crypto.randomBytes(16).toString('hex');
 
     // Generate a 16-byte hex string for the mod key
     modKey = crypto.randomBytes(16).toString('hex');
+
+    if (fs.existsSync(secretsPath)) {
+        secretsObj = JSON.parse(fs.readFileSync(secretsPath, { encoding: 'utf8' }));
+        if (secretsObj.hostKey !== undefined && secretsObj.hostKey !== '') {
+            hostKey = secretsObj.hostKey
+        }
+        if (secretsObj.modKey !== undefined && secretsObj.modKey !== '') {
+            modKey = secretsObj.modKey
+        }
+    }
 
     // Print the keys
     console.log(`${color.yellow(`Host Key: ${hostKey}`)}`);
@@ -182,6 +195,8 @@ async function initFiles() {
         api_key: 'YourAPIKey',
         authString: 'YourAuthString'
     };
+
+    db.upsertAPI('Default', 'localhost:5000', '', 'TC');
 
     // Check and create config.json if it doesn't exist
     if (!await existsAsync(configPath)) {
@@ -225,22 +240,32 @@ wssServer.on('connection', (ws, request) => {
     handleConnections(ws, 'guest', request);
 });
 
-async function broadcast(message) {
-    //alter the type check for bug checking purposes, otherwise this is turned off
+async function broadcast(message, role = 'all') {
     if (message.type === "BuggyTypeHere") {
-        console.log('broadcasting this:')
-        //console.log(message)
+        console.log('broadcasting this:');
+        //console.log(message);
     }
 
-    Object.keys(clientsObject).forEach(clientUUID => {
+    Object.keys(clientsObject).forEach( async clientUUID => {
         const client = clientsObject[clientUUID];
         const socket = client.socket;
 
-        if (socket?.readyState === WebSocket.OPEN) {
+        if (socket?.readyState !== WebSocket.OPEN) {
+            return;
+        }
+
+        if (role === 'all') {
             socket.send(JSON.stringify(message));
+        } else {
+            const user = await db.getUser(clientUUID);
+            const clientRole = user.role
+            if (clientRole === role) {
+                socket.send(JSON.stringify(message));
+            }
         }
     });
 }
+
 
 async function broadcastToHosts(message) {
     //alter the type check for bug checking purposes, otherwise this is turned off
@@ -383,7 +408,8 @@ async function handleConnections(ws, type, request) {
     }
     //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
-        console.log("including metadata for host")
+        let apis = await db.getAPIs();
+        let api = await db.getAPI(selectedAPI);
         hostUUID = uuid
         connectionConfirmedMessage["cardList"] = cardList
         connectionConfirmedMessage["instructList"] = instructList
@@ -396,6 +422,9 @@ async function handleConnections(ws, type, request) {
         connectionConfirmedMessage["responseLength"] = liveConfig.responseLength
         connectionConfirmedMessage["D1JB"] = liveConfig.D1JB
         connectionConfirmedMessage["instructFormat"] = liveConfig.instructFormat
+        connectionConfirmedMessage["APIList"] = apis
+        connectionConfirmedMessage["selectedAPI"] = selectedAPI
+        connectionConfirmedMessage["API"] = api
     }
 
     await broadcastUserList()
@@ -505,6 +534,44 @@ async function handleConnections(ws, type, request) {
                         value: liveConfig.userChatDelay
                     }
                     await broadcast(settingChangeMessage)
+                    return
+                }
+
+                else if (parsedMessage.type === 'addNewAPI') {
+                    const newAPI = {
+                        name: parsedMessage.name,
+                        endpoint: parsedMessage.endpoint,
+                        key: parsedMessage.key,
+                        endpointType: parsedMessage.endpointType
+                    }
+                    await db.upsertAPI(newAPI.name, newAPI.endpoint, newAPI.key, newAPI.endpointType)
+                    let apis = await db.getAPIs();
+                    let APIListMessage = {
+                        type: 'APIList',
+                        APIList: apis
+                    }
+                    await broadcast(APIListMessage)
+                    
+                    let APIChangeMessage = {
+                        type: 'apiChange',
+                        name: newAPI.name,
+                        endpoint: newAPI.endpoint,
+                        key: newAPI.key,
+                        endpointType: newAPI.type
+                    }
+                    await broadcast(APIChangeMessage, 'host')
+                }
+                else if (parsedMessage.type === 'APIChange') {
+                    newAPI = await db.getAPI(parsedMessage.newAPI)
+                    const changeAPI = {
+                        type: 'apiChange',
+                        name: newAPI.name,
+                        endpoint: newAPI.endpoint,
+                        key: newAPI.key,
+                        endpointType: newAPI.type
+                    }
+                    selectedAPI = newAPI.name
+                    await broadcast(changeAPI, 'host');
                     return
                 }
 

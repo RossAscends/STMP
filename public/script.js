@@ -133,12 +133,50 @@ function updateAIChatUserList(message) {
     });
 }
 
+function getAPIList() {
+    const APIListRequest = {
+        type: 'APIListRequest',
+        UUID: myUUID
+    }
+    messageServer(APIListRequest)
+}
+
+async function addNewAPI() {
+    //check each field for validity, flashElement if invalid
+    let name = $("#newAPIName").val()
+    let endpoint = $("#newAPIEndpoint").val()
+    let key = $("#newAPIKey").val()
+    let type = $("#newAPIEndpointType").val()
+
+    if (name === '') {
+        await flashElement('newAPIName', 'bad')
+        return
+    }
+    if (endpoint === '') {
+        await flashElement('newAPIEndpoint', 'bad')
+        return
+    }
+    if (key === '') {
+        await flashElement('newAPIKey', 'bad')
+        return
+    }
+
+    messageServer({
+        type: 'addNewAPI',
+        name: name,
+        endpoint: endpoint,
+        key: key,
+        endpointType: type,
+        UUID: myUUID
+    })
+}
+
 async function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
     const { clientUUID, newAIChatDelay, newUserChatDelay, role, D1JB, instructList, instructFormat,
         selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory,
         AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize,
-        responseLength, engineMode } = parsedMessage;
+        responseLength, engineMode, APIList, selectedAPI, API } = parsedMessage;
     if (newAIChatDelay) {
         AIChatDelay = newAIChatDelay * 1000
         $("#AIChatInputDelay").val(newAIChatDelay)
@@ -197,6 +235,16 @@ async function processConfirmedConnection(parsedMessage) {
 
         $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
         flashElement('responseLength', 'good')
+
+        control.populateAPISelector(APIList);
+        $("#apiList").find(`option[value="${selectedAPI}"]`).prop('selected', true)
+        $(("#apiList")).trigger('change')
+        control.populateAPIValues(API)
+        flashElement('newAPIName', 'good')
+        flashElement('newAPIEndpoint', 'good')
+        flashElement('newAPIKey', 'good')
+        flashElement('newAPIEndpointType', 'good')
+        flashElement('apiList', 'good')
 
         control.populateSelector(cardList, 'characters');
         control.populateSelector(instructList, 'instructStyle');
@@ -345,6 +393,10 @@ async function connectWebSocket(username) {
                 let chatList = parsedMessage.pastChats
                 showPastChats(chatList)
                 break;
+            case 'APIList':
+                let APIList = parsedMessage.APIList;
+                control.populateAPISelector(APIList);
+                break;
             case 'pastChatToLoad':
                 console.log('loading past chat session');
                 $("#AIchat").empty();
@@ -376,6 +428,16 @@ async function connectWebSocket(username) {
             case 'contextSizeChange':
                 $("#maxContext").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
                 console.log('maxContext  updated')
+                break
+            case 'apiChange':
+                $("#apiList").find(`option[value="${parsedMessage.name}"]`).prop('selected', true)
+                // Update the Name, endpoint, and key fields with the new API info
+                control.populateAPIValues(parsedMessage)
+                flashElement('newAPIName', 'good')
+                flashElement('newAPIEndpoint', 'good')
+                flashElement('newAPIKey', 'good')
+                flashElement('newAPIEndpointType', 'good')
+                flashElement('apiList', 'good')
                 break
             case 'responseLengthChange':
                 $("#responseLength").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
@@ -995,6 +1057,37 @@ $(async function () {
         messageServer(settingsChangeMessage);
         flashElement(this.id, 'good');
     });
+
+    $("#apiList").on('change', function () {
+        $("#saveAPIButton").hide()
+        if ($(this).val() === 'addNewAPI') {
+            control.showAddNewAPIDiv()
+        } else {
+            control.hideAddNewAPIDiv()
+
+            const APIChangeMessage = {
+                type: 'APIChange',
+                UUID: myUUID,
+                newAPI: $(this).val()
+            }
+            messageServer(APIChangeMessage);
+            flashElement('apiList', 'good')
+        }
+    })
+
+    $("#addNewAPIButton").on('click', function () {
+        addNewAPI()
+    })
+
+    $("#editAPIButton").on('click', function () {
+        control.enableAPIEdit()
+    })
+
+    $("#saveAPIButton").on('click', function () {
+        addNewAPI()
+        $("#saveAPIButton").hide()
+    })
+
 
     function correctSizeChats() {
         let universalControlsHeight = $("#universalControls").outerHeight()

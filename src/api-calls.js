@@ -27,7 +27,17 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function setNewAPI(name, url, endpoint, key){
+    TCNAME = name
+    TCURL = url
+    TCGenEndpoint = endpoint
+    TCAPIkey = key
+    console.log(`New API set: ${TCURL}${TCGenEndpoint} with key ${TCAPIkey}`)
+}
 
+function getTCInfo() {
+    return {TCNAME, TCURL, TCGenEndpoint, TCAPIkey}
+}
 
 var TCAPIDefaults, HordeAPIDefaults
 
@@ -437,4 +447,6 @@ module.exports = {
     getAIResponse: getAIResponse,
     getAPIDefaults: getAPIDefaults,
     replaceMacros: replaceMacros,
+    setNewAPI: setNewAPI,
+    getTCInfo: getTCInfo,
 }

@@ -87,6 +87,17 @@ function updateUserName(myUUID, username) {
     flashElement('usernameInput', 'good')
 }
 
+function updateAPI(myUUID, api) {
+    let apiChangeMessage = {
+        type: 'apiChange',
+        UUID: myUUID,
+        newAPI: api
+    }
+    messageServer(apiChangeMessage)
+    flashElement('apiList', 'good')
+}
+
+
 //Just update Localstorage, no need to send anything to server for this.
 //but possibly add it in the future if we want to let users track which user is speaking as which entity in AI Chat.
 function updateAIChatUserName() {
@@ -119,6 +130,59 @@ async function populateSelector(list, elementId) {
     }
 }
 
+async function populateAPISelector(API) {
+    let APISelectElement = $("#apiList");
+    APISelectElement.empty()
+    APISelectElement.append($('<option>').val('addNewAPI').text('Add New API'));
+    for (const api of API) {
+        let newElem = $('<option>');
+        newElem.val(api.name);
+        newElem.text(api.name);
+        APISelectElement.append(newElem);
+    }
+}
+
+function showAddNewAPIDiv() {
+    $("#addNewAPIButton").show()
+    $("#editAPIButton").hide()
+    $("#newAPIName").val('')
+    $("#newAPIEndpoint").val('')
+    $("#newAPIKey").val('')
+    $("#newAPIEndpointType").val('TC')
+    $("#newAPIEndpointType").prop('readonly', false)
+    $("#newAPIName").prop('readonly', false)
+    $("#newAPIEndpoint").prop('readonly', false)
+    $("#newAPIKey").prop('readonly', false)
+}
+
+function hideAddNewAPIDiv() {
+    $("#addNewAPIButton").hide()
+    $("#editAPIButton").show()
+    $("#newAPIName").prop('readonly', true)
+    $("#newAPIEndpoint").prop('readonly', true)
+    $("#newAPIKey").prop('readonly', true)
+    $("#newAPIEndpointType").prop('readonly', true)
+}
+
+function enableAPIEdit(){
+    $("#newAPIName").prop('readonly', false)
+    $("#newAPIEndpoint").prop('readonly', false)
+    $("#newAPIKey").prop('readonly', false)
+    $("#newAPIEndpointType").prop('readonly', false)
+    $("#saveAPIButton").show()
+}
+
+async function populateAPIValues(api) {
+    console.log(api)
+    $("#newAPIName").val(api.name)
+    $("#newAPIKey").val(api.key)
+    $("#newAPIEndpoint").val(api.endpoint)
+    $("#newAPIEndpointType").find(`option[value="${api.endpointType}"]`).prop('selected', true)
+    // hide the add button 
+    $("#addNewAPIButton").hide()
+    $("#editAPIButton").show()
+}
+
 // set the engine mode to either horde or Text Completions based on a value from the websocket
 function setEngineMode(mode) {
     const toggleModeElement = $("#toggleMode");
@@ -133,6 +197,7 @@ function setEngineMode(mode) {
 
 export default {
     setEngineMode: setEngineMode,
+    populateAPISelector: populateAPISelector,
     populateSelector: populateSelector,
     submitKey: submitKey,
     updateUserName: updateUserName,
@@ -140,5 +205,10 @@ export default {
     updateInstructFormat: updateInstructFormat,
     updateSelectedSamplerPreset: updateSelectedSamplerPreset,
     updateSelectedChar: updateSelectedChar,
-    updateAIChatUserName: updateAIChatUserName
+    updateAIChatUserName: updateAIChatUserName,
+    updateAPI: updateAPI,
+    populateAPIValues: populateAPIValues,
+    showAddNewAPIDiv: showAddNewAPIDiv,
+    hideAddNewAPIDiv: hideAddNewAPIDiv,
+    enableAPIEdit: enableAPIEdit,
 }

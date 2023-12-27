@@ -1,29 +1,25 @@
 const http = require('http');
 const fs = require('fs');
-const fsp = require('fs').promises;
 const util = require('util');
 const WebSocket = require('ws');
 const crypto = require('crypto');
-
 const writeFileAsync = util.promisify(fs.writeFile);
 const existsAsync = util.promisify(fs.exists);
-
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
-
 const $ = require('jquery');
 const express = require('express');
-const { url } = require('inspector');
+
 const localApp = express();
 const remoteApp = express();
-
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
 
-const characterCardParser = require('./src/character-card-parser.js');
-//Import db handler from STMP/scripts/db.js
+//SQL DB
 const db = require('./src/db.js');
+//flat file manipulation
 const fio = require('./src/file-io.js')
+//calls to LLM APIs
 const api = require('./src/api-calls.js')
 
 //for console coloring
@@ -44,6 +40,14 @@ const color = {
 };
 
 const usernameColors = [
+    '#FF8A8A',  // Light Red
+    '#FFC17E',  // Light Orange
+    '#FFEC8A',  // Light Yellow
+    '#6AFF9E',  // Light Green
+    '#6ABEFF',  // Light Blue
+    '#C46AFF',  // Light Purple
+    '#FF6AE4',  // Light Magenta
+    '#FF6A9C',  // Light Pink
     '#FF5C5C',  // Red
     '#FFB54C',  // Orange
     '#FFED4C',  // Yellow
@@ -761,8 +765,6 @@ async function handleConnections(ws, type, request) {
             } else {
                 console.log(`unknown message type received (${parsedMessage.type})...ignoring...`)
             }
-
-
         } catch (error) {
             console.error('Error parsing message:', error);
             return;

@@ -156,10 +156,6 @@ async function addNewAPI() {
         await flashElement('newAPIEndpoint', 'bad')
         return
     }
-    if (key === '') {
-        await flashElement('newAPIKey', 'bad')
-        return
-    }
 
     messageServer({
         type: 'addNewAPI',

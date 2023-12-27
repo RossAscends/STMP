@@ -73,6 +73,9 @@ async function createTables() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         last_used_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
+
+    // Add a default api
+    await db.run(`INSERT OR IGNORE INTO apis (name, endpoint, key, type) VALUES ('Default', 'localhost:5000', '', 'TC')`);
 }
 
 async function writeUserChatMessage(userId, message) {

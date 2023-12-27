@@ -719,7 +719,7 @@ $(async function () {
         messageServer(messageObj); //why is this one NOT strigified?
 
         messageInput.val('');
-        messageInput.trigger('focus');
+        messageInput.trigger('focus').trigger('input');
     });
     //this just circumvents the logic of requiring a username and input message before pushing send.
     $("#triggerAIResponse").off('click').on("click", function () {
@@ -777,6 +777,7 @@ $(async function () {
         if ($(this).hasClass('disabledButton')) { return }
 
         sendMessageToAIChat()
+        $("#AIMessageInput").trigger('input')
         $(this).addClass('disabledButton').text('🚫')
         setTimeout(() => {
             $(this).removeClass('disabledButton').text('✏️')
@@ -1022,16 +1023,20 @@ $(async function () {
         console.log(activeInputboxID)
         const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
         if (activeInputboxID === 'AIMessageInput') {
-            chatBlock = $('#AIchat');
+            chatBlock = $('#LLMChatWrapper');
             paddingRight = $("#AIChatInputButtons").outerWidth() + 5 + 'px'
         } else {
-            chatBlock = $('#chat');
+            chatBlock = $('#OOCChatWrapper');
             paddingRight = $("#UserChatInputButtons").outerWidth() + 5 + 'px'
         }
+        $(this).css('max-height', chatBlock.outerHeight() / 2)
         const originalScrollBottom = chatBlock[0].scrollHeight - (chatBlock.scrollTop() + chatBlock.outerHeight());
+        console.log($(this).outerHeight() < chatBlock.outerHeight())
+        //if ($(this).outerHeight() < (chatBlock.outerHeight() / 2)) {
         this.style.paddingRight = paddingRight
         this.style.height = window.getComputedStyle(this).getPropertyValue('min-height');
         this.style.height = this.scrollHeight + 0.3 + 'px';
+        //} else { this.style.height = Math.min(chatBlock.outerHeight() / 2), window.getComputedStyle(this).getPropertyValue('min-height') }
 
         if (!isFirefox) {
             const newScrollTop = Math.round(chatBlock[0].scrollHeight - (chatBlock.outerHeight() + originalScrollBottom));
@@ -1064,11 +1069,11 @@ $(async function () {
 
     function correctSizeChats() {
         let universalControlsHeight = $("#universalControls").outerHeight()
-        let chatHeaderHeight = $(".chatHeader").first().outerHeight()
-        let upperBlockHeight = universalControlsHeight + chatHeaderHeight
+        //let chatHeaderHeight = $(".chatHeader").first().outerHeight()
+        //let upperBlockHeight = universalControlsHeight + chatHeaderHeight
         let totalHeight = $(window).height()
-        let chatHeight = totalHeight - upperBlockHeight - 60 + 'px'
-        $("#userChatAndUserList, #AIChatAndAIUserList").animate({ height: chatHeight }, { duration: 1 })
+        let chatHeight = totalHeight - universalControlsHeight - 10 + 'px'
+        $("#OOCChatWrapper, #LLMChatWrapper").animate({ height: chatHeight }, { duration: 1 })
     }
 
     function correctSizeWindow() {
@@ -1078,9 +1083,9 @@ $(async function () {
             // Landscape orientation on iOS
             if (isIOS) {
                 $('body').css({
-                    'padding-left': '15px',
+                    //'padding-left': '15px',
                     'padding-right': '0px',
-                    'width': '100svw',
+                    'width': 'calc(100svw - 10px)',
                     'height': 'calc(100svh - 36px)'
                 })
             }
@@ -1088,6 +1093,7 @@ $(async function () {
             // Portrait orientation
             $('body').css({
                 'padding': '0px',
+                'padding-left': '',
                 'width': 'calc(100svw - 10px)',
                 'height': '100svh',
                 'margin': 'auto'

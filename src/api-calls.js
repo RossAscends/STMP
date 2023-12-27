@@ -19,12 +19,9 @@ const $ = require('jquery');
 const db = require('./db.js');
 const fio = require('./file-io.js')
 
-let TCNAME = 'local';
-let TCURL = 'http://127.0.0.1:5000';
-let TCGenEndpoint = '/v1/completions';
-const secretsObj = JSON.parse(fs.readFileSync('./secrets.json', { encoding: 'utf8' }));
-let TCAPIkey = secretsObj.api_key_TC
-const STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string
+const TCURL = 'http://127.0.0.1:5000';
+const TCGenEndpoint = '/v1/completions';
+
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -56,7 +53,7 @@ async function getAPIDefaults() {
     }
 }
 
-async function getAIResponse(engineMode, userObj, userPrompt, liveConfig) {
+async function getAIResponse(TCAPIkey, engineMode, userObj, userPrompt, liveConfig) {
     try {
         let APICallParams
         if (engineMode === 'TC') {
@@ -107,7 +104,7 @@ async function getAIResponse(engineMode, userObj, userPrompt, liveConfig) {
             AIResponse = hordeResponse;
         }
         else {
-            AIResponse = trimIncompleteSentences(await requestToTC(finalAPICallParams))
+            AIResponse = trimIncompleteSentences(await requestToTC(TCAPIkey, finalAPICallParams))
         }
 
         await db.upsertChar(charName, charName, userObj.color);
@@ -399,7 +396,7 @@ async function requestToHorde(stringToSend, stoppingStrings = '') {
     };
 }
 
-async function requestToTC(APICallParamsAndPrompt) {
+async function requestToTC(TCAPIkey, APICallParamsAndPrompt) {
     //message needs to be the ENTIRE API call, including params and chat history..
     try {
         console.log('Sending Text Completion API request..');

@@ -131,7 +131,7 @@ var selectedCharacter
 var isAutoResponse = true
 var responseLength = 200
 var contextSize = 4096
-var liveConfig
+var liveConfig, secretsObj, TCAPIkey, STBasicAuthCredentials
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -200,6 +200,9 @@ async function initFiles() {
         await writeFileAsync(secretsPath, JSON.stringify(defaultSecrets, null, 2));
         console.log('secrets.json created, please update it with real credentials now and restart the server.');
     }
+    secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
+    TCAPIkey = secretsObj.api_key
+    STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string
 }
 
 // Create directories
@@ -626,7 +629,7 @@ async function handleConnections(ws, type, request) {
                             'username': parsedMessage.username,
                             'content': '',
                         }
-                        let [AIResponse, AIChatUserList] = await api.getAIResponse(engineMode, user, userPrompt, liveConfig)
+                        let [AIResponse, AIChatUserList] = await api.getAIResponse(TCAPIkey, engineMode, user, userPrompt, liveConfig)
                         const AIResponseMessage = {
                             chatID: parsedMessage.chatID,
                             content: AIResponse,
@@ -761,7 +764,7 @@ async function handleConnections(ws, type, request) {
                         await broadcast(userPrompt)
                     }
                     if (liveConfig.isAutoResponse || isEmptyTrigger) {
-                        let [AIResponse, AIChatUserList] = await api.getAIResponse(engineMode, user, userPrompt, liveConfig)
+                        let [AIResponse, AIChatUserList] = await api.getAIResponse(TCAPIkey, engineMode, user, userPrompt, liveConfig)
                         const AIResponseMessage = {
                             chatID: parsedMessage.chatID,
                             content: AIResponse,

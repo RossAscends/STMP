@@ -198,9 +198,9 @@ async function processConfirmedConnection(parsedMessage) {
         $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
         flashElement('responseLength', 'good')
 
-        control.populateCardSelector(cardList);
-        control.populateInstructSelector(instructList);
-        control.populateSamplerSelector(samplerPresetList);
+        control.populateSelector(cardList, 'characters');
+        control.populateSelector(instructList, 'instructStyle');
+        control.populateSelector(samplerPresetList, 'samplerPreset');
         console.log('updating UI to match server state...')
         control.updateSelectedChar(myUUID, selectedCharacter, selectedCharacterDisplayName, 'forced');
         control.updateSelectedSamplerPreset(myUUID, selectedSamplerPreset, 'forced');

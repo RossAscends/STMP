@@ -1,13 +1,5 @@
 const fs = require('fs');
 const util = require('util');
-
-//Old Reqs from old flat file era, can probably remove.
-
-//const fsp = require('fs').promises;
-//const writeFileAsync = util.promisify(fs.writeFile);
-//const existsAsync = util.promisify(fs.exists);
-//const path = require('path');
-
 const $ = require('jquery');
 const express = require('express');
 const localApp = express();
@@ -47,10 +39,6 @@ async function readConfig() {
                 if (err.code === 'ENOENT') {
                     console.log('config.json not found, initializing with default values.');
                     try {
-                        //console.log('--- READ CONFIG calling initconfig')
-                        //await delay(100)
-                        //await initConfig();
-                        //console.log('----- CREATED NEW CONFIG FILE, RETURNING IT')
                         releaseLock()
                         resolve(liveConfig); // Assuming liveconfig is accessible here
                     } catch (initErr) {

@@ -106,63 +106,34 @@ function submitKey(myUUID) {
     messageServer(keyMessage)
 }
 
-async function populateCardSelector(cardList) {
-    console.debug(cardList)
-    let cardSelectElement = $("#characters");
-    cardSelectElement.empty()
-    for (const card of cardList) {
-        let newElem = $('<option>');
-        newElem.val(card.filename);
-        newElem.text(card.name);
-        cardSelectElement.append(newElem);
-    }
-}
+async function populateSelector(list, elementId) {
+    console.debug(list);
+    const selectElement = $(`#${elementId}`);
+    selectElement.empty();
 
-async function populateInstructSelector(instrustList) {
-    console.debug(instrustList)
-    let instructSelectElement = $("#instructStyle");
-    instructSelectElement.empty()
-    for (const style of instrustList) {
-        let newElem = $('<option>');
-        newElem.val(style.filename);
-        newElem.text(style.name);
-        instructSelectElement.append(newElem);
-    }
-}
-
-async function populateSamplerSelector(presetList) {
-    console.debug(presetList)
-    let samplerSelectElement = $("#samplerPreset");
-    samplerSelectElement.empty()
-    for (const preset of presetList) {
-        let newElem = $('<option>');
-        newElem.val(preset.filename);
-        newElem.text(preset.name);
-        samplerSelectElement.append(newElem);
+    for (const item of list) {
+        const newElem = $('<option>');
+        newElem.val(item.filename);
+        newElem.text(item.name);
+        selectElement.append(newElem);
     }
 }
 
 // set the engine mode to either horde or Text Completions based on a value from the websocket
 function setEngineMode(mode) {
-    if (mode === 'horde') {
-        $("#toggleMode").removeClass('TCMode').addClass('hordeMode').text('🧟');
-        $("#toggleMode").attr('title', 'Click to switch to Text Completions Mode');
-        console.log('Switching to Horde Mode')
-    } else {
-        $("#toggleMode").removeClass('hordeMode').addClass('TCMode').text('📑');
-        $("#toggleMode").attr('title', 'Click to switch to Horde Mode');
-        console.debug('Switching to Text Completions Mode')
-    }
-    flashElement('toggleMode', 'good')
+    const toggleModeElement = $("#toggleMode");
+    const isHordeMode = (mode === 'horde');
+    toggleModeElement.toggleClass('TCMode', !isHordeMode)
+        .toggleClass('hordeMode', isHordeMode)
+        .text(isHordeMode ? '🧟' : '📑')
+        .attr('title', isHordeMode ? 'Click to switch to Text Completions Mode' : 'Click to switch to Horde Mode');
+    console.log(`Switching to ${isHordeMode ? 'Horde' : 'Text Completions'} Mode`);
+    flashElement('toggleMode', 'good');
 }
 
 export default {
-
-
     setEngineMode: setEngineMode,
-    populateSamplerSelector: populateSamplerSelector,
-    populateInstructSelector: populateInstructSelector,
-    populateCardSelector: populateCardSelector,
+    populateSelector: populateSelector,
     submitKey: submitKey,
     updateUserName: updateUserName,
     updateD1JB: updateD1JB,

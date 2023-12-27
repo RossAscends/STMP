@@ -26,6 +26,8 @@ const db = require('./src/db.js');
 const fio = require('./src/file-io.js')
 const api = require('./src/api-calls.js');
 
+let selectedAPI = 'Default'
+
 //for console coloring
 const color = {
     byNum: (mess, fgNum) => {
@@ -223,22 +225,32 @@ wssServer.on('connection', (ws, request) => {
     handleConnections(ws, 'guest', request);
 });
 
-async function broadcast(message) {
-    //alter the type check for bug checking purposes, otherwise this is turned off
+async function broadcast(message, role = 'all') {
     if (message.type === "BuggyTypeHere") {
-        console.log('broadcasting this:')
-        //console.log(message)
+        console.log('broadcasting this:');
+        //console.log(message);
     }
 
-    Object.keys(clientsObject).forEach(clientUUID => {
+    Object.keys(clientsObject).forEach( async clientUUID => {
         const client = clientsObject[clientUUID];
         const socket = client.socket;
 
-        if (socket?.readyState === WebSocket.OPEN) {
+        if (socket?.readyState !== WebSocket.OPEN) {
+            return;
+        }
+
+        if (role === 'all') {
             socket.send(JSON.stringify(message));
+        } else {
+            const user = await db.getUser(clientUUID);
+            const clientRole = user.role
+            if (clientRole === role) {
+                socket.send(JSON.stringify(message));
+            }
         }
     });
 }
+
 
 async function broadcastToHosts(message) {
     //alter the type check for bug checking purposes, otherwise this is turned off
@@ -382,8 +394,7 @@ async function handleConnections(ws, type, request) {
     //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
         let apis = await db.getAPIs();
-        let { TCNAME, TCURL, TCGenEndpoint, TCAPIkey }  = api.getTCInfo();
-        console.log(`TCNAME: ${TCNAME}`)
+        let api = await db.getAPI(selectedAPI);
         hostUUID = uuid
         connectionConfirmedMessage["cardList"] = cardList
         connectionConfirmedMessage["instructList"] = instructList
@@ -397,7 +408,8 @@ async function handleConnections(ws, type, request) {
         connectionConfirmedMessage["D1JB"] = liveConfig.D1JB
         connectionConfirmedMessage["instructFormat"] = liveConfig.instructFormat
         connectionConfirmedMessage["APIList"] = apis
-        connectionConfirmedMessage["selectedAPI"] = TCNAME
+        connectionConfirmedMessage["selectedAPI"] = selectedAPI
+        connectionConfirmedMessage["API"] = api
     }
 
     await broadcastUserList()
@@ -518,25 +530,32 @@ async function handleConnections(ws, type, request) {
                     }
                     await db.upsertAPI(newAPI.name, newAPI.endpoint, newAPI.api_key)
                     let apis = await db.getAPIs();
-                    // remove keys from the API list before sending to clients
-                    for (const api of apis) {
-                        delete api.key
-                    }
                     let APIListMessage = {
                         type: 'APIList',
                         APIList: apis
                     }
                     await broadcast(APIListMessage)
+                    
+                    let APIChangeMessage = {
+                        type: 'apiChange',
+                        name: newAPI.name,
+                        endpoint: newAPI.endpoint,
+                        key: newAPI.api_key
+                    }
+                    await broadcast(APIChangeMessage, 'host')
                 }
                 else if (parsedMessage.type === 'APIChange') {
+                    newAPI = await db.getAPI(parsedMessage.newAPI)
                     const changeAPI = {
                         type: 'apiChange',
-                        value: parsedMessage.newAPI
+                        name: newAPI.name,
+                        endpoint: newAPI.endpoint,
+                        key: newAPI.key
                     }
                     newAPI = await db.getAPI(parsedMessage.newAPI)
-                    api.setNewAPI(newAPI.name, newAPI.endpoint.split('/')[2], newAPI.endpoint.split('/').slice(3).join('/'), newAPI.key)
-                    
-                    await broadcast(changeAPI);
+                    //api.setNewAPI(newAPI.name, newAPI.endpoint.split('/')[2], newAPI.endpoint.split('/').slice(3).join('/'), newAPI.key)
+                    selectedAPI = newAPI.name
+                    await broadcast(changeAPI, 'host');
                     return
                 }
 

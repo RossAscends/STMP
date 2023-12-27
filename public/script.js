@@ -169,10 +169,6 @@ async function addNewAPI() {
         key: $("#newAPIKey").val(),
         UUID: myUUID
     })
-    $("#newAPIName").val('')
-    $("#newAPIEndpoint").val('')
-    $("#newAPIKey").val('')
-    $("#addNewAPI").hide()
 }
 
 async function processConfirmedConnection(parsedMessage) {
@@ -180,7 +176,7 @@ async function processConfirmedConnection(parsedMessage) {
     const { clientUUID, newAIChatDelay, newUserChatDelay, role, D1JB, instructList, instructFormat,
         selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory,
         AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize,
-        responseLength, engineMode, APIList, selectedAPI } = parsedMessage;
+        responseLength, engineMode, APIList, selectedAPI, API } = parsedMessage;
     if (newAIChatDelay) {
         AIChatDelay = newAIChatDelay * 1000
         $("#AIChatInputDelay").val(newAIChatDelay)
@@ -242,6 +238,11 @@ async function processConfirmedConnection(parsedMessage) {
 
         control.populateAPISelector(APIList);
         $("#apiList").find(`option[value="${selectedAPI}"]`).prop('selected', true)
+        $(("#apiList")).trigger('change')
+        control.populateAPIValues(API)
+        flashElement('newAPIName', 'good')
+        flashElement('newAPIEndpoint', 'good')
+        flashElement('newAPIKey', 'good')
         flashElement('apiList', 'good')
 
         control.populateCardSelector(cardList);
@@ -434,8 +435,13 @@ async function connectWebSocket(username) {
                 console.log('maxContext  updated')
                 break
             case 'apiChange':
-                $("#apiList").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
-                console.log('api updated')
+                $("#apiList").find(`option[value="${parsedMessage.name}"]`).prop('selected', true)
+                // Update the Name, endpoint, and key fields with the new API info
+                control.populateAPIValues(parsedMessage)
+                flashElement('newAPIName', 'good')
+                flashElement('newAPIEndpoint', 'good')
+                flashElement('newAPIKey', 'good')
+                flashElement('apiList', 'good')
                 break
             case 'responseLengthChange':
                 $("#responseLength").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
@@ -1103,10 +1109,20 @@ $(async function () {
 
     //When a user clicks the api list and selects "add new API", show the addNewAPI div
     $("#apiList").on('change', function () {
+        $("#saveAPIButton").hide()
         if ($(this).val() === 'addNewAPI') {
-            $("#addNewAPI").show()
+            $("#addNewAPIButton").show()
+            $("#editAPIButton").hide()
+            $("#newAPIName").val('')
+            $("#newAPIEndpoint").val('')
+            $("#newAPIKey").val('')
         } else {
-            $("#addNewAPI").hide()
+            $("#addNewAPIButton").hide()
+            $("#editAPIButton").show()
+            // Make name, endpoint, and key fields read-only
+            $("#newAPIName").prop('readonly', true)
+            $("#newAPIEndpoint").prop('readonly', true)
+            $("#newAPIKey").prop('readonly', true)
             // send a message to the server to update the API key
             const APIChangeMessage = {
                 type: 'APIChange',
@@ -1121,6 +1137,20 @@ $(async function () {
     $("#addNewAPIButton").on('click', function () {
         addNewAPI()
     })
+
+    $("#editAPIButton").on('click', function () {
+        // Make name, endpoint, and key fields editable
+        $("#newAPIName").prop('readonly', false)
+        $("#newAPIEndpoint").prop('readonly', false)
+        $("#newAPIKey").prop('readonly', false)
+        $("#saveAPIButton").show()
+    })
+
+    $("#saveAPIButton").on('click', function () {
+        addNewAPI()
+        $("#saveAPIButton").hide()
+    })
+
 
     function correctSizeChats() {
         let universalControlsHeight = $("#universalControls").outerHeight()

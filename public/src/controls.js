@@ -155,7 +155,6 @@ async function populateSamplerSelector(presetList) {
 }
 
 async function populateAPISelector(API) {
-    console.debug(API);
     let APISelectElement = $("#apiList");
     APISelectElement.empty()
     APISelectElement.append($('<option>').val('addNewAPI').text('Add New API'));
@@ -165,6 +164,13 @@ async function populateAPISelector(API) {
         newElem.text(api.name);
         APISelectElement.append(newElem);
     }
+}
+
+async function populateAPIValues(api) {
+    console.log(api)
+    $("#newAPIName").val(api.name)
+    $("#newAPIKey").val(api.key)
+    $("#newAPIEndpoint").val(api.endpoint)
 }
 
 // set the engine mode to either horde or Text Completions based on a value from the websocket
@@ -196,5 +202,6 @@ export default {
     updateSelectedSamplerPreset: updateSelectedSamplerPreset,
     updateSelectedChar: updateSelectedChar,
     updateAIChatUserName: updateAIChatUserName,
-    updateAPI: updateAPI
+    updateAPI: updateAPI,
+    populateAPIValues: populateAPIValues
 }

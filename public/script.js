@@ -1058,27 +1058,12 @@ $(async function () {
         flashElement(this.id, 'good');
     });
 
-    //When a user clicks the api list and selects "add new API", show the addNewAPI div
     $("#apiList").on('change', function () {
         $("#saveAPIButton").hide()
         if ($(this).val() === 'addNewAPI') {
-            $("#addNewAPIButton").show()
-            $("#editAPIButton").hide()
-            $("#newAPIName").val('')
-            $("#newAPIEndpoint").val('')
-            $("#newAPIKey").val('')
-            $("#newAPIEndpointType").val('TC')
-            $("#newAPIEndpointType").prop('readonly', false)
-            $("#newAPIName").prop('readonly', false)
-            $("#newAPIEndpoint").prop('readonly', false)
-            $("#newAPIKey").prop('readonly', false)
+            control.showAddNewAPIDiv()
         } else {
-            $("#addNewAPIButton").hide()
-            $("#editAPIButton").show()
-            $("#newAPIName").prop('readonly', true)
-            $("#newAPIEndpoint").prop('readonly', true)
-            $("#newAPIKey").prop('readonly', true)
-            $("#newAPIEndpointType").prop('readonly', true)
+            control.hideAddNewAPIDiv()
 
             const APIChangeMessage = {
                 type: 'APIChange',
@@ -1095,12 +1080,7 @@ $(async function () {
     })
 
     $("#editAPIButton").on('click', function () {
-        // Make name, endpoint, and key fields editable
-        $("#newAPIName").prop('readonly', false)
-        $("#newAPIEndpoint").prop('readonly', false)
-        $("#newAPIKey").prop('readonly', false)
-        $("#newAPIEndpointType").prop('readonly', false)
-        $("#saveAPIButton").show()
+        control.enableAPIEdit()
     })
 
     $("#saveAPIButton").on('click', function () {

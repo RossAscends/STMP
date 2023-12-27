@@ -142,6 +142,36 @@ async function populateAPISelector(API) {
     }
 }
 
+function showAddNewAPIDiv() {
+    $("#addNewAPIButton").show()
+    $("#editAPIButton").hide()
+    $("#newAPIName").val('')
+    $("#newAPIEndpoint").val('')
+    $("#newAPIKey").val('')
+    $("#newAPIEndpointType").val('TC')
+    $("#newAPIEndpointType").prop('readonly', false)
+    $("#newAPIName").prop('readonly', false)
+    $("#newAPIEndpoint").prop('readonly', false)
+    $("#newAPIKey").prop('readonly', false)
+}
+
+function hideAddNewAPIDiv() {
+    $("#addNewAPIButton").hide()
+    $("#editAPIButton").show()
+    $("#newAPIName").prop('readonly', true)
+    $("#newAPIEndpoint").prop('readonly', true)
+    $("#newAPIKey").prop('readonly', true)
+    $("#newAPIEndpointType").prop('readonly', true)
+}
+
+function enableAPIEdit(){
+    $("#newAPIName").prop('readonly', false)
+    $("#newAPIEndpoint").prop('readonly', false)
+    $("#newAPIKey").prop('readonly', false)
+    $("#newAPIEndpointType").prop('readonly', false)
+    $("#saveAPIButton").show()
+}
+
 async function populateAPIValues(api) {
     console.log(api)
     $("#newAPIName").val(api.name)
@@ -177,5 +207,8 @@ export default {
     updateSelectedChar: updateSelectedChar,
     updateAIChatUserName: updateAIChatUserName,
     updateAPI: updateAPI,
-    populateAPIValues: populateAPIValues
+    populateAPIValues: populateAPIValues,
+    showAddNewAPIDiv: showAddNewAPIDiv,
+    hideAddNewAPIDiv: hideAddNewAPIDiv,
+    enableAPIEdit: enableAPIEdit,
 }

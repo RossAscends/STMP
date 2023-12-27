@@ -140,11 +140,22 @@ function delay(ms) {
 }
 
 function generateAndPrintKeys() {
+
     // Generate a 16-byte hex string for the host key
     hostKey = crypto.randomBytes(16).toString('hex');
 
     // Generate a 16-byte hex string for the mod key
     modKey = crypto.randomBytes(16).toString('hex');
+
+    if (fs.existsSync(secretsPath)) {
+        secretsObj = JSON.parse(fs.readFileSync(secretsPath, { encoding: 'utf8' }));
+        if (secretsObj.hostKey !== undefined && secretsObj.hostKey !== '') {
+            hostKey = secretsObj.hostKey
+        }
+        if (secretsObj.modKey !== undefined && secretsObj.modKey !== '') {
+            modKey = secretsObj.modKey
+        }
+    }
 
     // Print the keys
     console.log(`${color.yellow(`Host Key: ${hostKey}`)}`);

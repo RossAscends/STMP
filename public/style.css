@@ -318,6 +318,7 @@ pre {
 #AIchat div {
     padding: 5px 5% 5px 10px;
     margin-bottom: 10px;
+    overflow-wrap: break-word;
 }
 
 #chat div:hover,

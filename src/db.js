@@ -399,11 +399,11 @@ async function getMessage(messageID) {
     }
 }
 
-async function upsertAPI(name, endpoint, key) {
+async function upsertAPI(name, endpoint, key, type) {
     console.debug('Adding/updating API...' + name);
     const db = await dbPromise;
     try {
-        await db.run('INSERT OR REPLACE INTO apis (name, endpoint, key) VALUES (?, ?, ?)', [name, endpoint, key]);
+        await db.run('INSERT OR REPLACE INTO apis (name, endpoint, key, type) VALUES (?, ?, ?, ?)', [name, endpoint, key, type]);
         console.debug('An API was upserted');
     } catch (err) {
         console.error('Error writing API:', err);

@@ -166,6 +166,7 @@ async function addNewAPI() {
     let name = $("#newAPIName").val()
     let endpoint = $("#newAPIEndpoint").val()
     let key = $("#newAPIKey").val()
+    let type = $("#newAPIEndpointType").val()
 
     if (name === '') {
         await flashElement('newAPIName', 'bad')
@@ -185,6 +186,7 @@ async function addNewAPI() {
         name: name,
         endpoint: endpoint,
         key: key,
+        endpointType: type,
         UUID: myUUID
     })
 }
@@ -261,6 +263,7 @@ async function processConfirmedConnection(parsedMessage) {
         flashElement('newAPIName', 'good')
         flashElement('newAPIEndpoint', 'good')
         flashElement('newAPIKey', 'good')
+        flashElement('newAPIEndpointType', 'good')
         flashElement('apiList', 'good')
 
         control.populateCardSelector(cardList);
@@ -459,6 +462,7 @@ async function connectWebSocket(username) {
                 flashElement('newAPIName', 'good')
                 flashElement('newAPIEndpoint', 'good')
                 flashElement('newAPIKey', 'good')
+                flashElement('newAPIEndpointType', 'good')
                 flashElement('apiList', 'good')
                 break
             case 'responseLengthChange':
@@ -1134,6 +1138,8 @@ $(async function () {
             $("#newAPIName").val('')
             $("#newAPIEndpoint").val('')
             $("#newAPIKey").val('')
+            $("#newAPIEndpointType").val('TC')
+            $("#newAPIEndpointType").prop('readonly', false)
             $("#newAPIName").prop('readonly', false)
             $("#newAPIEndpoint").prop('readonly', false)
             $("#newAPIKey").prop('readonly', false)
@@ -1143,6 +1149,7 @@ $(async function () {
             $("#newAPIName").prop('readonly', true)
             $("#newAPIEndpoint").prop('readonly', true)
             $("#newAPIKey").prop('readonly', true)
+            $("#newAPIEndpointType").prop('readonly', true)
 
             const APIChangeMessage = {
                 type: 'APIChange',
@@ -1163,6 +1170,7 @@ $(async function () {
         $("#newAPIName").prop('readonly', false)
         $("#newAPIEndpoint").prop('readonly', false)
         $("#newAPIKey").prop('readonly', false)
+        $("#newAPIEndpointType").prop('readonly', false)
         $("#saveAPIButton").show()
     })
 

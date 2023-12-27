@@ -192,7 +192,7 @@ async function initFiles() {
         authString: 'YourAuthString'
     };
 
-    db.upsertAPI('Default', 'localhost:5000', '');
+    db.upsertAPI('Default', 'localhost:5000', '', 'TC');
 
     // Check and create config.json if it doesn't exist
     if (!await existsAsync(configPath)) {
@@ -537,9 +537,10 @@ async function handleConnections(ws, type, request) {
                     const newAPI = {
                         name: parsedMessage.name,
                         endpoint: parsedMessage.endpoint,
-                        api_key: parsedMessage.key
+                        key: parsedMessage.key,
+                        endpointType: parsedMessage.endpointType
                     }
-                    await db.upsertAPI(newAPI.name, newAPI.endpoint, newAPI.api_key)
+                    await db.upsertAPI(newAPI.name, newAPI.endpoint, newAPI.key, newAPI.endpointType)
                     let apis = await db.getAPIs();
                     let APIListMessage = {
                         type: 'APIList',
@@ -551,7 +552,8 @@ async function handleConnections(ws, type, request) {
                         type: 'apiChange',
                         name: newAPI.name,
                         endpoint: newAPI.endpoint,
-                        key: newAPI.api_key
+                        key: newAPI.key,
+                        endpointType: newAPI.type
                     }
                     await broadcast(APIChangeMessage, 'host')
                 }

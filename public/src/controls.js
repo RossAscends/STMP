@@ -171,6 +171,10 @@ async function populateAPIValues(api) {
     $("#newAPIName").val(api.name)
     $("#newAPIKey").val(api.key)
     $("#newAPIEndpoint").val(api.endpoint)
+    $("#newAPIEndpointType").find(`option[value="${api.endpointType}"]`).prop('selected', true)
+    // hide the add button 
+    $("#addNewAPIButton").hide()
+    $("#editAPIButton").show()
 }
 
 // set the engine mode to either horde or Text Completions based on a value from the websocket

@@ -85,6 +85,15 @@
                                     <small>Name</small><input id="newAPIName" class="" placeholder="API Name">
                                     <small>Endpoint</small><input id="newAPIEndpoint" class="" placeholder="http://localhost:5000">
                                     <small>Key</small><input id="newAPIKey" class="" placeholder="API Key">
+                                    <small>Endpoint Type</small>
+                                    <div class="custom-select">
+                                        <select id="newAPIEndpointType">
+                                            <option value="TC">Text Completion</option>
+                                            <option value="CC">Chat Completion</option>
+                                        </select>
+                                        </option>
+                                    </div>
+
                                 <div class="flexbox justifySpaceBetween Vcentered">
                                     <div class="flexbox Vcentered"><button id="addNewAPIButton">Add</button></div>
                                     <div class="flexbox Vcentered"><button id="saveAPIButton">Save</button ></div>

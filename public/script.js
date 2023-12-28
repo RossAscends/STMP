@@ -1151,14 +1151,16 @@ $(async function () {
     $("#pastChatsToggle").on('click', function () {
         let target = $("#pastChatsWrap")
         if (target.hasClass('isAnimating')) { return }
-        $(this).toggleClass('fa-toggle-on fa-toggle-off')
+        console.log('toggling past Chats view...')
+        $(this).children('i').toggleClass('fa-toggle-on fa-toggle-off')
         betterSlideToggle(target, false)
     })
 
     $("#crowdControlToggle").on('click', function () {
         let target = $("#crowdControlWrap")
         if (target.hasClass('isAnimating')) { return }
-        $(this).toggleClass('fa-toggle-on fa-toggle-off')
+        console.log('toggling Crowd Control view...')
+        $(this).children('i').toggleClass('fa-toggle-on fa-toggle-off')
         betterSlideToggle(target, false)
     })
 

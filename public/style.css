@@ -290,6 +290,10 @@ input,
     border: 0;
 }
 
+.textBrightUp:hover {
+    color: white !important
+}
+
 #OOCChatWrapper img,
 #LLMChatWrapper img {
     max-height: 80%;

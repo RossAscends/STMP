@@ -19,7 +19,8 @@
     "png-chunks-extract": "^1.0.0",
     "uuid": "^8.3.2",
     "sqlite3": "5.1.6",
-    "sqlite": "4.0.23"
+    "sqlite": "4.0.23",
+    "log4js": "^6.9.0"
   },
   "keywords": [],
   "author": "",

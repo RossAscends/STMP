@@ -771,6 +771,11 @@ $(async function () {
             UUID: myUUID,
             newMode: newMode
         }
+        if (newMode === 'horde') {
+            $("#TCCCAPIBlock").hide()
+        } else {
+            $("#TCCCAPIBlock").show()
+        }
         messageServer(modeChangeMessage);
     })
 

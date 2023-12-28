@@ -217,6 +217,11 @@ function setEngineMode(mode) {
         .attr('title', isHordeMode ? 'Click to switch to Text Completions Mode' : 'Click to switch to Horde Mode');
     console.log(`Switching to ${isHordeMode ? 'Horde' : 'Text Completions'} Mode`);
     flashElement('toggleMode', 'good');
+    if (isHordeMode) {
+        $("#TCCCAPIBlock").hide()
+    } else {
+        $("#TCCCAPIBlock").show()
+    }
 }
 
 export default {

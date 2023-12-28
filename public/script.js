@@ -166,11 +166,29 @@ async function addNewAPI() {
         UUID: myUUID
     })
     await delay(250)
-    control.hideAddNewAPIDiv()
+    //hide edit panel after save is done
+    betterSlideToggle($("#addNewAPI"), false)
     control.disableAPIEdit()
 
 }
 
+function testNewAPI() {
+    let name = $("#newAPIName").val()
+    let endpoint = $("#newAPIEndpoint").val()
+    let key = $("#newAPIKey").val()
+    let type = $("#newAPIEndpointType").val()
+
+    messageServer({
+        type: 'testNewAPI',
+        UUID: myUUID,
+        api: {
+            name: name,
+            endpoint: endpoint,
+            key: key,
+            type: type,
+        }
+    })
+}
 async function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
     const { clientUUID, newAIChatDelay, newUserChatDelay, role, D1JB, instructList, instructFormat,
@@ -440,6 +458,16 @@ async function connectWebSocket(username) {
                 flashElement('newAPIEndpointType', 'good')
                 flashElement('apiList', 'good')
                 break
+            case 'testAPIResult':
+                let result = parsedMessage.value
+                console.log(result)
+                if (result.status === 200) {
+                    flashElement('APIEditDiv', 'good')
+                } else {
+                    await flashElement('APIEditDiv', 'bad', 150, 3)
+                    alert(`Error: status code ${result.status}`)
+                }
+                break
             case 'responseLengthChange':
                 $("#responseLength").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
                 console.log('responseLength updated')
@@ -474,6 +502,36 @@ async function connectWebSocket(username) {
                 }
                 break;
 
+        }
+    });
+}
+
+function betterSlideToggle(target, forceHorizontal = true) {
+    const isChatDiv = target.parent().attr('id') === 'innerChatWrap';
+    const shouldDoHorizontalAnimation = forceHorizontal || (isChatDiv && isHorizontalChats);
+    const animatedDimension = shouldDoHorizontalAnimation ? 'width' : 'height';
+    const isNeedsReset = target.hasClass('needsReset');
+    let originalDimensionValue = shouldDoHorizontalAnimation ? target.css('width') : target.css('height')
+    let appliedStyleValue = target.hasClass('needsReset') ? '' : 'unset'
+    let appliedStyle = {
+        [animatedDimension]: originalDimensionValue,
+        [`min-${animatedDimension}`]: appliedStyleValue,
+        [`max-${animatedDimension}`]: appliedStyleValue,
+        'flex': appliedStyleValue
+    };
+    target.toggleClass('needsReset', !isNeedsReset)
+    if (!isNeedsReset) {
+        target.css(appliedStyle)
+    }
+    target.animate({ [animatedDimension]: 'toggle' }, {
+        duration: 250,
+        step: (now) => {
+            target.css({ [animatedDimension]: now + 'px' });
+        },
+        complete: () => {
+            if (isNeedsReset) {
+                target.css(appliedStyle);
+            }
         }
     });
 }
@@ -994,35 +1052,6 @@ $(async function () {
         betterSlideToggle($("#userList"))
     })
 
-    function betterSlideToggle(target, forceHorizontal = true) {
-        const isChatDiv = target.parent().attr('id') === 'innerChatWrap';
-        const shouldDoHorizontalAnimation = forceHorizontal || (isChatDiv && isHorizontalChats);
-        const animatedDimension = shouldDoHorizontalAnimation ? 'width' : 'height';
-        const isNeedsReset = target.hasClass('needsReset');
-        let originalDimensionValue = shouldDoHorizontalAnimation ? target.css('width') : target.css('height')
-        let appliedStyleValue = target.hasClass('needsReset') ? '' : 'unset'
-        let appliedStyle = {
-            [animatedDimension]: originalDimensionValue,
-            [`min-${animatedDimension}`]: appliedStyleValue,
-            [`max-${animatedDimension}`]: appliedStyleValue,
-            'flex': appliedStyleValue
-        };
-        target.toggleClass('needsReset', !isNeedsReset)
-        if (!isNeedsReset) {
-            target.css(appliedStyle)
-        }
-        target.animate({ [animatedDimension]: 'toggle' }, {
-            duration: 250,
-            step: (now) => {
-                target.css({ [animatedDimension]: now + 'px' });
-            },
-            complete: () => {
-                if (isNeedsReset) {
-                    target.css(appliedStyle);
-                }
-            }
-        });
-    }
 
     $('#AIMessageInput, #messageInput').on('input', function () {
         const activeInputboxID = this.id;
@@ -1065,9 +1094,13 @@ $(async function () {
     });
 
     $("#apiList").on('change', function () {
-        $("#saveAPIButton").hide()
         if ($(this).val() === 'addNewAPI') {
-            control.showAddNewAPIDiv()
+            //clear all inputs for API editing
+            $("#addNewAPI input").val('')
+            control.enableAPIEdit()
+            //hide API config, show API edit panel.
+            betterSlideToggle($("#AIConfigInputs"), false)
+            betterSlideToggle($("#addNewAPI"), false)
         } else {
             control.hideAddNewAPIDiv()
 
@@ -1081,19 +1114,36 @@ $(async function () {
         }
     })
 
+    //disabled this for now, assuming adding a new API will be done through the selector option.
     /*     $("#addNewAPIButton").on('click', function () {
             addNewAPI()
         }) */
 
     $("#editAPIButton").on('click', function () {
         control.enableAPIEdit()
+        betterSlideToggle($("#AIConfigInputs"), false)
+        betterSlideToggle($("#addNewAPI"), false)
     })
 
-    $("#saveAPIButton").on('click', function () {
-        addNewAPI()
+    $("#saveAPIButton").on('click', async function () {
+        await addNewAPI()
+        betterSlideToggle($("#AIConfigInputs"), false)
+    })
+    $("#testAPIButton").on('click', function () {
+        testNewAPI()
     })
     $("#canceAPIEditButton").on('click', function () {
-        control.hideAddNewAPIDiv()
+        betterSlideToggle($("#AIConfigInputs"), false)
+        betterSlideToggle($("#addNewAPI"), false)
+        //select the second option if we cancel out of making a new API
+        //this is not ideal and shuld really select whatever was selected previous before 'add new api' was selected.
+        if ($("#apiList").val() === 'addNewAPI') {
+            $("#apiList option:eq(1)").prop("selected", true);
+        }
+    })
+
+    $("#pastChatsToggle").on('click', function () {
+        betterSlideToggle($("#pastChatsWrap"), false)
     })
 
 
@@ -1105,7 +1155,7 @@ $(async function () {
     }
 
     function correctSizeBody() {
-        console.log('window resize')
+        //console.log('window resize')
         var orientation = window.orientation;
         if (isPhone && (orientation === 90 || orientation === -90)) {
             // Landscape orientation on iOS
@@ -1138,10 +1188,10 @@ $(async function () {
 
     function checkChatOrientation() {
         if ($("#innerChatWrap").css('flex-flow') === 'column nowrap') {
-            console.log('chat is vertical')
+            //console.log('chat is vertical')
             isHorizontalChats = false
         } else {
-            console.log('chat is vertical')
+            //console.log('chat is vertical')
             isHorizontalChats = true
         }
     }

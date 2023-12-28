@@ -398,7 +398,32 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     };
 }
 
-async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObjects) {
+async function testAPI(api) {
+    console.log(api)
+    let testMessage
+    let payload = {
+        stream: false,
+        seed: -1,
+        stop: [' ']
+    }
+    let testMessageObject = [{ entity: 'user', content: 'Test Message' }]
+
+    if (api.type === 'CC') {
+        payload.model = 'gpt-3.5-turbo'
+
+    } else {
+        let TCTestMessage = 'User: Test Message'
+        payload.prompt = TCTestMessage
+        //delete payload.stop
+    }
+
+
+    let result = await requestToTCorCC(api, payload, testMessageObject, true)
+    return result
+
+}
+
+async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObjects, isTest) {
 
     const isCCSelected = liveAPI.type === 'CC' ? true : false
     const TCEndpoint = liveAPI.endpoint
@@ -424,6 +449,8 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
         };
 
         function TCtoCC(messages, stops) {
+            console.log('entered the TC to CC function. here is the incoming message array:')
+            console.log(messages)
             //convert chat history object produced by addCharDefsToPrompt into CC compliant format
             let CCMessages = messages.map(message => {
                 const { content, entity } = message;
@@ -464,19 +491,33 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
             body: body,
             timeout: 0,
         })
-        console.log("RAW LLM API RESPONSE")
-        //console.log(response.status)
-        let JSONResponse = await response.json()
-        console.log('--- API RESPONSE')
-        if (isCCSelected) {
-            console.log(JSONResponse.choices[0])
-            let text = JSONResponse.choices[0].message.content
-            return text;
+        if (response.status === 200) {
+            let text, status
+            let JSONResponse = await response.json()
+            console.log('--- API RESPONSE')
+            if (isCCSelected) {
+                console.log(JSONResponse.choices[0])
+                text = JSONResponse.choices[0].message.content
+                //return text;
+            } else {
+                console.log(JSONResponse)
+                text = JSONResponse.choices[0].text
+                //return text;
+            }
+            if (isTest) {
+                status = response.status
+                let testResults = {
+                    status: status,
+                    value: text
+                }
+                return testResults
+            }
+            return text
         } else {
-            console.log(JSONResponse)
-            let text = JSONResponse.choices[0].text
-            return text;
+            console.log(`API Error: Code ${response.status}`)
+            return `Error: code ${response.status}`
         }
+
 
     } catch (error) {
         console.log('Error while requesting Text Completion API');
@@ -491,5 +532,6 @@ module.exports = {
     getAPIDefaults: getAPIDefaults,
     replaceMacros: replaceMacros,
     setNewAPI: setNewAPI,
+    testAPI: testAPI,
     getTCInfo: getTCInfo,
 }

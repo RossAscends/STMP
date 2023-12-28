@@ -204,22 +204,24 @@ async function getInstructList() {
 }
 
 async function getSamplerPresetList() {
-    const path = 'public/api-presets'
+    const path = 'public/api-presets';
     const files = await fs.promises.readdir(path);
-    var presets = []
-    var i = 0
+    const presets = [];
+
     for (const file of files) {
         try {
-            let fullPath = `${path}/${file}`
-            presets[i] = {
-                name: file.replace('.json', ''),
-                filename: fullPath,
+            if (file.endsWith('.json')) {
+                const fullPath = `${path}/${file}`;
+                presets.push({
+                    name: file.replace('.json', ''),
+                    filename: fullPath,
+                });
             }
         } catch (error) {
             console.error(`Error reading file ${file}:`, error);
         }
-        i++
     }
+
     return presets;
 }
 

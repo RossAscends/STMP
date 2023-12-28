@@ -19,115 +19,119 @@
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.1/themes/base/jquery-ui.css">
     <script type="module" src="script.js"></script>
     <link rel="stylesheet" type="text/css" href="style.css">
+    <link href="css/fontawesome.css" rel="stylesheet">
+    <link href="css/solid.css" rel="stylesheet">
     <link href="webfonts/NotoSans/stylesheet.css" rel="stylesheet">
 </head>
 
 <body class="Hcentered">
     <div id="bodywrap" class="flexbox noWrap noGap Hcentered">
         <div id="controlPanel" class="openedControlPanel padding5 flexbox flexFlowCol scrollY" style="display:none;">
-            <div class="hostControls flexbox flexFlowCol">
+            <div class="hostControls flexbox flexFlowCol noGap">
                 <div name="AIControls" class="flexbox flexFlowCol">
-                    <h4>AI Controls</h4>
-                    <div class="flexbox justifySpaceAround">
-                        <!--                         <div class="flexbox flexFlowCol ">
-                            <div class="flexbox noWrap Vcentered">
-                                <small>URL</small><input id="APIURL" class="" placeholder="http://127.0.0.1/"> : <input id="APIPort" class="maxWidth50px" placeholder="5000">
-                            </div>
-                            <div class="flexbox justifySpaceBetween Vcentered">
-                                <div class="flexbox Vcentered"><small>Key</small><input id="APIKey"></div>
-                                <div class="flexbox Vcentered"><button id="APITestButton">Test</button></div>
-                            </div>
-                        </div> -->
-                        <div class="flexbox flexFlowCol">
-                            <small class="alignSelfCenter">API</small>
-                            <button id="toggleMode" class="tabbyMode mutedColor square1p5em fontSize1p5em bgBrightUp textshadow" title="Toggle API Mode">📑</button>
-                        </div>
-                        <label for="AIAutoResponse" class="checkbox_label flexbox flexFlowCol alignItemsCenter">
-                            <small class="">AutoAI</small>
-                            <input type="checkbox" class="Vcentered" id="AIAutoResponse">
-                        </label>
-                        <div class="flexbox flexFlowCol alignItemsCenter">
-                            <small class="alignSelfCenter">Context</small>
-                            <div class="custom-select">
-                                <select id="maxContext">
-                                    <option value="1024">1024</option>
-                                    <option value="2048">2048</option>
-                                    <option value="4096">4096</option>
-                                    <option value="8196">8192</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="flexbox flexFlowCol alignItemsCenter">
-                            <small class="alignSelfCenter">Response</small>
-                            <div class="custom-select">
-                                <select id="responseLength">
-                                    <option value="50">50</option>
-                                    <option value="100">100</option>
-                                    <option value="200">200</option>
-                                    <option value="300">300</option>
-                                    <option value="400">400</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="flexbox flexFlowCol alignItemsCenter">
-                            <small class="alignSelfCenter">Instruct</small>
-                            <div class="custom-select">
-                                <select id="instructStyle"></select>
-                            </div>
-                        </div>
-                        <div id="TCCCAPIBlock" class="flexbox flexFlowCol">
-                            <small class="alignSelfCenter">API</small>
-
-                            <div class="flexbox justifySpaceBetween ">
-                                <div class="custom-select">
-                                    <select id="apiList"></select>
-                                </div>
-
-                                <!-- <div class="flexbox Vcentered"><button id="addNewAPIButton">Add</button></div> -->
-                                <div class="flexbox Vcentered"><button id="editAPIButton">Edit</button></div>
-                            </div>
-                        </div>
-                        <div id="addNewAPI" class="flexbox flexFlowCol width100p">
-                            <h4 id="apiTitle" class="alignSelfCenter">API Info</h4>
+                    <div id="AIConfigInputs" class="flexbox flexFlowCol">
+                        <h4>AI Controls</h4>
+                        <div class="flexbox justifySpaceAround">
                             <div class="flexbox flexFlowCol">
-                                <small>Name</small><input id="newAPIName" class="width100p" placeholder="API Name">
-                                <small>Full Endpoint URL</small><input id="newAPIEndpoint" class="width100p" placeholder="http://localhost:5000/v1/completions/">
-                                <small>Key</small><input id="newAPIKey" class="width100p" placeholder="API Key (empty if none)">
-                                <small>Endpoint Type</small>
-                                <div class="flexbox justifySpaceBetween">
-                                    <div class="custom-select">
-                                        <select id="newAPIEndpointType">
-                                            <option value="TC">Text Completion</option>
-                                            <option value="CC">Chat Completion</option>
-                                        </select>
-                                        </option>
-                                    </div>
-                                    <div class="flexbox Vcentered"><button id="canceAPIEditButton">Cancel</button></div>
-                                    <div class="flexbox Vcentered"><button id="saveAPIButton">Save</button></div>
+                                <small class="alignSelfCenter">API</small>
+                                <button id="toggleMode" class="tabbyMode mutedColor square1p5em fontSize1p5em bgBrightUp textshadow" title="Toggle API Mode">📑</button>
+                            </div>
+                            <label for="AIAutoResponse" class="checkbox_label flexbox flexFlowCol alignItemsCenter">
+                                <small class="">AutoAI</small>
+                                <input type="checkbox" class="Vcentered" id="AIAutoResponse">
+                            </label>
+                            <div class="flexbox flexFlowCol alignItemsCenter">
+                                <small class="alignSelfCenter">Context</small>
+                                <div class="custom-select">
+                                    <select id="maxContext">
+                                        <option value="1024">1024</option>
+                                        <option value="2048">2048</option>
+                                        <option value="4096">4096</option>
+                                        <option value="8196">8192</option>
+                                    </select>
                                 </div>
                             </div>
-                            <hr>
-                        </div>
-                        <div class="flexbox flexFlowCol">
-                            <small class="alignSelfCenter">Samplers</small>
-                            <div class="custom-select">
-                                <select id="samplerPreset"></select>
+                            <div class="flexbox flexFlowCol alignItemsCenter">
+                                <small class="alignSelfCenter">Response</small>
+                                <div class="custom-select">
+                                    <select id="responseLength">
+                                        <option value="50">50</option>
+                                        <option value="100">100</option>
+                                        <option value="200">200</option>
+                                        <option value="300">300</option>
+                                        <option value="400">400</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="flexbox flexFlowCol alignItemsCenter">
+                                <small class="alignSelfCenter">Instruct</small>
+                                <div class="custom-select">
+                                    <select id="instructStyle"></select>
+                                </div>
+                            </div>
+                            <div class="flexbox flexFlowCol">
+                                <small class="alignSelfCenter">Samplers</small>
+                                <div class="custom-select">
+                                    <select id="samplerPreset"></select>
+                                </div>
+                            </div>
+                            <div id="TCCCAPIBlock" class="flexbox flexFlowCol">
+                                <small class="alignSelfCenter">API</small>
+
+                                <div class="flexbox justifySpaceBetween ">
+                                    <div class="custom-select">
+                                        <select id="apiList"></select>
+                                    </div>
+
+                                    <!-- <div class="flexbox Vcentered"><button id="addNewAPIButton">Add</button></div> -->
+                                    <div class="flexbox Vcentered"><button id="editAPIButton">Edit</button></div>
+                                </div>
                             </div>
                         </div>
+                        <div id="finalInstructionBlock" class="flexbox flexFlowCol Hcentered dummyBG">
+                            <span class="widthFitContent alignSelfCenter">Final Instruction (D1 JB)</span>
+                            <textarea class="bgBrightUp" rows=6 id="finalInstruction" placeholder="Put your Depth 1 prompt instruction here"></textarea>
+                        </div>
+
                     </div>
-                    <div id="finalInstructionBlock" class="flexbox flexFlowCol Hcentered dummyBG">
-                        <span class="widthFitContent alignSelfCenter">Final Instruction (D1 JB)</span>
-                        <textarea class="bgBrightUp" rows=6 id="finalInstruction" placeholder="Put your Depth 1 prompt instruction here"></textarea>
+                    <div id="addNewAPI" class="flexbox flexFlowCol width100p marginBot5">
+                        <h4 id="apiTitle" class="alignSelfCenter">API Info</h4>
+                        <div id="APIEditDiv" class="transition250 flexbox flexFlowCol">
+                            <small>Name</small><input id="newAPIName" class="width100p" placeholder="API Name">
+                            <small>Full Endpoint URL</small><input id="newAPIEndpoint" class="width100p" placeholder="http://localhost:5000/v1/completions/">
+                            <small>Key</small><input id="newAPIKey" class="width100p" placeholder="API Key (empty if none)">
+                            <small>Endpoint Type</small>
+                            <div class="custom-select">
+                                <select id="newAPIEndpointType">
+                                    <option value="TC">Text Completion</option>
+                                    <option value="CC">Chat Completion</option>
+                                </select>
+                                </option>
+                            </div>
+                            <div class="flexbox justifySpaceAround">
+                                <button class="flexbox Vcentered bgBrightUp" id="canceAPIEditButton">Cancel</button>
+                                <button class="flexbox Vcentered bgBrightUp" id="testAPIButton">Test</button>
+                                <button class="flexbox Vcentered bgBrightUp" id="saveAPIButton">Save</button>
+                            </div>
+                        </div>
+
                     </div>
+                    <hr>
                 </div>
-                <hr>
+
+
+
                 <div id="pastChatsBlock" class="flexbox flexFlowCol scrollY">
                     <div class="flexbox Hcentered Vcentered">
-                        <h4>Past Chats</h4><button id="showPastChats" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Refresh Past Chats List">🔄</button>
+                        <i id="pastChatsToggle" class="nonButtonButton fa-solid fa-book Vcentered bgTransparent fontSize1p25em mutedColor textshadow alignSelfCenter"></i>
+                        <!-- <button id="pastChatsToggle" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow alignSelfCenter">📚</button> -->
+                        <h4>Past Chats</h4>
+                        <button id="showPastChats" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Refresh Past Chats List" hidden>🔄</button>
                     </div>
-                    <div class="flexbox flexFlowCol Hcentered">
+                    <div id="pastChatsWrap">
+                        <div id="pastChatsList" class="flexbox Hcentered alignContentStart"></div>
                     </div>
-                    <div id="pastChatsList" class="flexbox Hcentered alignContentStart"></div>
+                    <hr>
                 </div>
                 <div id="crowdControlBlock" class="flexbox flexFlowCol scrollY alignItemsCenter">
                     <div class="flexbox Hcentered Vcentered">

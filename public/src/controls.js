@@ -173,13 +173,11 @@ function hideAddNewAPIDiv() {
 
 function enableAPIEdit() {
     //console.log('enable API input edits')
-    $("#addNewAPI").show()
     $("#newAPIName").prop('readonly', false)
     $("#newAPIEndpoint").prop('readonly', false)
     $("#newAPIKey").prop('readonly', false)
     $("#newAPIEndpointType").prop('disabled', false)
     $("#saveAPIButton").show()
-    $("#editAPIButton").hide()
     //Set the title 
     $("#apiTitle").text('Edit API Info')
 }
@@ -201,7 +199,8 @@ async function populateAPIValues(api) {
     $("#newAPIKey").val(api.key)
     $("#newAPIEndpoint").val(api.endpoint)
     $("#newAPIEndpointType").find(`option[value="${api.endpointType}"]`).prop('selected', true)
-    // hide the add button 
+    // hide the add button, only do it through the selector
+    // can change this later if we need to, if a button is more intuitive.
     $("#addNewAPIButton").hide()
     $("#editAPIButton").show()
     $("#apiTitle").text('API Info')

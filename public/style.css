@@ -119,7 +119,8 @@ textarea {
 input,
 textarea,
 button,
-select {
+select,
+.nonButtonButton {
     border-radius: 5px;
     border: 0;
     background-color: #393a3f;
@@ -130,13 +131,15 @@ select {
 }
 
 button,
-select {
+select,
+.nonButtonButton {
     cursor: pointer;
 }
 
 button,
 select,
-input {
+input,
+.nonButtonButton {
     transition: all 250ms;
 }
 
@@ -262,7 +265,8 @@ input[type='checkbox']:hover {
 }
 
 button,
-input {
+input,
+.nonButtonButton {
     padding: 3px;
     width: fit-content;
 }
@@ -277,6 +281,8 @@ input {
     filter: saturate(0.5);
 
 }
+
+
 
 .bgBrightUp:hover,
 .bgBrightUp:focus {
@@ -448,15 +454,15 @@ input::placeholder {
     font-size: 0.8em;
 }
 
-#pastChatsBlock {
+/* #pastChatsBlock {
     height: 33svh;
-}
+} */
 
 #pastChatsList {
     overflow-y: auto;
     overflow-x: hidden;
-    max-height: 33svh;
-    height: 33svh;
+    max-height: 25svh;
+    height: 25svh;
     border-radius: 5px;
     padding: 0 4px 0 12px;
 

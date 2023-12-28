@@ -575,6 +575,18 @@ async function handleConnections(ws, type, request) {
                     return
                 }
 
+                else if (parsedMessage.type === 'testNewAPI') {
+                    let result = await api.testAPI(parsedMessage.api)
+                    testAPIResult = {
+                        type: 'testAPIResult',
+                        value: result
+                    }
+                    //await broadcast(testAPIResult, 'host');
+                    //only send back to the user who is doing the test.
+                    await ws.send(JSON.stringify(testAPIResult))
+                    return
+                }
+
                 else if (parsedMessage.type === 'clearAIChat') {
                     await saveAndClearChat('AIChat')
                     const clearAIChatInstruction = {

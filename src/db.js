@@ -1,5 +1,6 @@
 const sqlite3 = require('sqlite3');
 const sqlite = require('sqlite');
+const { dbLogger: logger } = require('./log.js');
 
 // Connect to the SQLite database
 const dbPromise = sqlite.open({
@@ -79,18 +80,18 @@ async function createTables() {
 }
 
 async function writeUserChatMessage(userId, message) {
-    console.debug('Writing user chat message to database...');
+    logger.debug('Writing user chat message to database...');
     const db = await dbPromise;
     try {
         await db.run('INSERT INTO userchats (user_id, message) VALUES (?, ?)', [userId, message]);
-        console.debug('A side chat message was inserted');
+        logger.debug('A side chat message was inserted');
     } catch (err) {
-        console.error('Error writing side chat message:', err);
+        logger.error('Error writing side chat message:', err);
     }
 }
 
 async function getPastChats(type) {
-    console.debug(`Getting data for all past ${type} chats...`);
+    logger.debug(`Getting data for all past ${type} chats...`);
     const db = await dbPromise;
     try {
         const rows = await db.all(`
@@ -140,13 +141,13 @@ async function getPastChats(type) {
 
         return result;
     } catch (err) {
-        console.error('An error occurred while reading from the database:', err);
+        logger.error('An error occurred while reading from the database:', err);
         throw err;
     }
 }
 
 async function deletePastChat(sessionID) {
-    console.debug('Deleting past chat... ' + sessionID);
+    logger.debug('Deleting past chat... ' + sessionID);
     const db = await dbPromise;
     let wasActive = false;
     try {
@@ -157,16 +158,16 @@ async function deletePastChat(sessionID) {
                 wasActive = true;
             }
             await db.run('DELETE FROM sessions WHERE session_id = ?', [row.session_id]);
-            console.debug(`Session ${sessionID} was deleted`);
+            logger.debug(`Session ${sessionID} was deleted`);
         }
         return ['ok', wasActive];
     } catch (err) {
-        console.error('Error deleting session:', err);
+        logger.error('Error deleting session:', err);
     }
 }
 
 async function readUserChat() {
-    console.debug('Reading user chat...');
+    logger.debug('Reading user chat...');
     const db = await dbPromise;
     try {
         const rows = await db.all(`
@@ -181,111 +182,111 @@ async function readUserChat() {
             userColor: row.userColor
         })));
     } catch (err) {
-        console.error('An error occurred while reading from the database:', err);
+        logger.error('An error occurred while reading from the database:', err);
         throw err;
     }
 }
 
 //Remove last AI chat in the current session from the database
 async function removeLastAIChatMessage() {
-    console.debug('Removing last AI chat message from database...');
+    logger.debug('Removing last AI chat message from database...');
     const db = await dbPromise;
     //Get the last message_id from the current session
     try {
         const row = await db.get('SELECT message_id FROM aichats WHERE session_id = (SELECT session_id FROM sessions WHERE is_active = TRUE) ORDER BY message_id DESC LIMIT 1');
         if (row) {
             await db.run('DELETE FROM aichats WHERE message_id = ?', [row.message_id]);
-            console.debug('A message was deleted');
+            logger.debug('A message was deleted');
         }
     } catch (err) {
-        console.error('Error deleting message:', err);
+        logger.error('Error deleting message:', err);
     }
 }
 
 // Write an AI chat message to the database
 async function writeAIChatMessage(username, userId, message, entity) {
-    console.debug('Writing AI chat message to database...' + username + ' ' + userId + ' ' + message + ' ' + entity);
+    logger.debug('Writing AI chat message to database...' + username + ' ' + userId + ' ' + message + ' ' + entity);
     const db = await dbPromise;
     try {
         let sessionId;
         const row = await db.get('SELECT session_id FROM sessions WHERE is_active = TRUE');
         if (!row) {
-            console.debug('No active session found, creating a new session...');
+            logger.debug('No active session found, creating a new session...');
             await db.run('INSERT INTO sessions DEFAULT VALUES');
             sessionId = (await db.get('SELECT session_id FROM sessions WHERE is_active = TRUE')).session_id;
-            console.debug(`A new session was created with session_id ${sessionId}`);
+            logger.debug(`A new session was created with session_id ${sessionId}`);
         } else {
             sessionId = row.session_id;
         }
         await db.run('INSERT INTO aichats (session_id, user_id, message, username, entity) VALUES (?, ?, ?, ?, ?)', [sessionId, userId, message, username, entity]);
-        console.debug('An AI chat message was inserted');
+        logger.debug('An AI chat message was inserted');
     } catch (err) {
-        console.error('Error writing AI chat message:', err);
+        logger.error('Error writing AI chat message:', err);
     }
 }
 
 // Update all messages in the current session to a new session ID and clear the current session
 async function newSession() {
-    console.debug('Creating a new session...');
+    logger.debug('Creating a new session...');
     const db = await dbPromise;
     try {
         await db.run('UPDATE sessions SET is_active = FALSE, ended_at = CURRENT_TIMESTAMP WHERE is_active = TRUE');
         await db.run('INSERT INTO sessions DEFAULT VALUES');
     } catch (error) {
-        console.error('Error creating a new session:', error);
+        logger.error('Error creating a new session:', error);
     }
 }
 
 // Create or update the user in the database
 async function upsertUser(uuid, username, color) {
-    console.debug('Adding/updating user...' + uuid);
+    logger.debug('Adding/updating user...' + uuid);
     const db = await dbPromise;
     try {
         await db.run('INSERT OR REPLACE INTO users (user_id, username, username_color, last_seen_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [uuid, username, color]);
-        console.debug('A user was upserted');
+        logger.debug('A user was upserted');
     } catch (err) {
-        console.error('Error writing user:', err);
+        logger.error('Error writing user:', err);
     }
 }
 
 async function upsertUserRole(uuid, role) {
-    console.debug('Adding/updating user role...' + uuid + ' ' + role);
+    logger.debug('Adding/updating user role...' + uuid + ' ' + role);
     const db = await dbPromise;
     try {
         await db.run('INSERT OR REPLACE INTO user_roles (user_id, role) VALUES (?, ?)', [uuid, role]);
-        console.debug('A user role was upserted');
+        logger.debug('A user role was upserted');
     } catch (err) {
-        console.error('Error writing user role:', err);
+        logger.error('Error writing user role:', err);
     }
 }
 
 // Create or update the character in the database
 async function upsertChar(uuid, displayname, color) {
-    console.debug('Adding/updating character...' + uuid);
+    logger.debug('Adding/updating character...' + uuid);
     const db = await dbPromise;
     try {
         await db.run('INSERT OR REPLACE INTO characters (char_id, displayname, display_color, last_seen_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [uuid, displayname, color]);
-        console.debug('A character was upserted');
+        logger.debug('A character was upserted');
     } catch (err) {
-        console.error('Error writing character:', err);
+        logger.error('Error writing character:', err);
     }
 }
 
 // Get user info from the database, including the role
 async function getUser(uuid) {
-    console.debug('Getting user...' + uuid);
+    logger.debug('Getting user...' + uuid);
     const db = await dbPromise;
     try {
         return await db.get('SELECT u.user_id, u.username, u.username_color, u.created_at, u.last_seen_at, ur.role FROM users u LEFT JOIN user_roles ur ON u.user_id = ur.user_id WHERE u.user_id = ?', [uuid]);
     } catch (err) {
-        console.error('Error getting user:', err);
+        logger.error('Error getting user:', err);
         throw err;
     }
 }
 
 // Read AI chat data from the SQLite database
 async function readAIChat(sessionID = null) {
-    console.debug('Reading AI chat...');
+    logger.debug('Reading AI chat...');
     const db = await dbPromise;
     let sessionWhereClause = '';
     let params = [];
@@ -316,7 +317,6 @@ async function readAIChat(sessionID = null) {
             ORDER BY a.timestamp ASC
         `, params);
 
-        //console.log(rows);
         const result = JSON.stringify(rows.map(row => ({
             username: row.username,
             content: row.message,
@@ -337,112 +337,111 @@ async function readAIChat(sessionID = null) {
         }
 
     } catch (err) {
-        console.error('An error occurred while reading from the database:', err);
+        logger.error('An error occurred while reading from the database:', err);
         throw err;
     }
 }
 
 async function deleteMessage(messageID) {
-    console.debug('Deleting message...');
+    logger.debug('Deleting message...');
     const db = await dbPromise;
     try {
         await db.run('DELETE FROM aichats WHERE message_id = ?', [messageID]);
-        console.debug('A message was deleted');
+        logger.debug('A message was deleted');
     } catch (err) {
-        console.error('Error deleting message:', err);
+        logger.error('Error deleting message:', err);
     }
 }
 
 async function getUserColor(UUID) {
-    console.debug('Getting user color...' + UUID);
+    logger.debug('Getting user color...' + UUID);
     const db = await dbPromise;
     try {
         const row = await db.get('SELECT username_color FROM users WHERE user_id = ?', [UUID]);
         if (row) {
             const userColor = row.username_color;
-            //console.log(`User color: ${userColor}`);
             return userColor;
         } else {
-            console.log(`User not found for UUID: ${UUID}`);
+            logger.warn(`User not found for UUID: ${UUID}`);
             return null;
         }
     } catch (err) {
-        console.error('Error getting user color:', err);
+        logger.error('Error getting user color:', err);
         throw err;
     }
 }
 
 async function getCharacterColor(charName) {
-    console.debug('Getting character color...' + charName);
+    logger.debug('Getting character color...' + charName);
     const db = await dbPromise;
     try {
         const row = await db.get('SELECT display_color FROM characters WHERE char_id = ?', [charName]);
         if (row) {
             const charColor = row.display_color;
-            console.log(`User color: ${charColor}`);
+            logger.debug(`User color: ${charColor}`);
             return charColor;
         } else {
-            console.log(`Character not found for: ${charName}`);
+            logger.warn(`Character not found for: ${charName}`);
             return null;
         }
     } catch (err) {
-        console.error('Error getting user color:', err);
+        logger.error('Error getting user color:', err);
         throw err;
     }
 }
 
 async function getMessage(messageID) {
-    console.debug('Getting message...' + messageID);
+    logger.debug('Getting message...' + messageID);
     const db = await dbPromise;
     try {
         return await db.get('SELECT * FROM aichats WHERE message_id = ?', [messageID]);
     } catch (err) {
-        console.error('Error getting message:', err);
+        logger.error('Error getting message:', err);
         throw err;
     }
 }
 
 async function upsertAPI(name, endpoint, key, type) {
-    console.debug('Adding/updating API...' + name);
+    logger.debug('Adding/updating API...' + name);
     const db = await dbPromise;
     try {
         await db.run('INSERT OR REPLACE INTO apis (name, endpoint, key, type) VALUES (?, ?, ?, ?)', [name, endpoint, key, type]);
-        console.debug('An API was upserted');
+        logger.debug('An API was upserted');
     } catch (err) {
-        console.error('Error writing API:', err);
+        logger.error('Error writing API:', err);
     }
 }
 
 async function getAPIs() {
-    console.debug('Getting APIs...');
+    logger.debug('Getting APIs...');
     const db = await dbPromise;
     try {
         return await db.all('SELECT * FROM apis');
     } catch (err) {
-        console.error('Error getting APIs:', err);
+        logger.error('Error getting APIs:', err);
         throw err;
     }
 }
 
 async function getAPI(name) {
-    console.debug('Getting API...' + name);
+    logger.debug('Getting API...' + name);
     const db = await dbPromise;
     try {
         let gotAPI = await db.get('SELECT * FROM apis WHERE name = ?', [name]);
-        console.log(gotAPI);
+        logger.debug(gotAPI);
         if (gotAPI) {
             return gotAPI;
         } else {
-            console.error('API not found:', name);
+            logger.error('API not found:', name);
             return null; // or handle the absence of the API in a different way
         }
     } catch (err) {
-        console.error('Error getting API:', err);
+        logger.error('Error getting API:', err);
         throw err;
     }
 }
 
-createTables().catch(console.error);
+createTables();
 
 module.exports = {
     writeUserChatMessage: writeUserChatMessage,

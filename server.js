@@ -10,11 +10,12 @@ const path = require('path');
 const $ = require('jquery');
 const express = require('express');
 
-const logger = require('./src/log.js');
+const { logger }  = require('./src/log.js');
 const localApp = express();
 const remoteApp = express();
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
+
 
 //SQL DB
 const db = require('./src/db.js');
@@ -315,7 +316,7 @@ async function handleConnections(ws, type, request) {
     let uuid = urlParams.get('uuid');
 
     if (uuid === null || uuid === undefined || uuid === '') {
-        logger.debug('Client connected without UUID...assigning a new one..');
+        logger.info('Client connected without UUID...assigning a new one..');
         //assign them a UUID
         uuid = uuidv4()
         logger.debug(`uuid assigned as ${uuid}`)
@@ -588,7 +589,7 @@ async function handleConnections(ws, type, request) {
                 }
 
                 else if (parsedMessage.type === 'modelListRequest') {
-                    console.log('saw model list request')
+                    logger.trace('saw model list request')
                     let list = await api.getModelList(parsedMessage.api)
                     let modelListResult = {
                         type: 'modelListResult',
@@ -738,7 +739,7 @@ async function handleConnections(ws, type, request) {
                 else if (parsedMessage.type === 'pastChatDelete') {
                     const sessionID = parsedMessage.sessionID
                     let [result, wasActive] = await db.deletePastChat(sessionID)
-                    console.debug(result, wasActive)
+                    logger.debug(result, wasActive)
                     if (result === 'ok') {
                         const pastChatsDeleteConfirmation = {
                             type: 'pastChatDeleted',

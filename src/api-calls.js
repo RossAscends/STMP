@@ -405,7 +405,7 @@ async function getModelList(api) {
 }
 
 async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObjects, isTest, liveConfig) {
-    logger.debug(liveConfig)
+    //console.log(liveConfig)
     const isCCSelected = liveAPI.type === 'CC' ? true : false
     const TCEndpoint = liveAPI.endpoint
     const TCAPIKey = liveAPI.key
@@ -413,6 +413,9 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
     //this is brought in from the sampler preset, but we don't use it yet.
     //better to not show it in the API gen call response, would be confusing.
     delete APICallParamsAndPrompt.system_prompt
+
+    //Claude uses max_tokens_to_sampl, this is a testing placeholder.
+    //APICallParamsAndPrompt.max_tokens_to_sample = 300
 
     const url = TCEndpoint.trim()
     logger.trace(url)
@@ -425,6 +428,7 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
         const headers = {
             'Content-Type': 'application/json',
             'Cache': 'no-cache',
+            'anthropic-version': '2023-06-01', //for Claude, apparently, doesn't hurt OAI calls.
             'x-api-key': key,
             'Authorization': `Bearer ${key}`,
         };
@@ -442,29 +446,35 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
                 } else if (entity === 'AI') {
                     role = 'assistant';
                 }
-
                 return {
                     content,
                     role
                 };
             });
-            //reduce stop to 4 items as requried by CC API (at least OAI's)
+            CCMessages.reverse()
+            //reduce stop to 4 items as requried by OAI's CC API
             let CCStops = stops.slice(0, 4);
 
             return [CCMessages, CCStops]
         }
-
+        APICallParamsAndPrompt.model = liveConfig.selectedModel
         if (isCCSelected) {
             logger.trace('========== DOING CC conversion =======')
             const [CCMessages, CCStops] = TCtoCC(includedChatObjects, APICallParamsAndPrompt.stop)
             APICallParamsAndPrompt.stop = CCStops
             APICallParamsAndPrompt.messages = CCMessages
-            APICallParamsAndPrompt.model = liveConfig.selectedModel //we can figure out model selection later.
             APICallParamsAndPrompt.stream = false //this needs to be false until we figure out streaming
         }
 
-        const body = JSON.stringify(APICallParamsAndPrompt);
+        logger.debug(' ')
+        logger.debug('HEADERS')
+        logger.debug(headers)
+        logger.debug(' ')
+        logger.debug('PAYLOAD BODY')
         logger.debug(APICallParamsAndPrompt)
+        logger.debug(' ')
+        const body = JSON.stringify(APICallParamsAndPrompt);
+        logger.debug(`Sending chat request to ${url}`)
 
         const response = await fetch(url, {
             method: 'POST',
@@ -472,16 +482,20 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
             body: body,
             timeout: 0,
         })
+        let JSONResponse = await response.json()
         if (response.status === 200) {
             let text, status
-            let JSONResponse = await response.json()
             logger.debug('--- API RESPONSE')
+            logger.debug(JSONResponse)
             if (isCCSelected) {
-                logger.debug(JSONResponse.choices[0])
-                text = JSONResponse.choices[0].message.content
+                //look for 'choices' from OAI, and then if it doesn't exist, look for 'completion' (from Claude)
+                if (JSONResponse.choices && JSONResponse.choices.length > 0) {
+                    text = JSONResponse.choices[0].message?.content || JSONResponse.completion;
+                } else {
+                    text = JSONResponse.completion;
+                }
                 //return text;
             } else {
-                logger.debug(JSONResponse)
                 text = JSONResponse.choices[0].text
                 //return text;
             }
@@ -495,8 +509,9 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
             }
             return text
         } else {
-            logger.error(`API Error: Code ${response.status}`)
-            return `Error: code ${response.status}`
+            logger.error('API RETURNED ERROR:')
+            logger.error(JSONResponse)
+            return JSONResponse
         }
 
 

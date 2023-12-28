@@ -47,6 +47,11 @@ Currently STMP supports Text Completions (TC) and HordeAI, with TC active by def
 
 ### Using Text Completions or Chat Completions
 
+> External Text Completion and Chat Completion connections are currently a Work in Progress!
+> We have tested with connecting to OpenAI's GPT 3.5 Turbo, and found it works.
+> Therefore all Chat Completions APIs are currently hard coded to request a response from `gpt-3.5-turbo`.
+> We intend to soon add model selection for APIs that offer it.
+
 1. In the Host Control Panel open the selector under the 'API' text and select `Add New ApI`.
 2. Some inputs will be displayed.
 

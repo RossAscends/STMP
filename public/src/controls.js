@@ -143,6 +143,7 @@ async function populateAPISelector(API) {
 }
 
 function showAddNewAPIDiv() {
+    $("#addNewAPI").show()
     $("#addNewAPIButton").show()
     $("#editAPIButton").hide()
     $("#newAPIName").val('')
@@ -154,6 +155,7 @@ function showAddNewAPIDiv() {
     $("#newAPIEndpoint").prop('readonly', false)
     $("#newAPIKey").prop('readonly', false)
     $("#apiTitle").text('New API Info')
+    $("#saveAPIButton").show()
 }
 
 function hideAddNewAPIDiv() {
@@ -163,16 +165,30 @@ function hideAddNewAPIDiv() {
     $("#newAPIEndpoint").prop('readonly', true)
     $("#newAPIKey").prop('readonly', true)
     $("#newAPIEndpointType").prop('readonly', true)
+    $("#addNewAPI").hide()
+    $("#saveAPIButton").hide()
 }
 
-function enableAPIEdit(){
+function enableAPIEdit() {
+    $("#addNewAPI").show()
     $("#newAPIName").prop('readonly', false)
     $("#newAPIEndpoint").prop('readonly', false)
     $("#newAPIKey").prop('readonly', false)
-    $("#newAPIEndpointType").prop('readonly', false)
+    $("#newAPIEndpointType").prop('disabled', false)
     $("#saveAPIButton").show()
+    $("#editAPIButton").hide()
     //Set the title 
     $("#apiTitle").text('Edit API Info')
+}
+
+function disableAPIEdit() {
+    $("#newAPIName").prop('readonly', true)
+    $("#newAPIEndpoint").prop('readonly', true)
+    $("#newAPIKey").prop('readonly', true)
+    $("#newAPIEndpointType").prop('disabled', true)
+    $("#saveAPIButton").hide()
+    //Set the title 
+    $("#apiTitle").text('')
 }
 
 async function populateAPIValues(api) {
@@ -215,4 +231,5 @@ export default {
     showAddNewAPIDiv: showAddNewAPIDiv,
     hideAddNewAPIDiv: hideAddNewAPIDiv,
     enableAPIEdit: enableAPIEdit,
+    disableAPIEdit: disableAPIEdit,
 }

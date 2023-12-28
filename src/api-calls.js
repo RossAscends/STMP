@@ -27,7 +27,7 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function setNewAPI(name, url, endpoint, key){
+function setNewAPI(name, url, endpoint, key) {
     TCNAME = name
     TCURL = url
     TCGenEndpoint = endpoint
@@ -36,7 +36,7 @@ function setNewAPI(name, url, endpoint, key){
 }
 
 function getTCInfo() {
-    return {TCNAME, TCURL, TCGenEndpoint, TCAPIkey}
+    return { TCNAME, TCURL, TCGenEndpoint, TCAPIkey }
 }
 
 var TCAPIDefaults, HordeAPIDefaults
@@ -53,7 +53,7 @@ async function getAPIDefaults() {
     }
 }
 
-async function getAIResponse(TCAPIkey, STBasicAuthCredentials, engineMode, userObj, userPrompt, liveConfig) {
+async function getAIResponse(selectedAPIName, STBasicAuthCredentials, engineMode, userObj, userPrompt, liveConfig) {
     try {
         let APICallParams
         if (engineMode === 'TC') {
@@ -104,7 +104,11 @@ async function getAIResponse(TCAPIkey, STBasicAuthCredentials, engineMode, userO
             AIResponse = hordeResponse;
         }
         else {
-            AIResponse = trimIncompleteSentences(await requestToTC(TCAPIkey, finalAPICallParams))
+            let liveAPI = await db.getAPI(selectedAPIName)
+            //finalAPICallParams includes formatted TC prompt
+            //includedChatObjects is an array of chat history objects that got included in the prompt
+            //we send these along in case we are using chat completion, and need to convert before pinging the API.
+            AIResponse = trimIncompleteSentences(await requestToTCorCC(liveAPI, finalAPICallParams, includedChatObjects))
         }
 
         await db.upsertChar(charName, charName, userObj.color);
@@ -302,9 +306,6 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     insertedItems.push(newItem); // Add new item to the array
                 }
             }
-
-
-
             // Reverse the array before appending to insertedChatHistory
             let reversedItems = insertedItems.reverse();
             let insertedChatHistory = reversedItems.join('');
@@ -397,25 +398,62 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     };
 }
 
-async function requestToTC(TCAPIkey, APICallParamsAndPrompt) {
-    //message needs to be the ENTIRE API call, including params and chat history..
+async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObjects) {
+
+    const isCCSelected = liveAPI.type === 'CC' ? true : false
+    const TCEndpoint = liveAPI.endpoint
+    const TCAPIKey = liveAPI.key
+
+    //this is brought in from the sampler preset, but we don't use it yet.
+    //better to not show it in the API gen call response, would be confusing.
+    delete APICallParamsAndPrompt.system_prompt
+
+    const url = TCEndpoint.trim()
+    console.log(url)
+    const key = TCAPIKey.trim()
+    console.log(key)
+    console.log(`Sending ${liveAPI.type} API request..`);
+
     try {
-        console.log('Sending Text Completion API request..');
-        const url = TCURL + TCGenEndpoint;
 
         const headers = {
             'Content-Type': 'application/json',
             'Cache': 'no-cache',
-            'x-api-key': TCAPIkey,
-            'Authorization': `Bearer ${TCAPIkey}`,
+            'x-api-key': key,
+            'Authorization': `Bearer ${key}`,
         };
 
-        //old code for pulling from an external JSON file to get gen params, currently these are provided by client.html WS messages
-        //TODO: revert to external JSON and only pull necessary variables from client.html WS pings.
+        function TCtoCC(messages, stops) {
+            //convert chat history object produced by addCharDefsToPrompt into CC compliant format
+            let CCMessages = messages.map(message => {
+                const { content, entity } = message;
+                let role = '';
 
-        //const TCAPICallParams = JSON.parse(fs.readFileSync('TCAPICall.json', 'utf-8'));
-        //TCAPICallParams['prompt'] = stringToSend;
-        //TCAPICallParams['stopping_strings'] = stoppingStrings;
+                if (entity === 'user') {
+                    role = 'user';
+                } else if (entity === 'AI') {
+                    role = 'assistant';
+                }
+
+                return {
+                    content,
+                    role
+                };
+            });
+            //reduce stop to 4 items as requried by CC API (at least OAI's)
+            let CCStops = stops.slice(0, 4);
+
+            return [CCMessages, CCStops]
+        }
+
+        if (isCCSelected) {
+            console.log('========== DOING CC conversion =======')
+            const [CCMessages, CCStops] = TCtoCC(includedChatObjects, APICallParamsAndPrompt.stop)
+            APICallParamsAndPrompt.stop = CCStops
+            APICallParamsAndPrompt.messages = CCMessages
+            APICallParamsAndPrompt.model = 'gpt-3.5-turbo' //we can figure out model selection later.
+            APICallParamsAndPrompt.stream = false //this needs to be false until we figure out streaming
+        }
 
         const body = JSON.stringify(APICallParamsAndPrompt);
         console.log(APICallParamsAndPrompt)
@@ -426,15 +464,20 @@ async function requestToTC(TCAPIkey, APICallParamsAndPrompt) {
             body: body,
             timeout: 0,
         })
-        //console.log("RAW LLM API RESPONSE")
-        //console.log(response)
+        console.log("RAW LLM API RESPONSE")
+        //console.log(response.status)
         let JSONResponse = await response.json()
         console.log('--- API RESPONSE')
-        console.log(JSONResponse)
-        let text = JSONResponse.choices[0].text
-        //console.log('AI CHAT API RESPONSE')
-        //console.log(text)
-        return text;
+        if (isCCSelected) {
+            console.log(JSONResponse.choices[0])
+            let text = JSONResponse.choices[0].message.content
+            return text;
+        } else {
+            console.log(JSONResponse)
+            let text = JSONResponse.choices[0].text
+            return text;
+        }
+
     } catch (error) {
         console.log('Error while requesting Text Completion API');
         const line = error.stack.split('\n').pop().split(':').pop();

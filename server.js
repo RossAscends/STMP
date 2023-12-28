@@ -216,7 +216,7 @@ async function initFiles() {
         console.log('secrets.json created, please update it with real credentials now and restart the server.');
     }
     secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
-    TCAPIkey = secretsObj.api_key
+    //TCAPIkey = secretsObj.api_key
     STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string
 }
 
@@ -244,7 +244,7 @@ async function broadcast(message, role = 'all') {
         //console.log(message);
     }
 
-    Object.keys(clientsObject).forEach( async clientUUID => {
+    Object.keys(clientsObject).forEach(async clientUUID => {
         const client = clientsObject[clientUUID];
         const socket = client.socket;
 
@@ -421,7 +421,7 @@ async function handleConnections(ws, type, request) {
         connectionConfirmedMessage["D1JB"] = liveConfig.D1JB
         connectionConfirmedMessage["instructFormat"] = liveConfig.instructFormat
         connectionConfirmedMessage["APIList"] = apis
-        connectionConfirmedMessage["selectedAPI"] = selectedAPI
+        connectionConfirmedMessage["selectedAPI"] = liveConfig.selectedAPI
         connectionConfirmedMessage["API"] = api
     }
 
@@ -549,7 +549,7 @@ async function handleConnections(ws, type, request) {
                         APIList: apis
                     }
                     await broadcast(APIListMessage)
-                    
+
                     let APIChangeMessage = {
                         type: 'apiChange',
                         name: newAPI.name,
@@ -569,6 +569,8 @@ async function handleConnections(ws, type, request) {
                         endpointType: newAPI.type
                     }
                     selectedAPI = newAPI.name
+                    liveConfig.selectedAPI = selectedAPI
+                    await fio.writeConfig(liveConfig, 'selectedAPI', selectedAPI)
                     await broadcast(changeAPI, 'host');
                     return
                 }
@@ -662,7 +664,7 @@ async function handleConnections(ws, type, request) {
                             'username': parsedMessage.username,
                             'content': '',
                         }
-                        let [AIResponse, AIChatUserList] = await api.getAIResponse(TCAPIkey, STBasicAuthCredentials, engineMode, user, userPrompt, liveConfig)
+                        let [AIResponse, AIChatUserList] = await api.getAIResponse(selectedAPI, STBasicAuthCredentials, engineMode, user, userPrompt, liveConfig)
                         const AIResponseMessage = {
                             chatID: parsedMessage.chatID,
                             content: AIResponse,
@@ -797,7 +799,7 @@ async function handleConnections(ws, type, request) {
                         await broadcast(userPrompt)
                     }
                     if (liveConfig.isAutoResponse || isEmptyTrigger) {
-                        let [AIResponse, AIChatUserList] = await api.getAIResponse(TCAPIkey, STBasicAuthCredentials, engineMode, user, userPrompt, liveConfig)
+                        let [AIResponse, AIChatUserList] = await api.getAIResponse(selectedAPI, STBasicAuthCredentials, engineMode, user, userPrompt, liveConfig)
                         const AIResponseMessage = {
                             chatID: parsedMessage.chatID,
                             content: AIResponse,

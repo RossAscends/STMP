@@ -153,7 +153,7 @@ select {
     display: flex;
 }
 
-select:hover,
+select:hover:not(:disabled),
 .pastChatItem:hover {
     background-color: #52545b;
 }
@@ -812,6 +812,16 @@ hr {
 
 .ui-dialog-titlebar-close {
     displaY: none;
+}
+
+/* input:disabled,
+select:disabled,
+input:read-only {
+    cursor: not-allowed;
+} */
+
+.alignItemsEnd {
+    align-items: end;
 }
 
 @media (max-width: 800px) {

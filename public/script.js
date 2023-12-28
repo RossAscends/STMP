@@ -165,6 +165,10 @@ async function addNewAPI() {
         endpointType: type,
         UUID: myUUID
     })
+    await delay(250)
+    control.hideAddNewAPIDiv()
+    control.disableAPIEdit()
+
 }
 
 async function processConfirmedConnection(parsedMessage) {
@@ -241,6 +245,7 @@ async function processConfirmedConnection(parsedMessage) {
         flashElement('newAPIKey', 'good')
         flashElement('newAPIEndpointType', 'good')
         flashElement('apiList', 'good')
+        control.disableAPIEdit()
 
         control.populateSelector(cardList, 'characters');
         control.populateSelector(instructList, 'instructStyle');
@@ -1071,9 +1076,9 @@ $(async function () {
         }
     })
 
-    $("#addNewAPIButton").on('click', function () {
-        addNewAPI()
-    })
+    /*     $("#addNewAPIButton").on('click', function () {
+            addNewAPI()
+        }) */
 
     $("#editAPIButton").on('click', function () {
         control.enableAPIEdit()
@@ -1081,7 +1086,9 @@ $(async function () {
 
     $("#saveAPIButton").on('click', function () {
         addNewAPI()
-        $("#saveAPIButton").hide()
+    })
+    $("#canceAPIEditButton").on('click', function () {
+        control.hideAddNewAPIDiv()
     })
 
 

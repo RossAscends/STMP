@@ -11,5 +11,5 @@
     "mirostat_tau": 5,
     "mirostat_eta": 0.1,
     "temperature_last": false,
-    "seed": 1
+    "seed": -1
 }

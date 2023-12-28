@@ -428,7 +428,14 @@ async function getAPI(name) {
     console.debug('Getting API...' + name);
     const db = await dbPromise;
     try {
-        return await db.get('SELECT * FROM apis WHERE name = ?', [name]);
+        let gotAPI = await db.get('SELECT * FROM apis WHERE name = ?', [name]);
+        console.log(gotAPI);
+        if (gotAPI) {
+            return gotAPI;
+        } else {
+            console.error('API not found:', name);
+            return null; // or handle the absence of the API in a different way
+        }
     } catch (err) {
         console.error('Error getting API:', err);
         throw err;

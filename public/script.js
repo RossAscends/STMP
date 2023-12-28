@@ -167,7 +167,7 @@ async function addNewAPI() {
     })
     await delay(250)
     //hide edit panel after save is done
-    betterSlideToggle($("#addNewAPI"), false)
+    betterSlideToggle($("#addNewAPI"), 250, false)
     control.disableAPIEdit()
 
 }
@@ -215,32 +215,14 @@ async function processConfirmedConnection(parsedMessage) {
     if (isHost) {
         $("#charName").hide()
 
-        //on page load controlPanel is 'open' but has display:none,
-        //and the toggle has 'closePanel' in the HTML file, indicating that its next click will close the panel.
-        //the assumption is, for PC users, the panel should be shown for Hosts automatically.
-        //however, in the case of reconnect without page load, the panel might be closed by user.
-        //we should respecst that so...check if toggle is prepped to close panel
-
-        //if 'closePanel' doesn't exist, we can assume user closed the panel already and it should stay closed.
-        if ($("#controlPanelToggle").hasClass('closePanel')) {
-            //however for phones the panel should not be loaded automatically, so make sure we are not on a phone
-            if (!isPhone) {
-                //...and then display the panel.
-                $("#controlPanel").css('display', 'flex')
-            } else {
-                //or if we ARE on a phone, swap the toggle class
-                $("#controlPanelToggle").removeClass('closePanel').addClass('openPanel')
-                    //and do the animation to make sure it is facing the right way.
-                    .animate({ deg: 180 }, {
-                        duration: 100,
-                        step: function (now) {
-                            $("#controlPanelToggle").css({ transform: 'rotate(' + now + 'deg)' });
-                        }
-                    })
-                //and make sure to hide the panel so the next width toggle works correctly.
-                $("#controlPanel").hide()
-                $("#roleKeyInputDiv").removeClass('positionAbsolute')
+        if (isPhone) { //handle initial loads for phones, hide the control panel
+            $("#roleKeyInputDiv").removeClass('positionAbsolute');
+            if ($("#controlPanel").hasClass('initialState')) {
+                $("#controlPanel").removeClass('initialState').hide()
             }
+        } else if ($("#controlPanel").hasClass('initialState')) { //handle first load for PC, shows the panel
+            betterSlideToggle($("#controlPanel"), 100, true)
+            $("#controlPanel").removeClass('initialState')
         }
 
         $(".hostControls").css('display', 'flex')
@@ -506,40 +488,39 @@ async function connectWebSocket(username) {
     });
 }
 
-function betterSlideToggle(target, forceHorizontal = true) {
-    if (target.hasClass('isAnimating')) { return }
-    const isChatDiv = target.parent().attr('id') === 'innerChatWrap';
-    const shouldDoHorizontalAnimation = forceHorizontal || (isChatDiv && isHorizontalChats);
-    const animatedDimension = shouldDoHorizontalAnimation ? 'width' : 'height';
-    const isNeedsReset = target.hasClass('needsReset');
-    let originalDimensionValue = shouldDoHorizontalAnimation ? target.css('width') : target.css('height')
-    let appliedStyleValue = target.hasClass('needsReset') ? '' : 'unset'
-    let appliedStyle = {
-        [animatedDimension]: originalDimensionValue,
-        [`min-${animatedDimension}`]: appliedStyleValue,
-        [`max-${animatedDimension}`]: appliedStyleValue,
-        'flex': appliedStyleValue
-    };
-    target.toggleClass('needsReset', !isNeedsReset)
-    if (!isNeedsReset) {
-        target.css(appliedStyle)
-    }
-    target.animate({ [animatedDimension]: 'toggle' }, {
-        duration: 250,
-        start: () => {
-            target.addClass('isAnimating')
-        },
-        step: (now) => {
-            target.css({ [animatedDimension]: now + 'px' });
-        },
-        complete: () => {
-
-            if (isNeedsReset) {
-                target.css(appliedStyle);
-            }
-            target.removeClass('isAnimating')
+async function betterSlideToggle(target, speed = 250, forceHorizontal = true) {
+    return new Promise((resolve) => {
+        if (target.is(':animated')) { return }
+        const isChatDiv = target.parent().attr('id') === 'innerChatWrap';
+        const shouldDoHorizontalAnimation = forceHorizontal || (isChatDiv && isHorizontalChats);
+        const animatedDimension = shouldDoHorizontalAnimation ? 'width' : 'height';
+        const isNeedsReset = target.hasClass('needsReset');
+        let originalDimensionValue = shouldDoHorizontalAnimation ? target.css('width') : target.css('height')
+        let appliedStyleValue = target.hasClass('needsReset') ? '' : 'unset'
+        let appliedStyle = {
+            [animatedDimension]: originalDimensionValue,
+            [`min-${animatedDimension}`]: appliedStyleValue,
+            [`max-${animatedDimension}`]: appliedStyleValue,
+            'flex': appliedStyleValue
+        };
+        target.toggleClass('needsReset', !isNeedsReset)
+        if (!isNeedsReset) {
+            target.css(appliedStyle)
         }
-    });
+        target.animate({ [animatedDimension]: 'toggle', opacity: 'toggle' }, {
+            duration: speed,
+            start: () => {
+                target.addClass('isAnimating')
+            },
+            complete: () => {
+                if (isNeedsReset) {
+                    target.css(appliedStyle);
+                }
+                target.removeClass('isAnimating')
+                resolve()
+            }
+        });
+    })
 }
 
 export async function flashElement(elementID, type, flashDelay = 400, times = 1) {
@@ -998,57 +979,28 @@ $(async function () {
 
         }
     });
-
-    $(document).on('click', '#controlPanelToggle', function () {
-        var $controlPanelToggle = $("#controlPanelToggle");
-        var $controlPanel = $("#controlPanel");
-        console.log($controlPanel.css('width'))
-        let degree, isOpening
-        if ($("#controlPanelToggle").hasClass('closePanel') && $("#controlPanel").css('display', 'flex')) {
-            degree = 180
-            isOpening = false
-        } else {
-            degree = 0
-            isOpening = true
-        }
-        $controlPanelToggle.toggleClass('closePanel openPanel')
-            .animate({ deg: degree }, {
-                duration: 100,
-                step: function (now) {
-                    $controlPanelToggle.css({ transform: 'rotate(' + now + 'deg)' });
-                },
-                complete: function () {
-                    if (isOpening) {
-                        $controlPanel.animate({ opacity: 1, width: 'toggle' }, { duration: 100 })
-                    } else {
-                        $controlPanel.animate({ opacity: 0, width: 'toggle' }, { duration: 100 })
-                    }
-                }
-            })
-    });
-
-    $("#AIChatToggle").off('click').on('click', function () {
-        $(this).parent().parent().find('.chatHideDivWrapper').slideToggle()
-    })
-
+    const $controlPanel = $("#controlPanel");
     const $LLMChatWrapper = $('#LLMChatWrapper');
     const $OOCChatWrapper = $('#OOCChatWrapper');
     const $AIChatInputButtons = $("#AIChatInputButtons");
     const $UserChatInputButtons = $("#UserChatInputButtons");
 
+    $('#controlPanelToggle').on('click', async function () {
+        await betterSlideToggle($controlPanel, 100)
+    });
+
     $("#chatsToggle").off('click').on('click', async function () {
-        //second we shrink LLM chat, and show user chat.
+        //three way toggle based on classes to switch between 
+        //AIChat focus, UserChat focus, and normal dual display
         if ($(this).hasClass('shrinkLLMChat')) {
-            betterSlideToggle($OOCChatWrapper, false)
-            await delay(250)
-            betterSlideToggle($LLMChatWrapper, false)
+            await betterSlideToggle($OOCChatWrapper);
+            await betterSlideToggle($LLMChatWrapper);
             $(this).toggleClass('shrinkLLMChat returnToNormal');
         } else if ($(this).hasClass('returnToNormal')) {
-            betterSlideToggle($LLMChatWrapper, false)
+            betterSlideToggle($LLMChatWrapper, 250, false)
             $(this).removeClass('returnToNormal')
-            //first we shrink User chat..
         } else {
-            betterSlideToggle($OOCChatWrapper, false)
+            betterSlideToggle($OOCChatWrapper, 250, false)
             $(this).toggleClass('shrinkUserChat shrinkLLMChat');
         }
     })
@@ -1057,7 +1009,6 @@ $(async function () {
         betterSlideToggle($("#AIChatUserList"))
         betterSlideToggle($("#userList"))
     })
-
 
     $('#AIMessageInput, #messageInput').on('input', function () {
         const activeInputboxID = this.id;
@@ -1105,8 +1056,8 @@ $(async function () {
             $("#addNewAPI input").val('')
             control.enableAPIEdit()
             //hide API config, show API edit panel.
-            betterSlideToggle($("#AIConfigInputs"), false)
-            betterSlideToggle($("#addNewAPI"), false)
+            betterSlideToggle($("#AIConfigInputs"), 250, false)
+            betterSlideToggle($("#addNewAPI"), 250, false)
         } else {
             control.hideAddNewAPIDiv()
 
@@ -1127,20 +1078,20 @@ $(async function () {
 
     $("#editAPIButton").on('click', function () {
         control.enableAPIEdit()
-        betterSlideToggle($("#AIConfigInputs"), false)
-        betterSlideToggle($("#addNewAPI"), false)
+        betterSlideToggle($("#AIConfigInputs"), 250, false)
+        betterSlideToggle($("#addNewAPI"), 250, false)
     })
 
     $("#saveAPIButton").on('click', async function () {
         await addNewAPI()
-        betterSlideToggle($("#AIConfigInputs"), false)
+        betterSlideToggle($("#AIConfigInputs"), 250, false)
     })
     $("#testAPIButton").on('click', function () {
         testNewAPI()
     })
     $("#canceAPIEditButton").on('click', function () {
-        betterSlideToggle($("#AIConfigInputs"), false)
-        betterSlideToggle($("#addNewAPI"), false)
+        betterSlideToggle($("#AIConfigInputs"), 250, false)
+        betterSlideToggle($("#addNewAPI"), 250, false)
         //select the second option if we cancel out of making a new API
         //this is not ideal and shuld really select whatever was selected previous before 'add new api' was selected.
         if ($("#apiList").val() === 'addNewAPI') {
@@ -1153,7 +1104,7 @@ $(async function () {
         if (target.hasClass('isAnimating')) { return }
         console.log('toggling past Chats view...')
         $(this).children('i').toggleClass('fa-toggle-on fa-toggle-off')
-        betterSlideToggle(target, false)
+        betterSlideToggle(target, 100, false)
     })
 
     $("#crowdControlToggle").on('click', function () {
@@ -1161,7 +1112,7 @@ $(async function () {
         if (target.hasClass('isAnimating')) { return }
         console.log('toggling Crowd Control view...')
         $(this).children('i').toggleClass('fa-toggle-on fa-toggle-off')
-        betterSlideToggle(target, false)
+        betterSlideToggle(target, 100, false)
     })
 
 

@@ -108,7 +108,8 @@ async function getAIResponse(selectedAPIName, STBasicAuthCredentials, engineMode
             //finalAPICallParams includes formatted TC prompt
             //includedChatObjects is an array of chat history objects that got included in the prompt
             //we send these along in case we are using chat completion, and need to convert before pinging the API.
-            AIResponse = trimIncompleteSentences(await requestToTCorCC(liveAPI, finalAPICallParams, includedChatObjects))
+            let rawResponse = await requestToTCorCC(liveAPI, finalAPICallParams, includedChatObjects, false, liveConfig)
+            AIResponse = trimIncompleteSentences(rawResponse)
         }
 
         await db.upsertChar(charName, charName, userObj.color);
@@ -423,8 +424,33 @@ async function testAPI(api) {
 
 }
 
-async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObjects, isTest) {
+async function getModelList(api) {
+    let fullURL = api.endpoint
+    var modifiedString = fullURL.replace(/\/chat\/completions\/?$/, "");
+    let modelsEndpoint = modifiedString + '/models'
+    console.log(`Fetching model list from: ${modelsEndpoint}`)
+    const response = await fetch(modelsEndpoint, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'Cache': 'no-cache',
+            'Authorization': 'Bearer ' + api.key,
+        },
+    });
 
+    if (response.status === 200) {
+        let responseJSON = await response.json();
+        let modelNames = responseJSON.data.map(item => item.id);
+        console.log('Available models:');
+        console.log(modelNames);
+        return responseJSON.data;
+    } else {
+        console.log(`Error getting models. Code ${response.status}`)
+    }
+}
+
+async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObjects, isTest, liveConfig) {
+    console.log(liveConfig)
     const isCCSelected = liveAPI.type === 'CC' ? true : false
     const TCEndpoint = liveAPI.endpoint
     const TCAPIKey = liveAPI.key
@@ -449,8 +475,8 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
         };
 
         function TCtoCC(messages, stops) {
-            console.log('entered the TC to CC function. here is the incoming message array:')
-            console.log(messages)
+            //console.log('entered the TC to CC function. here is the incoming message array:')
+            //console.log(messages)
             //convert chat history object produced by addCharDefsToPrompt into CC compliant format
             let CCMessages = messages.map(message => {
                 const { content, entity } = message;
@@ -474,11 +500,11 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
         }
 
         if (isCCSelected) {
-            console.log('========== DOING CC conversion =======')
+            //console.log('========== DOING CC conversion =======')
             const [CCMessages, CCStops] = TCtoCC(includedChatObjects, APICallParamsAndPrompt.stop)
             APICallParamsAndPrompt.stop = CCStops
             APICallParamsAndPrompt.messages = CCMessages
-            APICallParamsAndPrompt.model = 'gpt-3.5-turbo' //we can figure out model selection later.
+            APICallParamsAndPrompt.model = liveConfig.selectedModel //we can figure out model selection later.
             APICallParamsAndPrompt.stream = false //this needs to be false until we figure out streaming
         }
 
@@ -534,4 +560,5 @@ module.exports = {
     setNewAPI: setNewAPI,
     testAPI: testAPI,
     getTCInfo: getTCInfo,
+    getModelList: getModelList,
 }

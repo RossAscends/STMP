@@ -410,6 +410,7 @@ async function handleConnections(ws, type, request) {
         connectionConfirmedMessage["instructFormat"] = liveConfig.instructFormat
         connectionConfirmedMessage["APIList"] = apis
         connectionConfirmedMessage["selectedAPI"] = liveConfig.selectedAPI
+        connectionConfirmedMessage["selectedModel"] = liveConfig?.selectedModel
         connectionConfirmedMessage["API"] = api
     }
 
@@ -499,6 +500,17 @@ async function handleConnections(ws, type, request) {
                     return
 
                 }
+                else if (parsedMessage.type === 'modelSelect') {
+                    selectedModel = parsedMessage.value
+                    liveConfig.selectedModel = selectedModel
+                    await fio.writeConfig(liveConfig, 'selectedModel', selectedModel)
+                    let settingChangeMessage = {
+                        type: 'modelChange',
+                        value: liveConfig.selectedModel
+                    }
+                    await broadcastToHosts(settingChangeMessage)
+                    return
+                }
                 else if (parsedMessage.type === 'AIChatDelayChange') {
                     AIChatDelay = parsedMessage.value
                     liveConfig.AIChatDelay = AIChatDelay
@@ -545,6 +557,7 @@ async function handleConnections(ws, type, request) {
                         endpointType: newAPI.type
                     }
                     await broadcast(APIChangeMessage, 'host')
+                    return
                 }
                 else if (parsedMessage.type === 'APIChange') {
                     newAPI = await db.getAPI(parsedMessage.newAPI)
@@ -571,6 +584,18 @@ async function handleConnections(ws, type, request) {
                     //await broadcast(testAPIResult, 'host');
                     //only send back to the user who is doing the test.
                     await ws.send(JSON.stringify(testAPIResult))
+                    return
+                }
+
+                else if (parsedMessage.type === 'modelListRequest') {
+                    console.log('saw model list request')
+                    let list = await api.getModelList(parsedMessage.api)
+                    let modelListResult = {
+                        type: 'modelListResult',
+                        value: list
+                    }
+                    //not sure if this should be sent to all hosts or not, but for simplicity, only the requester for now
+                    await ws.send(JSON.stringify(modelListResult))
                     return
                 }
 

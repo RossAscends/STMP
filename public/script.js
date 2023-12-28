@@ -189,12 +189,32 @@ function testNewAPI() {
         }
     })
 }
+
+async function getModelList() {
+    let name = $("#newAPIName").val()
+    let endpoint = $("#newAPIEndpoint").val()
+    let key = $("#newAPIKey").val()
+    let type = $("#newAPIEndpointType").val()
+    let modelListRequestMessage = {
+        UUID: myUUID,
+        type: 'modelListRequest',
+        api: {
+            name: name,
+            endpoint: endpoint,
+            key: key,
+            type: type,
+        }
+
+    }
+    messageServer(modelListRequestMessage)
+}
+
 async function processConfirmedConnection(parsedMessage) {
     console.log('--- processing confirmed connection...');
     const { clientUUID, newAIChatDelay, newUserChatDelay, role, D1JB, instructList, instructFormat,
         selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory,
         AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize,
-        responseLength, engineMode, APIList, selectedAPI, API } = parsedMessage;
+        responseLength, engineMode, APIList, selectedAPI, selectedModel, API } = parsedMessage;
     if (newAIChatDelay) {
         AIChatDelay = newAIChatDelay * 1000
         $("#AIChatInputDelay").val(newAIChatDelay)
@@ -450,6 +470,14 @@ async function connectWebSocket(username) {
                     alert(`Error: status code ${result.status}`)
                 }
                 break
+            case 'modelListResult':
+                let modelList = parsedMessage.value
+                control.populateModelsList(modelList)
+                break
+            case 'modelChange':
+                let selectedModel = parsedMessage.value
+                control.updateSelectedModel(selectedModel)
+                break
             case 'responseLengthChange':
                 $("#responseLength").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
                 console.log('responseLength updated')
@@ -506,6 +534,7 @@ async function betterSlideToggle(target, speed = 250, forceHorizontal = true) {
         target.toggleClass('needsReset', !isNeedsReset)
         if (!isNeedsReset) {
             target.css(appliedStyle)
+            target.css(animatedDimension, '')
         }
         target.animate({ [animatedDimension]: 'toggle', opacity: 'toggle' }, {
             duration: speed,
@@ -515,8 +544,10 @@ async function betterSlideToggle(target, speed = 250, forceHorizontal = true) {
             complete: () => {
                 if (isNeedsReset) {
                     target.css(appliedStyle);
+                    target.css(animatedDimension, '')
                 }
                 target.removeClass('isAnimating')
+
                 resolve()
             }
         });
@@ -787,26 +818,16 @@ $(async function () {
         sendMessageToAIChat('forced')
     })
 
-    $("#AIRetry").off('click').on('click', function () {
-        doAIRetry()
-    })
+    $("#AIRetry").off('click').on('click', function () { doAIRetry() })
 
     $("#characters").on('change', function () {
         let displayName = $("#characters").find('option:selected').text()
         control.updateSelectedChar(myUUID, $(this).val(), displayName)
     })
 
-    $("#samplerPreset").on('change', function () {
-        control.updateSelectedSamplerPreset(myUUID, $(this).val())
-    })
-
-    $("#instructStyle").on('change', function () {
-        control.updateInstructFormat(myUUID, $(this).val())
-    })
-
-    $("#finalInstruction").on('blur', function () {
-        control.updateD1JB(myUUID, $(this).val())
-    })
+    $("#samplerPreset").on('change', function () { control.updateSelectedSamplerPreset(myUUID, $(this).val()) })
+    $("#instructStyle").on('change', function () { control.updateInstructFormat(myUUID, $(this).val()) })
+    $("#finalInstruction").on('blur', function () { control.updateD1JB(myUUID, $(this).val()) })
 
     //A clickable icon that toggles between Text Completions and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.
     $("#toggleMode").off('click').on('click', function () {
@@ -834,9 +855,7 @@ $(async function () {
         }
     })
 
-    $("#AIUsernameInput").on('blur', function () {
-        control.updateAIChatUserName()
-    })
+    $("#AIUsernameInput").on('blur', function () { control.updateAIChatUserName() })
 
     $("#AISendButton").off('click').on('click', function () {
         if ($(this).hasClass('disabledButton')) { return }
@@ -875,9 +894,7 @@ $(async function () {
         messageServer(delLastMessage);
     })
 
-    $("#profileManagementButton").on('click', function () {
-        betterSlideToggle($("#profileManagementMenu"))
-    })
+    $("#profileManagementButton").on('click', function () { betterSlideToggle($("#profileManagementMenu")) })
 
     $('#clearLocalStorage').on('click', function () {
         betterSlideToggle($("#profileManagementMenu"))
@@ -948,13 +965,8 @@ $(async function () {
         }
     }
 
-    $("#messageInput").on("keypress", function (event) {
-        enterToSendChat(event, "#sendButton");
-    });
-
-    $("#AIMessageInput").on("keypress", function (event) {
-        enterToSendChat(event, "#AISendButton");
-    });
+    $("#messageInput").on("keypress", function (event) { enterToSendChat(event, "#sendButton"); });
+    $("#AIMessageInput").on("keypress", function (event) { enterToSendChat(event, "#AISendButton"); });
 
     $("#showPastChats").on('click', function () {
         console.log('requesting past chat list')
@@ -985,9 +997,7 @@ $(async function () {
     const $AIChatInputButtons = $("#AIChatInputButtons");
     const $UserChatInputButtons = $("#UserChatInputButtons");
 
-    $('#controlPanelToggle').on('click', async function () {
-        await betterSlideToggle($controlPanel, 100)
-    });
+    $('#controlPanelToggle').on('click', async function () { await betterSlideToggle($controlPanel, 100) });
 
     $("#chatsToggle").off('click').on('click', async function () {
         //three way toggle based on classes to switch between 
@@ -1059,16 +1069,23 @@ $(async function () {
             betterSlideToggle($("#AIConfigInputs"), 250, false)
             betterSlideToggle($("#addNewAPI"), 250, false)
         } else {
-            control.hideAddNewAPIDiv()
-
-            const APIChangeMessage = {
-                type: 'APIChange',
-                UUID: myUUID,
-                newAPI: $(this).val()
+            if ($("#addNewAPI").css('display') !== 'none') {
+                betterSlideToggle($("#addNewAPI"), 250, false)
+                control.hideAddNewAPIDiv()
             }
-            messageServer(APIChangeMessage);
-            flashElement('apiList', 'good')
+
+            if ($("#AIConfigInputs").css('display') === 'none') {
+                betterSlideToggle($("#AIConfigInputs"), 250, false)
+            }
+
         }
+        const APIChangeMessage = {
+            type: 'APIChange',
+            UUID: myUUID,
+            newAPI: $(this).val()
+        }
+        messageServer(APIChangeMessage);
+        flashElement('apiList', 'good')
     })
 
     //disabled this for now, assuming adding a new API will be done through the selector option.
@@ -1086,9 +1103,8 @@ $(async function () {
         await addNewAPI()
         betterSlideToggle($("#AIConfigInputs"), 250, false)
     })
-    $("#testAPIButton").on('click', function () {
-        testNewAPI()
-    })
+    $("#testAPIButton").on('click', function () { testNewAPI() })
+
     $("#canceAPIEditButton").on('click', function () {
         betterSlideToggle($("#AIConfigInputs"), 250, false)
         betterSlideToggle($("#addNewAPI"), 250, false)
@@ -1097,6 +1113,24 @@ $(async function () {
         if ($("#apiList").val() === 'addNewAPI') {
             $("#apiList option:eq(1)").prop("selected", true);
         }
+    })
+
+    $("#hasModelsCheckbox").on('click', async function () {
+        if ($(this).prop('checked') == true) {
+            $("#modelListBlock").show()
+            await getModelList()
+        } else { $("#modelListBlock").hide() }
+    })
+
+    $("#modelList").on('input', function () {
+        let selectedModel = $(this).find(`option:selected`).val()
+        const modelSelectMessage = {
+            type: 'modelSelect',
+            UUID: myUUID,
+            value: selectedModel
+        }
+        messageServer(modelSelectMessage);
+        flashElement('responseLength', 'good')
     })
 
     $("#pastChatsToggle").on('click', function () {

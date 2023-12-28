@@ -321,7 +321,7 @@ async function handleConnections(ws, type, request) {
         uuid = uuidv4()
         logger.debug(`uuid assigned as ${uuid}`)
     } else {
-        logger.debug('Client connected with UUID:', uuid);
+        logger.info('Client connected with UUID:', uuid);
     }
     //check if we have them in the DB
     user = await db.getUser(uuid);

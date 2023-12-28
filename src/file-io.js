@@ -4,6 +4,7 @@ const $ = require('jquery');
 const express = require('express');
 const localApp = express();
 const remoteApp = express();
+const { fileLogger: logger } = require('./log.js');
 
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
@@ -21,9 +22,9 @@ function createDirectoryIfNotExist(path) {
     if (!fs.existsSync(path)) {
         try {
             fs.mkdirSync(path, { recursive: true });
-            console.log(`-- Created '${path}' folder.`);
+            logger.debug(`-- Created '${path}' folder.`);
         } catch (err) {
-            console.error(`Failed to create '${path}' folder. Check permissions or path.`);
+            logger.error(`Failed to create '${path}' folder. Check permissions or path.`);
             process.exit(1);
         }
     }
@@ -32,22 +33,22 @@ function createDirectoryIfNotExist(path) {
 async function readConfig() {
     await acquireLock()
     //await delay(100)
-    //console.log('--- READ CONFIG started')
+    //logger.debug('--- READ CONFIG started')
     return new Promise(async (resolve, reject) => {
         fs.readFile('config.json', 'utf8', async (err, data) => {
             if (err) {
                 if (err.code === 'ENOENT') {
-                    console.log('config.json not found, initializing with default values.');
+                    logger.debug('config.json not found, initializing with default values.');
                     try {
                         releaseLock()
                         resolve(liveConfig); // Assuming liveconfig is accessible here
                     } catch (initErr) {
-                        console.error('An error occurred while initializing the file:', initErr);
+                        logger.error('An error occurred while initializing the file:', initErr);
                         releaseLock()
                         reject(initErr);
                     }
                 } else {
-                    console.error('An error occurred while reading the file:', err);
+                    logger.error('An error occurred while reading the file:', err);
                     releaseLock()
                     reject(err);
                 }
@@ -58,7 +59,7 @@ async function readConfig() {
                     releaseLock()
                     resolve(configData);
                 } catch (parseErr) {
-                    console.error('An error occurred while parsing the JSON:', parseErr);
+                    logger.error('An error occurred while parsing the JSON:', parseErr);
                     releaseLock()
                     reject(parseErr);
                 }
@@ -73,30 +74,30 @@ async function writeConfig(configObj, key, value) {
     //let newObject = await readConfig()
     if (key) {
         configObj[key] = value;
-        console.log(`Config updated: ${key}`); // = ${value}`);
+        logger.debug(`Config updated: ${key}`); // = ${value}`);
     }
     const writableConfig = JSON.stringify(configObj, null, 2); // Serialize the object with indentation
     fs.writeFile('./config.json', writableConfig, 'utf8', writeErr => {
         if (writeErr) {
-            console.error('An error occurred while writing to the file:', writeErr);
+            logger.error('An error occurred while writing to the file:', writeErr);
             releaseLock()
             return;
         }
-        console.log('config.json updated.');
+        logger.debug('config.json updated.');
         releaseLock()
     });
 }
 
 async function readFile(file) {
     await acquireLock()
-    //console.log(`[readFile()] Reading ${file}...`)
+    logger.trace(`[readFile()] Reading ${file}...`)
     return new Promise((resolve, reject) => {
         fs.readFile(file, 'utf8', (err, data) => {
             if (err) {
                 if (err.code === 'ENOENT') {
-                    console.log(`ERROR: ${file} not found`);
+                    logger.error(`ERROR: ${file} not found`);
                 } else {
-                    console.error('An error occurred while reading the file:', err);
+                    logger.error('An error occurred while reading the file:', err);
                     releaseLock()
                     reject(err);
                 }
@@ -111,16 +112,16 @@ async function readFile(file) {
 async function acquireLock() {
     const stackTrace = new Error().stack;
     const callingFunctionName = stackTrace.split('\n')[2].trim().split(' ')[1];
-    //console.log(`${callingFunctionName} trying to acquiring lock..`)
+    logger.trace(`${callingFunctionName} trying to acquiring lock..`)
     let lockfilePath = 'lockfile.lock'
     while (true) {
         try {
             // Attempt to create the lock file exclusively
             await fs.promises.writeFile(lockfilePath, '', { flag: 'wx' });
-            //console.log('lock acquired')
+            logger.trace('lock acquired')
             return;
         } catch (error) {
-            //console.log('lockfile already exists')
+            logger.trace('lockfile already exists')
             // File already exists, wait and retry
             await new Promise(resolve => setTimeout(resolve, 100));
         }
@@ -130,7 +131,7 @@ async function acquireLock() {
 async function releaseLock() {
     const stackTrace = new Error().stack;
     const callingFunctionName = stackTrace.split('\n')[2].trim().split(' ')[1];
-    //console.log(`${callingFunctionName} releasing lock..`)
+    logger.trace(`${callingFunctionName} releasing lock..`)
     const lockfilePath = 'lockfile.lock';
 
     try {
@@ -139,10 +140,10 @@ async function releaseLock() {
 
         // Delete the lock file
         await fs.promises.unlink(lockfilePath);
-        //console.log('Lock file deleted successfully.');
+        logger.trace('Lock file deleted successfully.');
     } catch (error) {
         if (error.code !== 'ENOENT') {
-            console.error('Error deleting lock file:', error);
+            logger.error('Error deleting lock file:', error);
         }
     }
 }
@@ -156,7 +157,7 @@ async function getCardList() {
     const files = await fs.promises.readdir(path);
     var cards = []
     var i = 0
-    //console.log('Files in character directory:');
+    logger.trace('Files in character directory:');
     for (const file of files) {
         try {
             let fullPath = `${path}/${file}`
@@ -168,11 +169,11 @@ async function getCardList() {
                 filename: jsonData.filename
             }
         } catch (error) {
-            console.error(`Error reading file ${file}:`, error);
+            logger.error(`Error reading file ${file}:`, error);
         }
         i++
     }
-    //console.log(cards)
+    logger.trace(cards)
     return cards;
 }
 
@@ -181,13 +182,12 @@ async function getInstructList() {
     const files = await fs.promises.readdir(path);
     var instructs = []
     var i = 0
-    //console.log('Files in Instruct directory:');
+    logger.trace('Files in Instruct directory:');
     for (const file of files) {
         try {
             let fullPath = `${path}/${file}`
-            //console.log(fullPath)
             const cardData = await readFile(fullPath);
-            //console.log('got data')
+
             var jsonData = JSON.parse(cardData);
             jsonData.filename = `${path}/${file}`
             instructs[i] = {
@@ -195,11 +195,11 @@ async function getInstructList() {
                 filename: jsonData.filename
             }
         } catch (error) {
-            console.error(`Error reading file ${file}:`, error);
+            logger.error(`Error reading file ${file}:`, error);
         }
         i++
     }
-    //console.log(instructs)
+    logger.trace(instructs)
     return instructs;
 }
 
@@ -218,7 +218,7 @@ async function getSamplerPresetList() {
                 });
             }
         } catch (error) {
-            console.error(`Error reading file ${file}:`, error);
+            logger.error(`Error reading file ${file}:`, error);
         }
     }
 

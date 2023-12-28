@@ -10,10 +10,12 @@ const path = require('path');
 const $ = require('jquery');
 const express = require('express');
 
+const { logger }  = require('./src/log.js');
 const localApp = express();
 const remoteApp = express();
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
+
 
 //SQL DB
 const db = require('./src/db.js');
@@ -68,8 +70,6 @@ let modKey = ''
 let hostKey = ''
 
 
-//set the engine mode to either 'TC' or 'horde'
-
 fio.releaseLock()
 api.getAPIDefaults()
 
@@ -79,13 +79,8 @@ const authString = "_STUsername_:_STPassword_";
 const secretsPath = path.join(__dirname, 'secrets.json');
 let engineMode = 'TC'
 
-console.log("");
-console.log("")
-console.log("")
-console.log('===========================')
-console.log("SillyTavern MultiPlayer");
+logger.info('Starting SillyTavern MultiPlayer...')
 
-// Create directory if it does not exist
 
 localApp.get('/', (req, res) => {
     const filePath = path.join(__dirname, '/public/client.html');
@@ -162,8 +157,8 @@ function generateAndPrintKeys() {
     }
 
     // Print the keys
-    console.log(`${color.yellow(`Host Key: ${hostKey}`)}`);
-    console.log(`${color.yellow(`Mod Key: ${modKey}`)}`);
+    logger.info(`${color.yellow(`Host Key: ${hostKey}`)}`);
+    logger.info(`${color.yellow(`Mod Key: ${modKey}`)}`);
 }
 
 async function initFiles() {
@@ -198,22 +193,21 @@ async function initFiles() {
 
     // Check and create config.json if it doesn't exist
     if (!await existsAsync(configPath)) {
-        console.log('Creating config.json with default values...');
+        logger.warn('Creating config.json with default values...');
         await writeFileAsync(configPath, JSON.stringify(defaultConfig, null, 2));
-        console.log('config.json created.');
+        logger.debug('config.json created.');
         liveConfig = await fio.readConfig()
     } else {
-        console.log('Loading config.json...');
+        logger.debug('Loading config.json...');
         liveConfig = await fio.readConfig()
-        //console.log(liveConfig)
 
     }
 
     // Check and create secrets.json if it doesn't exist
     if (!await existsAsync(secretsPath)) {
-        console.log('Creating secrets.json with default values...');
+        logger.warn('Creating secrets.json with default values...');
         await writeFileAsync(secretsPath, JSON.stringify(defaultSecrets, null, 2));
-        console.log('secrets.json created, please update it with real credentials now and restart the server.');
+        logger.warn('secrets.json created, please update it with real credentials now and restart the server.');
     }
     secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
     //TCAPIkey = secretsObj.api_key
@@ -240,8 +234,8 @@ wssServer.on('connection', (ws, request) => {
 
 async function broadcast(message, role = 'all') {
     if (message.type === "BuggyTypeHere") {
-        console.log('broadcasting this:');
-        //console.log(message);
+        logger.debug('broadcasting message');
+        logger.trace(message);
     }
 
     Object.keys(clientsObject).forEach(async clientUUID => {
@@ -268,13 +262,10 @@ async function broadcast(message, role = 'all') {
 async function broadcastToHosts(message) {
     //alter the type check for bug checking purposes, otherwise this is turned off
 
-    console.log('HOST BROADCAST:')
-    console.log(message)
-
-    //console.log(clientsObject)
+    logger.debug('HOST BROADCAST:')
+    logger.debug(message)
 
     let hostsObjects = Object.values(clientsObject).filter(obj => obj.role === 'host');
-    //console.log(hostsObjects)
 
     Object.keys(hostsObjects).forEach(clientUUID => {
         const client = hostsObjects[clientUUID];
@@ -292,11 +283,9 @@ async function broadcastUserList() {
         type: 'userList',
         userList: connectedUsers
     };
-    //console.log('-----broadcastUserList() is about to send this as a userlist:')
-    //console.log(connectedUsers)
     broadcast(userListMessage);
-    //console.log(`[UserList BroadCast]:`)
-    //console.log(connectedUsers)
+    logger.trace(`[UserList BroadCast]:`)
+    logger.trace(connectedUsers)
 }
 
 async function removeLastAIChatMessage() {
@@ -307,7 +296,7 @@ async function removeLastAIChatMessage() {
         type: 'chatUpdate',
         chatHistory: jsonArray
     }
-    console.log('sending AI Chat Update instruction to clients')
+    logger.debug('sending AI Chat Update instruction to clients')
     broadcast(chatUpdateMessage);
 }
 
@@ -327,17 +316,17 @@ async function handleConnections(ws, type, request) {
     let uuid = urlParams.get('uuid');
 
     if (uuid === null || uuid === undefined || uuid === '') {
-        //console.log('Client connected without UUID...assigning a new one..');
+        logger.info('Client connected without UUID...assigning a new one..');
         //assign them a UUID
         uuid = uuidv4()
-        //console.log(`uuid assigned as ${uuid}`)
+        logger.debug(`uuid assigned as ${uuid}`)
     } else {
-        //console.log('Client connected with UUID:', uuid);
+        logger.debug('Client connected with UUID:', uuid);
     }
     //check if we have them in the DB
     user = await db.getUser(uuid);
-    //console.log('initial user check:')
-    //console.log(user)
+    logger.trace('initial user check:')
+    logger.trace(user)
     if (user !== undefined && user !== null) {
         //if we know them, use DB values
         thisUserColor = user.username_color;
@@ -351,8 +340,8 @@ async function handleConnections(ws, type, request) {
         //attempt to decode the username
         thisUserUsername = decodeURIComponent(encodedUsername);
         if (thisUserUsername === null || thisUserUsername === undefined) {
-            console.log('COULD NOT FIND USERNAME FOR CLIENT')
-            console.log('CONNECTION REJECTED')
+            logger.warn('COULD NOT FIND USERNAME FOR CLIENT')
+            logger.warn('CONNECTION REJECTED')
             ws.close()
             return
         }
@@ -368,14 +357,14 @@ async function handleConnections(ws, type, request) {
     user = clientsObject[uuid]
 
     await db.upsertUser(uuid, thisUserUsername, thisUserColor);
-    console.log(`Adding ${thisUserUsername} to connected user list..`)
+    logger.debug(`Adding ${thisUserUsername} to connected user list..`)
     updateConnectedUsers()
-    //console.log('CONNECTED USERS')
-    //console.log(connectedUsers)
-    //console.log('CLIENTS OBJECT')
-    //console.log(clientsObject)
-    //console.log("USER =======")
-    //console.log(user)
+    logger.trace('CONNECTED USERS')
+    logger.trace(connectedUsers)
+    logger.trace('CLIENTS OBJECT')
+    logger.trace(clientsObject)
+    logger.trace("USER =======")
+    logger.trace(user)
 
     const cardList = await fio.getCardList()
     const instructList = await fio.getInstructList()
@@ -384,7 +373,7 @@ async function handleConnections(ws, type, request) {
     var userChatJSON = await db.readUserChat()
 
     if (!liveConfig.selectedCharacter || liveConfig.selectedCharacter === '') {
-        console.log('No selected character found, setting to default character...')
+        logger.warn('No selected character found, setting to default character...')
         liveConfig.selectedCharacter = cardList[0].filename;
         liveConfig.selectedCharDisplayName = cardList[0].name;
         await fio.writeConfig(liveConfig, 'selectedCharacter', liveConfig.selectedCharacter)
@@ -442,7 +431,7 @@ async function handleConnections(ws, type, request) {
     // Handle incoming messages from clients
     ws.on('message', async function (message) {
 
-        console.log(`--- MESSAGE IN`)
+        logger.debug(`--- MESSAGE IN`)
         // Parse the incoming message as JSON
         let parsedMessage;
 
@@ -462,11 +451,10 @@ async function handleConnections(ws, type, request) {
                 clientsObject[parsedMessage.UUID] = thisClientObj;
             }
 
-            console.log('Received message from client:', parsedMessage);
+            logger.debug('Received message from client:', parsedMessage);
 
             //first check if the sender is host, and if so, process possible host commands
             if (user.role === 'host') {
-                //console.log(`saw message from host, type (${parsedMessage.type})`)
                 if (parsedMessage.type === 'clearChat') {
 
                     //clear the UserChat.json file
@@ -601,7 +589,7 @@ async function handleConnections(ws, type, request) {
                 }
 
                 else if (parsedMessage.type === 'modelListRequest') {
-                    console.log('saw model list request')
+                    logger.trace('saw model list request')
                     let list = await api.getModelList(parsedMessage.api)
                     let modelListResult = {
                         type: 'modelListResult',
@@ -619,7 +607,7 @@ async function handleConnections(ws, type, request) {
                     }
                     await broadcast(clearAIChatInstruction);
                     let charFile = liveConfig.selectedCharacter
-                    console.log(`selected character: ${charFile}`)
+                    logger.debug(`selected character: ${charFile}`)
                     let cardData = await fio.charaRead(charFile, 'png')
                     let cardJSON = JSON.parse(cardData)
                     let firstMes = cardJSON.first_mes
@@ -633,9 +621,9 @@ async function handleConnections(ws, type, request) {
                         username: charName,
                         AIChatUserList: [{ username: charName, color: charColor }]
                     }
-                    //console.log('adding the first mesage to the chat file')
+                    logger.trace('adding the first mesage to the chat file')
                     await db.writeAIChatMessage(charName, charName, firstMes, 'AI');
-                    console.log(`Sending ${charName}'s first message to AI Chat..`)
+                    logger.trace(`Sending ${charName}'s first message to AI Chat..`)
                     await broadcast(newAIChatFirstMessage)
                     return
                 }
@@ -713,7 +701,7 @@ async function handleConnections(ws, type, request) {
                         broadcast(AIResponseMessage)
                         return
                     } catch (parseError) {
-                        console.error('An error occurred while parsing the JSON:', parseError);
+                        logger.error('An error occurred while parsing the JSON:', parseError);
                         return;
                     }
                 }
@@ -751,7 +739,7 @@ async function handleConnections(ws, type, request) {
                 else if (parsedMessage.type === 'pastChatDelete') {
                     const sessionID = parsedMessage.sessionID
                     let [result, wasActive] = await db.deletePastChat(sessionID)
-                    console.log(result, wasActive)
+                    logger.debug(result, wasActive)
                     if (result === 'ok') {
                         const pastChatsDeleteConfirmation = {
                             type: 'pastChatDeleted',
@@ -773,15 +761,11 @@ async function handleConnections(ws, type, request) {
                     type: 'userChangedName',
                     content: `[System]: ${parsedMessage.oldName} >>> ${parsedMessage.newName}`
                 }
-                //console.log(nameChangeNotification)
-                console.log('sending notification of username change')
+                logger.debug('sending notification of username change')
                 await broadcast(nameChangeNotification);
                 await broadcastUserList()
             }
             else if (parsedMessage.type === 'submitKey') {
-                console.log(hostKey)
-                console.log(parsedMessage.key)
-                console.log(modKey)
                 if (parsedMessage.key === hostKey) {
                     const keyAcceptedMessage = {
                         type: 'keyAccepted',
@@ -804,7 +788,7 @@ async function handleConnections(ws, type, request) {
                     const keyRejectedMessage = {
                         type: 'keyRejected'
                     }
-                    console.error(`Key rejected: ${parsedMessage.key} from ${senderUUID}`)
+                    logger.error(`Key rejected: ${parsedMessage.key} from ${senderUUID}`)
                     await ws.send(JSON.stringify(keyRejectedMessage))
                     //await broadcast(keyRejectedMessage);
                 }
@@ -867,17 +851,17 @@ async function handleConnections(ws, type, request) {
                     await broadcast(newUserChatMessage)
                 }
             } else {
-                console.log(`unknown message type received (${parsedMessage.type})...ignoring...`)
+                logger.warn(`unknown message type received (${parsedMessage.type})...ignoring...`)
             }
         } catch (error) {
-            console.error('Error parsing message:', error);
+            logger.error('Error parsing message:', error);
             return;
         }
     });
 
     ws.on('close', async () => {
         // Remove the disconnected client from the clientsObject
-        console.debug(`Client ${uuid} disconnected..removing from clientsObject`);
+        logger.debug(`Client ${uuid} disconnected..removing from clientsObject`);
         delete clientsObject[uuid];
         updateConnectedUsers()
         await broadcastUserList();
@@ -887,21 +871,21 @@ async function handleConnections(ws, type, request) {
 
 // Start the server
 localServer.listen(wsPort, '0.0.0.0', () => {
-    console.log('===========================')
-    console.log(`Host Server is listening on all available network interfaces on port ${wsPort}`);
-    console.log(`Typically, the Host should access ${color.yellow(`http://localhost:${wsPort}/`)} in your web browser.`)
-    console.log('===========================')
+    logger.info('===========================')
+    logger.info(`Host Server is listening on all available network interfaces on port ${wsPort}`);
+    logger.info(`Typically, the Host should access ${color.yellow(`http://localhost:${wsPort}/`)} in your web browser.`)
+    logger.info('===========================')
 });
 guestServer.listen(wssPort, '0.0.0.0', () => {
-    console.log(`The Guest Server is listening on port ${wssPort}`);
-    console.log(`Run the ${color.yellow('Remote-Link.cmd')} file in the STMP directory`)
-    console.log('to setup a Cloudflare tunnel for remote Guest connections.')
-    console.log('===========================')
+    logger.info(`The Guest Server is listening on port ${wssPort}`);
+    logger.info(`Run the ${color.yellow('Remote-Link.cmd')} file in the STMP directory`)
+    logger.info('to setup a Cloudflare tunnel for remote Guest connections.')
+    logger.info('===========================')
 });
 
 // Handle server shutdown via ctrl+c
 process.on('SIGINT', () => {
-    console.log('Server shutting down...');
+    logger.warn('Server shutting down...');
 
     // Send a message to all connected clients
     const serverShutdownMessage = {
@@ -911,10 +895,10 @@ process.on('SIGINT', () => {
 
     // Close the WebSocket server
     wsServer.close(() => {
-        console.log('Host websocket closed.');
+        logger.debug('Host websocket closed.');
     });
     wssServer.close(() => {
-        console.log('Guest websocket closed.');
+        logger.debug('Guest websocket closed.');
     });
     process.exit(0);
 })

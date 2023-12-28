@@ -1,42 +1,14 @@
-//const http = require('http');
+
 const fs = require('fs');
-//const fsp = require('fs').promises;
-//const util = require('util');
-//const WebSocket = require('ws');
-//const crypto = require('crypto');
-
-//const writeFileAsync = util.promisify(fs.writeFile);
-//const existsAsync = util.promisify(fs.exists);
-
-//const { v4: uuidv4 } = require('uuid');
-//const path = require('path');
-
 const $ = require('jquery');
-
-//const express = require('express');
-//const { url } = require('inspector');
 
 const db = require('./db.js');
 const fio = require('./file-io.js')
-
-const TCURL = 'http://127.0.0.1:5000';
-const TCGenEndpoint = '/v1/completions';
+const { apiLogger: logger } = require('./log.js');
 
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function setNewAPI(name, url, endpoint, key) {
-    TCNAME = name
-    TCURL = url
-    TCGenEndpoint = endpoint
-    TCAPIkey = key
-    console.log(`New API set: ${TCURL}${TCGenEndpoint} with key ${TCAPIkey}`)
-}
-
-function getTCInfo() {
-    return { TCNAME, TCURL, TCGenEndpoint, TCAPIkey }
 }
 
 var TCAPIDefaults, HordeAPIDefaults
@@ -49,7 +21,7 @@ async function getAPIDefaults() {
         TCAPIDefaults = TCAPICallParams;
         HordeAPIDefaults = HordeAPICallParams;
     } catch (error) {
-        console.error('Error reading or parsing the default API Param JSON file:', error);
+        logger.error('Error reading or parsing the default API Param JSON file:', error);
     }
 }
 
@@ -61,15 +33,12 @@ async function getAIResponse(selectedAPIName, STBasicAuthCredentials, engineMode
         } else {
             APICallParams = HordeAPIDefaults
         }
-        console.log(APICallParams)
-
-        let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
-        //console.log(`Is this an empty trigger? ${isEmptyTrigger}`)
+        logger.trace(APICallParams)
 
         //if it's not an empty trigger from host
         //if userInput is empty we can just request the AI directly
         let charFile = liveConfig.selectedCharacter
-        console.log(`selected character: ${charFile}`)
+        logger.trace(`selected character: ${charFile}`)
         let cardData = await fio.charaRead(charFile, 'png')
         let cardJSON = JSON.parse(cardData)
         let charName = cardJSON.name
@@ -81,7 +50,7 @@ async function getAIResponse(selectedAPIName, STBasicAuthCredentials, engineMode
         //that file and parse the contents from there. All we need to do is pass the cardDefs, charName. and userName.
         const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, fixedFinalCharName, userObj.username)
         const samplers = JSON.parse(liveConfig.samplers);
-        console.log(samplers)
+        logger.debug(samplers)
         //apply the selected preset values to the API call
         for (const [key, value] of Object.entries(samplers)) {
             APICallParams[key] = value;
@@ -120,7 +89,8 @@ async function getAIResponse(selectedAPIName, STBasicAuthCredentials, engineMode
         return [AIResponse, AIChatUserList]
 
     } catch (error) {
-        console.log(error);
+        logger.error('Error while requesting AI response');
+        logger.error(error);
     }
 }
 
@@ -132,19 +102,15 @@ async function getAIResponse(selectedAPIName, STBasicAuthCredentials, engineMode
 //this array is returned and sent along with the AI response, in order to populate the AI Chat UserList.
 
 async function makeAIChatUserList(entitiesList, chatHistoryFromPrompt) {
-    //console.log('-----------MAKING ENTITIES LIST NOW');
+    logger.trace('-----------MAKING ENTITIES LIST NOW');
     const chatHistoryEntities = entitiesList;
-    //console.log(chatHistoryEntities)
+    logger.trace(chatHistoryEntities)
     const fullChatDataJSON = chatHistoryFromPrompt;
     const AIChatUserList = [];
 
     for (const entity of chatHistoryEntities) {
-        //console.log(entity);
         for (const chat of fullChatDataJSON) {
-            //console.log(chat);
-            //console.log(`${chat.username} vs ${entity.username}`);
             if (chat.username === entity.username) {
-                //console.log('found match');
                 const userColor = chat.userColor;
                 const username = chat.username;
                 const entityType = chat.entity;
@@ -153,25 +119,19 @@ async function makeAIChatUserList(entitiesList, chatHistoryFromPrompt) {
             }
         }
     }
-
-    //console.log('Latest AI Chat User List:');
-    //console.log(AIChatUserList);
     return AIChatUserList;
 }
 
 function countTokens(str) {
     let chars = str.length
     let tokens = Math.ceil(chars / 3)
-    //console.log(`estimated tokens: ${tokens}`)
+    logger.trace(`estimated tokens: ${tokens}`)
     return tokens
 }
 
 function trimIncompleteSentences(input, include_newline = false) {
     const punctuation = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit
     let last = -1;
-    //console.log(`--- BEFORE:`)
-    //console.log(input)
-    //console.log(`--- AFTER:`)
     for (let i = input.length - 1; i >= 0; i--) {
         const char = input[i];
         if (punctuation.has(char)) {
@@ -184,12 +144,10 @@ function trimIncompleteSentences(input, include_newline = false) {
         }
     }
     if (last === -1) {
-        //console.log(input.trimEnd())
+        logger.trace(input.trimEnd())
         return input.trimEnd();
     }
     let trimmedString = input.substring(0, last + 1).trimEnd();
-    //console.log('TRIMMEDSTRING')
-    //console.log(trimmedString)
     return trimmedString;
 }
 
@@ -202,7 +160,7 @@ async function ObjectifyChatHistory() {
             let chatHistory = JSON.parse(data);
             resolve(chatHistory);
         } catch (parseError) {
-            console.error('An error occurred while parsing the JSON:', parseError);
+            logger.error('An error occurred while parsing the JSON:', parseError);
             reject(parseError);
         }
     });
@@ -226,8 +184,6 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects) {
         }
 
     }
-    //console.log('-------- USERNAMES FOUND')
-    //console.log(usernames)
     let targetObj = []
 
     // Generate permutations for each unique username
@@ -257,7 +213,7 @@ function replaceMacros(string, username, charname) {
 }
 
 async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharName, username) {
-    console.log(`addCharDefsToPrompt: ${username}`)
+    logger.debug(`addCharDefsToPrompt: ${username}`)
     return new Promise(async function (resolve, reject) {
         try {
             let charData = await fio.charaRead(charFile, 'png')
@@ -288,7 +244,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             //add the chat history
             stringToReturn = stringToReturn.trim()
             let promptTokens = countTokens(stringToReturn)
-            //console.log(`before adding ChatHIstory, Prompt is: ~${promptTokens}`)
+            logger.trace(`before adding ChatHIstory, Prompt is: ~${promptTokens}`)
             let insertedItems = []
             for (let i = chatHistory.length - 1; i >= 0; i--) {
                 let obj = chatHistory[i];
@@ -303,7 +259,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 if (promptTokens + newItemTokens < liveConfig.contextSize) {
                     promptTokens += newItemTokens;
                     ChatObjsInPrompt.push(obj)
-                    //console.log(`added new item, prompt tokens: ~${promptTokens}`);
+                    logger.trace(`added new item, prompt tokens: ~${promptTokens}`);
                     insertedItems.push(newItem); // Add new item to the array
                 }
             }
@@ -320,7 +276,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             stringToReturn = stringToReturn.trim()
             resolve([stringToReturn, ChatObjsInPrompt]);
         } catch (error) {
-            console.error('Error reading file:', error);
+            logger.error('Error reading file:', error);
             reject(error)
         }
     })
@@ -328,7 +284,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
 
 
 async function requestToHorde(STBasicAuthCredentials, stringToSend) {
-    console.log('Sending Horde request...');
+    logger.debug('Sending Horde request...');
     //the ST server must be running with CSRF turned off in order for this to work.
     var url = 'http://127.0.0.1:8000/api/horde/generate-text';
     //these headers assume there is basicAuth enabled on your ST server
@@ -342,8 +298,8 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     };
 
     var body = JSON.stringify(stringToSend);
-    console.log(`--- horde payload:`)
-    console.log(stringToSend)
+    logger.debug(`--- horde payload:`)
+    logger.debug(stringToSend)
 
     var timeout = 30000; // Timeout value in milliseconds (30 seconds)
 
@@ -360,10 +316,10 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
         var CHECK_INTERVAL = 5000;
         var task_id = data.id;
         if (task_id === undefined) {
-            console.log('no task ID, aborting')
+            logger.warn('no task ID, aborting')
             return 'error requesting Horde'
         }
-        console.log(`horde task ID ${task_id}`)
+        logger.debug(`horde task ID ${task_id}`)
 
         for (var retryNumber = 0; retryNumber < MAX_RETRIES; retryNumber++) {
 
@@ -377,8 +333,7 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
             });
 
             var statusResponse = await (await fetch(status_url, status_headers)).json()
-            //console.log(statusResponse)
-            console.log('Horde status check ' + (retryNumber + 1) + ': ' + statusResponse.wait_time + ' secs left');
+            logger.info('Horde status check ' + (retryNumber + 1) + ': ' + statusResponse.wait_time + ' secs left');
             if (
                 statusResponse.done &&
                 Array.isArray(statusResponse.generations) &&
@@ -388,19 +343,19 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
                 var hordeModel = statusResponse.generations[0].model;
                 var text = statusResponse.generations[0].text;
                 var kudosCost = statusResponse.kudos + 2
-                console.log('Raw Horde response: ' + text);
-                console.log(`Worker: ${workerName}, Model:${hordeModel}`)
+                logger.debug('Raw Horde response: ' + text);
+                logger.debug(`Worker: ${workerName}, Model:${hordeModel}`)
                 return [text, workerName, hordeModel, kudosCost]
             }
         }
     } else {
-        console.log('Error while requesting ST');
-        console.log(response)
+        logger.error('Error while requesting ST');
+        logger.error(response)
     };
 }
 
 async function testAPI(api) {
-    console.log(api)
+    logger.trace(api)
     let testMessage
     let payload = {
         stream: false,
@@ -428,7 +383,7 @@ async function getModelList(api) {
     let fullURL = api.endpoint
     var modifiedString = fullURL.replace(/\/chat\/completions\/?$/, "");
     let modelsEndpoint = modifiedString + '/models'
-    console.log(`Fetching model list from: ${modelsEndpoint}`)
+    logger.debug(`Fetching model list from: ${modelsEndpoint}`)
     const response = await fetch(modelsEndpoint, {
         method: 'GET',
         headers: {
@@ -441,11 +396,11 @@ async function getModelList(api) {
     if (response.status === 200) {
         let responseJSON = await response.json();
         let modelNames = responseJSON.data.map(item => item.id);
-        console.log('Available models:');
-        console.log(modelNames);
+        logger.debug('Available models:');
+        logger.debug(modelNames);
         return responseJSON.data;
     } else {
-        console.log(`Error getting models. Code ${response.status}`)
+        logger.error(`Error getting models. Code ${response.status}`)
     }
 }
 
@@ -463,10 +418,10 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
     //APICallParamsAndPrompt.max_tokens_to_sample = 300
 
     const url = TCEndpoint.trim()
-    console.log(url)
+    logger.trace(url)
     const key = TCAPIKey.trim()
-    console.log(key)
-    console.log(`Sending ${liveAPI.type} API request..`);
+    logger.trace(key)
+    logger.debug(`Sending ${liveAPI.type} API request..`);
 
     try {
 
@@ -479,8 +434,8 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
         };
 
         function TCtoCC(messages, stops) {
-            //console.log('entered the TC to CC function. here is the incoming message array:')
-            //console.log(messages)
+            logger.trace('entered the TC to CC function. here is the incoming message array:')
+            logger.trace(messages)
             //convert chat history object produced by addCharDefsToPrompt into CC compliant format
             let CCMessages = messages.map(message => {
                 const { content, entity } = message;
@@ -504,22 +459,22 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
         }
         APICallParamsAndPrompt.model = liveConfig.selectedModel
         if (isCCSelected) {
-            //console.log('========== DOING CC conversion =======')
+            logger.trace('========== DOING CC conversion =======')
             const [CCMessages, CCStops] = TCtoCC(includedChatObjects, APICallParamsAndPrompt.stop)
             APICallParamsAndPrompt.stop = CCStops
             APICallParamsAndPrompt.messages = CCMessages
             APICallParamsAndPrompt.stream = false //this needs to be false until we figure out streaming
         }
 
-        console.log(' ')
-        console.log('HEADERS')
-        console.log(headers)
-        console.log(' ')
-        console.log('PAYLOAD BODY')
-        console.log(APICallParamsAndPrompt)
-        console.log(' ')
+        logger.debug(' ')
+        logger.debug('HEADERS')
+        logger.debug(headers)
+        logger.debug(' ')
+        logger.debug('PAYLOAD BODY')
+        logger.debug(APICallParamsAndPrompt)
+        logger.debug(' ')
         const body = JSON.stringify(APICallParamsAndPrompt);
-        console.log(`Sending chat request to ${url}`)
+        logger.debug(`Sending chat request to ${url}`)
 
         const response = await fetch(url, {
             method: 'POST',
@@ -530,8 +485,8 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
         let JSONResponse = await response.json()
         if (response.status === 200) {
             let text, status
-            console.log('--- API RESPONSE')
-            console.log(JSONResponse)
+            logger.debug('--- API RESPONSE')
+            logger.debug(JSONResponse)
             if (isCCSelected) {
                 //look for 'choices' from OAI, and then if it doesn't exist, look for 'completion' (from Claude)
                 if (JSONResponse.choices && JSONResponse.choices.length > 0) {
@@ -554,17 +509,17 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
             }
             return text
         } else {
-            console.log('API RETURNED ERROR:')
-            console.log(JSONResponse)
+            logger.error('API RETURNED ERROR:')
+            logger.error(JSONResponse)
             return JSONResponse
         }
 
 
     } catch (error) {
-        console.log('Error while requesting Text Completion API');
+        logger.error('Error while requesting Text Completion API');
         const line = error.stack.split('\n').pop().split(':').pop();
-        console.log(line);
-        console.log(error);
+        logger.error(line);
+        logger.error(error);
     }
 }
 
@@ -572,8 +527,6 @@ module.exports = {
     getAIResponse: getAIResponse,
     getAPIDefaults: getAPIDefaults,
     replaceMacros: replaceMacros,
-    setNewAPI: setNewAPI,
     testAPI: testAPI,
-    getTCInfo: getTCInfo,
     getModelList: getModelList,
 }

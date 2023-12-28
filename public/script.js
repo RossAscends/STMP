@@ -507,6 +507,7 @@ async function connectWebSocket(username) {
 }
 
 function betterSlideToggle(target, forceHorizontal = true) {
+    if (target.hasClass('isAnimating')) { return }
     const isChatDiv = target.parent().attr('id') === 'innerChatWrap';
     const shouldDoHorizontalAnimation = forceHorizontal || (isChatDiv && isHorizontalChats);
     const animatedDimension = shouldDoHorizontalAnimation ? 'width' : 'height';
@@ -525,13 +526,18 @@ function betterSlideToggle(target, forceHorizontal = true) {
     }
     target.animate({ [animatedDimension]: 'toggle' }, {
         duration: 250,
+        start: () => {
+            target.addClass('isAnimating')
+        },
         step: (now) => {
             target.css({ [animatedDimension]: now + 'px' });
         },
         complete: () => {
+
             if (isNeedsReset) {
                 target.css(appliedStyle);
             }
+            target.removeClass('isAnimating')
         }
     });
 }
@@ -1143,7 +1149,17 @@ $(async function () {
     })
 
     $("#pastChatsToggle").on('click', function () {
-        betterSlideToggle($("#pastChatsWrap"), false)
+        let target = $("#pastChatsWrap")
+        if (target.hasClass('isAnimating')) { return }
+        $(this).toggleClass('fa-toggle-on fa-toggle-off')
+        betterSlideToggle(target, false)
+    })
+
+    $("#crowdControlToggle").on('click', function () {
+        let target = $("#crowdControlWrap")
+        if (target.hasClass('isAnimating')) { return }
+        $(this).toggleClass('fa-toggle-on fa-toggle-off')
+        betterSlideToggle(target, false)
     })
 
 

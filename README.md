@@ -45,20 +45,33 @@ For tech support or to contact RossAscends directly, join the [SillyTavern Disco
 
 Currently STMP supports Text Completions (TC) and HordeAI, with TC active by default.
 
-### Using Text Completions
+### Using Text Completions or Chat Completions
 
-- Obviously, the host must have a Text Completions compatible backend installed and working on their device.
+1. In the Host Control Panel open the selector under the 'API' text and select `Add New ApI`.
+2. Some inputs will be displayed.
+
+- `Name` - the label you want to remember the API as
+- `Full Endpoint URL` - this is the **FULL AND ENTIRE** endpoint URL, not just the base server URL.
+- `Key` - If your API requires a key, put it in here.
+- `Endpoint Type` - select from Text Completions or Chat Completions as appropriate for the API endpoint.
+
+3. When all of these are filled out, press Save.
+
+<!-- - Obviously, the host must have a Text Completions compatible backend installed and working on their device.
 - [TabbyAPI](https://github.com/theroyallab/tabbyAPI) and [KoboldCPP](https://github.com/LostRuins/koboldcpp) are confirmed to work with STMP's TC API mode.
 - STMP assumes the default server URL of `http://127.0.0.1:5000/v1/completions` for TC requests.
 - **KoboldCPP should be run with the --multiUser flag enabled.**
 - If your TC API requires a key, paste it into `secrets.json`.
-- Other OpenAI-compatible TC APIs are being tested.
+- Other OpenAI-compatible TC APIs are being tested. -->
 
 ### Using Horde
 
 - Using Horde requires a SillyTavern server to be running on your local machine to handle the Horde requests.
+
 > **IMPORTANT: ST must be running with CSRF turned off.**
-  - the easiest way to do this is to make a new `.bat` or `.sh` file with the following contents: 
+
+- the easiest way to do this is to make a new `.bat` or `.sh` file with the following contents:
+
 ```
 cd c:\_path_\_to_your_\SillyTavern
 call npm install --no-audit
@@ -66,9 +79,11 @@ node server.js --disableCsrf
 pause
 popd
 ```
+
 > **IMPORTANT:** STMP assumes you have [BasicAuthentication enabled on your ST server](https://docs.sillytavern.app/usage/remoteconnections/#http-basic-authentication).
 
 > Input your ST Authentication `username:pass` into `secrets.json` on the appropriate line between the quotation marks.
+
 - STMP assumes the default ST server URL of `http://127.0.0.1:8000/api/horde/generate-text` for Horde requests.
 - If you have a HordeID set in SillyTavern, those credentials and kudos will be used.
 
@@ -80,8 +95,10 @@ This must be done AFTER completing all installation steps above.
 1. Run `Remote-Link.cmd` to download `cloudflared.exe` (only one time, 57MB).
 2. the Cloudflared server will auto-start and generate a random tunnel URL for your STMP server.
 3. Copy the URL displayed in the middle of the large box in the center of the console window.
+
 > ***DO NOT CLOSE THE CLOUDFLARE CONSOLE WINDOW***
-4. Share the generated cloudflared URL with the guest users. 
+
+4. Share the generated cloudflared URL with the guest users.
 5. User will be able to directly and securely connect to your PC by opening the URL in their browser.
 
 ## Play
@@ -94,7 +111,6 @@ This must be done AFTER completing all installation steps above.
 - Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button (✏️), or pressing Enter.
 - `Shift+Enter` can be used to add newlines to the input.
 - [Markdown formatting](https://github.com/showdownjs/showdown/wiki/Showdown%27s-Markdown-syntax) is respected.
-
 
 ## Hosting
 

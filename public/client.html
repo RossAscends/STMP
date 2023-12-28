@@ -97,14 +97,34 @@
                             <small>Name</small><input id="newAPIName" class="width100p" placeholder="API Name">
                             <small>Full Endpoint URL</small><input id="newAPIEndpoint" class="width100p" placeholder="http://localhost:5000/v1/completions/">
                             <small>Key</small><input id="newAPIKey" class="width100p" placeholder="API Key (empty if none)">
-                            <small>Endpoint Type</small>
-                            <div class="custom-select">
-                                <select id="newAPIEndpointType">
-                                    <option value="TC">Text Completion</option>
-                                    <option value="CC">Chat Completion</option>
-                                </select>
-                                </option>
+
+                            <div class="flexbox Vcentered">
+                                <div class="flexbox flexFlowCol">
+                                    <small class="alignSelfCenter">Endpoint Type</small>
+                                    <div class="custom-select flexbox flexFlowCol">
+                                        <select id="newAPIEndpointType">
+                                            <option value="TC">Text Completion</option>
+                                            <option value="CC">Chat Completion</option>
+                                        </select>
+                                        </option>
+                                    </div>
+                                </div>
+                                <div class="flexbox flexFlowCol ">
+                                    <small class="alignSelfCenter">Model List?</small>
+                                    <label for="hasModelsCheckbox" class="checkbox_label flexbox flexFlowCol">
+                                        <input type="checkbox" class="alignSelfCenter margin0" id="hasModelsCheckbox">
+                                    </label>
+                                </div>
+                                <div id="modelListBlock" class="flexbox flexFlowCol" style="display:none;">
+                                    <small class="alignSelfCenter">Models</small>
+                                    <div class="custom-select flexbox flexFlowCol">
+                                        <select id="modelList">
+                                            <option>Waiting for Model List</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
+
                             <div class="flexbox justifySpaceAround">
                                 <button class="flexbox Vcentered bgBrightUp" id="canceAPIEditButton">Cancel</button>
                                 <button class="flexbox Vcentered bgBrightUp" id="testAPIButton">Test</button>
@@ -127,7 +147,6 @@
                     <hr>
                 </div>
                 <div id="crowdControlBlock" class="flexbox flexFlowCol scrollY alignItemsCenter">
-
                     <div id="crowdControlToggle" class="textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
                         <i class="nonButtonButton fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
                         <h4>Crowd Control</h4>

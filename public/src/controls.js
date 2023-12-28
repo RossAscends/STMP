@@ -38,6 +38,12 @@ function updateSelectedSamplerPreset(myUUID, preset, type) {
     flashElement('samplerPreset', 'good')
 }
 
+function updateSelectedModel(model) {
+    console.debug(`Changing model from server command to ${model}.`)
+    $("#modelList").find(`option[value="${model}"]`).prop('selected', true).trigger('change')
+    flashElement('modelList', 'good')
+}
+
 function updateInstructFormat(myUUID, format, type) {
     console.debug(format)
     if (type === 'forced') {
@@ -130,6 +136,18 @@ async function populateSelector(list, elementId) {
     }
 }
 
+async function populateModelsList(list) {
+    const $selector = $('#modelList');
+    $selector.empty()
+
+    $.each(list, function (index, item) {
+        $selector.append($('<option>', {
+            value: item.id,
+            text: item.id
+        }));
+    });
+}
+
 async function populateAPISelector(API) {
     let APISelectElement = $("#apiList");
     APISelectElement.empty()
@@ -160,7 +178,6 @@ function showAddNewAPIDiv() {
 }
 
 function hideAddNewAPIDiv() {
-    //console.log('hiding div for adding new API')
     $("#addNewAPIButton").hide()
     $("#editAPIButton").show()
     $("#newAPIName").prop('readonly', true)
@@ -194,7 +211,7 @@ function disableAPIEdit() {
 }
 
 async function populateAPIValues(api) {
-    console.log(api)
+    //console.log(api)
     $("#newAPIName").val(api.name)
     $("#newAPIKey").val(api.key)
     $("#newAPIEndpoint").val(api.endpoint)
@@ -240,4 +257,6 @@ export default {
     hideAddNewAPIDiv: hideAddNewAPIDiv,
     enableAPIEdit: enableAPIEdit,
     disableAPIEdit: disableAPIEdit,
+    populateModelsList: populateModelsList,
+    updateSelectedModel: updateSelectedModel,
 }

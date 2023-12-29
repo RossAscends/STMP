@@ -54,6 +54,9 @@ async function createTables() {
         user_id TEXT,
         message TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        active BOOLEAN DEFAULT TRUE,
+        session_id INTEGER,
+        FOREIGN KEY (session_id) REFERENCES sessions(session_id),
         FOREIGN KEY (user_id) REFERENCES users(user_id)
     )`);
 
@@ -79,11 +82,12 @@ async function createTables() {
     await db.run(`INSERT OR IGNORE INTO apis (name, endpoint, key, type) VALUES ('Default', 'localhost:5000', '', 'TC')`);
 }
 
+// Write the session ID of whatever the active session in the sessions table is
 async function writeUserChatMessage(userId, message) {
     logger.debug('Writing user chat message to database...');
     const db = await dbPromise;
     try {
-        await db.run('INSERT INTO userchats (user_id, message) VALUES (?, ?)', [userId, message]);
+        await db.run('INSERT INTO userchats (user_id, message, session_id) VALUES (?, ?, ?)', [userId, message, (await db.get('SELECT session_id FROM sessions WHERE is_active = TRUE')).session_id]);
         logger.debug('A side chat message was inserted');
     } catch (err) {
         logger.error('Error writing side chat message:', err);
@@ -166,15 +170,17 @@ async function deletePastChat(sessionID) {
     }
 }
 
+// Only read the user chat messages that are active
 async function readUserChat() {
     logger.debug('Reading user chat...');
     const db = await dbPromise;
     try {
         const rows = await db.all(`
-            SELECT u.username, u.username_color AS userColor, uc.message
-            FROM userchats uc
+            SELECT u.username, u.username_color AS userColor, uc.message 
+            FROM userchats uc 
             JOIN users u ON uc.user_id = u.user_id
-            ORDER BY uc.timestamp ASC
+            WHERE uc.active = TRUE
+            ORDER BY uc.timestamp ASC 
         `);
         return JSON.stringify(rows.map(row => ({
             username: row.username,
@@ -234,6 +240,17 @@ async function newSession() {
         await db.run('INSERT INTO sessions DEFAULT VALUES');
     } catch (error) {
         logger.error('Error creating a new session:', error);
+    }
+}
+
+// mark currently active user chat entries as inactive
+async function newUserChatSession() {
+    logger.debug('Creating a new user chat session...');
+    const db = await dbPromise;
+    try {
+        await db.run('UPDATE userchats SET active = FALSE WHERE active = TRUE');
+    } catch (error) {
+        logger.error('Error creating a new user chat session:', error);
     }
 }
 
@@ -462,5 +479,6 @@ module.exports = {
     getCharacterColor: getCharacterColor,
     upsertAPI: upsertAPI,
     getAPIs: getAPIs,
-    getAPI: getAPI
+    getAPI: getAPI,
+    newUserChatSession: newUserChatSession
 };

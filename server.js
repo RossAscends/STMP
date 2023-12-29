@@ -301,7 +301,15 @@ async function removeLastAIChatMessage() {
 }
 
 async function saveAndClearChat(type) {
-    await db.newSession();
+    if (type === 'AIChat') {
+        await db.newSession();
+    }
+    else if (type === 'UserChat') {
+        await db.newUserChatSession();
+    }
+    else {
+        logger.warn('Unknown chat type, not saving chat history...')
+    }
 }
 
 async function handleConnections(ws, type, request) {

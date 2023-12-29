@@ -10,7 +10,7 @@ const path = require('path');
 const $ = require('jquery');
 const express = require('express');
 
-const { logger }  = require('./src/log.js');
+const { logger } = require('./src/log.js');
 const localApp = express();
 const remoteApp = express();
 localApp.use(express.static('public'));
@@ -571,13 +571,14 @@ async function handleConnections(ws, type, request) {
                     }
                     selectedAPI = newAPI.name
                     liveConfig.selectedAPI = selectedAPI
+                    liveConfig.selectedModel = ''
                     await fio.writeConfig(liveConfig, 'selectedAPI', selectedAPI)
                     await broadcast(changeAPI, 'host');
                     return
                 }
 
                 else if (parsedMessage.type === 'testNewAPI') {
-                    let result = await api.testAPI(parsedMessage.api)
+                    let result = await api.testAPI(parsedMessage.api, liveConfig)
                     testAPIResult = {
                         type: 'testAPIResult',
                         value: result

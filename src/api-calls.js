@@ -354,7 +354,7 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     };
 }
 
-async function testAPI(api) {
+async function testAPI(api, liveConfig) {
     logger.trace(api)
     let testMessage
     let payload = {
@@ -374,7 +374,7 @@ async function testAPI(api) {
     }
 
 
-    let result = await requestToTCorCC(api, payload, testMessageObject, true)
+    let result = await requestToTCorCC(api, payload, testMessageObject, true, liveConfig)
     return result
 
 }

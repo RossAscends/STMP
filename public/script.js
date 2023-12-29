@@ -1,9 +1,8 @@
-var username, storedUsername, AIChatUsername, storedAIChatUsername, isAutoResponse, contextSize, responseLength,
-    isPhone, isHorizontalChats
+var username, isAutoResponse, contextSize, responseLength, isPhone
 
 import control from './src/controls.js'
 
-function delay(ms) {
+export function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
@@ -1158,7 +1157,6 @@ $(async function () {
             });
         }
         correctSizeChats()
-        checkChatOrientation()
     };
 
     $(window).on('resize', async function () {
@@ -1167,17 +1165,6 @@ $(async function () {
     correctSizeBody()
     correctSizeChats()
 
-    function checkChatOrientation() {
-        if ($("#innerChatWrap").css('flex-flow') === 'column nowrap') {
-            //console.log('chat is vertical')
-            isHorizontalChats = false
-        } else {
-            //console.log('chat is vertical')
-            isHorizontalChats = true
-        }
-    }
-
-    checkChatOrientation()
 
 })
 

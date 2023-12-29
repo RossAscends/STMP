@@ -1,4 +1,4 @@
-import { flashElement, messageServer } from "../script.js"
+import { flashElement, messageServer, delay } from "../script.js"
 
 function updateSelectedChar(myUUID, char, displayName, type) {
     console.debug(char, displayName)
@@ -140,12 +140,16 @@ async function populateModelsList(list) {
     const $selector = $('#modelList');
     $selector.empty()
 
-    $.each(list, function (index, item) {
-        $selector.append($('<option>', {
-            value: item.id,
-            text: item.id
-        }));
+    await new Promise((resolve) => {
+        $.each(list, function (index, item) {
+            $selector.append($('<option>', {
+                value: item.id,
+                text: item.id
+            }));
+        });
+        resolve();
     });
+    $("#modelList option:eq(0)").prop('selected', true).trigger('input')
 }
 
 async function populateAPISelector(API) {

@@ -365,7 +365,7 @@ async function testAPI(api, liveConfig) {
     let testMessageObject = [{ entity: 'user', content: 'Test Message' }]
 
     if (api.type === 'CC') {
-        payload.model = 'gpt-3.5-turbo'
+        payload.model = liveConfig.selectedModel
 
     } else {
         let TCTestMessage = 'User: Test Message'

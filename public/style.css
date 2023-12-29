@@ -703,7 +703,11 @@ hr {
 }
 
 .transition250 {
-    transition: all 250ms;
+    transition: all 250ms ease-in-out;
+}
+
+.transition500 {
+    transition: all 0.5s ease-in-out;
 }
 
 .justifySpaceBetween {

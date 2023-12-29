@@ -167,7 +167,7 @@ async function addNewAPI() {
     })
     await delay(250)
     //hide edit panel after save is done
-    betterSlideToggle($("#addNewAPI"), 250, false)
+    betterSlideToggle($("#addNewAPI"), 250, 'height')
     control.disableAPIEdit()
 
 }
@@ -241,7 +241,7 @@ async function processConfirmedConnection(parsedMessage) {
                 $("#controlPanel").removeClass('initialState').hide()
             }
         } else if ($("#controlPanel").hasClass('initialState')) { //handle first load for PC, shows the panel
-            betterSlideToggle($("#controlPanel"), 100, true)
+            betterSlideToggle($("#controlPanel"), 100, 'width')
             $("#controlPanel").removeClass('initialState')
         }
 
@@ -516,38 +516,16 @@ async function connectWebSocket(username) {
     });
 }
 
-async function betterSlideToggle(target, speed = 250, forceHorizontal = true) {
+async function betterSlideToggle(target, speed = 250, animationDirection) {
     return new Promise((resolve) => {
-        if (target.is(':animated')) { return }
-        const isChatDiv = target.parent().attr('id') === 'innerChatWrap';
-        const shouldDoHorizontalAnimation = forceHorizontal || (isChatDiv && isHorizontalChats);
-        const animatedDimension = shouldDoHorizontalAnimation ? 'width' : 'height';
-        const isNeedsReset = target.hasClass('needsReset');
-        let originalDimensionValue = shouldDoHorizontalAnimation ? target.css('width') : target.css('height')
-        let appliedStyleValue = target.hasClass('needsReset') ? '' : 'unset'
-        let appliedStyle = {
-            [animatedDimension]: originalDimensionValue,
-            [`min-${animatedDimension}`]: appliedStyleValue,
-            [`max-${animatedDimension}`]: appliedStyleValue,
-            'flex': appliedStyleValue
-        };
-        target.toggleClass('needsReset', !isNeedsReset)
-        if (!isNeedsReset) {
-            target.css(appliedStyle)
-            target.css(animatedDimension, '')
-        }
-        target.animate({ [animatedDimension]: 'toggle', opacity: 'toggle' }, {
+        if (target.hasClass('isAnimating')) { return }
+        target.animate({ [animationDirection]: 'toggle', opacity: 'toggle' }, {
             duration: speed,
             start: () => {
                 target.addClass('isAnimating')
             },
             complete: () => {
-                if (isNeedsReset) {
-                    target.css(appliedStyle);
-                    target.css(animatedDimension, '')
-                }
                 target.removeClass('isAnimating')
-
                 resolve()
             }
         });
@@ -734,7 +712,7 @@ $(async function () {
 
     $("#submitkey").off('click').on('click', function () {
         if (isPhone) {
-            betterSlideToggle($("#profileManagementMenu"))
+            betterSlideToggle($("#profileManagementMenu"), 250, 'width')
         }
         $("#roleKeyInputDiv").css('height', 'unset').toggleClass('needsReset').fadeToggle()
     })
@@ -894,10 +872,10 @@ $(async function () {
         messageServer(delLastMessage);
     })
 
-    $("#profileManagementButton").on('click', function () { betterSlideToggle($("#profileManagementMenu")) })
+    $("#profileManagementButton").on('click', function () { betterSlideToggle($("#profileManagementMenu"), 250, 'width') })
 
     $('#clearLocalStorage').on('click', function () {
-        betterSlideToggle($("#profileManagementMenu"))
+        betterSlideToggle($("#profileManagementMenu"), 250, 'width')
         $("<div></div>").dialog({
             draggable: false,
             resizable: false,
@@ -983,7 +961,7 @@ $(async function () {
             && !$target.parents("#profileManagementMenu").length
             && !$target.is("#roleKeyInput")) {
             if ($("#profileManagementMenu").hasClass('needsReset')) {
-                betterSlideToggle($("#profileManagementMenu"));
+                betterSlideToggle($("#profileManagementMenu"), 250, 'width');
             }
             if ($("#roleKeyInputDiv").hasClass('needsReset')) {
                 $("#roleKeyInputDiv").fadeToggle().removeClass('needsReset')
@@ -997,27 +975,27 @@ $(async function () {
     const $AIChatInputButtons = $("#AIChatInputButtons");
     const $UserChatInputButtons = $("#UserChatInputButtons");
 
-    $('#controlPanelToggle').on('click', async function () { await betterSlideToggle($controlPanel, 100) });
+    $('#controlPanelToggle').on('click', async function () { await betterSlideToggle($controlPanel, 100, 'width') });
 
-    $("#chatsToggle").off('click').on('click', async function () {
-        //three way toggle based on classes to switch between 
-        //AIChat focus, UserChat focus, and normal dual display
-        if ($(this).hasClass('shrinkLLMChat')) {
-            await betterSlideToggle($OOCChatWrapper);
-            await betterSlideToggle($LLMChatWrapper);
-            $(this).toggleClass('shrinkLLMChat returnToNormal');
-        } else if ($(this).hasClass('returnToNormal')) {
-            betterSlideToggle($LLMChatWrapper, 250, false)
-            $(this).removeClass('returnToNormal')
-        } else {
-            betterSlideToggle($OOCChatWrapper, 250, false)
-            $(this).toggleClass('shrinkUserChat shrinkLLMChat');
+    var chatsToggleState = 0;
+    $("#chatsToggle").off('click').on('click', function () {
+        chatsToggleState = (chatsToggleState + 1) % 3; // Increment the state and wrap around to 0 after the third state
+        if (chatsToggleState === 0) {
+            $LLMChatWrapper.removeClass('transition500').css({ flex: '1', opacity: '1' });
+            $OOCChatWrapper.removeClass('transition500').css({ flex: '1', opacity: '1' });
+        } else if (chatsToggleState === 1) {
+            $OOCChatWrapper.css({ flex: '0', opacity: '0' });
+        } else if (chatsToggleState === 2) {
+            $OOCChatWrapper.addClass('transition500').css({ flex: '1', opacity: '1' });
+            $LLMChatWrapper.addClass('transition500').css({ flex: '0', opacity: '0' });
         }
-    })
+    });
+
+
 
     $("#userListsToggle").off('click').on('click', function () {
-        betterSlideToggle($("#AIChatUserList"))
-        betterSlideToggle($("#userList"))
+        betterSlideToggle($("#AIChatUserList"), 250, 'width')
+        betterSlideToggle($("#userList"), 250, 'width')
     })
 
     $('#AIMessageInput, #messageInput').on('input', function () {
@@ -1066,16 +1044,16 @@ $(async function () {
             $("#addNewAPI input").val('')
             control.enableAPIEdit()
             //hide API config, show API edit panel.
-            betterSlideToggle($("#AIConfigInputs"), 250, false)
-            betterSlideToggle($("#addNewAPI"), 250, false)
+            betterSlideToggle($("#AIConfigInputs"), 250, 'height')
+            betterSlideToggle($("#addNewAPI"), 250, 'height')
         } else {
             if ($("#addNewAPI").css('display') !== 'none') {
-                betterSlideToggle($("#addNewAPI"), 250, false)
+                betterSlideToggle($("#addNewAPI"), 250, 'height')
                 control.hideAddNewAPIDiv()
             }
 
             if ($("#AIConfigInputs").css('display') === 'none') {
-                betterSlideToggle($("#AIConfigInputs"), 250, false)
+                betterSlideToggle($("#AIConfigInputs"), 250, 'height')
             }
 
         }
@@ -1095,23 +1073,23 @@ $(async function () {
 
     $("#editAPIButton").on('click', function () {
         control.enableAPIEdit()
-        betterSlideToggle($("#AIConfigInputs"), 250, false)
-        betterSlideToggle($("#addNewAPI"), 250, false)
+        betterSlideToggle($("#AIConfigInputs"), 250, 'height')
+        betterSlideToggle($("#addNewAPI"), 250, 'height')
     })
 
     $("#saveAPIButton").on('click', async function () {
         await addNewAPI()
-        betterSlideToggle($("#AIConfigInputs"), 250, false)
+        betterSlideToggle($("#AIConfigInputs"), 250, 'height')
     })
     $("#testAPIButton").on('click', function () { testNewAPI() })
 
     $("#canceAPIEditButton").on('click', function () {
-        betterSlideToggle($("#AIConfigInputs"), 250, false)
-        betterSlideToggle($("#addNewAPI"), 250, false)
+        betterSlideToggle($("#AIConfigInputs"), 250, 'height')
+        betterSlideToggle($("#addNewAPI"), 250, 'height')
         //select the second option if we cancel out of making a new API
         //this is not ideal and shuld really select whatever was selected previous before 'add new api' was selected.
         if ($("#apiList").val() === 'addNewAPI') {
-            $("#apiList option:eq(1)").prop("selected", true);
+            $("#apiList option:eq(1)").prop("selected", 'width');
         }
     })
 
@@ -1138,7 +1116,7 @@ $(async function () {
         if (target.hasClass('isAnimating')) { return }
         console.log('toggling past Chats view...')
         $(this).children('i').toggleClass('fa-toggle-on fa-toggle-off')
-        betterSlideToggle(target, 100, false)
+        betterSlideToggle(target, 100, 'height')
     })
 
     $("#crowdControlToggle").on('click', function () {
@@ -1146,7 +1124,7 @@ $(async function () {
         if (target.hasClass('isAnimating')) { return }
         console.log('toggling Crowd Control view...')
         $(this).children('i').toggleClass('fa-toggle-on fa-toggle-off')
-        betterSlideToggle(target, 100, false)
+        betterSlideToggle(target, 100, 'height')
     })
 
 

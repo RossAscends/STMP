@@ -1105,6 +1105,7 @@ $(async function () {
             //hide API config, show API edit panel.
             betterSlideToggle($("#AIConfigInputs"), 250, 'height')
             betterSlideToggle($("#addNewAPI"), 250, 'height')
+            return
         } else {
             if ($("#addNewAPI").css('display') !== 'none') {
                 betterSlideToggle($("#addNewAPI"), 250, 'height')

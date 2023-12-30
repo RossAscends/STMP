@@ -105,6 +105,7 @@ async function ensureDatabaseSchema(schemaDictionary) {
             }
         }
     }
+    await db.run(`INSERT OR IGNORE INTO apis (name, endpoint, key, type) VALUES ('Default', 'localhost:5000', '', 'TC')`);
 }
 
 
@@ -484,7 +485,46 @@ async function getAPI(name) {
     }
 }
 
+async function exportSession(sessionID) {
+    logger.debug('Exporting session...' + sessionID);
+    const db = await dbPromise;
+    try {
+        const rows = await db.all(`
+            SELECT 
+                a.username,
+                a.message,
+                CASE
+                    WHEN u.user_id IS NULL THEN 
+                        (SELECT c.display_color FROM characters c WHERE c.char_id = a.user_id)
+                    ELSE 
+                        u.username_color
+                END AS userColor,
+                a.message_id,
+                a.entity
+            FROM aichats a
+            LEFT JOIN users u ON a.user_id = u.user_id
+            WHERE a.session_id = ?
+            ORDER BY a.timestamp ASC
+        `, [sessionID]);
+
+        const result = JSON.stringify(rows.map(row => ({
+            username: row.username,
+            content: row.message,
+            userColor: row.userColor,
+            messageID: row.message_id,
+            entity: row.entity
+        })));
+
+        return result;
+
+    } catch (err) {
+        logger.error('An error occurred while reading from the database:', err);
+        throw err;
+    }
+}
+
 ensureDatabaseSchema(schemaDictionary);
+
 
 module.exports = {
     writeUserChatMessage: writeUserChatMessage,

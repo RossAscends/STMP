@@ -80,7 +80,7 @@ async function createTables() {
     )`);
 
     // Add a default api
-    await db.run(`INSERT OR IGNORE INTO apis (name, endpoint, key, type, claude) VALUES ('Default', 'localhost:5000', '', 'TC', FALSE)`);
+    await db.run(`INSERT OR IGNORE INTO apis (name, endpoint, key, type) VALUES ('Default', 'localhost:5000', '', 'TC')`);
 }
 
 // Write the session ID of whatever the active session in the sessions table is

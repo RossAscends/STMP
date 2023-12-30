@@ -74,12 +74,13 @@ async function createTables() {
         endpoint TEXT,
         key TEXT,
         type TEXT,
+        claude BOOLEAN DEFAULT FALSE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         last_used_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
     // Add a default api
-    await db.run(`INSERT OR IGNORE INTO apis (name, endpoint, key, type) VALUES ('Default', 'localhost:5000', '', 'TC')`);
+    await db.run(`INSERT OR IGNORE INTO apis (name, endpoint, key, type, claude) VALUES ('Default', 'localhost:5000', '', 'TC', FALSE)`);
 }
 
 // Write the session ID of whatever the active session in the sessions table is
@@ -418,11 +419,11 @@ async function getMessage(messageID) {
     }
 }
 
-async function upsertAPI(name, endpoint, key, type) {
+async function upsertAPI(name, endpoint, key, type, claude) {
     logger.debug('Adding/updating API...' + name);
     const db = await dbPromise;
     try {
-        await db.run('INSERT OR REPLACE INTO apis (name, endpoint, key, type) VALUES (?, ?, ?, ?)', [name, endpoint, key, type]);
+        await db.run('INSERT OR REPLACE INTO apis (name, endpoint, key, type, claude) VALUES (?, ?, ?, ?, ?)', [name, endpoint, key, type, claude]);
         logger.debug('An API was upserted');
     } catch (err) {
         logger.error('Error writing API:', err);

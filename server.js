@@ -129,9 +129,10 @@ var hostUUID
 //default values
 var selectedCharacter
 var isAutoResponse = true
+var isStreaming = true
 var responseLength = 200
 var contextSize = 4096
-var liveConfig, secretsObj, TCAPIkey, STBasicAuthCredentials
+var liveConfig, liveAPI, secretsObj, TCAPIkey, STBasicAuthCredentials
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -171,6 +172,7 @@ async function initFiles() {
         responseLength: 200,
         contextSize: 2048,
         isAutoResponse: true,
+        isStreaming: true,
         selectedPreset: "public/api-presets/TC-Temp-2_MinP-0.2.json",
         instructFormat: "public/instructFormats/ChatML.json",
         D1JB: ''
@@ -412,6 +414,7 @@ async function handleConnections(ws, type, request) {
         connectionConfirmedMessage["selectedSamplerPreset"] = liveConfig.selectedPreset
         connectionConfirmedMessage["engineMode"] = liveConfig.engineMode
         connectionConfirmedMessage["isAutoResponse"] = liveConfig.isAutoResponse
+        connectionConfirmedMessage["isStreaming"] = liveConfig.isStreaming
         connectionConfirmedMessage["contextSize"] = liveConfig.contextSize
         connectionConfirmedMessage["responseLength"] = liveConfig.responseLength
         connectionConfirmedMessage["D1JB"] = liveConfig.D1JB
@@ -419,7 +422,7 @@ async function handleConnections(ws, type, request) {
         connectionConfirmedMessage["APIList"] = apis
         connectionConfirmedMessage["selectedAPI"] = liveConfig.selectedAPI
         connectionConfirmedMessage["selectedModel"] = liveConfig?.selectedModel
-        connectionConfirmedMessage["API"] = api
+        connectionConfirmedMessage["API"] = api //this is the full api object
     }
 
     await broadcastUserList()
@@ -480,6 +483,17 @@ async function handleConnections(ws, type, request) {
                     let settingChangeMessage = {
                         type: 'autoAItoggleUpdate',
                         value: liveConfig.isAutoResponse
+                    }
+                    await broadcastToHosts(settingChangeMessage)
+                    return
+                }
+                else if (parsedMessage.type === 'toggleStreaming') {
+                    isStreaming = parsedMessage.value
+                    liveConfig.isStreaming = isStreaming
+                    await fio.writeConfig(liveConfig, 'isStreaming', isStreaming)
+                    let settingChangeMessage = {
+                        type: 'streamingToggleUpdate',
+                        value: liveConfig.isStreaming
                     }
                     await broadcastToHosts(settingChangeMessage)
                     return
@@ -547,13 +561,15 @@ async function handleConnections(ws, type, request) {
                         name: parsedMessage.name,
                         endpoint: parsedMessage.endpoint,
                         key: parsedMessage.key,
-                        endpointType: parsedMessage.endpointType
+                        endpointType: parsedMessage.endpointType,
+                        claude: parsedMessage.claude
                     }
-                    await db.upsertAPI(newAPI.name, newAPI.endpoint, newAPI.key, newAPI.endpointType)
+                    await db.upsertAPI(newAPI.name, newAPI.endpoint, newAPI.key, newAPI.endpointType, newAPI.claude)
                     let apis = await db.getAPIs();
                     let APIListMessage = {
                         type: 'APIList',
-                        APIList: apis
+                        APIList: apis,
+                        selectedAPI: liveConfig.selectedAPI
                     }
                     await broadcast(APIListMessage)
 
@@ -562,7 +578,8 @@ async function handleConnections(ws, type, request) {
                         name: newAPI.name,
                         endpoint: newAPI.endpoint,
                         key: newAPI.key,
-                        endpointType: newAPI.type
+                        endpointType: newAPI.type,
+                        claude: newAPI.claude
                     }
                     await broadcast(APIChangeMessage, 'host')
                     return
@@ -574,18 +591,20 @@ async function handleConnections(ws, type, request) {
                         name: newAPI.name,
                         endpoint: newAPI.endpoint,
                         key: newAPI.key,
-                        endpointType: newAPI.type
+                        endpointType: newAPI.type,
+                        claude: newAPI.claude
                     }
                     selectedAPI = newAPI.name
                     liveConfig.selectedAPI = selectedAPI
                     liveConfig.selectedModel = ''
+                    liveAPI = newAPI
                     await fio.writeConfig(liveConfig, 'selectedAPI', selectedAPI)
                     await broadcast(changeAPI, 'host');
                     return
                 }
 
                 else if (parsedMessage.type === 'testNewAPI') {
-                    let result = await api.testAPI(parsedMessage.api, liveConfig)
+                    let result = await api.testAPI(isStreaming, parsedMessage.api, liveConfig)
                     testAPIResult = {
                         type: 'testAPIResult',
                         value: result
@@ -599,9 +618,17 @@ async function handleConnections(ws, type, request) {
                 else if (parsedMessage.type === 'modelListRequest') {
                     logger.trace('saw model list request')
                     let list = await api.getModelList(parsedMessage.api)
-                    let modelListResult = {
-                        type: 'modelListResult',
-                        value: list
+                    let modelListResult = {}
+                    if (typeof list === 'object') {
+                        modelListResult = {
+                            type: 'modelListResult',
+                            value: list
+                        }
+                    } else {
+                        modelListResult = {
+                            type: 'modelListResult',
+                            value: 'ERROR'
+                        }
                     }
                     //not sure if this should be sent to all hosts or not, but for simplicity, only the requester for now
                     await ws.send(JSON.stringify(modelListResult))
@@ -700,9 +727,6 @@ async function handleConnections(ws, type, request) {
                         handleResponse(
                             parsedMessage, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig
                         );
-                        //let [AIResponse, AIChatUserList] = await api.getAIResponse(selectedAPI, STBasicAuthCredentials, engineMode, user, userPrompt, liveConfig)
-
-
                         return
                     } catch (parseError) {
                         logger.error('An error occurred while parsing the JSON:', parseError);
@@ -831,9 +855,6 @@ async function handleConnections(ws, type, request) {
                             parsedMessage, selectedAPI, STBasicAuthCredentials,
                             engineMode, user, liveConfig
                         );
-                        //let [AIResponse, AIChatUserList] = 
-                        //await api.getAIResponse(selectedAPI, STBasicAuthCredentials, 
-                        //engineMode, user, userPrompt, liveConfig, ws)
                     }
                 }
                 //read the current userChat file
@@ -846,6 +867,7 @@ async function handleConnections(ws, type, request) {
                     // Write the updated array back to the file
                     await db.writeUserChatMessage(uuid, parsedMessage.content)
                     const newUserChatMessage = {
+                        type: 'chatMessage',
                         chatID: chatID,
                         username: username,
                         userColor: userColor,
@@ -919,31 +941,46 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList) => {
 
 async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig) {
     let AIResponse
-    const isStreamedResponse = true;
 
-    let AIChatUserList = await api.getAIResponse(isStreamedResponse, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, true);
+    //just get the AI chat userlist with 'true' as last argument
+    //this is jank..
+    let AIChatUserList = await api.getAIResponse(isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, true);
 
-    if (isStreamedResponse) {
+    if (isStreaming) {
+
         api.textEmitter.removeAllListeners('text');
         const textListener = createTextListener(parsedMessage, liveConfig, AIChatUserList);
         // Handle streamed response
         api.textEmitter.off('text', textListener).on('text', textListener)
 
         // Make the API request for streamed responses
-        const response = await api.getAIResponse(isStreamedResponse, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, false);
+
+        const response = await api.getAIResponse(isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, false);
 
         if (response === null) {
             textListener('END_OF_RESPONSE');
-            await db.writeAIChatMessage(liveConfig.selectedCharDisplayName, 'AI', accumulatedStreamOutput, 'AI')
+            let trimmedStreamedResponse = await api.trimIncompleteSentences(accumulatedStreamOutput)
+            //logger.debug('trimming stream results:')
+            //logger.debug(trimmedStreamedResponse)
+            let trimmedStreamMessage = {
+                'type': 'trimmedStreamMessage',
+                'chatID': 'AIChat',
+                'username': liveConfig.selectedCharDisplayName,
+                'content': trimmedStreamedResponse,
+                'userColor': parsedMessage.userColor
+            }
+            broadcast(trimmedStreamMessage)
+            await db.writeAIChatMessage(liveConfig.selectedCharDisplayName, 'AI', trimmedStreamedResponse, 'AI')
             //console.log('message was:')
             //console.log(liveConfig.selectedCharDisplayName + ':' + accumulatedStreamOutput)
             accumulatedStreamOutput = ''
         }
 
     } else {
+        //logger.info('SENDING BACK NON-STREAM RESPONSE')
         // Handle non-streamed response
         [AIResponse, AIChatUserList] = await api.getAIResponse(
-            isStreamedResponse, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig);
+            isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, false);
 
         const AIResponseMessage = {
             chatID: parsedMessage.chatID,

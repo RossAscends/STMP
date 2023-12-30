@@ -39,7 +39,7 @@ function updateSelectedSamplerPreset(myUUID, preset, type) {
 }
 
 function updateSelectedModel(model) {
-    console.debug(`Changing model from server command to ${model}.`)
+    console.debug(`[updateSelectedModel()] Changing model from server command to ${model}.`)
     $("#modelList").find(`option[value="${model}"]`).prop('selected', true).trigger('change')
     flashElement('modelList', 'good')
 }
@@ -88,7 +88,7 @@ function updateUserName(myUUID, username) {
     }
     username = $("#usernameInput").val()
     localStorage.setItem('username', username)
-    console.log(`Set localstorage "username" key to ${username}`)
+    console.debug(`Set localstorage "username" key to ${username}`)
     messageServer(nameChangeMessage)
     flashElement('usernameInput', 'good')
 }
@@ -109,7 +109,7 @@ function updateAPI(myUUID, api) {
 function updateAIChatUserName() {
     username = $("#AIUsernameInput").val()
     localStorage.setItem('AIChatUsername', username)
-    console.log(`Set localstorage "AIChatUsername" key to ${username}`)
+    console.debug(`Set localstorage "AIChatUsername" key to ${username}`)
     flashElement('AIUsernameInput', 'good')
 }
 
@@ -137,6 +137,7 @@ async function populateSelector(list, elementId) {
 }
 
 async function populateModelsList(list) {
+    console.debug('[populateModelList()] >> GO')
     const $selector = $('#modelList');
     $selector.empty()
 
@@ -149,10 +150,13 @@ async function populateModelsList(list) {
         });
         resolve();
     });
-    $("#modelList option:eq(0)").prop('selected', true).trigger('input')
+    console.debug('selecting the second entry of #apilist..should be "Default"')
+    $("#modelList option:eq(1)").prop('selected', true).trigger('input')
 }
 
-async function populateAPISelector(API) {
+async function populateAPISelector(API, selectedAPI) {
+
+    console.debug('[populateAPISelector()] >> GO')
     let APISelectElement = $("#apiList");
     APISelectElement.empty()
     APISelectElement.append($('<option>').val('addNewAPI').text('Add New API'));
@@ -162,10 +166,14 @@ async function populateAPISelector(API) {
         newElem.text(api.name);
         APISelectElement.append(newElem);
     }
+    if (selectedAPI) {
+        console.debug(`selectedAPI = ${selectedAPI}..selecting it.`)
+        $("#apiList").find(`option[value="${selectedAPI}"]`).prop('selected', true)
+    }
 }
 
 function showAddNewAPIDiv() {
-    //console.log('showing div for adding new API')
+    //console.debug('showing div for adding new API')
     $("#addNewAPI").show()
     $("#addNewAPIButton").show()
     $("#editAPIButton").hide()
@@ -182,18 +190,19 @@ function showAddNewAPIDiv() {
 }
 
 function hideAddNewAPIDiv() {
+    console.debug('[hideAddNewAPIDiv()] >> GO')
     $("#addNewAPIButton").hide()
     $("#editAPIButton").show()
-    $("#newAPIName").prop('readonly', true)
-    $("#newAPIEndpoint").prop('readonly', true)
-    $("#newAPIKey").prop('readonly', true)
-    $("#newAPIEndpointType").prop('disabled', true)
+    //$("#newAPIName").prop('readonly', true)
+    //$("#newAPIEndpoint").prop('readonly', true)
+    //$("#newAPIKey").prop('readonly', true)
+    //$("#newAPIEndpointType").prop('disabled', true)
     $("#addNewAPI").hide()
     $("#saveAPIButton").hide()
 }
 
 function enableAPIEdit() {
-    //console.log('enable API input edits')
+    console.debug('[enableAPIEdit()] >> GO')
     $("#newAPIName").prop('readonly', false)
     $("#newAPIEndpoint").prop('readonly', false)
     $("#newAPIKey").prop('readonly', false)
@@ -204,7 +213,7 @@ function enableAPIEdit() {
 }
 
 function disableAPIEdit() {
-    //console.log('disabling API input edits')
+    console.debug('[disableAPIEdit()] >> GO')
     $("#newAPIName").prop('readonly', true)
     $("#newAPIEndpoint").prop('readonly', true)
     $("#newAPIKey").prop('readonly', true)
@@ -215,16 +224,18 @@ function disableAPIEdit() {
 }
 
 async function populateAPIValues(api) {
-    //console.log(api)
+    console.debug(api)
     $("#newAPIName").val(api.name)
     $("#newAPIKey").val(api.key)
     $("#newAPIEndpoint").val(api.endpoint)
     $("#newAPIEndpointType").find(`option[value="${api.endpointType}"]`).prop('selected', true)
+    $("#isClaudeCheckbox").prop('checked', api.claude)
     // hide the add button, only do it through the selector
     // can change this later if we need to, if a button is more intuitive.
     $("#addNewAPIButton").hide()
     $("#editAPIButton").show()
     $("#apiTitle").text('API Info')
+    $("#hasModelsCheckbox").trigger('click')
 }
 
 // set the engine mode to either horde or Text Completions based on a value from the websocket

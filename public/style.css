@@ -325,30 +325,30 @@ pre {
 }
 
 #chat div,
-#AIchat div {
+#AIChat div {
     padding: 5px 5% 5px 10px;
     margin-bottom: 10px;
     overflow-wrap: break-word;
 }
 
 #chat div:hover,
-#AIchat div:hover {
+#AIChat div:hover {
     background-color: #2f3035
 }
 
 #chat div p,
-#AIchat div p {
+#AIChat div p {
     margin: 0;
     padding-bottom: 10px;
 }
 
 #chat div p em,
-#AIchat div p em {
+#AIChat div p em {
     color: #797d86
 }
 
 #chat div p q,
-#AIchat div p q {
+#AIChat div p q {
     color: #8ca3d9
 }
 
@@ -415,7 +415,7 @@ input::placeholder {
 }
 
 #chat,
-#AIchat {
+#AIChat {
     background: #313338;
     flex: 1;
     overflow-y: auto;
@@ -574,6 +574,10 @@ hr {
 
 .alignItemsCenter {
     align-items: center;
+}
+
+.alignItemsEnd {
+    align-items: end;
 }
 
 .marginTop5 {

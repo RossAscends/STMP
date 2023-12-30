@@ -1,4 +1,7 @@
-var username, isAutoResponse, contextSize, responseLength, isPhone
+var username, isAutoResponse, isStreaming, isClaude, contextSize, responseLength, isPhone, currentlyStreaming
+
+//this prevents selectors from firing off when being initially populated
+var initialLoad = true
 
 import control from './src/controls.js'
 
@@ -11,7 +14,7 @@ function startupUsernames() {
         const userInput = prompt("Enter your username:");
         if (userInput !== null && userInput !== "") {
             localStorage.setItem('username', userInput);
-            console.log(`Set localStorage 'username' to ${userInput}`);
+            console.debug(`Set localStorage 'username' to ${userInput}`);
             return String(userInput);
         } else {
             return await initializeUsername();
@@ -142,10 +145,13 @@ function getAPIList() {
 
 async function addNewAPI() {
     //check each field for validity, flashElement if invalid
+    console.debug('[addNewAPI()] >> GO')
     let name = $("#newAPIName").val()
     let endpoint = $("#newAPIEndpoint").val()
     let key = $("#newAPIKey").val()
     let type = $("#newAPIEndpointType").val()
+    let claude = $("#isClaudeCheckbox").prop('checked')
+    console.log(`Claude value: ${claude}`)
 
     if (name === '') {
         await flashElement('newAPIName', 'bad')
@@ -162,6 +168,7 @@ async function addNewAPI() {
         endpoint: endpoint,
         key: key,
         endpointType: type,
+        claude: claude,
         UUID: myUUID
     })
     await delay(250)
@@ -176,6 +183,7 @@ function testNewAPI() {
     let endpoint = $("#newAPIEndpoint").val()
     let key = $("#newAPIKey").val()
     let type = $("#newAPIEndpointType").val()
+    let claude = $("#isClaudeCheckbox").prop('checked')
 
     messageServer({
         type: 'testNewAPI',
@@ -185,6 +193,7 @@ function testNewAPI() {
             endpoint: endpoint,
             key: key,
             type: type,
+            claude: claude
         }
     })
 }
@@ -194,6 +203,7 @@ async function getModelList() {
     let endpoint = $("#newAPIEndpoint").val()
     let key = $("#newAPIKey").val()
     let type = $("#newAPIEndpointType").val()
+    let claude = $("#isClaudeCheckbox").prop('checked')
     let modelListRequestMessage = {
         UUID: myUUID,
         type: 'modelListRequest',
@@ -202,6 +212,7 @@ async function getModelList() {
             endpoint: endpoint,
             key: key,
             type: type,
+            claude: claude
         }
 
     }
@@ -209,10 +220,10 @@ async function getModelList() {
 }
 
 async function processConfirmedConnection(parsedMessage) {
-    console.log('--- processing confirmed connection...');
+    console.debug('[processConfirmedConnection()]>> GO');
     const { clientUUID, newAIChatDelay, newUserChatDelay, role, D1JB, instructList, instructFormat,
         selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory,
-        AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, contextSize,
+        AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, isStreaming, contextSize,
         responseLength, engineMode, APIList, selectedAPI, selectedModel, API } = parsedMessage;
     if (newAIChatDelay) {
         AIChatDelay = newAIChatDelay * 1000
@@ -244,39 +255,46 @@ async function processConfirmedConnection(parsedMessage) {
             $("#controlPanel").removeClass('initialState')
         }
 
+        console.debug('updating UI to match server state...')
+        //populate and load config inputs & checkboxes
         $(".hostControls").css('display', 'flex')
-
         $("#AIAutoResponse").prop('checked', isAutoResponse)
         flashElement('AIAutoResponse', 'good')
-
+        $("#streamingCheckbox").prop('checked', isStreaming)
+        flashElement('streamingCheckbox', 'good')
         $("#maxContext").find(`option[value="${contextSize}"]`).prop('selected', true)
         flashElement('maxContext', 'good')
-
         $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
         flashElement('responseLength', 'good')
 
-        control.populateAPISelector(APIList);
+        control.populateAPISelector(APIList, selectedAPI);
         $("#apiList").find(`option[value="${selectedAPI}"]`).prop('selected', true)
         $(("#apiList")).trigger('change')
+
         control.populateAPIValues(API)
         flashElement('newAPIName', 'good')
         flashElement('newAPIEndpoint', 'good')
         flashElement('newAPIKey', 'good')
         flashElement('newAPIEndpointType', 'good')
+        flashElement('isClaudeCheckbox', 'good')
         flashElement('apiList', 'good')
+
         control.disableAPIEdit()
 
         control.populateSelector(cardList, 'characters');
         control.populateSelector(instructList, 'instructStyle');
         control.populateSelector(samplerPresetList, 'samplerPreset');
-        console.debug('updating UI to match server state...')
+
+        //send updates back to server...why? perhaps to populate liveconfig
         control.updateSelectedChar(myUUID, selectedCharacter, selectedCharacterDisplayName, 'forced');
         control.updateSelectedSamplerPreset(myUUID, selectedSamplerPreset, 'forced');
         control.updateInstructFormat(myUUID, instructFormat, 'forced');
         control.updateD1JB(myUUID, D1JB, 'forced')
         control.setEngineMode(myUUID, engineMode);
+
         $("#showPastChats").trigger('click')
     } else {
+        //hide control panel and host controls for guests
         $("#controlPanel, .hostControls").remove()
     }
 
@@ -298,6 +316,8 @@ async function processConfirmedConnection(parsedMessage) {
 
     $("#chat").scrollTop($("#chat").prop("scrollHeight"));
     $("#AIChat").scrollTop($("#AIChat").prop("scrollHeight"));
+
+    initialLoad = false;
 }
 
 function appendMessagesWithConverter(messages, elementSelector) {
@@ -321,9 +341,9 @@ async function connectWebSocket(username) {
     // Handle incoming messages from the server
     socket.addEventListener('message', async function (event) {
         var message = event.data;
-
-
         let parsedMessage = JSON.parse(message);
+
+        //dont send spammy server messages to the console
         if (parsedMessage.type !== 'streamedAIResponse' &&
             parsedMessage.type !== 'pastChatsList' &&
             parsedMessage.type !== 'pastChatToLoad') {
@@ -410,7 +430,6 @@ async function connectWebSocket(username) {
                 location.reload();
                 break;
             case 'keyRejected':
-                //refresh page to get new info, could be done differently in the future
                 console.log('key rejected')
                 $("#roleKeyInput").val('')
                 await flashElement('roleKeyInput', 'bad')
@@ -421,7 +440,7 @@ async function connectWebSocket(username) {
                 break;
             case 'APIList':
                 let APIList = parsedMessage.APIList;
-                control.populateAPISelector(APIList);
+                control.populateAPISelector(APIList, parsedMessage.selectedAPI);
                 break;
             case 'pastChatToLoad':
                 console.debug('loading past chat session');
@@ -451,18 +470,28 @@ async function connectWebSocket(username) {
                 $("#AIAutoResponse").prop('checked', parsedMessage.value)
                 console.debug('autoAI toggle updated')
                 break
+            case 'streamingToggleUpdate':
+                $("#streamingCheckbox").prop('checked', parsedMessage.value)
+                console.debug('streaming toggle updated')
+                break
+            case 'claudeToggleUpdate':
+                $("#isClaudeCheckbox").prop('checked', parsedMessage.value)
+                console.debug('Claude toggle updated')
+                break
             case 'contextSizeChange':
                 $("#maxContext").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
-                console.log('maxContext  updated')
+                console.debug('maxContext updated')
                 break
             case 'apiChange':
                 $("#apiList").find(`option[value="${parsedMessage.name}"]`).prop('selected', true)
+                $("#modelList").empty().attr('disabled', false)
                 // Update the Name, endpoint, and key fields with the new API info
                 control.populateAPIValues(parsedMessage)
                 flashElement('newAPIName', 'good')
                 flashElement('newAPIEndpoint', 'good')
                 flashElement('newAPIKey', 'good')
                 flashElement('newAPIEndpointType', 'good')
+                flashElement('isClaudeCheckbox', 'good')
                 flashElement('apiList', 'good')
                 break
             case 'testAPIResult':
@@ -476,8 +505,13 @@ async function connectWebSocket(username) {
                 }
                 break
             case 'modelListResult':
-                let modelList = parsedMessage.value
-                control.populateModelsList(modelList)
+                if (parsedMessage.value === 'ERROR') {
+                    flashElement('modelList', 'bad')
+                    $("#modelList").attr('disabled', true)
+                } else {
+                    let modelList = parsedMessage.value
+                    control.populateModelsList(modelList)
+                }
                 break
             case 'modelChange':
                 let selectedModel = parsedMessage.value
@@ -496,34 +530,54 @@ async function connectWebSocket(username) {
                 console.debug('User Chat delay updated')
                 break
             case 'streamedAIResponse':
+                $('body').addClass('currentlyStreaming')
+                currentlyStreaming = true
                 await displayStreamedResponse(message)
+                $("#AISendButton").prop('disabled', true);
+                $("#deleteLastMessageButton").prop('disabled', true);
+                $("#triggerAIResponse").prop('disabled', true);
+                $("#AIRetry").prop('disabled', true);
+                $("#characters").prop('disabled', true)
+                $("#characters").prop('disabled', true)
+                $("#apiList").prop('disabled', true)
+                $("#toggleMode").prop('disabled', true)
                 break;
             case 'streamedAIResponseEnd':
-                console.log('saw stream end')
-                // Convert accumulated content into HTML format
-                const HTMLizedContent = converter.makeHtml(accumulatedContent);
-                // Create a new div element with HTMLized content
-                const newDivElement = $('<div>').html(HTMLizedContent);
-                // Find the username span within .incomingStreamDiv
+                console.debug('saw stream end')
+                //const HTMLizedContent = converter.makeHtml(accumulatedContent);
+                console.log(accumulatedContent)
+                const newDivElement = $('<div>').html(accumulatedContent);
                 const usernameSpan = $('.incomingStreamDiv').find('.chatUserName');
                 if (usernameSpan.length > 0) {
                     // Remove all elements after the username span
                     const elementsToRemove = $(usernameSpan).nextAll();
                     elementsToRemove.remove();
-                    // Append the new HTMLized content after the username span
                     $(usernameSpan).after(newDivElement.html());
                 } else {
                     // If there is no existing username span, replace .incomingStreamDiv with new content
                     $('.incomingStreamDiv').replaceWith(newDivElement);
-
                 }
                 accumulatedContent = ''
                 $('.incomingStreamDiv').removeClass('incomingStreamDiv')
+                currentlyStreaming = false
+                $('body').removeClass('currentlyStreaming')
+                $("#AISendButton").prop('disabled', false);
+                $("#deleteLastMessageButton").prop('disabled', false);
+                $("#triggerAIResponse").prop('disabled', false);
+                $("#AIRetry").prop('disabled', false);
+                $("#characters").prop('disabled', false)
+                $("#apiList").prop('disabled', false)
+                $("#toggleMode").prop('disabled', false)
                 updateAIChatUserList(parsedMessage.AIChatUserList)
                 break;
             case 'AIResponse':
+            case 'trimmedStreamMessage':
             case 'chatMessage':
                 console.debug('saw chat message')
+                if (parsedMessage.type === 'trimmedStreamMessage') {
+                    console.log('saw trimmed stream, removing last div')
+                    $("#AIChat div").last().remove()
+                }
                 var { chatID, username, content, userColor, workerName, hordeModel, kudosCost, AIChatUserList } = JSON.parse(message);
                 console.debug(`saw chat message: [${chatID}]${username}:${content}`)
                 const HTMLizedMessage = converter.makeHtml(content);
@@ -533,20 +587,18 @@ async function connectWebSocket(username) {
                 if (workerName !== undefined && hordeModel !== undefined && kudosCost !== undefined) {
                     $(newChatItem).prop('title', `${workerName} - ${hordeModel} (Kudos: ${kudosCost})`);
                 }
-                console.log('appending new mesage to chat')
+                console.debug('appending new message to chat')
                 $(`div[data-chat-id="${chatID}"]`).append(newChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
                 if (chatID === 'AIChat') {
                     $("#showPastChats").trigger('click') //autoupdate the past chat list with each AI chat message
                 }
                 if (chatID === 'AIChat') {
-                    //console.log(AIChatUserList)
-
+                    //console.debug(AIChatUserList)
                 }
                 break;
             default:
-                console.log('UNKNOWN MESSAGE TYPE: IGNORING')
+                console.log(`UNKNOWN MESSAGE TYPE ${parsedMessage.type}: IGNORING`)
                 break
-
         }
     });
 }
@@ -572,6 +624,7 @@ async function displayStreamedResponse(message) {
     newStreamDivSpan.append(spanElement);
 
     // Scroll to the bottom of the div to view incoming tokens
+    //not sure this is working
     $("#AIChat").scrollTop($("#AIChat")[0].scrollHeight);
 }
 
@@ -647,10 +700,9 @@ function showPastChats(chatList) {
             complete: async function () {
                 await delay(250);
                 $parent.hide();
-                console.log('animation done');
                 e.preventDefault();
                 const sessionID = $parent.data('session_id');
-                console.log(sessionID);
+                console.debug(`Loading Chat ${sessionID}`);
                 const pastChatDelMessage = {
                     type: 'pastChatDelete',
                     UUID: myUUID,
@@ -663,7 +715,7 @@ function showPastChats(chatList) {
 
     $pastChatsList.off('click', '.pastChatInfo').on('click', '.pastChatInfo', function () {
         const sessionID = $(this).data('session_id');
-        console.log(`requesting to load chat from session ${sessionID}...`);
+        console.debug(`requesting to load chat from session ${sessionID}...`);
         const pastChatListRequest = {
             UUID: myUUID,
             type: "loadPastChat",
@@ -707,8 +759,8 @@ function doAIRetry() {
     let char = $('#characters').val();
     let retryMessage = {
         type: 'AIRetry',
-        UUID: myUUID,
         chatID: 'AIChat',
+        UUID: myUUID,
         username: username,
         char: char
     }
@@ -716,6 +768,9 @@ function doAIRetry() {
 }
 
 async function sendMessageToAIChat(type) {
+
+    if (currentlyStreaming) { return }
+
     if ($("#AIUsernameInput").val().trim() === '') {
         alert("Can't send chat message with no username!");
         return;
@@ -792,6 +847,18 @@ $(async function () {
         }
         messageServer(autoResponseStateMessage);
         flashElement('AIAutoResponse', 'good')
+    })
+
+    $("#streamingCheckbox").on('input', function () {
+        isStreaming = $(this).prop('checked')
+        console.debug(`Streaming = ${isStreaming}`)
+        const streamingStateMessage = {
+            type: 'toggleStreaming',
+            UUID: myUUID,
+            value: isStreaming
+        }
+        messageServer(streamingStateMessage);
+        flashElement('streamingCheckbox', 'good')
     })
 
     $("#maxContext").on('input', function () {
@@ -876,18 +943,20 @@ $(async function () {
         }
         if (newMode === 'horde') {
             $("#TCCCAPIBlock").hide()
+            $("#streamingChekboxBlock").hide()
         } else {
             $("#TCCCAPIBlock").show()
+            $("#streamingChekboxBlock").show()
         }
         messageServer(modeChangeMessage);
     })
 
     $("#usernameInput").on('blur', function () {
-        console.log('saw username input blur')
+        console.debug('saw username input blur')
         let oldUsername = localStorage.getItem('username');
         let currentUsername = $("#usernameInput").val()
         if (oldUsername !== currentUsername) {
-            console.log('notifying server of UserChat username change...')
+            console.debug('notifying server of UserChat username change...')
             control.updateUserName(myUUID, currentUsername)
         }
     })
@@ -905,7 +974,7 @@ $(async function () {
     })
 
     $("#clearUserChat").off('click').on('click', function () {
-        console.log('Requesting OOC Chat clear')
+        console.debug('Requesting OOC Chat clear')
         const clearMessage = {
             type: 'clearChat',
             UUID: myUUID,
@@ -914,7 +983,7 @@ $(async function () {
     })
 
     $("#clearAIChat").off('click').on('click', function () {
-        console.log('Requesting AI Chat clear')
+        console.debug('Requesting AI Chat clear')
         const clearMessage = {
             type: 'clearAIChat',
             UUID: myUUID
@@ -923,7 +992,7 @@ $(async function () {
     })
 
     $("#deleteLastMessageButton").off('click').on('click', function () {
-        console.log('deleting last AI Chat message')
+        console.debug('deleting last AI Chat message')
         const delLastMessage = {
             type: 'deleteLast',
             UUID: myUUID,
@@ -1098,7 +1167,11 @@ $(async function () {
     });
 
     $("#apiList").on('change', function () {
+        if (initialLoad) { return }
+
+        console.debug('[#apilist] changed')
         if ($(this).val() === 'addNewAPI') {
+            console.debug('[#apilist]...to "addNewApi"')
             //clear all inputs for API editing
             $("#addNewAPI input").val('')
             control.enableAPIEdit()
@@ -1106,11 +1179,11 @@ $(async function () {
             betterSlideToggle($("#AIConfigInputs"), 250, 'height')
             betterSlideToggle($("#addNewAPI"), 250, 'height')
         } else {
+            console.debug(`[#apilist]...to "${$(this).val()}"`)
             if ($("#addNewAPI").css('display') !== 'none') {
                 betterSlideToggle($("#addNewAPI"), 250, 'height')
                 control.hideAddNewAPIDiv()
             }
-
             if ($("#AIConfigInputs").css('display') === 'none') {
                 betterSlideToggle($("#AIConfigInputs"), 250, 'height')
             }
@@ -1152,11 +1225,8 @@ $(async function () {
         }
     })
 
-    $("#hasModelsCheckbox").on('click', async function () {
-        if ($(this).prop('checked') == true) {
-            $("#modelListBlock").show()
-            await getModelList()
-        } else { $("#modelListBlock").hide() }
+    $("#modelLoadButton").on('click', async function () {
+        await getModelList()
     })
 
     $("#modelList").on('input', function () {
@@ -1173,7 +1243,7 @@ $(async function () {
     $("#pastChatsToggle").on('click', function () {
         let target = $("#pastChatsWrap")
         if (target.hasClass('isAnimating')) { return }
-        console.log('toggling past Chats view...')
+        console.debug('toggling past Chats view...')
         $(this).children('i').toggleClass('fa-toggle-on fa-toggle-off')
         betterSlideToggle(target, 100, 'height')
     })
@@ -1181,7 +1251,7 @@ $(async function () {
     $("#crowdControlToggle").on('click', function () {
         let target = $("#crowdControlWrap")
         if (target.hasClass('isAnimating')) { return }
-        console.log('toggling Crowd Control view...')
+        console.debug('toggling Crowd Control view...')
         $(this).children('i').toggleClass('fa-toggle-on fa-toggle-off')
         betterSlideToggle(target, 100, 'height')
     })
@@ -1195,7 +1265,6 @@ $(async function () {
     }
 
     function correctSizeBody() {
-        //console.log('window resize')
         var orientation = window.orientation;
         if (isPhone && (orientation === 90 || orientation === -90)) {
             // Landscape orientation on iOS

@@ -74,7 +74,6 @@ async function createTables() {
         endpoint TEXT,
         key TEXT,
         type TEXT,
-        claude BOOLEAN DEFAULT FALSE,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         last_used_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);

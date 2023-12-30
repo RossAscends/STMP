@@ -105,7 +105,7 @@ async function ensureDatabaseSchema(schemaDictionary) {
             }
         }
     }
-    await db.run(`INSERT OR IGNORE INTO apis (name, endpoint, key, type) VALUES ('Default', 'localhost:5000', '', 'TC')`);
+    await db.run(`INSERT OR IGNORE INTO apis (name, endpoint, key, type, claude) VALUES ('Default', 'localhost:5000', '', 'TC', FALSE)`);
 }
 
 

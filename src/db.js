@@ -8,79 +8,105 @@ const dbPromise = sqlite.open({
     driver: sqlite3.Database
 });
 
-async function createTables() {
+const schemaDictionary = {
+    users: {
+        user_id: "TEXT UNIQUE PRIMARY KEY",
+        username: "TEXT",
+        username_color: "TEXT",
+        created_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
+        last_seen_at: "DATETIME DEFAULT CURRENT_TIMESTAMP"
+    },
+    user_roles: {
+        user_id: "TEXT UNIQUE PRIMARY KEY",
+        role: "TEXT DEFAULT 'user'",
+        foreignKeys: {
+            user_id: "users(user_id)"
+        }
+    },
+    characters: {
+        char_id: "TEXT UNIQUE PRIMARY KEY",
+        displayname: "TEXT",
+        display_color: "TEXT",
+        created_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
+        last_seen_at: "DATETIME DEFAULT CURRENT_TIMESTAMP"
+    },
+    aichats: {
+        message_id: "INTEGER PRIMARY KEY",
+        session_id: "INTEGER",
+        user_id: "TEXT",
+        username: "TEXT",
+        message: "TEXT",
+        entity: "TEXT",
+        timestamp: "DATETIME DEFAULT CURRENT_TIMESTAMP",
+        foreignKeys: {
+            session_id: "sessions(session_id)",
+            user_id: "users(user_id)"
+        }
+    },
+    userchats: {
+        message_id: "INTEGER PRIMARY KEY",
+        user_id: "TEXT",
+        message: "TEXT",
+        timestamp: "DATETIME DEFAULT CURRENT_TIMESTAMP",
+        active: "BOOLEAN DEFAULT TRUE",
+        session_id: "INTEGER",
+        foreignKeys: {
+            session_id: "sessions(session_id)",
+            user_id: "users(user_id)"
+        }
+    },
+    sessions: {
+        session_id: "INTEGER PRIMARY KEY",
+        started_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
+        ended_at: "DATETIME",
+        is_active: "BOOLEAN DEFAULT TRUE"
+    },
+    apis: {
+        name: "TEXT UNIQUE PRIMARY KEY",
+        endpoint: "TEXT",
+        key: "TEXT",
+        type: "TEXT",
+        claude: "BOOLEAN DEFAULT FALSE",
+        created_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
+        last_used_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
+    }
+};
+
+async function ensureDatabaseSchema(schemaDictionary) {
     const db = await dbPromise;
-    // Users table
-    await db.run(`CREATE TABLE IF NOT EXISTS users (
-        user_id TEXT UNIQUE PRIMARY KEY,
-        username TEXT,
-        username_color TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+    for (const [tableName, tableSchema] of Object.entries(schemaDictionary)) {
+        // Create the table if it doesn't exist
+        let createTableQuery = `CREATE TABLE IF NOT EXISTS ${tableName} (`;
+        const columnDefinitions = [];
+        for (const [columnName, columnType] of Object.entries(tableSchema)) {
+            if (columnName !== 'foreignKeys') {
+                columnDefinitions.push(`${columnName} ${columnType}`);
+            }
+        }
 
-    //user roles table
-    await db.run(`CREATE TABLE IF NOT EXISTS user_roles (
-        user_id TEXT UNIQUE PRIMARY KEY,
-        role TEXT DEFAULT 'user',
-        FOREIGN KEY (user_id) REFERENCES users(user_id)
-    )`);
+        // Adding foreign keys if they exist
+        if (tableSchema.foreignKeys) {
+            for (const [fkColumn, fkReference] of Object.entries(tableSchema.foreignKeys)) {
+                columnDefinitions.push(`FOREIGN KEY (${fkColumn}) REFERENCES ${fkReference}`);
+            }
+        }
 
-    // Characters table
-    await db.run(`CREATE TABLE IF NOT EXISTS characters (
-        char_id TEXT UNIQUE PRIMARY KEY,
-        displayname TEXT,
-        display_color TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+        createTableQuery += columnDefinitions.join(', ') + ')';
+        await db.run(createTableQuery);
 
-    // AIChats table
-    await db.run(`CREATE TABLE IF NOT EXISTS aichats (
-        message_id INTEGER PRIMARY KEY,
-        session_id INTEGER,
-        user_id TEXT,
-        username TEXT,
-        message TEXT,
-        entity TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (session_id) REFERENCES sessions(session_id),
-        FOREIGN KEY (user_id) REFERENCES users(user_id)
-    )`);
+        // Check and add columns if they don't exist
+        const tableInfo = await db.all(`PRAGMA table_info(${tableName})`);
+        const existingColumns = tableInfo.map(column => column.name);
 
-    // UserChats table
-    await db.run(`CREATE TABLE IF NOT EXISTS userchats (
-        message_id INTEGER PRIMARY KEY,
-        user_id TEXT,
-        message TEXT,
-        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-        active BOOLEAN DEFAULT TRUE,
-        session_id INTEGER,
-        FOREIGN KEY (session_id) REFERENCES sessions(session_id),
-        FOREIGN KEY (user_id) REFERENCES users(user_id)
-    )`);
-
-    // Sessions table
-    await db.run(`CREATE TABLE IF NOT EXISTS sessions (
-        session_id INTEGER PRIMARY KEY,
-        started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        ended_at DATETIME,
-        is_active BOOLEAN DEFAULT TRUE
-    )`);
-
-    // APIs table
-    await db.run(`CREATE TABLE IF NOT EXISTS apis (
-        name TEXT UNIQUE PRIMARY KEY,
-        endpoint TEXT,
-        key TEXT,
-        type TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        last_used_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    // Add a default api
-    await db.run(`INSERT OR IGNORE INTO apis (name, endpoint, key, type) VALUES ('Default', 'localhost:5000', '', 'TC')`);
+        for (const [columnName, columnType] of Object.entries(tableSchema)) {
+            if (columnName !== 'foreignKeys' && !existingColumns.includes(columnName)) {
+                const addColumnQuery = `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`;
+                await db.run(addColumnQuery);
+            }
+        }
+    }
 }
+
 
 // Write the session ID of whatever the active session in the sessions table is
 async function writeUserChatMessage(userId, message) {
@@ -458,7 +484,7 @@ async function getAPI(name) {
     }
 }
 
-createTables();
+ensureDatabaseSchema(schemaDictionary);
 
 module.exports = {
     writeUserChatMessage: writeUserChatMessage,

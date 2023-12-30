@@ -811,6 +811,7 @@ async function handleConnections(ws, type, request) {
                 if (chatID === 'AIChat') {
 
                     userPrompt = {
+                        'type': 'chatMessage',
                         'chatID': chatID,
                         'username': username,
                         //send the HTML-ized message into the AI chat
@@ -821,6 +822,7 @@ async function handleConnections(ws, type, request) {
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     if (!isEmptyTrigger) {
                         await db.writeAIChatMessage(username, senderUUID, userInput, 'user');
+                        //console.log('broadcasting user message')
                         await broadcast(userPrompt)
                     }
 
@@ -894,7 +896,7 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList) => {
         //console.log(text);
         // Check if the response stream has ended
         if (text === 'END_OF_RESPONSE' || text === null || text === undefined) {
-            logger.debug('saw end of stream or invalid token')
+            //logger.debug('saw end of stream or invalid token')
             endResponse();
             return
         }

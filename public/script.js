@@ -325,6 +325,7 @@ async function connectWebSocket(username) {
 
         let parsedMessage = JSON.parse(message);
         if (parsedMessage.type !== 'streamedAIResponse' &&
+            parsedMessage.type !== 'pastChatsList' &&
             parsedMessage.type !== 'pastChatToLoad') {
             console.debug('Received server message:', message);
         }
@@ -521,6 +522,7 @@ async function connectWebSocket(username) {
                 updateAIChatUserList(parsedMessage.AIChatUserList)
                 break;
             case 'AIResponse':
+            case 'chatMessage':
                 console.debug('saw chat message')
                 var { chatID, username, content, userColor, workerName, hordeModel, kudosCost, AIChatUserList } = JSON.parse(message);
                 console.debug(`saw chat message: [${chatID}]${username}:${content}`)

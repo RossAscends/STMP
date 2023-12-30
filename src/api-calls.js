@@ -513,10 +513,17 @@ async function requestToTCorCC(isStreamedResponse, liveAPI, APICallParamsAndProm
             timeout: 0,
         })
         if (response.status === 200) {
+            logger.debug('Status 200: Ok..proceeding')
             return await processResponse(response, isCCSelected, isTest, isStreamedResponse)
         } else {
+            console.log('API error: ' + response.status)
+
             let JSONResponse = await response.json()
             console.error(JSONResponse);
+            //these are error message attributes from Tabby
+            console.log(JSONResponse.detail[0].loc) //shows the location of the error causing thing
+            //console.log(JSONResponse.detail[0].input) //just shows the value of messages object
+            console.log('=====')
             return JSONResponse;
         }
 
@@ -549,11 +556,15 @@ async function processResponse(response, isCCSelected, isTest, isStreamedRespons
             if (typeof stream.on !== 'function') {
                 // Create a new readable stream from response.body
                 stream = Readable.from(response.body);
+            } else {
+                console.log('saw function in response body..')
+                console.log(stream)
             }
             let text
             stream.on('data', async (chunk) => {
 
                 const dataChunk = String.fromCharCode(...chunk);
+                //console.log(dataChunk)
                 data += dataChunk;
 
                 // Process individual JSON objects
@@ -595,7 +606,14 @@ async function processResponse(response, isCCSelected, isTest, isStreamedRespons
                     }
 
                     if (jsonData.choices && jsonData.choices.length > 0) {
-                        text = jsonData.choices[0].text;
+                        if (isCCSelected) {
+                            //console.log(jsonData.choices)
+                            text = jsonData.choices[0].delta.content;
+                        } else {
+                            text = jsonData.choices[0].text;
+                        }
+
+                        //console.log(text)
                         textEmitter.emit('text', text);
                         //return text
                     }
@@ -620,6 +638,8 @@ async function readStreamChunks(readableStream) {
     return new Promise((resolve, reject) => {
         if (!(readableStream instanceof Readable)) {
             reject(new Error('Invalid readable stream'));
+            logger.debug(readableStream)
+            console.log('loc')
             return;
         }
 

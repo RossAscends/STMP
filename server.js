@@ -16,7 +16,6 @@ const remoteApp = express();
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
 
-
 //SQL DB
 const db = require('./src/db.js');
 //flat file manipulation
@@ -698,16 +697,12 @@ async function handleConnections(ws, type, request) {
                             'username': parsedMessage.username,
                             'content': '',
                         }
-                        let [AIResponse, AIChatUserList] = await api.getAIResponse(selectedAPI, STBasicAuthCredentials, engineMode, user, userPrompt, liveConfig)
-                        const AIResponseMessage = {
-                            chatID: parsedMessage.chatID,
-                            content: AIResponse,
-                            username: `${liveConfig.selectedCharDisplayName}`,
-                            type: 'AIResponse',
-                            userColor: userColor,
-                            AIChatUserList: AIChatUserList
-                        }
-                        broadcast(AIResponseMessage)
+                        handleResponse(
+                            parsedMessage, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig
+                        );
+                        //let [AIResponse, AIChatUserList] = await api.getAIResponse(selectedAPI, STBasicAuthCredentials, engineMode, user, userPrompt, liveConfig)
+
+
                         return
                     } catch (parseError) {
                         logger.error('An error occurred while parsing the JSON:', parseError);
@@ -828,18 +823,15 @@ async function handleConnections(ws, type, request) {
                         await db.writeAIChatMessage(username, senderUUID, userInput, 'user');
                         await broadcast(userPrompt)
                     }
-                    if (liveConfig.isAutoResponse || isEmptyTrigger) {
-                        let [AIResponse, AIChatUserList] = await api.getAIResponse(selectedAPI, STBasicAuthCredentials, engineMode, user, userPrompt, liveConfig)
-                        const AIResponseMessage = {
-                            chatID: parsedMessage.chatID,
-                            content: AIResponse,
-                            username: `${liveConfig.selectedCharDisplayName}`,
-                            type: 'AIResponse',
-                            userColor: parsedMessage.userColor,
-                            AIChatUserList: AIChatUserList
-                        }
-                        broadcast(AIResponseMessage)
 
+                    if (liveConfig.isAutoResponse || isEmptyTrigger) {
+                        handleResponse(
+                            parsedMessage, selectedAPI, STBasicAuthCredentials,
+                            engineMode, user, liveConfig
+                        );
+                        //let [AIResponse, AIChatUserList] = 
+                        //await api.getAIResponse(selectedAPI, STBasicAuthCredentials, 
+                        //engineMode, user, userPrompt, liveConfig, ws)
                     }
                 }
                 //read the current userChat file
@@ -877,6 +869,94 @@ async function handleConnections(ws, type, request) {
     });
 
 };
+let accumulatedStreamOutput = ''
+
+const createTextListener = (parsedMessage, liveConfig, AIChatUserList) => {
+    //let responseEnded = false;
+
+    const endResponse = async () => {
+        //if (!responseEnded) {
+        //    responseEnded = true;
+        api.textEmitter.removeAllListeners('text');
+        const streamEndToken = {
+            chatID: parsedMessage.chatID,
+            AIChatUserList: AIChatUserList,
+            userColor: parsedMessage.userColor,
+            username: liveConfig.selectedCharDisplayName,
+            type: 'streamedAIResponseEnd',
+        };
+        broadcast(streamEndToken); // Emit the event to clients
+        //}
+    };
+
+    return async (text) => {
+        //add the newest token to the accumulated variable for later chat saving. 
+        //console.log(text);
+        // Check if the response stream has ended
+        if (text === 'END_OF_RESPONSE' || text === null || text === undefined) {
+            logger.debug('saw end of stream or invalid token')
+            endResponse();
+            return
+        }
+
+        accumulatedStreamOutput += text
+        //logger.debug(accumulatedStreamOutput)
+
+        const streamedTokenMessage = {
+            chatID: parsedMessage.chatID,
+            content: text,
+            username: liveConfig.selectedCharDisplayName,
+            type: 'streamedAIResponse',
+            userColor: parsedMessage.userColor,
+        };
+        await broadcast(streamedTokenMessage);
+
+
+    };
+};
+
+async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig) {
+    let AIResponse
+    const isStreamedResponse = true;
+
+    let AIChatUserList = await api.getAIResponse(isStreamedResponse, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, true);
+
+    if (isStreamedResponse) {
+        api.textEmitter.removeAllListeners('text');
+        const textListener = createTextListener(parsedMessage, liveConfig, AIChatUserList);
+        // Handle streamed response
+        api.textEmitter.off('text', textListener).on('text', textListener)
+
+        // Make the API request for streamed responses
+        const response = await api.getAIResponse(isStreamedResponse, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, false);
+
+        if (response === null) {
+            textListener('END_OF_RESPONSE');
+            await db.writeAIChatMessage(liveConfig.selectedCharDisplayName, 'AI', accumulatedStreamOutput, 'AI')
+            //console.log('message was:')
+            //console.log(liveConfig.selectedCharDisplayName + ':' + accumulatedStreamOutput)
+            accumulatedStreamOutput = ''
+        }
+
+    } else {
+        // Handle non-streamed response
+        [AIResponse, AIChatUserList] = await api.getAIResponse(
+            isStreamedResponse, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig);
+
+        const AIResponseMessage = {
+            chatID: parsedMessage.chatID,
+            content: AIResponse,
+            username: liveConfig.selectedCharDisplayName,
+            type: 'AIResponse',
+            userColor: parsedMessage.userColor,
+            AIChatUserList: AIChatUserList
+        }
+        await broadcast(AIResponseMessage)
+
+    }
+}
+
+
 
 // Start the server
 localServer.listen(wsPort, '0.0.0.0', () => {
@@ -911,3 +991,7 @@ process.on('SIGINT', () => {
     });
     process.exit(0);
 })
+
+module.exports = {
+    broadcast: broadcast
+}

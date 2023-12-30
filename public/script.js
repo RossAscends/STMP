@@ -85,7 +85,7 @@ var port = window.location?.port;
 
 //disclaimer: this works, but i can't speak for the robustness of this check. 
 var wsType = /[a-zA-Z]/.test(window.location.hostname) && window.location.hostname !== 'localhost' ? 'wss' : 'ws';
-console.log(`We will connect to "${wsType}" server..`)
+console.debug(`We will connect to "${wsType}" server..`)
 var serverUrl = `${wsType}://${hostname}:${port}`
 export var myUUID, myUsername
 
@@ -99,7 +99,7 @@ export function messageServer(message) {
 }
 
 function updateUserChatUserList(userList) {
-    console.log("updating user chat user list");
+    console.debug("updating user chat user list");
     console.debug(userList);
     if (!userList || userList.length === 0) {
         return;
@@ -269,7 +269,7 @@ async function processConfirmedConnection(parsedMessage) {
         control.populateSelector(cardList, 'characters');
         control.populateSelector(instructList, 'instructStyle');
         control.populateSelector(samplerPresetList, 'samplerPreset');
-        console.log('updating UI to match server state...')
+        console.debug('updating UI to match server state...')
         control.updateSelectedChar(myUUID, selectedCharacter, selectedCharacterDisplayName, 'forced');
         control.updateSelectedSamplerPreset(myUUID, selectedSamplerPreset, 'forced');
         control.updateInstructFormat(myUUID, instructFormat, 'forced');
@@ -281,7 +281,7 @@ async function processConfirmedConnection(parsedMessage) {
     }
 
     $("#chat").empty();
-    $("#AIchat").empty();
+    $("#AIChat").empty();
     updateUserChatUserList(userList);
 
     if (chatHistory) {
@@ -293,11 +293,11 @@ async function processConfirmedConnection(parsedMessage) {
     if (AIChatHistory) {
         const trimmedAIChatHistoryString = AIChatHistory.trim();
         const parsedAIChatHistory = JSON.parse(trimmedAIChatHistoryString);
-        appendMessagesWithConverter(parsedAIChatHistory, "#AIchat");
+        appendMessagesWithConverter(parsedAIChatHistory, "#AIChat");
     }
 
     $("#chat").scrollTop($("#chat").prop("scrollHeight"));
-    $("#AIchat").scrollTop($("#AIchat").prop("scrollHeight"));
+    $("#AIChat").scrollTop($("#AIChat").prop("scrollHeight"));
 }
 
 function appendMessagesWithConverter(messages, elementSelector) {
@@ -321,20 +321,25 @@ async function connectWebSocket(username) {
     // Handle incoming messages from the server
     socket.addEventListener('message', async function (event) {
         var message = event.data;
-        console.debug('Received server message:', message);
+
+
         let parsedMessage = JSON.parse(message);
+        if (parsedMessage.type !== 'streamedAIResponse' &&
+            parsedMessage.type !== 'pastChatToLoad') {
+            console.debug('Received server message:', message);
+        }
         switch (parsedMessage?.type) {
             case 'clearChat':
-                console.log('Clearing User Chat')
+                console.debug('Clearing User Chat')
                 $("#chat").empty()
                 break;
             case 'clearAIChat':
-                console.log('Clearing AI Chat')
-                $("#AIchat").empty()
+                console.debug('Clearing AI Chat')
+                $("#AIChat").empty()
                 break;
             case 'chatUpdate':
-                console.log('saw chat update instruction');
-                $("#AIchat").empty();
+                console.debug('saw chat update instruction');
+                $("#AIChat").empty();
                 let resetChatHistory = parsedMessage.chatHistory;
                 resetChatHistory.forEach((obj) => {
                     let username = obj.username;
@@ -342,7 +347,7 @@ async function connectWebSocket(username) {
                     let message = converter.makeHtml(obj.content);
                     let newDiv = $(`<div></div>`);
                     newDiv.html(`<span style="color:${userColor}" class="chatUserName">${username}</span>${message}`);
-                    $("#AIchat").append(newDiv);
+                    $("#AIChat").append(newDiv);
                 });
                 break;
             case 'modeChange':
@@ -361,7 +366,7 @@ async function connectWebSocket(username) {
                 processConfirmedConnection(parsedMessage)
                 break;
             case 'userChangedName':
-                console.log('saw notification of user name change');
+                console.debug('saw notification of user name change');
                 var { type, content } = JSON.parse(message);
                 const HTMLizedUsernameChangeMessage = converter.makeHtml(content);
                 const sanitizedUsernameChangeMessage = DOMPurify.sanitize(HTMLizedUsernameChangeMessage);
@@ -400,7 +405,7 @@ async function connectWebSocket(username) {
             case 'keyAccepted':
                 //refresh page to get new info, could be done differently in the future
                 await flashElement('roleKeyInput', 'good')
-                console.log('key accepted, refreshing page...')
+                console.debug('key accepted, refreshing page...')
                 location.reload();
                 break;
             case 'keyRejected':
@@ -418,8 +423,8 @@ async function connectWebSocket(username) {
                 control.populateAPISelector(APIList);
                 break;
             case 'pastChatToLoad':
-                console.log('loading past chat session');
-                $("#AIchat").empty();
+                console.debug('loading past chat session');
+                $("#AIChat").empty();
                 $("#AIChatUserList ul").empty();
                 let pastChatHistory = parsedMessage.pastChatHistory;
                 let sessionID = parsedMessage.sessionID
@@ -431,7 +436,7 @@ async function connectWebSocket(username) {
                     let message = converter.makeHtml(obj.content);
                     let newDiv = $(`<div></div>`);
                     newDiv.html(`<span style="color:${userColor}" class="chatUserName">${username}</span>${message}`);
-                    $("#AIchat").append(newDiv);
+                    $("#AIChat").append(newDiv);
                 });
                 break;
             case 'pastChatDeleted':
@@ -443,7 +448,7 @@ async function connectWebSocket(username) {
                 break
             case 'autoAItoggleUpdate':
                 $("#AIAutoResponse").prop('checked', parsedMessage.value)
-                console.log('autoAI toggle updated')
+                console.debug('autoAI toggle updated')
                 break
             case 'contextSizeChange':
                 $("#maxContext").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
@@ -461,7 +466,7 @@ async function connectWebSocket(username) {
                 break
             case 'testAPIResult':
                 let result = parsedMessage.value
-                console.log(result)
+                console.debug(result)
                 if (result.status === 200) {
                     flashElement('APIEditDiv', 'good')
                 } else {
@@ -479,20 +484,46 @@ async function connectWebSocket(username) {
                 break
             case 'responseLengthChange':
                 $("#responseLength").find(`option[value="${parsedMessage.value}"]`).prop('selected', true)
-                console.log('responseLength updated')
+                console.debug('responseLength updated')
                 break
             case 'AIChatDelayChange':
                 AIChatDelay = parsedMessage.value * 1000
-                console.log('AI Chat delay updated')
+                console.debug('AI Chat delay updated')
                 break
             case 'userChatDelayChange':
                 userChatDelay = parsedMessage.value * 1000
-                console.log('User Chat delay updated')
+                console.debug('User Chat delay updated')
                 break
-            default:
-                console.log('saw chat message')
+            case 'streamedAIResponse':
+                await displayStreamedResponse(message)
+                break;
+            case 'streamedAIResponseEnd':
+                console.log('saw stream end')
+                // Convert accumulated content into HTML format
+                const HTMLizedContent = converter.makeHtml(accumulatedContent);
+                // Create a new div element with HTMLized content
+                const newDivElement = $('<div>').html(HTMLizedContent);
+                // Find the username span within .incomingStreamDiv
+                const usernameSpan = $('.incomingStreamDiv').find('.chatUserName');
+                if (usernameSpan.length > 0) {
+                    // Remove all elements after the username span
+                    const elementsToRemove = $(usernameSpan).nextAll();
+                    elementsToRemove.remove();
+                    // Append the new HTMLized content after the username span
+                    $(usernameSpan).after(newDivElement.html());
+                } else {
+                    // If there is no existing username span, replace .incomingStreamDiv with new content
+                    $('.incomingStreamDiv').replaceWith(newDivElement);
+
+                }
+                accumulatedContent = ''
+                $('.incomingStreamDiv').removeClass('incomingStreamDiv')
+                updateAIChatUserList(parsedMessage.AIChatUserList)
+                break;
+            case 'AIResponse':
+                console.debug('saw chat message')
                 var { chatID, username, content, userColor, workerName, hordeModel, kudosCost, AIChatUserList } = JSON.parse(message);
-                console.log(`saw chat message: [${chatID}]${username}:${content}`)
+                console.debug(`saw chat message: [${chatID}]${username}:${content}`)
                 const HTMLizedMessage = converter.makeHtml(content);
                 const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
                 let newChatItem = $('<div>');
@@ -507,12 +538,39 @@ async function connectWebSocket(username) {
                 }
                 if (chatID === 'AIChat') {
                     //console.log(AIChatUserList)
-                    updateAIChatUserList(AIChatUserList)
+
                 }
                 break;
+            default:
+                console.log('UNKNOWN MESSAGE TYPE: IGNORING')
+                break
 
         }
     });
+}
+
+let accumulatedContent = ''; // variable to store accumulated content
+async function displayStreamedResponse(message) {
+    var { chatID, username, content, userColor, AIChatUserList } = JSON.parse(message);
+    let newStreamDivSpan;
+    if (!$("#AIChat .incomingStreamDiv").length) {
+        newStreamDivSpan = $(`<div class="incomingStreamDiv"><span style="color:${userColor}" class="chatUserName">${username}</span><p></p></div>`);
+        $("#AIChat").append(newStreamDivSpan);
+    } else {
+        newStreamDivSpan = $("#AIChat .incomingStreamDiv p");
+    }
+
+    // Create a temporary span element with raw text
+    const sanitizedToken = DOMPurify.sanitize(content);
+    accumulatedContent += sanitizedToken;
+    const spanElement = $('<span>').html(sanitizedToken);
+    // Find and preserve existing username span within .incomingStreamDiv
+    const existingUsernameSpan = newStreamDivSpan.find('.chatUserName');
+
+    newStreamDivSpan.append(spanElement);
+
+    // Scroll to the bottom of the div to view incoming tokens
+    $("#AIChat").scrollTop($("#AIChat")[0].scrollHeight);
 }
 
 async function betterSlideToggle(target, speed = 250, animationDirection) {
@@ -690,7 +748,7 @@ window.addEventListener('beforeunload', () => {
 });
 
 $(async function () {
-    console.log('document is ready')
+    console.debug('document is ready')
     let { username, AIChatUsername } = await startupUsernames();
     $("#usernameInput").val(username)
     flashElement('usernameInput', 'good')
@@ -700,7 +758,7 @@ $(async function () {
     connectWebSocket(username);
 
     isPhone = /Mobile/.test(navigator.userAgent);
-    console.log(`Is this a phone? ${isPhone}`)
+    console.debug(`Is this a phone? ${isPhone}`)
 
     $("#reconnectButton").off('click').on('click', function () {
         connectWebSocket()
@@ -946,7 +1004,7 @@ $(async function () {
     $("#AIMessageInput").on("keypress", function (event) { enterToSendChat(event, "#AISendButton"); });
 
     $("#showPastChats").on('click', function () {
-        console.log('requesting past chat list')
+        console.debug('requesting past chat list')
         const pastChatListRequest = {
             UUID: myUUID,
             type: "pastChatsRequest"

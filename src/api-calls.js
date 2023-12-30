@@ -1,9 +1,15 @@
 
 const fs = require('fs');
 const $ = require('jquery');
+const { Readable } = require('stream');
+const { EventEmitter } = require('events');
+const textEmitter = new EventEmitter();
 
 const db = require('./db.js');
 const fio = require('./file-io.js')
+
+//const streaming = require('./stream.js')
+
 const { apiLogger: logger } = require('./log.js');
 
 
@@ -13,19 +19,25 @@ function delay(ms) {
 
 var TCAPIDefaults, HordeAPIDefaults
 
-async function getAPIDefaults() {
+async function getAPIDefaults(shouldReturn = null) {
     try {
         const fileContents = await fio.readFile('default-API-Parameters.json');
         const jsonData = JSON.parse(fileContents);
         const { TCAPICallParams, HordeAPICallParams } = jsonData[0];
         TCAPIDefaults = TCAPICallParams;
         HordeAPIDefaults = HordeAPICallParams;
+        if (shouldReturn) {
+            let defaults = [TCAPIDefaults, HordeAPIDefaults]
+            return defaults
+        }
+
+
     } catch (error) {
         logger.error('Error reading or parsing the default API Param JSON file:', error);
     }
 }
 
-async function getAIResponse(selectedAPIName, STBasicAuthCredentials, engineMode, userObj, userPrompt, liveConfig) {
+async function getAIResponse(isStreamedResponse, selectedAPIName, STBasicAuthCredentials, engineMode, user, liveConfig, onlyUserList) {
     try {
         let APICallParams
         if (engineMode === 'TC') {
@@ -48,7 +60,7 @@ async function getAIResponse(selectedAPIName, STBasicAuthCredentials, engineMode
         //a careful observer might notice that we don't set the userInput string into the 'prompt' section of the API Params at this point.
         //this is because the userInput has already been saved into the chat session, and the next function will read 
         //that file and parse the contents from there. All we need to do is pass the cardDefs, charName. and userName.
-        const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, fixedFinalCharName, userObj.username)
+        const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, fixedFinalCharName, user.username)
         const samplers = JSON.parse(liveConfig.samplers);
         logger.debug(samplers)
         //apply the selected preset values to the API call
@@ -77,17 +89,26 @@ async function getAIResponse(selectedAPIName, STBasicAuthCredentials, engineMode
             //finalAPICallParams includes formatted TC prompt
             //includedChatObjects is an array of chat history objects that got included in the prompt
             //we send these along in case we are using chat completion, and need to convert before pinging the API.
-            let rawResponse = await requestToTCorCC(liveAPI, finalAPICallParams, includedChatObjects, false, liveConfig)
-            AIResponse = trimIncompleteSentences(rawResponse)
+            let rawResponse = await requestToTCorCC(isStreamedResponse, liveAPI, finalAPICallParams, includedChatObjects, false, liveConfig)
+            let AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
+            if (onlyUserList) {
+                return AIChatUserList
+            }
+            //finalize non-streamed responses
+            if (!finalAPICallParams.stream) {
+                console.log('RAW RESPONSE')
+                console.log(rawResponse)
+                AIResponse = trimIncompleteSentences(rawResponse)
+                await db.upsertChar(charName, charName, user.color);
+                await db.writeAIChatMessage(charName, charName, AIResponse, 'AI');
+                // let AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
+                return [AIResponse, AIChatUserList]
+
+            } else {
+
+                return null
+            }
         }
-
-        await db.upsertChar(charName, charName, userObj.color);
-        await db.writeAIChatMessage(charName, charName, AIResponse, 'AI');
-
-        let AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
-
-        return [AIResponse, AIChatUserList]
-
     } catch (error) {
         logger.error('Error while requesting AI response');
         logger.error(error);
@@ -270,10 +291,15 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             stringToReturn += `${endSequence}`
             //add the final first mes and userInput        
             if (D1JB.length !== 0 && D1JB !== '' && D1JB !== undefined && D1JB !== null) {
-                stringToReturn += `${systemSequence}${D1JB}\n${endSequence}`
+                console.log('-------------ADDING D1JB')
+                console.log(D1JB)
+                stringToReturn += `${systemSequence}${D1JB}${endSequence}`
+
             }
             stringToReturn += `${outputSequence}${lastUserMesageAndCharName.trim()}`;
             stringToReturn = stringToReturn.trim()
+
+            console.log(stringToReturn)
             resolve([stringToReturn, ChatObjsInPrompt]);
         } catch (error) {
             logger.error('Error reading file:', error);
@@ -281,7 +307,6 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
         }
     })
 }
-
 
 async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     logger.debug('Sending Horde request...');
@@ -354,27 +379,28 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     };
 }
 
-async function testAPI(api, liveConfig) {
+async function testAPI(isStreamedResponse, api, liveConfig) {
     logger.trace(api)
     let testMessage
     let payload = {
-        stream: false,
+        stream: isStreamedResponse,
         seed: -1,
         stop: [' ']
     }
     let testMessageObject = [{ entity: 'user', content: 'Test Message' }]
-
+    let TCTestMessage = 'User: Test Message'
     if (api.type === 'CC') {
         payload.model = liveConfig.selectedModel
+        testMessage = testMessageObject
 
     } else {
-        let TCTestMessage = 'User: Test Message'
+        testMessage = TCTestMessage
         payload.prompt = TCTestMessage
         //delete payload.stop
     }
 
 
-    let result = await requestToTCorCC(api, payload, testMessageObject, true, liveConfig)
+    let result = await requestToTCorCC(isStreamedResponse, api, payload, testMessage, true, liveConfig)
     return result
 
 }
@@ -404,7 +430,7 @@ async function getModelList(api) {
     }
 }
 
-async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObjects, isTest, liveConfig) {
+async function requestToTCorCC(isStreamedResponse, liveAPI, APICallParamsAndPrompt, includedChatObjects, isTest, liveConfig) {
     //console.log(liveConfig)
     const isCCSelected = liveAPI.type === 'CC' ? true : false
     const TCEndpoint = liveAPI.endpoint
@@ -457,24 +483,28 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
 
             return [CCMessages, CCStops]
         }
+
         APICallParamsAndPrompt.model = liveConfig.selectedModel
         if (isCCSelected) {
             logger.trace('========== DOING CC conversion =======')
             const [CCMessages, CCStops] = TCtoCC(includedChatObjects, APICallParamsAndPrompt.stop)
             APICallParamsAndPrompt.stop = CCStops
             APICallParamsAndPrompt.messages = CCMessages
-            APICallParamsAndPrompt.stream = false //this needs to be false until we figure out streaming
+
         }
 
-        logger.debug(' ')
-        logger.debug('HEADERS')
-        logger.debug(headers)
-        logger.debug(' ')
-        logger.debug('PAYLOAD BODY')
+        APICallParamsAndPrompt.stream = isStreamedResponse //yolo
+        let streamingReportText = APICallParamsAndPrompt.stream ? 'streamed' : 'non-streamed'
+        //        console.log(APICallParamsAndPrompt.stream)
+        //        logger.debug(' ')
+        //        logger.debug('HEADERS')
+        //        logger.debug(headers)
+        //        logger.debug(' ')
+        logger.debug('PAYLOAD')
         logger.debug(APICallParamsAndPrompt)
         logger.debug(' ')
         const body = JSON.stringify(APICallParamsAndPrompt);
-        logger.debug(`Sending chat request to ${url}`)
+        logger.debug(`Sending ${streamingReportText} chat request to ${url}`)
 
         const response = await fetch(url, {
             method: 'POST',
@@ -482,38 +512,13 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
             body: body,
             timeout: 0,
         })
-        let JSONResponse = await response.json()
         if (response.status === 200) {
-            let text, status
-            logger.debug('--- API RESPONSE')
-            logger.debug(JSONResponse)
-            if (isCCSelected) {
-                //look for 'choices' from OAI, and then if it doesn't exist, look for 'completion' (from Claude)
-                if (JSONResponse.choices && JSONResponse.choices.length > 0) {
-                    text = JSONResponse.choices[0].message?.content || JSONResponse.completion;
-                } else {
-                    text = JSONResponse.completion;
-                }
-                //return text;
-            } else {
-                text = JSONResponse.choices[0].text
-                //return text;
-            }
-            if (isTest) {
-                status = response.status
-                let testResults = {
-                    status: status,
-                    value: text
-                }
-                return testResults
-            }
-            return text
+            return await processResponse(response, isCCSelected, isTest, isStreamedResponse)
         } else {
-            logger.error('API RETURNED ERROR:')
-            logger.error(JSONResponse)
-            return JSONResponse
+            let JSONResponse = await response.json()
+            console.error(JSONResponse);
+            return JSONResponse;
         }
-
 
     } catch (error) {
         logger.error('Error while requesting Text Completion API');
@@ -523,10 +528,158 @@ async function requestToTCorCC(liveAPI, APICallParamsAndPrompt, includedChatObje
     }
 }
 
+async function processResponse(response, isCCSelected, isTest, isStreamedResponse) {
+    if (!isStreamedResponse) {
+        try {
+            let JSONResponse = await response.json();
+            console.log('Response JSON:', JSONResponse);
+            return processNonStreamedResponse(JSONResponse, isCCSelected, isTest);
+        }
+
+        catch (error) {
+            console.error('Error parsing JSON:', error);
+
+        }
+    } else {
+        //look for streams first
+        if (response.body) {
+
+            let stream = response.body;
+            let data = '';
+            if (typeof stream.on !== 'function') {
+                // Create a new readable stream from response.body
+                stream = Readable.from(response.body);
+            }
+            let text
+            stream.on('data', async (chunk) => {
+
+                const dataChunk = String.fromCharCode(...chunk);
+                data += dataChunk;
+
+                // Process individual JSON objects
+                while (true) {
+
+                    const separatorIndex = data.indexOf('data: ');
+
+                    if (separatorIndex === -1) {
+                        // Incomplete JSON object, wait for more data
+                        break;
+                    }
+
+                    // Extract the JSON object string
+                    const jsonStartIndex = separatorIndex + 6;
+                    const jsonEndIndex = data.indexOf('\n', jsonStartIndex);
+                    if (jsonEndIndex === -1) {
+                        // Incomplete JSON object, wait for more data
+                        break;
+                    }
+                    const jsonChunk = data.substring(jsonStartIndex, jsonEndIndex);
+
+                    // Check if it's the final object
+                    if (jsonChunk === '[DONE]') {
+                        console.log('End of stream. Closing the stream.');
+                        stream.destroy();
+                        break;
+                    }
+
+                    // Remove the "data: " prefix
+                    const trimmedJsonChunk = jsonChunk.trim().replace(/^data:\s+/, '');
+
+                    // Parse and process the JSON object
+                    let jsonData = null;
+                    try {
+                        jsonData = JSON.parse(trimmedJsonChunk);
+                    } catch (error) {
+                        console.error('Error parsing JSON:', error);
+                        break;
+                    }
+
+                    if (jsonData.choices && jsonData.choices.length > 0) {
+                        text = jsonData.choices[0].text;
+                        textEmitter.emit('text', text);
+                        //return text
+                    }
+
+                    // Remove the processed JSON object from the data string
+                    data = data.substring(jsonEndIndex + 1);
+                }
+            });
+
+            stream.on('end', () => { console.log('All data entries processed.'); });
+            stream.on('error', (error) => { console.error('Error while streaming data:', error); });
+
+            // Start reading the chunks
+            await readStreamChunks(stream);
+            return;
+        }
+    }
+
+}
+
+async function readStreamChunks(readableStream) {
+    return new Promise((resolve, reject) => {
+        if (!(readableStream instanceof Readable)) {
+            reject(new Error('Invalid readable stream'));
+            return;
+        }
+
+        const chunks = [];
+        readableStream.on('data', (chunk) => {
+            const data = chunk.toString('utf-8');
+            chunks.push(data);
+        });
+
+        readableStream.on('end', () => {
+            console.log('Stream ended.');
+            const data = chunks.join('');
+            resolve({ data, streamEnded: true }); // Resolve with data and streamEnded flag
+        });
+
+        readableStream.on('error', (error) => {
+            console.error('Error while reading the stream:', error);
+            reject(error);
+        });
+    });
+}
+
+async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest) {
+
+    logger.debug('DID NOT A SEE A STREAM')
+
+    let text, status
+    logger.debug('--- API RESPONSE')
+    logger.debug(JSONResponse)
+    if (isCCSelected) {
+        //look for 'choices' from OAI, and then if it doesn't exist, look for 'completion' (from Claude)
+        if (JSONResponse.choices && JSONResponse.choices.length > 0) {
+            text = JSONResponse.choices[0].message?.content || JSONResponse.completion;
+        } else {
+            text = JSONResponse.completion;
+        }
+        //return text;
+    } else {
+        text = JSONResponse.choices[0].text
+        //return text;
+    }
+    if (isTest) {
+        status = response.status
+        let testResults = {
+            status: status,
+            value: text
+        }
+        return testResults
+    }
+    return text
+}
+
 module.exports = {
     getAIResponse: getAIResponse,
     getAPIDefaults: getAPIDefaults,
     replaceMacros: replaceMacros,
     testAPI: testAPI,
     getModelList: getModelList,
+    textEmitter: textEmitter,
+    processResponse: processResponse,
+    addCharDefsToPrompt: addCharDefsToPrompt,
+    setStopStrings: setStopStrings
 }

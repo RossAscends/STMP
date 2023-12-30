@@ -1,8 +1,8 @@
 {
     "name": "Alpaca",
     "system_sequence": "",
-    "input_sequence": "### Instruction:\n",
-    "output_sequence": "### Response:\n",
+    "input_sequence": "\n### Instruction:\n",
+    "output_sequence": "\n### Response:\n",
     "end_sequence": "",
     "first_output_sequence": "",
     "last_output_sequence": "",

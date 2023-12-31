@@ -45,9 +45,6 @@ var sanitizeExtension = {
     }
 };
 
-
-
-
 var quotesExtension = function () {
     var regexes = [
         /*         { regex: /â|â/g, replace: '"' },
@@ -110,9 +107,7 @@ export function messageServer(message) {
 function updateUserChatUserList(userList) {
     console.debug("updating user chat user list");
     console.debug(userList);
-    if (!userList || userList.length === 0) {
-        return;
-    }
+    if (!userList || userList.length === 0) { return; }
 
     const userListElement = $("#userList ul");
     userListElement.empty(); // Clear the existing user list
@@ -120,18 +115,10 @@ function updateUserChatUserList(userList) {
     userList.sort((a, b) => {
         const usernameA = a.username.toLowerCase();
         const usernameB = b.username.toLowerCase();
-
-        if (usernameA < usernameB) {
-            return -1;
-        }
-
-        if (usernameA > usernameB) {
-            return 1;
-        }
-
+        if (usernameA < usernameB) { return -1; }
+        if (usernameA > usernameB) { return 1; }
         return 0;
     });
-
 
     userList.forEach(({ username, role, color }) => {
         const usernameText = role === "host" ? `${username} 🔑` : username;
@@ -143,22 +130,13 @@ function updateUserChatUserList(userList) {
 function updateAIChatUserList(message) {
     console.debug(message);
 
-    if (!message || message.length === 0) {
-        return;
-    }
+    if (!message || message.length === 0) { return; }
 
     message.sort((a, b) => {
         const usernameA = a.username.toLowerCase();
         const usernameB = b.username.toLowerCase();
-
-        if (usernameA < usernameB) {
-            return -1;
-        }
-
-        if (usernameA > usernameB) {
-            return 1;
-        }
-
+        if (usernameA < usernameB) { return -1; }
+        if (usernameA > usernameB) { return 1; }
         return 0;
     });
 
@@ -170,14 +148,6 @@ function updateAIChatUserList(message) {
         const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${usernameText}</li>`;
         userListElement.append(listItem);
     });
-}
-
-function getAPIList() {
-    const APIListRequest = {
-        type: 'APIListRequest',
-        UUID: myUUID
-    }
-    messageServer(APIListRequest)
 }
 
 async function addNewAPI() {
@@ -579,9 +549,9 @@ async function connectWebSocket(username) {
                 if (!$("#AIChat .incomingStreamDiv").length) {
                     newStreamDivSpan = $(`<div class="incomingStreamDiv"><span style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}🤖</span><p></p></div>`);
                     $("#AIChat").append(newStreamDivSpan);
-                } else {
-                    await displayStreamedResponse(message)
                 }
+                await displayStreamedResponse(message)
+
 
                 $("#AISendButton").prop('disabled', true);
                 $("#deleteLastMessageButton").prop('disabled', true);
@@ -676,13 +646,13 @@ async function displayStreamedResponse(message) {
     accumulatedContent += sanitizedToken;
     const spanElement = $('<span>').html(sanitizedToken);
     // Find and preserve existing username span within .incomingStreamDiv
-    const existingUsernameSpan = newStreamDivSpan.find('.chatUserName');
+    //const existingUsernameSpan = newStreamDivSpan.find('.chatUserName');
 
     newStreamDivSpan.append(spanElement);
 
     // Scroll to the bottom of the div to view incoming tokens
     //not sure this is working
-    $("#AIChat").scrollTop($("#AIChat")[0].scrollHeight);
+    //$("#AIChat").scrollTop($("#AIChat")[0].scrollHeight);
 }
 
 async function betterSlideToggle(target, speed = 250, animationDirection) {

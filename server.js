@@ -699,7 +699,7 @@ async function handleConnections(ws, type, request) {
                     }
                     liveConfig.D1JB = parsedMessage.newD1JB
                     await fio.writeConfig(liveConfig)
-                    await broadcast(changeD1JBMessage);
+                    await broadcast(changeD1JBMessage, 'host');
                     return
                 }
                 else if (parsedMessage.type === 'AIRetry') {
@@ -728,7 +728,7 @@ async function handleConnections(ws, type, request) {
                     }
                     liveConfig.engineMode = engineMode
                     await fio.writeConfig(liveConfig, 'engineMode', engineMode)
-                    await broadcast(modeChangeMessage);
+                    await broadcast(modeChangeMessage, 'host');
                     return
                 }
                 else if (parsedMessage.type === 'pastChatsRequest') {

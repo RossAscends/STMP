@@ -2,7 +2,7 @@ var username, isAutoResponse, isStreaming, isClaude, contextSize, responseLength
 
 export var isUserScrollingAIChat = false;
 export var isUserScrollingUserChat = false;
-let scrollTimeout;
+let UserChatScrollTimeout, AIChatScrollTimeout
 
 
 //this prevents selectors from firing off when being initially populated
@@ -12,6 +12,14 @@ import control from './src/controls.js'
 
 export function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function debounce(func, delay) {
+    let timeoutId;
+    return function () {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(func, delay);
+    };
 }
 
 function startupUsernames() {
@@ -1295,23 +1303,25 @@ $(async function () {
         betterSlideToggle(target, 100, 'height')
     })
 
-    $("#AIChat").on('scroll', function () {
+    $("#AIChat").on('scroll', debounce(function () {
+        if (!$("#AIChat").not(":focus")) { return }
         isUserScrollingAIChat = true
-        clearTimeout(scrollTimeout);
+        clearTimeout(AIChatScrollTimeout);
         //timer to reset the scrolling variable, effectively detecting the scroll is done.
-        scrollTimeout = setTimeout(function () {
+        AIChatScrollTimeout = setTimeout(function () {
             isUserScrollingAIChat = false;
-        }, 100);
-    })
+        }, 250);
+    }, 100))
 
-    $("#AIChat").on('scroll', function () {
+    $("#chat").on('scroll', debounce(function () {
+        if (!$("#chat").not(":focus")) { return }
         isUserScrollingUserChat = true
-        clearTimeout(scrollTimeout);
+        clearTimeout(UserChatScrollTimeout);
         //timer to reset the scrolling variable, effectively detecting the scroll is done.
-        scrollTimeout = setTimeout(function () {
+        UserChatScrollTimeout = setTimeout(function () {
             isUserScrollingUserChat = false;
-        }, 100);
-    })
+        }, 250);
+    }, 100))
 
 
     function correctSizeChats() {

@@ -33,7 +33,7 @@ For tech support or to contact RossAscends directly, join the [SillyTavern Disco
 3. Setup the API (see below).
 4. Run `STMP.bat` to install the required Node modules and start the server.
 5. On the first run, the server will create an empty `secrets.json` and a default `config.json`, as well as the `/api-presets/` and `/chats/` folders.
-6. Open `htttp://localhost:8181/` in your web browser.
+6. Open `http://localhost:8181/` in your web browser.
 
 ### Docker
 
@@ -41,8 +41,6 @@ For tech support or to contact RossAscends directly, join the [SillyTavern Disco
 - The [Docker](https://www.docker.com) file can be found in `/utils/`
 
 (instructions coming soon)
-
-
 
 <!-- - Obviously, the host must have a Text Completions compatible backend installed and working on their device.
 - [TabbyAPI](https://github.com/theroyallab/tabbyAPI) and [KoboldCPP](https://github.com/LostRuins/koboldcpp) are confirmed to work with STMP's TC API mode.
@@ -107,7 +105,7 @@ The host will see the following controls:
 
 #### AI Controls
 
-- `Mode` can be clicked to switch between TC/CC mode, and HordeAI mode. 
+- `Mode` can be clicked to switch between TC/CC mode, and HordeAI mode.
   - 📑 = Text Completions
   - 🧟 = Horde
 - `API` selector to choose which LLM API to use, and an `Edit` button to change its configuration.
@@ -131,6 +129,7 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 
 1. select `Add new API` from the `API` selector to open the API Editing panel.
 2. A new panel will be displayed with new inputs:
+
 - `Name` - the label you want to remember the API as
 - `Endpoint URL` - this is the base server URL for the LLM API. If the usual URL does not work, try adding `v1/` to the end.
 - `Key` - If your API requires a key, put it in here.
@@ -186,7 +185,7 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 ### Managing Characters
 
 - Place any SillyTavern compatible character card into the `/characters/` folder and restart the server.
-  - We will add a way to add characters without restarting the server soon. 
+  - We will add a way to add characters without restarting the server soon.
 - Characters can be selected at the top of the AI Chat panel.
 - Characters can be swapped at any time without resetting the chat, allowing you to manually simulate a group chat.
 

@@ -729,6 +729,7 @@ async function handleConnections(ws, type, request) {
                             'chatID': parsedMessage.chatID,
                             'username': parsedMessage.username,
                             'content': '',
+                            'color': user.color
                         }
                         handleResponse(
                             parsedMessage, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig
@@ -897,7 +898,7 @@ async function handleConnections(ws, type, request) {
 };
 let accumulatedStreamOutput = ''
 
-const createTextListener = (parsedMessage, liveConfig, AIChatUserList) => {
+const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => {
     //let responseEnded = false;
 
     const endResponse = async () => {
@@ -933,7 +934,7 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList) => {
             content: text,
             username: liveConfig.selectedCharDisplayName,
             type: 'streamedAIResponse',
-            userColor: parsedMessage.userColor,
+            color: user.color ? user.color : 'red',
         };
         await broadcast(streamedTokenMessage);
 
@@ -951,7 +952,7 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
     if (isStreaming) {
 
         api.textEmitter.removeAllListeners('text');
-        const textListener = createTextListener(parsedMessage, liveConfig, AIChatUserList);
+        const textListener = createTextListener(parsedMessage, liveConfig, AIChatUserList, user);
         // Handle streamed response
         api.textEmitter.off('text', textListener).on('text', textListener)
 
@@ -969,9 +970,10 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
                 'chatID': 'AIChat',
                 'username': liveConfig.selectedCharDisplayName,
                 'content': trimmedStreamedResponse,
-                'userColor': parsedMessage.userColor
+                'color': user.color ? user.color : 'red',
             }
             broadcast(trimmedStreamMessage)
+            console.log(trimmedStreamMessage)
             await db.writeAIChatMessage(liveConfig.selectedCharDisplayName, 'AI', trimmedStreamedResponse, 'AI')
             //console.log('message was:')
             //console.log(liveConfig.selectedCharDisplayName + ':' + accumulatedStreamOutput)
@@ -989,7 +991,7 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
             content: AIResponse,
             username: liveConfig.selectedCharDisplayName,
             type: 'AIResponse',
-            userColor: parsedMessage.userColor,
+            color: user.color,
             AIChatUserList: AIChatUserList
         }
         await broadcast(AIResponseMessage)

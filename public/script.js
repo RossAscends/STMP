@@ -537,10 +537,11 @@ async function connectWebSocket(username) {
                 break
             case 'streamedAIResponse':
                 $('body').addClass('currentlyStreaming')
+
                 currentlyStreaming = true
                 let newStreamDivSpan;
                 if (!$("#AIChat .incomingStreamDiv").length) {
-                    newStreamDivSpan = $(`<div class="incomingStreamDiv"><span style="color:${parsedMessage.userColor}" class="chatUserName">${parsedMessage.username}</span><p></p></div>`);
+                    newStreamDivSpan = $(`<div class="incomingStreamDiv"><span style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}</span><p></p></div>`);
                     $("#AIChat").append(newStreamDivSpan);
                 } else {
                     await displayStreamedResponse(message)
@@ -591,12 +592,12 @@ async function connectWebSocket(username) {
                     console.log('saw trimmed stream, removing last div')
                     $("#AIChat div").last().remove()
                 }
-                var { chatID, username, content, userColor, workerName, hordeModel, kudosCost, AIChatUserList } = JSON.parse(message);
+                var { chatID, username, content, userColor, color, workerName, hordeModel, kudosCost, AIChatUserList } = JSON.parse(message);
                 console.debug(`saw chat message: [${chatID}]${username}:${content}`)
                 const HTMLizedMessage = converter.makeHtml(content);
                 const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
                 let newChatItem = $('<div>');
-                newChatItem.html(`<span style="color:${userColor}" class="chatUserName">${username}</span> ${sanitizedMessage}`)
+                newChatItem.html(`<span style="color:${userColor ? userColor : color}" class="chatUserName">${username}</span> ${sanitizedMessage}`)
                 if (workerName !== undefined && hordeModel !== undefined && kudosCost !== undefined) {
                     $(newChatItem).prop('title', `${workerName} - ${hordeModel} (Kudos: ${kudosCost})`);
                 }

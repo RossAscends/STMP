@@ -86,7 +86,7 @@ function updateUserName(myUUID, username) {
         newName: $("#usernameInput").val(),
         oldName: username
     }
-    username = $("#usernameInput").val()
+    //let setUsername = $("#usernameInput").val()
     localStorage.setItem('username', username)
     console.debug(`Set localstorage "username" key to ${username}`)
     messageServer(nameChangeMessage)
@@ -107,7 +107,7 @@ function updateAPI(myUUID, api) {
 //Just update Localstorage, no need to send anything to server for this.
 //but possibly add it in the future if we want to let users track which user is speaking as which entity in AI Chat.
 function updateAIChatUserName() {
-    username = $("#AIUsernameInput").val()
+    let username = $("#AIUsernameInput").val()
     localStorage.setItem('AIChatUsername', username)
     console.debug(`Set localstorage "AIChatUsername" key to ${username}`)
     flashElement('AIUsernameInput', 'good')

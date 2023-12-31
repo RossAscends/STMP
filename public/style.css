@@ -308,6 +308,7 @@ code {
     margin: 5px;
     line-height: 1.4em;
     font-size: 1.1em;
+    text-wrap: wrap;
 }
 
 pre {
@@ -316,7 +317,7 @@ pre {
     background: #232428;
     margin: 5px;
     border-radius: 5px;
-    width: min-content;
+    width: fit-content;
 }
 
 .invisible-quotation::before,

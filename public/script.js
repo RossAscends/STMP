@@ -37,21 +37,25 @@ var sanitizeExtension = {
     type: 'output',
     filter: function (text) {
         var sanitizedHTML = DOMPurify.sanitize(text, {
-            FORBID_TAGS: ['style', 'audio', 'script', 'iframe', 'object', 'embed', 'form'], // Exclude the specified tags
-            FORBID_ATTR: ['onload', 'onclick', 'onmouseover', 'srcdoc', 'data-*', 'style'] // Exclude the specified attributes
+            FORBID_TAGS: ['style', 'audio', 'script', 'iframe', 'object', 'embed', 'form',
+                'input', 'select', 'button', 'marquee', 'blink', 'font', 'style'], // Exclude the specified tags
+            FORBID_ATTR: ['onload', 'onclick', 'onmouseover', 'srcdoc', 'data-*', 'style', 'color', 'bgcolor'] // Exclude the specified attributes
         });
         return sanitizedHTML;
     }
 };
 
+
+
+
 var quotesExtension = function () {
     var regexes = [
-        { regex: /â|â/g, replace: '"' },
-        { regex: /â/g, replace: '\'' },
-        { regex: /"([^"]*)"/g, replace: '<q>$1</q>' },
+        /*         { regex: /â|â/g, replace: '"' },
+                { regex: /â/g, replace: '\'' },
+                { regex: /"([^"]*)"/g, replace: '<q>$1</q>' }, */
         { regex: /“([^“”]*)”/g, replace: '<q class="invisible-quotation">"$1"</q>' },
         { regex: /‘([^‘’]*)’/g, replace: '<q class="invisible-quotation">\'$1\'</q>' },
-        { regex: /â([^(ââ]*)â/g, replace: '<q class="invisible-quotation">\'$1\'</q>' },
+        //{ regex: /â([^(ââ]*)â/g, replace: '<q class="invisible-quotation">\'$1\'</q>' },
         { regex: /«([^«»]*)»/g, replace: '<q class="invisible-quotation">«$1»</q>' },
         { regex: /「([^「」]*)」/g, replace: '<q class="invisible-quotation">「$1」</q>' },
         { regex: /『([^『』]*)』/g, replace: '<q class="invisible-quotation">『$1』</q>' },
@@ -456,6 +460,7 @@ async function connectWebSocket(username) {
                 let sessionID = parsedMessage.sessionID
                 $("#pastChatsList .activeChat").removeClass('activeChat')
                 $("#pastChatsList").find(`div[data-session_id="${sessionID}"]`).addClass('activeChat')
+                //TODO: this feels like a duplicate of the appendWithConverter function...merge?
                 pastChatHistory.forEach((obj) => {
                     let username = obj.username;
                     let userColor = obj.userColor;
@@ -541,7 +546,7 @@ async function connectWebSocket(username) {
                 currentlyStreaming = true
                 let newStreamDivSpan;
                 if (!$("#AIChat .incomingStreamDiv").length) {
-                    newStreamDivSpan = $(`<div class="incomingStreamDiv"><span style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}</span><p></p></div>`);
+                    newStreamDivSpan = $(`<div class="incomingStreamDiv"><span style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}🤖</span><p></p></div>`);
                     $("#AIChat").append(newStreamDivSpan);
                 } else {
                     await displayStreamedResponse(message)
@@ -587,17 +592,23 @@ async function connectWebSocket(username) {
             case 'AIResponse':
             case 'trimmedStreamMessage':
             case 'chatMessage':
+                let isAIResponse = false
                 console.debug('saw chat message')
                 if (parsedMessage.type === 'trimmedStreamMessage') {
                     console.log('saw trimmed stream, removing last div')
                     $("#AIChat div").last().remove()
+                }
+
+                if (parsedMessage.type === 'AIResponse' || parsedMessage.type === 'trimmedStreamMessage') {
+                    isAIResponse = true
                 }
                 var { chatID, username, content, userColor, color, workerName, hordeModel, kudosCost, AIChatUserList } = JSON.parse(message);
                 console.debug(`saw chat message: [${chatID}]${username}:${content}`)
                 const HTMLizedMessage = converter.makeHtml(content);
                 const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
                 let newChatItem = $('<div>');
-                newChatItem.html(`<span style="color:${userColor ? userColor : color}" class="chatUserName">${username}</span> ${sanitizedMessage}`)
+                let usernameToShow = isAIResponse ? `${username} 🤖` : username
+                newChatItem.html(`<span style="color:${userColor ? userColor : color}" class="chatUserName">${usernameToShow}</span> ${sanitizedMessage}`)
                 if (workerName !== undefined && hordeModel !== undefined && kudosCost !== undefined) {
                     $(newChatItem).prop('title', `${workerName} - ${hordeModel} (Kudos: ${kudosCost})`);
                 }
@@ -609,6 +620,7 @@ async function connectWebSocket(username) {
                 if (chatID === 'AIChat') {
                     //console.debug(AIChatUserList)
                 }
+                isAIResponse = false
                 break;
             default:
                 console.log(`UNKNOWN MESSAGE TYPE ${parsedMessage.type}: IGNORING`)

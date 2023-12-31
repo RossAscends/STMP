@@ -792,6 +792,7 @@ async function handleConnections(ws, type, request) {
             if (parsedMessage.type === 'usernameChange') {
                 clientsObject[uuid].username = parsedMessage.newName;
                 updateConnectedUsers()
+                db.upsertUser(parsedMessage.UUID, parsedMessage.newName, user.color ? user.color : thisClientObj.color)
                 const nameChangeNotification = {
                     type: 'userChangedName',
                     content: `[System]: ${parsedMessage.oldName} >>> ${parsedMessage.newName}`

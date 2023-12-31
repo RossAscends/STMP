@@ -610,7 +610,6 @@ async function handleConnections(ws, type, request) {
                         type: 'testAPIResult',
                         value: result
                     }
-                    //await broadcast(testAPIResult, 'host');
                     //only send back to the user who is doing the test.
                     await ws.send(JSON.stringify(testAPIResult))
                     return

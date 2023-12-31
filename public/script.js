@@ -51,8 +51,8 @@ var sanitizeExtension = {
 var quotesExtension = function () {
     var regexes = [
         /*         { regex: /â|â/g, replace: '"' },
-                { regex: /â/g, replace: '\'' },
-                { regex: /"([^"]*)"/g, replace: '<q>$1</q>' }, */
+                { regex: /â/g, replace: '\'' },*/
+        { regex: /"([^"]*)"/g, replace: '<q>$1</q>' },
         { regex: /“([^“”]*)”/g, replace: '<q class="invisible-quotation">"$1"</q>' },
         { regex: /‘([^‘’]*)’/g, replace: '<q class="invisible-quotation">\'$1\'</q>' },
         //{ regex: /â([^(ââ]*)â/g, replace: '<q class="invisible-quotation">\'$1\'</q>' },
@@ -117,6 +117,22 @@ function updateUserChatUserList(userList) {
     const userListElement = $("#userList ul");
     userListElement.empty(); // Clear the existing user list
 
+    userList.sort((a, b) => {
+        const usernameA = a.username.toLowerCase();
+        const usernameB = b.username.toLowerCase();
+
+        if (usernameA < usernameB) {
+            return -1;
+        }
+
+        if (usernameA > usernameB) {
+            return 1;
+        }
+
+        return 0;
+    });
+
+
     userList.forEach(({ username, role, color }) => {
         const usernameText = role === "host" ? `${username} 🔑` : username;
         const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${usernameText}</li>`;
@@ -130,6 +146,21 @@ function updateAIChatUserList(message) {
     if (!message || message.length === 0) {
         return;
     }
+
+    message.sort((a, b) => {
+        const usernameA = a.username.toLowerCase();
+        const usernameB = b.username.toLowerCase();
+
+        if (usernameA < usernameB) {
+            return -1;
+        }
+
+        if (usernameA > usernameB) {
+            return 1;
+        }
+
+        return 0;
+    });
 
     const userListElement = $('#AIChatUserList ul');
     userListElement.empty(); // Clear the existing user list

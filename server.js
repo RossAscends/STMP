@@ -253,28 +253,39 @@ wssServer.on('connection', (ws, request) => {
 });
 
 async function broadcast(message, role = 'all') {
-    //change BuggyType to whatever message type you want to log in server console
-    if (message.type === "BuggyTypeHere") {
-        logger.debug('broadcasting message');
-        logger.trace(message);
-    }
-
-    Object.keys(clientsObject).forEach(async clientUUID => {
-        const client = clientsObject[clientUUID];
-        const socket = client.socket;
-
-        if (socket?.readyState !== WebSocket.OPEN) {
-            return;
-        }
-
-        if (role === 'all') {
-            socket.send(JSON.stringify(message));
-        } else {
-            const user = await db.getUser(clientUUID);
-            const clientRole = user.role
-            if (clientRole === role) {
-                socket.send(JSON.stringify(message));
+    return new Promise(async (resolve, reject) => {
+        try {
+            // change BuggyType to whatever message type you want to log in the server console
+            if (message.type !== "BuggyTypeHere") {
+                logger.debug(`broadcasting ${message.type} message to ${role}`);
+                logger.debug(message);
             }
+
+            Object.keys(clientsObject).forEach(async clientUUID => {
+                const client = clientsObject[clientUUID];
+                const socket = client.socket;
+
+                if (socket?.readyState !== WebSocket.OPEN) {
+                    return;
+                }
+
+                if (role === 'all') {
+                    socket.send(JSON.stringify(message));
+                } else {
+                    const user = await db.getUser(clientUUID);
+                    console.log(user)
+                    const clientRole = user.role
+                    if (clientRole === role) {
+                        console.log(`sending to ${user.username} with ${user.role}`)
+                        console.log(message)
+                        socket.send(JSON.stringify(message));
+                    }
+                }
+            })
+
+            resolve();
+        } catch (error) {
+            reject(error);
         }
     });
 }
@@ -678,9 +689,14 @@ async function handleConnections(ws, type, request) {
                     await fio.writeConfig(liveConfig)
                     await db.upsertChar(parsedMessage.newChar, parsedMessage.newCharDisplayName, user.color)
                     await broadcast(changeCharMessage, 'host');
+
+                    //this is necessary even though broadcast is wrapped in a promise..
+                    await new Promise((resolve) => setTimeout(resolve, 0));
+
+                    //send reduced message with displayname only to guests
                     delete changeCharMessage.char
                     changeCharMessage.type = 'changeCharacterDisplayName'
-                    await broadcast(changeCharMessage, 'guest')
+                    await broadcast(changeCharMessage, 'guest');
                     return
                 }
                 else if (parsedMessage.type === 'changeSamplerPreset') {

@@ -71,6 +71,11 @@ let hostKey = ''
 
 fio.releaseLock()
 api.getAPIDefaults()
+//populate array with all cards on server start
+//mostly to make SQL recognize them all
+//previously we waited for a user to connect to do this
+
+let cardList
 
 // Configuration
 const apiKey = "_YOUR_API_KEY_HERE_";
@@ -210,6 +215,20 @@ async function initFiles() {
         await writeFileAsync(secretsPath, JSON.stringify(defaultSecrets, null, 2));
         logger.warn('secrets.json created, please update it with real credentials now and restart the server.');
     }
+
+    cardList = await fio.getCardList()
+    logger.debug(cardList)
+
+    if (!liveConfig.selectedCharacter || liveConfig.selectedCharacter === '') {
+        logger.warn('No selected character found, getting the latest...')
+        let latestCharacter = await db.getLatestCharacter()
+        logger.warn(latestCharacter)
+        liveConfig.selectedCharacter = latestCharacter.char_id
+        liveConfig.selectedCharDisplayName = latestCharacter.displayname;
+        await fio.writeConfig(liveConfig, 'selectedCharacter', latestCharacter.char_id)
+        await fio.writeConfig(liveConfig, 'selectedCharDisplayName', latestCharacter.displayname)
+    }
+
     secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
     //TCAPIkey = secretsObj.api_key
     STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string
@@ -234,6 +253,7 @@ wssServer.on('connection', (ws, request) => {
 });
 
 async function broadcast(message, role = 'all') {
+    //change BuggyType to whatever message type you want to log in server console
     if (message.type === "BuggyTypeHere") {
         logger.debug('broadcasting message');
         logger.trace(message);
@@ -260,7 +280,7 @@ async function broadcast(message, role = 'all') {
 }
 
 
-async function broadcastToHosts(message) {
+/* async function broadcastToHosts(message) {
     //alter the type check for bug checking purposes, otherwise this is turned off
 
     logger.debug('HOST BROADCAST:')
@@ -276,9 +296,11 @@ async function broadcastToHosts(message) {
             socket.send(JSON.stringify(message));
         }
     });
-}
+} */
 
 // Broadcast the updated array of connected usernames to all clients
+//gets its own function because sent so often.
+//TODO: could probably have 'userListMessage' split into a global and just use broadcast() instead
 async function broadcastUserList() {
     const userListMessage = {
         type: 'userList',
@@ -375,19 +397,12 @@ async function handleConnections(ws, type, request) {
     logger.trace("USER =======")
     logger.trace(user)
 
-    const cardList = await fio.getCardList()
     const instructList = await fio.getInstructList()
     const samplerPresetList = await fio.getSamplerPresetList()
     var AIChatJSON = await db.readAIChat();
     var userChatJSON = await db.readUserChat()
 
-    if (!liveConfig.selectedCharacter || liveConfig.selectedCharacter === '') {
-        logger.warn('No selected character found, setting to default character...')
-        liveConfig.selectedCharacter = cardList[0].filename;
-        liveConfig.selectedCharDisplayName = cardList[0].name;
-        await fio.writeConfig(liveConfig, 'selectedCharacter', liveConfig.selectedCharacter)
-        await fio.writeConfig(liveConfig, 'selectedCharDisplayName', liveConfig.selectedCharDisplayName)
-    }
+
 
     //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
     let connectionConfirmedMessage = {
@@ -472,7 +487,6 @@ async function handleConnections(ws, type, request) {
                     const clearUserChatInstruction = {
                         type: 'clearChat'
                     }
-                    // Broadcast the clear chat message to all connected clients
                     await broadcast(clearUserChatInstruction);
                     return
                 }
@@ -484,7 +498,7 @@ async function handleConnections(ws, type, request) {
                         type: 'autoAItoggleUpdate',
                         value: liveConfig.isAutoResponse
                     }
-                    await broadcastToHosts(settingChangeMessage)
+                    await broadcast(settingChangeMessage, 'host')
                     return
                 }
                 else if (parsedMessage.type === 'toggleStreaming') {
@@ -495,7 +509,7 @@ async function handleConnections(ws, type, request) {
                         type: 'streamingToggleUpdate',
                         value: liveConfig.isStreaming
                     }
-                    await broadcastToHosts(settingChangeMessage)
+                    await broadcast(settingChangeMessage, 'host')
                     return
                 }
                 else if (parsedMessage.type === 'adjustContextSize') {
@@ -506,7 +520,7 @@ async function handleConnections(ws, type, request) {
                         type: 'contextSizeChange',
                         value: liveConfig.contextSize
                     }
-                    await broadcastToHosts(settingChangeMessage)
+                    await broadcast(settingChangeMessage, 'host')
                     return
 
                 }
@@ -518,7 +532,7 @@ async function handleConnections(ws, type, request) {
                         type: 'responseLengthChange',
                         value: liveConfig.responseLength
                     }
-                    await broadcastToHosts(settingChangeMessage)
+                    await broadcast(settingChangeMessage, 'host')
                     return
 
                 }
@@ -530,7 +544,7 @@ async function handleConnections(ws, type, request) {
                         type: 'modelChange',
                         value: liveConfig.selectedModel
                     }
-                    await broadcastToHosts(settingChangeMessage)
+                    await broadcast(settingChangeMessage, 'host')
                     return
                 }
                 else if (parsedMessage.type === 'AIChatDelayChange') {
@@ -571,7 +585,7 @@ async function handleConnections(ws, type, request) {
                         APIList: apis,
                         selectedAPI: liveConfig.selectedAPI
                     }
-                    await broadcast(APIListMessage)
+                    await broadcast(APIListMessage, 'host')
 
                     let APIChangeMessage = {
                         type: 'apiChange',
@@ -672,10 +686,15 @@ async function handleConnections(ws, type, request) {
                         char: parsedMessage.newChar,
                         charDisplayName: parsedMessage.newCharDisplayName
                     }
+
                     liveConfig.selectedCharacter = parsedMessage.newChar
                     liveConfig.selectedCharDisplayName = parsedMessage.newCharDisplayName
                     await fio.writeConfig(liveConfig)
-                    await broadcast(changeCharMessage);
+                    await db.upsertChar(parsedMessage.newChar, parsedMessage.newCharDisplayName, user.color)
+                    await broadcast(changeCharMessage, 'host');
+                    delete changeCharMessage.char
+                    changeCharMessage.type = 'changeCharacterDisplayName'
+                    await broadcast(changeCharMessage, 'guest')
                     return
                 }
                 else if (parsedMessage.type === 'changeSamplerPreset') {
@@ -689,7 +708,7 @@ async function handleConnections(ws, type, request) {
                     liveConfig.samplers = samplerData
                     await fio.writeConfig(liveConfig, 'samplers', liveConfig.samplers)
                     await fio.writeConfig(liveConfig, 'selectedPreset', selectedPreset)
-                    await broadcast(changePresetMessage);
+                    await broadcast(changePresetMessage, 'host');
                     return
                 }
                 else if (parsedMessage.type === 'changeInstructFormat') {
@@ -702,7 +721,7 @@ async function handleConnections(ws, type, request) {
                     liveConfig.instructSequences = instructSequences
                     await fio.writeConfig(liveConfig, 'instructSequences', liveConfig.instructSequences)
                     await fio.writeConfig(liveConfig, 'instructFormat', parsedMessage.newInstructFormat)
-                    await broadcast(changeInstructMessage);
+                    await broadcast(changeInstructMessage, 'host');
                     return
                 }
                 else if (parsedMessage.type === 'changeD1JB') {
@@ -712,7 +731,7 @@ async function handleConnections(ws, type, request) {
                     }
                     liveConfig.D1JB = parsedMessage.newD1JB
                     await fio.writeConfig(liveConfig)
-                    await broadcast(changeD1JBMessage);
+                    await broadcast(changeD1JBMessage, 'host');
                     return
                 }
                 else if (parsedMessage.type === 'AIRetry') {
@@ -741,7 +760,7 @@ async function handleConnections(ws, type, request) {
                     }
                     liveConfig.engineMode = engineMode
                     await fio.writeConfig(liveConfig, 'engineMode', engineMode)
-                    await broadcast(modeChangeMessage);
+                    await broadcast(modeChangeMessage, 'host');
                     return
                 }
                 else if (parsedMessage.type === 'pastChatsRequest') {
@@ -750,7 +769,7 @@ async function handleConnections(ws, type, request) {
                         type: 'pastChatsList',
                         pastChats: pastChats
                     }
-                    await broadcast(pastChatsListMessage)
+                    await broadcast(pastChatsListMessage, 'host')
                     return
                 }
                 else if (parsedMessage.type === 'loadPastChat') {
@@ -773,7 +792,7 @@ async function handleConnections(ws, type, request) {
                             type: 'pastChatDeleted',
                             wasActive: wasActive
                         }
-                        await broadcast(pastChatsDeleteConfirmation)
+                        await broadcast(pastChatsDeleteConfirmation, 'host')
                         return
                     } else {
                         return
@@ -801,7 +820,6 @@ async function handleConnections(ws, type, request) {
                     }
                     db.upsertUserRole(uuid, 'host');
                     await ws.send(JSON.stringify(keyAcceptedMessage))
-                    //await broadcast(keyAcceptedMessage);
                 }
                 else if (parsedMessage.key === modKey) {
                     const keyAcceptedMessage = {
@@ -810,7 +828,6 @@ async function handleConnections(ws, type, request) {
                     }
                     db.upsertUserRole(uuid, 'mod');
                     await ws.send(JSON.stringify(keyAcceptedMessage))
-                    //await broadcast(keyAcceptedMessage);
                 }
                 else {
                     const keyRejectedMessage = {
@@ -818,7 +835,6 @@ async function handleConnections(ws, type, request) {
                     }
                     logger.error(`Key rejected: ${parsedMessage.key} from ${senderUUID}`)
                     await ws.send(JSON.stringify(keyRejectedMessage))
-                    //await broadcast(keyRejectedMessage);
                 }
             }
             else if (parsedMessage.type === 'chatMessage') { //handle normal chat messages
@@ -846,7 +862,6 @@ async function handleConnections(ws, type, request) {
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     if (!isEmptyTrigger) {
                         await db.writeAIChatMessage(username, senderUUID, userInput, 'user');
-                        //console.log('broadcasting user message')
                         await broadcast(userPrompt)
                     }
 
@@ -1012,7 +1027,7 @@ guestServer.listen(wssPort, '0.0.0.0', () => {
 });
 
 // Handle server shutdown via ctrl+c
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
     logger.warn('Server shutting down...');
 
     // Send a message to all connected clients
@@ -1020,6 +1035,9 @@ process.on('SIGINT', () => {
         type: 'forceDisconnect',
     };
     broadcast(serverShutdownMessage);
+
+    //give a delay to make sure the shutdown message is sent to all users
+    await delay(1000)
 
     // Close the WebSocket server
     wsServer.close(() => {

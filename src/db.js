@@ -306,13 +306,39 @@ async function upsertUserRole(uuid, role) {
 
 // Create or update the character in the database
 async function upsertChar(uuid, displayname, color) {
-    logger.debug('Adding/updating character...' + uuid);
+    //logger.debug('Adding/updating character...' + uuid);
     const db = await dbPromise;
     try {
-        await db.run('INSERT OR REPLACE INTO characters (char_id, displayname, display_color, last_seen_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [uuid, displayname, color]);
-        logger.debug('A character was upserted');
+        const existingRow = await db.get('SELECT displayname FROM characters WHERE char_id = ?', [uuid]);
+
+        if (!existingRow) {
+            // Case 1: Row with matching uuid doesn't exist, create a new row
+            await db.run('INSERT INTO characters (char_id, displayname, display_color, last_seen_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [uuid, displayname, color]);
+            logger.debug(`A new character was inserted, ${uuid}, ${displayname}`);
+        } else if (existingRow.displayname !== displayname) {
+            // Case 2: Row with matching uuid exists, but displayname is different, update displayname and last_seen_at
+            await db.run('UPDATE characters SET displayname = ?, last_seen_at = CURRENT_TIMESTAMP WHERE char_id = ?', [displayname, uuid]);
+            logger.debug(`Updated displayname for character from ${existingRow.displayname} to ${displayname}`);
+        } else {
+            // Case 3: Row with matching uuid AND displayname exists, only update last_seen_at
+            await db.run('UPDATE characters SET last_seen_at = CURRENT_TIMESTAMP WHERE char_id = ?', [uuid]);
+            //logger.debug('Last seen timestamp was updated');
+        }
     } catch (err) {
         logger.error('Error writing character:', err);
+    }
+}
+
+// Retrieve the character with the most recent last_seen_at value
+async function getLatestCharacter() {
+    logger.debug('Retrieving the character with the most recent last_seen_at value');
+    const db = await dbPromise;
+    try {
+        const character = await db.get('SELECT * FROM characters ORDER BY last_seen_at DESC LIMIT 1');
+        return character;
+    } catch (err) {
+        logger.error('Error retrieving character:', err);
+        return null;
     }
 }
 
@@ -546,5 +572,6 @@ module.exports = {
     upsertAPI: upsertAPI,
     getAPIs: getAPIs,
     getAPI: getAPI,
-    newUserChatSession: newUserChatSession
+    newUserChatSession: newUserChatSession,
+    getLatestCharacter: getLatestCharacter,
 };

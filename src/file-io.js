@@ -11,6 +11,25 @@ remoteApp.use(express.static('public'));
 
 const characterCardParser = require('./character-card-parser.js');
 
+const charnameColors = [
+    '#FF8A8A',  // Light Red
+    '#FFC17E',  // Light Orange
+    '#FFEC8A',  // Light Yellow
+    '#6AFF9E',  // Light Green
+    '#6ABEFF',  // Light Blue
+    '#C46AFF',  // Light Purple
+    '#FF6AE4',  // Light Magenta
+    '#FF6A9C',  // Light Pink
+    '#FF5C5C',  // Red
+    '#FFB54C',  // Orange
+    '#FFED4C',  // Yellow
+    '#4CFF69',  // Green
+    '#4CCAFF',  // Blue
+    '#AD4CFF',  // Purple
+    '#FF4CC3',  // Magenta
+    '#FF4C86',  // Pink
+];
+
 //Import db handler from /db.js
 const db = require('./db.js');
 
@@ -153,6 +172,7 @@ async function charaRead(img_url, input_format) {
 }
 
 async function getCardList() {
+    console.debug('Gathering character card list..')
     const path = 'public/characters'
     const files = await fs.promises.readdir(path);
     var cards = []
@@ -168,6 +188,8 @@ async function getCardList() {
                 name: jsonData.name,
                 filename: jsonData.filename
             }
+            thisCharColor = charnameColors[Math.floor(Math.random() * charnameColors.length)];
+            db.upsertChar(jsonData.filename, jsonData.name, thisCharColor)
         } catch (error) {
             logger.error(`Error reading file ${file}:`, error);
         }

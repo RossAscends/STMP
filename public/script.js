@@ -46,15 +46,17 @@ var sanitizeExtension = {
 
 var quotesExtension = function () {
     var regexes = [
-        { regex: /"([^""]*)"/g, replace: '<q>$1</q>' },
-        { regex: /“([^“”]*)”/g, replace: '<q class="invisible-quotation">“$1”</q>' },
-        { regex: /‘([^‘’]*)’/g, replace: '<q class="invisible-quotation">‘$1’</q>' },
+        { regex: /â|â/g, replace: '"' },
+        { regex: /â/g, replace: '\'' },
+        { regex: /"([^"]*)"/g, replace: '<q>$1</q>' },
+        { regex: /“([^“”]*)”/g, replace: '<q class="invisible-quotation">"$1"</q>' },
+        { regex: /‘([^‘’]*)’/g, replace: '<q class="invisible-quotation">\'$1\'</q>' },
+        { regex: /â([^(ââ]*)â/g, replace: '<q class="invisible-quotation">\'$1\'</q>' },
         { regex: /«([^«»]*)»/g, replace: '<q class="invisible-quotation">«$1»</q>' },
         { regex: /「([^「」]*)」/g, replace: '<q class="invisible-quotation">「$1」</q>' },
         { regex: /『([^『』]*)』/g, replace: '<q class="invisible-quotation">『$1』</q>' },
         { regex: /【([^【】]*)】/g, replace: '<q class="invisible-quotation">【$1】</q>' },
-        { regex: /《([^《》]*)》/g, replace: '<q class="invisible-quotation">《$1》</q>' }
-
+        { regex: /《([^《》]*)》/g, replace: '<q class="invisible-quotation">《$1》</q>' },
     ];
 
     return regexes.map(function (rule) {
@@ -402,6 +404,10 @@ async function connectWebSocket(username) {
                     control.updateSelectedChar(myUUID, newChar, parsedMessage.charDisplayName, 'forced');
                 }
                 break;
+            case 'changeCharacterDisplayName':
+                let newCharDisplayName = parsedMessage.charDisplayName
+                $("#charName").text(newCharDisplayName)
+                break;
             case 'changeSamplerPreset':
                 let currentPreset = $("#samplerPreset").val()
                 let newPreset = parsedMessage.newPreset
@@ -532,7 +538,14 @@ async function connectWebSocket(username) {
             case 'streamedAIResponse':
                 $('body').addClass('currentlyStreaming')
                 currentlyStreaming = true
-                await displayStreamedResponse(message)
+                let newStreamDivSpan;
+                if (!$("#AIChat .incomingStreamDiv").length) {
+                    newStreamDivSpan = $(`<div class="incomingStreamDiv"><span style="color:${parsedMessage.userColor}" class="chatUserName">${parsedMessage.username}</span><p></p></div>`);
+                    $("#AIChat").append(newStreamDivSpan);
+                } else {
+                    await displayStreamedResponse(message)
+                }
+
                 $("#AISendButton").prop('disabled', true);
                 $("#deleteLastMessageButton").prop('disabled', true);
                 $("#triggerAIResponse").prop('disabled', true);
@@ -607,12 +620,12 @@ let accumulatedContent = ''; // variable to store accumulated content
 async function displayStreamedResponse(message) {
     var { chatID, username, content, userColor, AIChatUserList } = JSON.parse(message);
     let newStreamDivSpan;
-    if (!$("#AIChat .incomingStreamDiv").length) {
-        newStreamDivSpan = $(`<div class="incomingStreamDiv"><span style="color:${userColor}" class="chatUserName">${username}</span><p></p></div>`);
-        $("#AIChat").append(newStreamDivSpan);
-    } else {
-        newStreamDivSpan = $("#AIChat .incomingStreamDiv p");
-    }
+    //if (!$("#AIChat .incomingStreamDiv").length) {
+    //  newStreamDivSpan = $(`<div class="incomingStreamDiv"><span style="color:${userColor}" class="chatUserName">${username}</span><p></p></div>`);
+    //  $("#AIChat").append(newStreamDivSpan);
+    //} else {
+    newStreamDivSpan = $("#AIChat .incomingStreamDiv p");
+    // }
 
     // Create a temporary span element with raw text
     const sanitizedToken = DOMPurify.sanitize(content);
@@ -1167,7 +1180,7 @@ $(async function () {
     });
 
     $("#apiList").on('change', function () {
-        if (initialLoad) { return }
+        if ($(this).val() === 'Default') { return }
 
         console.debug('[#apilist] changed')
         if ($(this).val() === 'addNewAPI') {

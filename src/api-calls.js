@@ -513,7 +513,7 @@ async function testAPI(isStreaming, api, liveConfig) {
         seed: -1,
         stop: [' ']
     }
-    let testMessageObject = [{ entity: 'user', content: 'Test Message' }]
+    let testMessageObject = [{ entity: 'human', content: 'Test Message' }]
     let TCTestMessage = 'User: Test Message'
     if (api.type === 'CC') {
         payload.model = liveConfig.selectedModel
@@ -527,6 +527,7 @@ async function testAPI(isStreaming, api, liveConfig) {
 
 
     let result = await requestToTCorCC(isStreaming, api, payload, testMessage, true, liveConfig)
+
     return result
 
 }
@@ -722,6 +723,15 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
 
         }
     } else {
+
+        if (isTest) {
+            let status = response.status
+            let testResults = {
+                status: status,
+                value: text
+            }
+            return testResults
+        }
         //look for streams first
         if (response.body) {
 
@@ -853,6 +863,14 @@ async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest) {
     let text, status
     logger.info('--- API RESPONSE')
     logger.info(JSONResponse)
+    if (isTest) {
+        status = response.status
+        let testResults = {
+            status: status,
+            value: text
+        }
+        return testResults
+    }
     if (isCCSelected) {
         //look for 'choices' from OAI first..
         if (JSONResponse.choices && JSONResponse.choices.length > 0) {
@@ -864,14 +882,7 @@ async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest) {
     } else { // text completions have data in 'choices'
         text = JSONResponse.choices[0].text
     }
-    if (isTest) {
-        status = response.status
-        let testResults = {
-            status: status,
-            value: text
-        }
-        return testResults
-    }
+
 
     return text
 }

@@ -1,8 +1,9 @@
 # SillyTavern MultiPlayer (STMP)
 
 SillyTavern MultiPlayer is an LLM chat interface that allows multiple users to chat together with an AI.
+It also includes a sidebar chat for users only, and many tools for the Host to control the behavior of the AI and to moderate users.
 
-- Created by RossAscends.
+Created by RossAscends
 
 ## Support and Donations
 
@@ -41,28 +42,7 @@ For tech support or to contact RossAscends directly, join the [SillyTavern Disco
 
 (instructions coming soon)
 
-## Setup
 
-Currently STMP supports Text Completions (TC) and HordeAI, with TC active by default.
-
-### Using Text Completions or Chat Completions
-
-> External Text Completion and Chat Completion connections are currently a Work in Progress!
-> We have tested with connecting to OpenAI's GPT 3.5 Turbo, and found it works.
-> Therefore all Chat Completions APIs are currently hard coded to request a response from `gpt-3.5-turbo`.
-> We intend to soon add model selection for APIs that offer it.
-
-> Anthropic APIs will very likely not work yet!
-
-1. In the Host Control Panel open the selector under the 'API' text and select `Add New API`.
-2. Some inputs will be displayed.
-
-- `Name` - the label you want to remember the API as
-- `Full Endpoint URL` - this is the **FULL AND ENTIRE** endpoint URL, not just the base server URL.
-- `Key` - If your API requires a key, put it in here.
-- `Endpoint Type` - select from Text Completions or Chat Completions as appropriate for the API endpoint.
-
-3. When all of these are filled out, press Save.
 
 <!-- - Obviously, the host must have a Text Completions compatible backend installed and working on their device.
 - [TabbyAPI](https://github.com/theroyallab/tabbyAPI) and [KoboldCPP](https://github.com/LostRuins/koboldcpp) are confirmed to work with STMP's TC API mode.
@@ -127,9 +107,10 @@ The host will see the following controls:
 
 #### AI Controls
 
-- `API` type
+- `Mode` can be clicked to switch between TC/CC mode, and HordeAI mode. 
   - 📑 = Text Completions
   - 🧟 = Horde
+- `API` selector to choose which LLM API to use, and an `Edit` button to change its configuration.
 - `Context` defines how long your API prompt should be. Longer = more chat history sent, but slower processing times.
 - `Response` defines how many tokens long the AI response can be.
 - `Sampler` sets the hyperparameter preset, which affects the response style.
@@ -137,10 +118,34 @@ The host will see the following controls:
 - `AutoAI` Toggle to determine whether the AI should respond to every user input, or only on command from the Host.
 - `Final Instruction` textbox sets what to send as a system message at Depth 1 in the prompt.
 
+### Adding/Editing APIs
+
+Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeAI via SillyTavern.
+
+> External Text Completion and Chat Completion connections are currently a Work in Progress!
+> We have tested connecting to OpenAI compatible APIs, as well as Anthropic's Claude.
+> Most other LLM backends that provide an API in the same format should be compatible with STMP.
+
+- [TabbyAPI](https://github.com/theroyallab/tabbyAPI) and [KoboldCPP](https://github.com/LostRuins/koboldcpp) are confirmed to work with STMP's TC API mode.
+- We suspect [Aphrodite](https://github.com/PygmalionAI/aphrodite-engine) and [Oobabooga Textgeneration Webui](https://github.com/PygmalionAI/aphrodite-engine) should be compatible as well, but have not tested them yet.
+
+1. select `Add new API` from the `API` selector to open the API Editing panel.
+2. A new panel will be displayed with new inputs:
+- `Name` - the label you want to remember the API as
+- `Endpoint URL` - this is the base server URL for the LLM API. If the usual URL does not work, try adding `v1/` to the end.
+- `Key` - If your API requires a key, put it in here.
+- `Endpoint Type` - select from Text Completions or Chat Completions as appropriate for the API endpoint.
+- `Claude` - select this if the API is based on Anthropic's Claude model, because it needs special prompt formatting.
+- `Models` - a list of models provided by the API, if one is available. By default the first model in the list is auto-selected, so be sure to change it if necssary.
+  - **currently model selection resets each time you change APIs.**
+- `Test` button sends a simple test message to the API to get a response. This may not work on all APIs.
+- `Close` button will cancel the API editing/creating process and return you to the main AI Config panel.
+
+3. When all of the fields are filled out, press Save to return to the main Control panel display.
+
 #### Past Chats
 
-- A list of past AI Chats, click to load one.
-- (🔄) refreshes the Past AI Chats list (usually not necessary as it is auto-refreshed with each new AI chat message)
+- A list of past AI Chats, click one to load it.
 
 #### Crowd Controls
 
@@ -150,7 +155,7 @@ The host will see the following controls:
 
 #### Top Left
 
-- The golden (◀️) toggles visibility of the Host Control Panel.
+- (🎛️) toggles visibility of the Host Control Panel.
 - (🖼️) toggles the chat windows between three modes: maximize AI chat >> maximize User Chat >> return to normal dual display.
   - **this is very helpful for mobile users!**
 - (📜) toggles display of both User lists.
@@ -158,11 +163,14 @@ The host will see the following controls:
 #### Top Right
 
 - (▶️/⏸️) allows for manual disconnect/reconnect to the server.
-- (🔑) opens a text box for input of the Host key in order to gain the Host role.
-  - Once a vlid key has been entered, the page will automatically refresh to show the host controls.
-  - **The Host key can be found in the server console at startup.**
-  - After the user enters the key and presses Enter, their page will refresh and they will see the Host controls.
-- (⛔) clears the saved Usernames and UniqueID from localStorage.
+- (🛠️) opens a Profile management menu which contains:
+  - (🔑) opens a text box for input of the Host key in order to gain the Host role.
+    - Once a vlid key has been entered, the page will automatically refresh to show the host controls.
+    - **The Host key can be found in the server console at startup.**
+    - After the user enters the key and presses Enter, their page will refresh and they will see the Host controls.
+  - (⛔) clears the saved Usernames and UniqueID from localStorage.
+    - If you are not the primary Host you will lose any roles you were given.
+    - You will be asked to register a new username next time you sign in on the same browser.
 
 #### In the Chat Windows
 
@@ -177,17 +185,17 @@ The host will see the following controls:
 
 ### Managing Characters
 
-- Place any SillyTavern compatible character card into the `/characters/` folder and refresh the page.
-- Character can be selected at the top of the AI Chat panel.
-- If new characters are added while the server is running, the Host must refresh their browser page to see them.
-- the AI character can be changed at any time without resetting the chat.
+- Place any SillyTavern compatible character card into the `/characters/` folder and restart the server.
+  - We will add a way to add characters without restarting the server soon. 
+- Characters can be selected at the top of the AI Chat panel.
+- Characters can be swapped at any time without resetting the chat, allowing you to manually simulate a group chat.
 
 ### Adding Presets
 
 - If you want to add more presets for Instruct formats or hyperparameter Samplers, put the JSON file into the appropriate folder:
 - Samplers go in `/public/api-presets/`
 - Instruct formats go in`/public/instructFormats/`
-- It's highly reccomended to review the structure of the default STMP preset files.
+- **It's highly reccomended to review the structure of the default STMP preset files.**
 - SillyTavern preset files may not work, or may have unintended effects!
 
 ## Planned Features
@@ -195,18 +203,33 @@ The host will see the following controls:
 ### Core Functionality
 
 - Smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
-- Custom OpenAI text completion compatible API endpoint selection
+  add customizable system prompt input
+- add Depth 4 insertion input
 
 ### Host Controls
 
 - Toggle for locking AI chat for users? (this is already kind of done with AutoResponse off)
 - Drag-sort list to set User Turn Order for AI chatting?
-- Allow API key/Authentication information to be set via the UI.
 - Ability to rename chats.
 - ability to remove any message in the chat, not just the last.
 - ability to edit the text of a chat
 - ability for Host to edit a User's role from the UI
 - ability to change the max length of chat inputs (currently 1000 characters)
+- make control for AI replying every X messages
+- make control for host, to autoclear chat every X messages
+- disallow names that are only spaces, punctuations, or non ASCII (non-Latin?) characters
+  - require at least 3? A-Za-z characters
+- disallow registering of names that are already in the DB
+
+### Quality of Life
+
+- make control for guests to clear DISPLAY of either chat (without affecting the chat database) to prevent browser lag
+- highlight exact username matches in AI response with their color
+- fade out users in user chat list who havent chatted in X minutes (add a css class with opacity 50%)
+- fade out users in ai chat list who are no longer connected, or are faded out in user list (same)
+- show which users in the User Chat are using which name in the AI Chat
+- add a link to the User message that the AI is responding to at the top of each AI message.
+- When an AI resposne is triggered by UserX's input, UserX sees that response highlighted in the chat
 
 ### Low-priority but Nice-to-have Features
 

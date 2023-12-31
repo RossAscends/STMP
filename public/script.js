@@ -1,5 +1,10 @@
 var username, isAutoResponse, isStreaming, isClaude, contextSize, responseLength, isPhone, currentlyStreaming
 
+export var isUserScrollingAIChat = false;
+export var isUserScrollingUserChat = false;
+let scrollTimeout;
+
+
 //this prevents selectors from firing off when being initially populated
 var initialLoad = true
 
@@ -321,6 +326,7 @@ async function processConfirmedConnection(parsedMessage) {
         appendMessagesWithConverter(parsedAIChatHistory, "#AIChat");
     }
 
+    //we always want to auto scroll the chats on first load
     $("#chat").scrollTop($("#chat").prop("scrollHeight"));
     $("#AIChat").scrollTop($("#AIChat").prop("scrollHeight"));
 
@@ -400,7 +406,8 @@ async function connectWebSocket(username) {
                 const sanitizedUsernameChangeMessage = DOMPurify.sanitize(HTMLizedUsernameChangeMessage);
                 let newUsernameChatItem = $('<div>');
                 newUsernameChatItem.html(`<i>${sanitizedUsernameChangeMessage}</i>`);
-                $("#chat").append(newUsernameChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
+                $("#chat").append(newUsernameChatItem)
+                control.kindlyScrollDivToBottom($("#chat"))
                 break;
             case 'changeCharacter':
                 let currentChar = $("#characters").val()
@@ -549,6 +556,7 @@ async function connectWebSocket(username) {
                 if (!$("#AIChat .incomingStreamDiv").length) {
                     newStreamDivSpan = $(`<div class="incomingStreamDiv"><span style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}🤖</span><p></p></div>`);
                     $("#AIChat").append(newStreamDivSpan);
+                    control.kindlyScrollDivToBottom($("#AIChat"))
                 }
                 await displayStreamedResponse(message)
 
@@ -614,7 +622,9 @@ async function connectWebSocket(username) {
                     $(newChatItem).prop('title', `${workerName} - ${hordeModel} (Kudos: ${kudosCost})`);
                 }
                 console.debug('appending new message to chat')
-                $(`div[data-chat-id="${chatID}"]`).append(newChatItem).scrollTop($(`div[data-chat-id="${chatID}"]`).prop("scrollHeight"));
+                $(`div[data-chat-id="${chatID}"]`).append(newChatItem)
+                control.kindlyScrollDivToBottom($(`div[data-chat-id="${chatID}"]`))
+
                 if (chatID === 'AIChat') {
                     $("#showPastChats").trigger('click') //autoupdate the past chat list with each AI chat message
                 }
@@ -649,10 +659,10 @@ async function displayStreamedResponse(message) {
     //const existingUsernameSpan = newStreamDivSpan.find('.chatUserName');
 
     newStreamDivSpan.append(spanElement);
+    control.kindlyScrollDivToBottom($("#AIChat"))
 
     // Scroll to the bottom of the div to view incoming tokens
     //not sure this is working
-    //$("#AIChat").scrollTop($("#AIChat")[0].scrollHeight);
 }
 
 async function betterSlideToggle(target, speed = 250, animationDirection) {
@@ -1153,6 +1163,7 @@ $(async function () {
         betterSlideToggle($("#userList"), 250, 'width')
     })
 
+    //this auto resizes the chat input box as the input gets longer
     $('#AIMessageInput, #messageInput').on('input', function () {
         const activeInputboxID = this.id;
         const isAIMessageInput = activeInputboxID === 'AIMessageInput';
@@ -1282,6 +1293,24 @@ $(async function () {
         console.debug('toggling Crowd Control view...')
         $(this).children('i').toggleClass('fa-toggle-on fa-toggle-off')
         betterSlideToggle(target, 100, 'height')
+    })
+
+    $("#AIChat").on('scroll', function () {
+        isUserScrollingAIChat = true
+        clearTimeout(scrollTimeout);
+        //timer to reset the scrolling variable, effectively detecting the scroll is done.
+        scrollTimeout = setTimeout(function () {
+            isUserScrollingAIChat = false;
+        }, 100);
+    })
+
+    $("#AIChat").on('scroll', function () {
+        isUserScrollingUserChat = true
+        clearTimeout(scrollTimeout);
+        //timer to reset the scrolling variable, effectively detecting the scroll is done.
+        scrollTimeout = setTimeout(function () {
+            isUserScrollingUserChat = false;
+        }, 100);
     })
 
 

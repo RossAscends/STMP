@@ -1,4 +1,4 @@
-import { flashElement, messageServer, delay } from "../script.js"
+import { flashElement, messageServer, isUserScrollingAIChat, isUserScrollingUserChat, delay } from "../script.js"
 
 function updateSelectedChar(myUUID, char, displayName, type) {
     console.debug(char, displayName)
@@ -255,6 +255,32 @@ function setEngineMode(mode) {
     }
 }
 
+//gets args as JQuery objects: $("#ElementID")
+//only scrolls to bottom if the user scroll point was already within 100px of bottom
+//and the user is not presently scrolling.
+//used to keep streamed chats in view as they come in if you're sitting at the bottom
+//but allows for uninterrupted chat history viewing when new messages arrive as well.
+function kindlyScrollDivToBottom(divElement) {
+    let relevantScrollStatus = false
+    if (divElement.get(0) === $("#AIChat").get(0)) {
+        console.log('AIChat is relelvant..')
+        relevantScrollStatus = isUserScrollingAIChat
+    }
+    if (divElement.get(0) === $("#chat").get(0)) {
+        console.log('user chat is relevant')
+        relevantScrollStatus = isUserScrollingUserChat
+    }
+
+    const isScrolledToBottom = divElement.scrollTop() + divElement.outerHeight() >= divElement[0].scrollHeight - 100;
+
+    console.log(divElement.attr('id'), isScrolledToBottom, relevantScrollStatus, isUserScrollingAIChat, isUserScrollingUserChat)
+
+    console.log(`scrolling? ${isScrolledToBottom && !relevantScrollStatus}`)
+    if (isScrolledToBottom && !relevantScrollStatus) {
+        divElement.scrollTop(divElement[0].scrollHeight);
+    }
+}
+
 export default {
     setEngineMode: setEngineMode,
     populateAPISelector: populateAPISelector,
@@ -274,4 +300,5 @@ export default {
     disableAPIEdit: disableAPIEdit,
     populateModelsList: populateModelsList,
     updateSelectedModel: updateSelectedModel,
+    kindlyScrollDivToBottom: kindlyScrollDivToBottom,
 }

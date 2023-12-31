@@ -256,19 +256,12 @@ async function broadcast(message, role = 'all') {
     return new Promise(async (resolve, reject) => {
         try {
             // change BuggyType to whatever message type you want to log in the server console
-            if (message.type !== "BuggyTypeHere") {
-                logger.debug(`broadcasting ${message.type} message to ${role}`);
-                logger.debug(message);
-            }
-
             Object.keys(clientsObject).forEach(async clientUUID => {
                 const client = clientsObject[clientUUID];
                 const socket = client.socket;
-
                 if (socket?.readyState !== WebSocket.OPEN) {
                     return;
                 }
-
                 if (role === 'all') {
                     socket.send(JSON.stringify(message));
                 } else {
@@ -276,13 +269,16 @@ async function broadcast(message, role = 'all') {
                     console.log(user)
                     const clientRole = user.role
                     if (clientRole === role) {
-                        console.log(`sending to ${user.username} with ${user.role}`)
-                        console.log(message)
                         socket.send(JSON.stringify(message));
                     }
                 }
+                //change this to any valid type for logging
+                //or change the logic to !== to log all
+                if (message.type === "BuggyTypeHere") {
+                    logger.debug(`Sent "${message.type}" message to ${user.username}(${role})`);
+                    logger.debug(message);
+                }
             })
-
             resolve();
         } catch (error) {
             reject(error);
@@ -963,7 +959,7 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
 
     //just get the AI chat userlist with 'true' as last argument
     //this is jank..
-    let AIChatUserList = await api.getAIResponse(isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, true);
+    let AIChatUserList = await api.getAIResponse(isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, true, parsedMessage);
 
     if (isStreaming) {
 
@@ -974,7 +970,7 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
 
         // Make the API request for streamed responses
 
-        const response = await api.getAIResponse(isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, false);
+        const response = await api.getAIResponse(isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, false, parsedMessage);
 
         if (response === null) {
             textListener('END_OF_RESPONSE');
@@ -1000,7 +996,7 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
         //logger.info('SENDING BACK NON-STREAM RESPONSE')
         // Handle non-streamed response
         [AIResponse, AIChatUserList] = await api.getAIResponse(
-            isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, false);
+            isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, false, parsedMessage);
 
         const AIResponseMessage = {
             chatID: parsedMessage.chatID,

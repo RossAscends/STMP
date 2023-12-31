@@ -37,7 +37,7 @@ async function getAPIDefaults(shouldReturn = null) {
     }
 }
 
-async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, onlyUserList) {
+async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage) {
     let isCCSelected = liveAPI.type === 'CC' ? true : false
     try {
         let APICallParams = {}
@@ -61,7 +61,7 @@ async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredential
         //a careful observer might notice that we don't set the userInput string into the 'prompt' section of the API Params at this point.
         //this is because the userInput has already been saved into the chat session, and the next function will read 
         //that file and parse the contents from there. All we need to do is pass the cardDefs, charName. and userName.
-        const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, fixedFinalCharName, user.username, liveAPI)
+        const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, fixedFinalCharName, parsedMessage.username, liveAPI)
         const samplers = JSON.parse(liveConfig.samplers);
         //logger.debug(samplers)
         //apply the selected preset values to the API call

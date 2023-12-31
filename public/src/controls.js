@@ -263,19 +263,17 @@ function setEngineMode(mode) {
 function kindlyScrollDivToBottom(divElement) {
     let relevantScrollStatus = false
     if (divElement.get(0) === $("#AIChat").get(0)) {
-        console.log('AIChat is relelvant..')
         relevantScrollStatus = isUserScrollingAIChat
     }
     if (divElement.get(0) === $("#chat").get(0)) {
-        console.log('user chat is relevant')
         relevantScrollStatus = isUserScrollingUserChat
     }
 
     const isScrolledToBottom = divElement.scrollTop() + divElement.outerHeight() >= divElement[0].scrollHeight - 100;
 
-    console.log(divElement.attr('id'), isScrolledToBottom, relevantScrollStatus, isUserScrollingAIChat, isUserScrollingUserChat)
+    //console.log(divElement.attr('id'), isScrolledToBottom, relevantScrollStatus, isUserScrollingAIChat, isUserScrollingUserChat)
+    //console.log(`scrolling? ${isScrolledToBottom && !relevantScrollStatus}`)
 
-    console.log(`scrolling? ${isScrolledToBottom && !relevantScrollStatus}`)
     if (isScrolledToBottom && !relevantScrollStatus) {
         divElement.scrollTop(divElement[0].scrollHeight);
     }

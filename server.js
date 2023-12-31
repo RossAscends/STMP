@@ -259,25 +259,6 @@ async function broadcast(message, role = 'all') {
     });
 }
 
-
-async function broadcastToHosts(message) {
-    //alter the type check for bug checking purposes, otherwise this is turned off
-
-    logger.debug('HOST BROADCAST:')
-    logger.debug(message)
-
-    let hostsObjects = Object.values(clientsObject).filter(obj => obj.role === 'host');
-
-    Object.keys(hostsObjects).forEach(clientUUID => {
-        const client = hostsObjects[clientUUID];
-        const socket = client.socket;
-
-        if (socket?.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify(message));
-        }
-    });
-}
-
 // Broadcast the updated array of connected usernames to all clients
 async function broadcastUserList() {
     const userListMessage = {
@@ -311,6 +292,15 @@ async function saveAndClearChat(type) {
     else {
         logger.warn('Unknown chat type, not saving chat history...')
     }
+}
+
+async function setSelectedAPI(newAPI) {
+    selectedAPI = newAPI.name
+    liveConfig.selectedAPI = selectedAPI
+    liveConfig.selectedModel = ''
+    liveAPI = newAPI
+    await fio.writeConfig(liveConfig, 'selectedAPI', selectedAPI)
+    logger.debug(`Selected API is now ${selectedAPI}`)
 }
 
 async function handleConnections(ws, type, request) {
@@ -484,7 +474,7 @@ async function handleConnections(ws, type, request) {
                         type: 'autoAItoggleUpdate',
                         value: liveConfig.isAutoResponse
                     }
-                    await broadcastToHosts(settingChangeMessage)
+                    await broadcast(settingChangeMessage, 'host')
                     return
                 }
                 else if (parsedMessage.type === 'toggleStreaming') {
@@ -495,7 +485,7 @@ async function handleConnections(ws, type, request) {
                         type: 'streamingToggleUpdate',
                         value: liveConfig.isStreaming
                     }
-                    await broadcastToHosts(settingChangeMessage)
+                    await broadcast(settingChangeMessage, 'host')
                     return
                 }
                 else if (parsedMessage.type === 'adjustContextSize') {
@@ -506,7 +496,7 @@ async function handleConnections(ws, type, request) {
                         type: 'contextSizeChange',
                         value: liveConfig.contextSize
                     }
-                    await broadcastToHosts(settingChangeMessage)
+                    await broadcast(settingChangeMessage, 'host')
                     return
 
                 }
@@ -518,7 +508,7 @@ async function handleConnections(ws, type, request) {
                         type: 'responseLengthChange',
                         value: liveConfig.responseLength
                     }
-                    await broadcastToHosts(settingChangeMessage)
+                    await broadcast(settingChangeMessage, 'host')
                     return
 
                 }
@@ -530,7 +520,7 @@ async function handleConnections(ws, type, request) {
                         type: 'modelChange',
                         value: liveConfig.selectedModel
                     }
-                    await broadcastToHosts(settingChangeMessage)
+                    await broadcast(settingChangeMessage, 'host')
                     return
                 }
                 else if (parsedMessage.type === 'AIChatDelayChange') {
@@ -571,7 +561,7 @@ async function handleConnections(ws, type, request) {
                         APIList: apis,
                         selectedAPI: liveConfig.selectedAPI
                     }
-                    await broadcast(APIListMessage)
+                    await broadcast(APIListMessage, 'host')
 
                     let APIChangeMessage = {
                         type: 'apiChange',
@@ -581,6 +571,7 @@ async function handleConnections(ws, type, request) {
                         endpointType: newAPI.type,
                         claude: newAPI.claude
                     }
+                    setSelectedAPI(newAPI);
                     await broadcast(APIChangeMessage, 'host')
                     return
                 }
@@ -594,11 +585,7 @@ async function handleConnections(ws, type, request) {
                         endpointType: newAPI.type,
                         claude: newAPI.claude
                     }
-                    selectedAPI = newAPI.name
-                    liveConfig.selectedAPI = selectedAPI
-                    liveConfig.selectedModel = ''
-                    liveAPI = newAPI
-                    await fio.writeConfig(liveConfig, 'selectedAPI', selectedAPI)
+                    setSelectedAPI(newAPI);
                     await broadcast(changeAPI, 'host');
                     return
                 }

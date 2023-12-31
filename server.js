@@ -676,7 +676,7 @@ async function handleConnections(ws, type, request) {
                     liveConfig.samplers = samplerData
                     await fio.writeConfig(liveConfig, 'samplers', liveConfig.samplers)
                     await fio.writeConfig(liveConfig, 'selectedPreset', selectedPreset)
-                    await broadcast(changePresetMessage);
+                    await broadcast(changePresetMessage, 'host');
                     return
                 }
                 else if (parsedMessage.type === 'changeInstructFormat') {

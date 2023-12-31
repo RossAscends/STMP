@@ -279,25 +279,6 @@ async function broadcast(message, role = 'all') {
     });
 }
 
-
-/* async function broadcastToHosts(message) {
-    //alter the type check for bug checking purposes, otherwise this is turned off
-
-    logger.debug('HOST BROADCAST:')
-    logger.debug(message)
-
-    let hostsObjects = Object.values(clientsObject).filter(obj => obj.role === 'host');
-
-    Object.keys(hostsObjects).forEach(clientUUID => {
-        const client = hostsObjects[clientUUID];
-        const socket = client.socket;
-
-        if (socket?.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify(message));
-        }
-    });
-} */
-
 // Broadcast the updated array of connected usernames to all clients
 //gets its own function because sent so often.
 //TODO: could probably have 'userListMessage' split into a global and just use broadcast() instead

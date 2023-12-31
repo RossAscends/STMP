@@ -113,13 +113,30 @@ async function ensureDatabaseSchema(schemaDictionary) {
 async function writeUserChatMessage(userId, message) {
     logger.debug('Writing user chat message to database...');
     const db = await dbPromise;
+
     try {
-        await db.run('INSERT INTO userchats (user_id, message, session_id) VALUES (?, ?, ?)', [userId, message, (await db.get('SELECT session_id FROM sessions WHERE is_active = TRUE')).session_id]);
+        // Retrieve the active session ID, if it exists
+        const activeSession = await db.get('SELECT session_id FROM sessions WHERE is_active = TRUE');
+        let insertQuery, params;
+
+        if (activeSession) {
+            // If there is an active session, include the session_id in the insert statement
+            insertQuery = 'INSERT INTO userchats (user_id, message, session_id) VALUES (?, ?, ?)';
+            params = [userId, message, activeSession.session_id];
+        } else {
+            // If there is no active session, omit the session_id
+            insertQuery = 'INSERT INTO userchats (user_id, message) VALUES (?, ?)';
+            params = [userId, message];
+        }
+
+        // Execute the insert query with the appropriate parameters
+        await db.run(insertQuery, params);
         logger.debug('A side chat message was inserted');
     } catch (err) {
         logger.error('Error writing side chat message:', err);
     }
 }
+
 
 async function getPastChats(type) {
     logger.debug(`Getting data for all past ${type} chats...`);

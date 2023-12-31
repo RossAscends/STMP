@@ -316,6 +316,15 @@ async function saveAndClearChat(type) {
     }
 }
 
+async function setSelectedAPI(newAPI) {
+    selectedAPI = newAPI.name
+    liveConfig.selectedAPI = selectedAPI
+    liveConfig.selectedModel = ''
+    liveAPI = newAPI
+    await fio.writeConfig(liveConfig, 'selectedAPI', selectedAPI)
+    logger.debug(`Selected API is now ${selectedAPI}`)
+}
+
 async function handleConnections(ws, type, request) {
     // Parse the URL to get the query parameters
     const urlParams = new URLSearchParams(request.url.split('?')[1]);
@@ -576,6 +585,7 @@ async function handleConnections(ws, type, request) {
                         endpointType: newAPI.type,
                         claude: newAPI.claude
                     }
+                    setSelectedAPI(newAPI);
                     await broadcast(APIChangeMessage, 'host')
                     return
                 }
@@ -589,11 +599,7 @@ async function handleConnections(ws, type, request) {
                         endpointType: newAPI.type,
                         claude: newAPI.claude
                     }
-                    selectedAPI = newAPI.name
-                    liveConfig.selectedAPI = selectedAPI
-                    liveConfig.selectedModel = ''
-                    liveAPI = newAPI
-                    await fio.writeConfig(liveConfig, 'selectedAPI', selectedAPI)
+                    setSelectedAPI(newAPI);
                     await broadcast(changeAPI, 'host');
                     return
                 }

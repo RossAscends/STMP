@@ -60,7 +60,6 @@ async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredential
         var fixedFinalCharName = JSON.parse(finalCharName.replace(/<[^>]+>/g, ''));
         //a careful observer might notice that we don't set the userInput string into the 'prompt' section of the API Params at this point.
         //this is because the userInput has already been saved into the chat session, and the next function will read 
-        //that file and parse the contents from there. All we need to do is pass the cardDefs, charName. and userName.
         const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, fixedFinalCharName, parsedMessage.username, liveAPI)
         const samplers = JSON.parse(liveConfig.samplers);
         //logger.debug(samplers)

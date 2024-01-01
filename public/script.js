@@ -60,12 +60,12 @@ var sanitizeExtension = {
 
 var quotesExtension = function () {
     var regexes = [
-        /*         { regex: /â|â/g, replace: '"' },
-                { regex: /â/g, replace: '\'' },*/
+        { regex: /â|â/g, replace: '"' },
+        { regex: /â/g, replace: '\'' },
         { regex: /"([^"]*)"/g, replace: '<q>$1</q>' },
         { regex: /“([^“”]*)”/g, replace: '<q class="invisible-quotation">"$1"</q>' },
         { regex: /‘([^‘’]*)’/g, replace: '<q class="invisible-quotation">\'$1\'</q>' },
-        //{ regex: /â([^(ââ]*)â/g, replace: '<q class="invisible-quotation">\'$1\'</q>' },
+        { regex: /â([^(ââ]*)â/g, replace: '<q class="invisible-quotation">\'$1\'</q>' },
         { regex: /«([^«»]*)»/g, replace: '<q class="invisible-quotation">«$1»</q>' },
         { regex: /「([^「」]*)」/g, replace: '<q class="invisible-quotation">「$1」</q>' },
         { regex: /『([^『』]*)』/g, replace: '<q class="invisible-quotation">『$1』</q>' },

@@ -284,9 +284,14 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             const systemSequence = replaceMacros(instructSequence.system_sequence, username, charJSON.name)
             const endSequence = replaceMacros(instructSequence.end_sequence, username, charJSON.name)
 
-            var systemPrompt = `${systemSequence}${systemMessage}\n${replacedData?.description}\n${replacedData?.personality.trim()}\n${replacedData?.scenario.trim()}${endSequence}`
+            const descToAdd = replacedData.description.length > 0 ? `\n${replacedData.description.trim()}` : ''
+            const personalityToAdd = replacedData.personality.length > 0 ? `\n${replacedData.personality.trim()}` : ''
+            const scenarioToAdd = replacedData.scenario.length > 0 ? `\n${replacedData.scenario.trim()}` : ''
 
-            if (!isCCSelected) {
+            var systemPrompt = `${systemSequence}${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
+            var systemPromptforCC = `${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
+
+            if (!isCCSelected) { //craft the TC prompt
                 //this will be what we return to TC as the prompt
                 var stringToReturn = systemPrompt
 
@@ -315,7 +320,6 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         } else {
                             newItem = `${endSequence}${inputSequence}${obj.username}: ${obj.content}`;
                         }
-
                     }
 
                     let newItemTokens = countTokens(newItem);
@@ -332,27 +336,23 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 if (D4AN.length !== 0 && D4AN !== '' && D4AN !== undefined && D4AN !== null) {
                     if (insertedItems.length < 5) {
                         logger.warn('adding D4AN at top of prompt because it is small')
-                        insertedItems.splice(1, 0, `${systemSequence}${D4AN}${endSequence}`)
+                        insertedItems.splice(1, 0, `${endSequence}${systemSequence}${D4AN}`)
                     } else {
                         logger.warn('adding D4AN at depth 4')
-                        insertedItems.splice(positionForD4AN, 0, `${systemSequence}${D4AN}${endSequence}`)
+                        insertedItems.splice(positionForD4AN, 0, `${endSequence}${systemSequence}${D4AN}`)
                     }
 
                 }
-
-
                 // Reverse the array before appending to insertedChatHistory
-                let reversedItems = insertedItems.reverse();
-
-
-                let insertedChatHistory = reversedItems.join('');
+                //let reversedItems = insertedItems.reverse();
+                //let insertedChatHistory = reversedItems.join('');
+                let insertedChatHistory = insertedItems.reverse().join('');
                 stringToReturn += insertedChatHistory
                 stringToReturn += `${endSequence}`
                 //add the final mes and userInput        
                 if (D1JB.length !== 0 && D1JB !== '' && D1JB !== undefined && D1JB !== null) {
                     stringToReturn += `${systemSequence}${D1JB}${endSequence}`
                 }
-
 
                 stringToReturn += `${outputSequence}`
                 if (isClaude) {
@@ -361,22 +361,22 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     stringToReturn += lastUserMesageAndCharName.trim();
                 }
 
-                if (isCCSelected) {
-                    logger.debug('========== DOING CC conversion =======')
-                    const [CCMessages, CCStops] = TCtoCC(includedChatObjects, APICallParamsAndPrompt.stop)
-                    APICallParamsAndPrompt.stop = CCStops
-                    APICallParamsAndPrompt.messages = CCMessages
-
-                }
+                /*                 if (isCCSelected) {
+                                    logger.debug('========== DOING CC conversion =======')
+                                    const [CCMessages, CCStops] = TCtoCC(includedChatObjects, APICallParamsAndPrompt.stop)
+                                    APICallParamsAndPrompt.stop = CCStops
+                                    APICallParamsAndPrompt.messages = CCMessages
+                
+                                } */
 
                 stringToReturn = stringToReturn.trim()
 
                 resolve([stringToReturn, ChatObjsInPrompt]);
-            } else { //if we are using CC method
+            } else { //craft the CC prompt
                 var CCMessageObj = []
                 var D1JBObj = { role: 'system', content: D1JB }
                 var D4ANObj = { role: 'system', content: D4AN }
-                var systemPromptObject = { role: 'system', content: systemPrompt }
+                var systemPromptObject = { role: 'system', content: systemPromptforCC }
 
                 let promptTokens = countTokens(systemPromptObject['content'])
                 //logger.debug(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
@@ -399,7 +399,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         }
                     } else {
                         newObj = {
-                            role: 'human',
+                            role: 'user',
                             content: obj.content
                         }
                     }
@@ -640,39 +640,9 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
             headers['anthropic-version'] = '2023-06-01';
         }
 
-        /*         if (isCCSelected) {
-        
-                    logger.warn('DELETING ALL NON OAI PARAMETERS')
-        
-                    APICallParamsAndPrompt.max_tokens = 600
-                    APICallParamsAndPrompt.presence_penalty = 0.7
-                    APICallParamsAndPrompt.frequency_penalty = 0.7
-                    APICallParamsAndPrompt.temperature = 0.9
-                    APICallParamsAndPrompt.top_p = 1
-                    APICallParamsAndPrompt.top_k = undefined
-                    APICallParamsAndPrompt.stop = ['<|', '<|system|>', '<|user|>', '<|assistant|>']
-                    APICallParamsAndPrompt.logit_bias = {}
-                    APICallParamsAndPrompt.seed = undefined
-                    APICallParamsAndPrompt.prompt = undefined
-        
-                    delete APICallParamsAndPrompt.truncation_length
-                    delete APICallParamsAndPrompt.min_p
-                    delete APICallParamsAndPrompt.typical_p
-                    delete APICallParamsAndPrompt.tfs
-                    delete APICallParamsAndPrompt.repitition_penalty
-                    delete APICallParamsAndPrompt.repitetion_penalty_range
-                    delete APICallParamsAndPrompt.skip_special_tokens
-                    delete APICallParamsAndPrompt.mirostat_mode
-                    delete APICallParamsAndPrompt.mirostat_tau
-                    delete APICallParamsAndPrompt.mirostat_tau
-                    delete APICallParamsAndPrompt.mirostat_eta
-                    delete APICallParamsAndPrompt.grammar_string
-                    delete APICallParamsAndPrompt.custom_token_bans
-                    delete APICallParamsAndPrompt.max_context_length
-                    delete APICallParamsAndPrompt.max_length
-        
-                    
-                } */
+        if (isCCSelected) {
+            APICallParamsAndPrompt.add_generation_prompt = true
+        }
 
         APICallParamsAndPrompt.model = liveConfig.selectedModel
 

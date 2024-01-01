@@ -114,7 +114,9 @@ The host will see the following controls:
 - `Sampler` sets the hyperparameter preset, which affects the response style.
 - `Instruct` sets the type of instruct sequences to use when crafting the API prompt.
 - `AutoAI` Toggle to determine whether the AI should respond to every user input, or only on command from the Host.
-- `Final Instruction` textbox sets what to send as a system message at Depth 1 in the prompt.
+- `System Prompt` defines what will be placed at the very top of the prompt.
+- `Author Note(D4)` defines what will be inserted as a system message at Depth 4 in the prompt.
+- `Final Instruction(D1, "JB")` defines what to send as a system message at Depth 1 in the prompt. Not needed for TC APIs, but useful as a 'JB prompt' for CC APIs.
 
 ### Adding/Editing APIs
 
@@ -202,8 +204,6 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 ### Core Functionality
 
 - Smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
-  add customizable system prompt input
-- add Depth 4 insertion input
 
 ### Host Controls
 

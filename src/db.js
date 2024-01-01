@@ -253,8 +253,17 @@ async function removeLastAIChatMessage() {
     }
 }
 
+//this might not be necessary, but just in case. 
+function collapseNewlines(x) {
+    x.replace(/\r/g, '');
+    return x.replaceAll(/\n+/g, '\n');
+}
+
 // Write an AI chat message to the database
 async function writeAIChatMessage(username, userId, message, entity) {
+
+    collapseNewlines(message)
+
     logger.debug('Writing AI chat message to database...' + username + ' ' + userId + ' ' + message + ' ' + entity);
     const db = await dbPromise;
     try {

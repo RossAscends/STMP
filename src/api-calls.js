@@ -105,7 +105,7 @@ async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredential
             if (!finalAPICallParams.stream) {
                 console.log('RAW RESPONSE')
                 console.log(rawResponse)
-                AIResponse = trimIncompleteSentences(rawResponse)
+                AIResponse = postProcessText(trimIncompleteSentences(rawResponse))
                 await db.upsertChar(charName, charName, user.color);
                 await db.writeAIChatMessage(charName, charName, AIResponse, 'AI');
                 // let AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
@@ -244,11 +244,35 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
     return [APICallParams, usernames]
 }
 
-function replaceMacros(string, username, charname) {
-    var replacedString = string.replace(/{{user}}/g, username);
-    replacedString = replacedString.replace(/{{char}}/g, charname);
+function replaceMacros(string, username = null, charname = null) {
+    var replacedString = string
+
+    if (username !== null && !charname !== null) {
+        replacedString = replacedString.replace(/{{user}}/g, username);
+        replacedString = replacedString.replace(/{{char}}/g, charname);
+    }
 
     return replacedString
+}
+
+function collapseNewlines(x) {
+    return x.replaceAll(/\n+/g, '\n');
+}
+
+function postProcessText(text) {
+    // Collapse multiple newlines into one
+    text = collapseNewlines(text);
+    // Trim leading and trailing whitespace, and remove empty lines
+    text = text.split('\n').map(l => l.trim()).filter(Boolean).join('\n');
+    // Remove carriage returns
+    text = text.replace(/\r/g, '');
+    // Normalize unicode spaces
+    text = text.replace(/\u00A0/g, ' ');
+    // Collapse multiple spaces into one (except for newlines)
+    text = text.replace(/ {2,}/g, ' ');
+    // Remove leading and trailing spaces
+    text = text.trim();
+    return text;
 }
 
 async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharName, username, liveAPI) {
@@ -269,13 +293,13 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             const charJSON = JSON.parse(charData)
             const charName = charJSON.name
             const jsonString = JSON.stringify(charJSON);
-            let replacedString = replaceMacros(jsonString, username, charJSON.name)
+            let replacedString = postProcessText(replaceMacros(jsonString, username, charJSON.name))
             const replacedData = JSON.parse(replacedString);
 
             //replace {{user}} and {{char}} for D1JB
-            var D1JB = replaceMacros(liveConfig.D1JB, username, charJSON.name) || ''
-            var D4AN = replaceMacros(liveConfig.D4AN, username, charJSON.name) || ''
-            var systemMessage = replaceMacros(liveConfig.systemPrompt, username, charJSON.name) || `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
+            var D1JB = postProcessText(replaceMacros(liveConfig.D1JB, username, charJSON.name)) || ''
+            var D4AN = postProcessText(replaceMacros(liveConfig.D4AN, username, charJSON.name)) || ''
+            var systemMessage = postProcessText(replaceMacros(liveConfig.systemPrompt, username, charJSON.name)) || `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
 
 
             const instructSequence = JSON.parse(liveConfig.instructSequences)
@@ -288,7 +312,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             const personalityToAdd = replacedData.personality.length > 0 ? `\n${replacedData.personality.trim()}` : ''
             const scenarioToAdd = replacedData.scenario.length > 0 ? `\n${replacedData.scenario.trim()}` : ''
 
-            var systemPrompt = `${systemSequence}${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
+            var systemPrompt = `${systemSequence}${systemMessage}${endSequence}${systemSequence}${descToAdd}${personalityToAdd}${scenarioToAdd}`
             var systemPromptforCC = `${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
 
             if (!isCCSelected) { //craft the TC prompt
@@ -310,15 +334,15 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     let newItem
                     if (obj.username === charName) {
                         if (isClaude) {
-                            newItem = `${endSequence}${outputSequence}Assistant: ${obj.content}`;
+                            newItem = `${endSequence}${outputSequence}Assistant: ${postProcessText(obj.content)}`;
                         } else {
-                            newItem = `${endSequence}${outputSequence}${obj.username}: ${obj.content}`;
+                            newItem = `${endSequence}${outputSequence}${obj.username}: ${postProcessText(obj.content)}`;
                         }
                     } else {
                         if (isClaude) {
-                            newItem = `${endSequence}${inputSequence}Human: ${obj.content}`;
+                            newItem = `${endSequence}${inputSequence}Human: ${postProcessText(obj.content)}`;
                         } else {
-                            newItem = `${endSequence}${inputSequence}${obj.username}: ${obj.content}`;
+                            newItem = `${endSequence}${inputSequence}${obj.username}: ${postProcessText(obj.content)}`;
                         }
                     }
 
@@ -369,7 +393,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 
                                 } */
 
-                stringToReturn = stringToReturn.trim()
+                stringToReturn = postProcessText(stringToReturn)
 
                 resolve([stringToReturn, ChatObjsInPrompt]);
             } else { //craft the CC prompt
@@ -395,12 +419,12 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     if (obj.username === charName) {
                         newObj = {
                             role: 'assistant',
-                            content: obj.content
+                            content: postProcessText(obj.content)
                         }
                     } else {
                         newObj = {
                             role: 'user',
-                            content: obj.content
+                            content: postProcessText(obj.content)
                         }
                     }
 
@@ -618,39 +642,30 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
 
     let baseURL = TCEndpoint.trim()
     let chatURL
-    if (!isClaude) {
-        if (isCCSelected) { //for CC, OAI and others
-            chatURL = baseURL + 'chat/completions/'
-        } else { //for TC (Tabby, KCPP, and OR?)
-            chatURL = baseURL + 'completions/'
-        }
-    } else { //for Claude
+    const headers = {
+        'Content-Type': 'application/json',
+        'Cache': 'no-cache',
+        'x-api-key': key,
+        'Authorization': `Bearer ${key}`,
+    };
+
+    if (isCCSelected) { //for CC, OAI and others
+        chatURL = baseURL + 'chat/completions/'
+        APICallParamsAndPrompt.add_generation_prompt = true
+        delete APICallParamsAndPrompt.prompt
+    } else { //for TC (Tabby, KCPP, and OR?)
+        chatURL = baseURL + 'completions/'
+        delete APICallParamsAndPrompt.messages
+    }
+    if (isClaude) {
         chatURL = baseURL + 'complete/'
+        headers['anthropic-version'] = '2023-06-01';
+        APICallParamsAndPrompt.max_tokens_to_sample = APICallParamsAndPrompt.max_tokens
+        delete APICallParamsAndPrompt.max_tokens
     }
 
     try {
-        const headers = {
-            'Content-Type': 'application/json',
-            'Cache': 'no-cache',
-            'x-api-key': key,
-            'Authorization': `Bearer ${key}`,
-        };
-
-        if (isClaude) {
-            headers['anthropic-version'] = '2023-06-01';
-        }
-
-        if (isCCSelected) {
-            APICallParamsAndPrompt.add_generation_prompt = true
-        }
-
         APICallParamsAndPrompt.model = liveConfig.selectedModel
-
-        if (isClaude) {
-            APICallParamsAndPrompt.max_tokens_to_sample = APICallParamsAndPrompt.max_tokens
-            delete APICallParamsAndPrompt.max_tokens
-        }
-
         APICallParamsAndPrompt.stream = isStreaming
 
         logger.debug('HEADERS')
@@ -672,11 +687,8 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
             timeout: 0,
             //signal: abortController.signal
         }
-
         //console.log(args)
-
         const response = await fetch(chatURL, args)
-
 
         if (response.status === 200) {
             logger.debug('Status 200: Ok.')
@@ -711,7 +723,6 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
 
         catch (error) {
             console.error('Error parsing JSON:', error);
-
         }
     } else {
 

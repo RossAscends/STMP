@@ -241,7 +241,7 @@ async function getModelList() {
 
 async function processConfirmedConnection(parsedMessage) {
     console.debug('[processConfirmedConnection()]>> GO');
-    const { clientUUID, newAIChatDelay, newUserChatDelay, role, D1JB, instructList, instructFormat,
+    const { clientUUID, newAIChatDelay, newUserChatDelay, role, D1JB, D4AN, systemPrompt, instructList, instructFormat,
         selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory,
         AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, isStreaming, contextSize,
         responseLength, engineMode, APIList, selectedAPI, selectedModel, API } = parsedMessage;
@@ -309,7 +309,9 @@ async function processConfirmedConnection(parsedMessage) {
         control.updateSelectedChar(myUUID, selectedCharacter, selectedCharacterDisplayName, 'forced');
         control.updateSelectedSamplerPreset(myUUID, selectedSamplerPreset, 'forced');
         control.updateInstructFormat(myUUID, instructFormat, 'forced');
-        control.updateD1JB(myUUID, D1JB, 'forced')
+        control.updateD1JBInput(myUUID, D1JB, 'forced')
+        control.updateD4ANInput(myUUID, D4AN, 'forced')
+        control.updateSystemPromptInput(myUUID, systemPrompt, 'forced')
         control.setEngineMode(myUUID, engineMode);
 
         $("#showPastChats").trigger('click')
@@ -443,10 +445,24 @@ async function connectWebSocket(username) {
                 }
                 break;
             case 'changeD1JB':
-                let currentJB = $("#finalInstruction").val()
+                let currentJB = $("#D1JBInput").val()
                 let newJB = parsedMessage.newD1JB
                 if (currentJB !== newJB) {
-                    control.updateD1JB(myUUID, newJB, 'forced');
+                    control.updateD1JBInput(myUUID, newJB, 'forced');
+                }
+                break;
+            case 'changeD4AN':
+                let currentD4AN = $("#D4ANInput").val()
+                let newD4AN = parsedMessage.newD4AN
+                if (currentD4AN !== newD4AN) {
+                    control.updateD4ANInput(myUUID, newD4AN, 'forced');
+                }
+                break;
+            case 'changeSystemPrompt':
+                let currentSystemPrompt = $("#systemPromptInput").val()
+                let newSystemPrompt = parsedMessage.newSystemPrompt
+                if (currentSystemPrompt !== newSystemPrompt) {
+                    control.updateSystemPromptInput(myUUID, newSystemPrompt, 'forced');
                 }
                 break;
             case 'keyAccepted':
@@ -715,27 +731,28 @@ function showPastChats(chatList) {
     const $pastChatsList = $("#pastChatsList");
     $pastChatsList.empty();
 
-    if (Object.keys(chatList).length === 0) {
+    const chatArray = Object.values(chatList);
+    chatArray.sort((a, b) => b.session_id - a.session_id); // Sort in descending order
+
+    if (chatArray.length === 0) {
         $pastChatsList.html('<span class="flexbox Hcentered" style="margin-left: -15px;">No past chats yet!</span>');
         return;
     }
 
-    for (let sessionID in chatList) {
-        if (chatList.hasOwnProperty(sessionID)) {
-            const item = chatList[sessionID];
-            const divElement = $(`<div class="pastChatItem flexbox transition250" data-session_id="${item.session_id}">`);
-            if (item.is_active) {
-                divElement.addClass('activeChat');
-            }
-            const formattedTimestamp = formatSQLTimestamp(item.latestTimestamp);
-            const sessionText = $(`<span>${item.aiName} (${item.messageCount})</span>`);
-            const nameAndTimestampDiv = $(`<div data-session_id="${item.session_id}" class="pastChatInfo flexbox flexFlowCol flex1">`);
-            const timestampText = $(`<small>${formattedTimestamp}</small>`);
-            const delButton = $(`<button data-session_id="${item.session_id}" class="pastChatDelButton opacityHalf bgTransparent">🗑️</button>`);
-            divElement.append(nameAndTimestampDiv).append(delButton);
-            nameAndTimestampDiv.append(sessionText).append(timestampText);
-            $pastChatsList.append(divElement);
+    for (let i = 0; i < chatArray.length; i++) {
+        const item = chatArray[i];
+        const divElement = $(`<div class="pastChatItem flexbox transition250" data-session_id="${item.session_id}">`);
+        if (item.is_active) {
+            divElement.addClass('activeChat');
         }
+        const formattedTimestamp = formatSQLTimestamp(item.latestTimestamp);
+        const sessionText = $(`<span>${item.aiName} (${item.messageCount})</span>`);
+        const nameAndTimestampDiv = $(`<div data-session_id="${item.session_id}" class="pastChatInfo flexbox flexFlowCol flex1">`);
+        const timestampText = $(`<small>${formattedTimestamp}</small>`);
+        const delButton = $(`<button data-session_id="${item.session_id}" class="pastChatDelButton opacityHalf bgTransparent">🗑️</button>`);
+        divElement.append(nameAndTimestampDiv).append(delButton);
+        nameAndTimestampDiv.append(sessionText).append(timestampText);
+        $pastChatsList.append(divElement);
     }
 
     $pastChatsList.off('click', '.pastChatDelButton').on('click', '.pastChatDelButton', async function (e) {
@@ -976,7 +993,9 @@ $(async function () {
 
     $("#samplerPreset").on('change', function () { control.updateSelectedSamplerPreset(myUUID, $(this).val()) })
     $("#instructStyle").on('change', function () { control.updateInstructFormat(myUUID, $(this).val()) })
-    $("#finalInstruction").on('blur', function () { control.updateD1JB(myUUID, $(this).val()) })
+    $("#D1JBInput").on('blur', function () { control.updateD1JBInput(myUUID, $(this).val()) })
+    $("#D4ANInput").on('blur', function () { control.updateD4ANInput(myUUID, $(this).val()) })
+    $("#systemPromptInput").on('blur', function () { control.updateSystemPromptInput(myUUID, $(this).val()) })
 
     //A clickable icon that toggles between Text Completions and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.
     $("#toggleMode").off('click').on('click', function () {
@@ -1287,21 +1306,63 @@ $(async function () {
         flashElement('responseLength', 'good')
     })
 
-    $("#pastChatsToggle").on('click', function () {
-        let target = $("#pastChatsWrap")
-        if (target.hasClass('isAnimating')) { return }
-        console.debug('toggling past Chats view...')
-        $(this).children('i').toggleClass('fa-toggle-on fa-toggle-off')
-        betterSlideToggle(target, 100, 'height')
+    $(".isControlPanelToggle").on('click', function () {
+        toggleControlPanelBlocks($(this), 'all')
     })
 
-    $("#crowdControlToggle").on('click', function () {
-        let target = $("#crowdControlWrap")
-        if (target.hasClass('isAnimating')) { return }
-        console.debug('toggling Crowd Control view...')
-        $(this).children('i').toggleClass('fa-toggle-on fa-toggle-off')
-        betterSlideToggle(target, 100, 'height')
-    })
+    async function toggleControlPanelBlocks(toggle, type = null) {
+        let target = toggle.parent().children().eq(1);
+        if (target.hasClass('isAnimating')) { return; }
+
+        if (type === 'single') {
+            // Toggle the target panel
+            console.debug(`Toggling panel view ${target.attr('id')}`);
+            toggle.children('i').toggleClass('fa-toggle-on fa-toggle-off');
+            await betterSlideToggle(target, 100, 'height');
+            if (target.css('display') !== 'none') {
+                toggle.hide()
+            } else { toggle.show() }
+            return;
+        }
+
+        // Close all panels
+        $(".isControlPanelToggle").each(async function () {
+            let panelToggle = $(this);
+            let panelTarget = panelToggle.parent().children().eq(1);
+            if (panelTarget.css('display') == 'none') {
+                return;
+            }
+            if (panelTarget.hasClass('isAnimating')) { return; }
+            panelToggle.children('i').removeClass('fa-toggle-on').addClass('fa-toggle-off');
+            await betterSlideToggle(panelTarget, 100, 'height')
+                .then(async () => {
+                    //     setHeightToDivHeight(panelTarget, panelTarget.parent());
+                })
+
+
+        });
+
+        // Open the clicked panel
+        toggle.children('i').toggleClass('fa-toggle-on fa-toggle-off');
+        await betterSlideToggle(target, 100, 'height')
+            .then(async () => {
+                // setHeightToDivHeight(target, target.parent());
+            })
+
+
+    }
+
+
+    //target and reference are both JQuery DOM objects ala $("#myDiv")
+    function setHeightToDivHeight(target, reference) {
+        if (target.hasClass('isAnimating') || reference.hasClass('isAnimating')) {
+            console.log('saw animating reference div, waiting')
+            setTimeout(function () { setHeightToDivHeight(target, reference) }, 100)
+            return
+        }
+        console.log(target.attr('id'), reference.attr('id'), reference.css('height'))
+        target.css('height', reference.css('height'))
+    }
 
     $("#AIChat").on('scroll', debounce(function () {
         if (!$("#AIChat").not(":focus")) { return }
@@ -1360,6 +1421,9 @@ $(async function () {
     })
     correctSizeBody()
     correctSizeChats()
+    //close the past chats and crowd controls on page load
+    toggleControlPanelBlocks($("#pastChatsToggle"), 'single')
+    toggleControlPanelBlocks($("#crowdControlToggle"), 'single')
 
 
 })

@@ -62,11 +62,11 @@ function updateInstructFormat(myUUID, format, type) {
     flashElement('instructStyle', 'good')
 }
 
-function updateD1JB(myUUID, jb, type) {
+function updateD1JBInput(myUUID, jb, type) {
     console.debug(jb, type)
     if (type === 'forced') {
         console.debug('changing D1JB from server command')
-        $("#finalInstruction").val(jb)
+        $("#D1JBInput").val(jb)
     } else {
         console.debug('I manually changed D1JB, and updating to server')
         let changeD1JBMessage = {
@@ -76,7 +76,41 @@ function updateD1JB(myUUID, jb, type) {
         }
         messageServer(changeD1JBMessage);
     }
-    flashElement('finalInstruction', 'good')
+    flashElement('D1JBInput', 'good')
+}
+
+function updateD4ANInput(myUUID, D4AN, type) {
+    console.debug(D4AN, type)
+    if (type === 'forced') {
+        console.debug('changing D1JB from server command')
+        $("#D4ANInput").val(D4AN)
+    } else {
+        console.debug('I manually changed D4AN, and updating to server')
+        let changeD4ANMessage = {
+            type: 'changeD4AN',
+            UUID: myUUID,
+            newD4AN: D4AN
+        }
+        messageServer(changeD4ANMessage);
+    }
+    flashElement('D4ANInput', 'good')
+}
+
+function updateSystemPromptInput(myUUID, systemPrompt, type) {
+    console.debug(systemPrompt, type)
+    if (type === 'forced') {
+        console.debug('changing D1JB from server command')
+        $("#systemPromptInput").val(systemPrompt)
+    } else {
+        console.debug('I manually changed system Prompt, and updating to server')
+        let changeSystemPromptMessage = {
+            type: 'changeSystemPrompt',
+            UUID: myUUID,
+            newSystemPrompt: systemPrompt
+        }
+        messageServer(changeSystemPromptMessage);
+    }
+    flashElement('systemPromptInput', 'good')
 }
 
 function updateUserName(myUUID, username) {
@@ -285,7 +319,7 @@ export default {
     populateSelector: populateSelector,
     submitKey: submitKey,
     updateUserName: updateUserName,
-    updateD1JB: updateD1JB,
+    updateD1JBInput: updateD1JBInput,
     updateInstructFormat: updateInstructFormat,
     updateSelectedSamplerPreset: updateSelectedSamplerPreset,
     updateSelectedChar: updateSelectedChar,
@@ -299,4 +333,7 @@ export default {
     populateModelsList: populateModelsList,
     updateSelectedModel: updateSelectedModel,
     kindlyScrollDivToBottom: kindlyScrollDivToBottom,
+    updateD4ANInput: updateD4ANInput,
+    updateSystemPromptInput: updateSystemPromptInput,
+
 }

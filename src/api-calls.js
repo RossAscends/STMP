@@ -274,14 +274,15 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
 
             //replace {{user}} and {{char}} for D1JB
             var D1JB = replaceMacros(liveConfig.D1JB, username, charJSON.name) || ''
-            var D1JBObj = { role: 'system', content: D1JB }
+            var D4AN = replaceMacros(liveConfig.D4AN, username, charJSON.name) || ''
+            var systemMessage = replaceMacros(liveConfig.systemPrompt, username, charJSON.name) || `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
+
 
             const instructSequence = JSON.parse(liveConfig.instructSequences)
             const inputSequence = replaceMacros(instructSequence.input_sequence, username, charJSON.name)
             const outputSequence = replaceMacros(instructSequence.output_sequence, username, charJSON.name)
             const systemSequence = replaceMacros(instructSequence.system_sequence, username, charJSON.name)
             const endSequence = replaceMacros(instructSequence.end_sequence, username, charJSON.name)
-            const systemMessage = `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
 
             var systemPrompt = `${systemSequence}${systemMessage}\n${replacedData?.description}\n${replacedData?.personality.trim()}\n${replacedData?.scenario.trim()}${endSequence}`
 
@@ -325,15 +326,34 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         insertedItems.push(newItem); // Add new item to the array
                     }
                 }
+
+                let numOfObjects = insertedItems.length
+                let positionForD4AN = numOfObjects - 4
+                if (D4AN.length !== 0 && D4AN !== '' && D4AN !== undefined && D4AN !== null) {
+                    if (insertedItems.length < 5) {
+                        logger.warn('adding D4AN at top of prompt because it is small')
+                        insertedItems.splice(1, 0, `${systemSequence}${D4AN}${endSequence}`)
+                    } else {
+                        logger.warn('adding D4AN at depth 4')
+                        insertedItems.splice(positionForD4AN, 0, `${systemSequence}${D4AN}${endSequence}`)
+                    }
+
+                }
+
+
                 // Reverse the array before appending to insertedChatHistory
                 let reversedItems = insertedItems.reverse();
+
+
                 let insertedChatHistory = reversedItems.join('');
                 stringToReturn += insertedChatHistory
                 stringToReturn += `${endSequence}`
-                //add the final first mes and userInput        
+                //add the final mes and userInput        
                 if (D1JB.length !== 0 && D1JB !== '' && D1JB !== undefined && D1JB !== null) {
                     stringToReturn += `${systemSequence}${D1JB}${endSequence}`
                 }
+
+
                 stringToReturn += `${outputSequence}`
                 if (isClaude) {
                     stringToReturn += `Assistant:` //toggle for claude    
@@ -352,13 +372,11 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 stringToReturn = stringToReturn.trim()
 
                 resolve([stringToReturn, ChatObjsInPrompt]);
-            } else {
+            } else { //if we are using CC method
                 var CCMessageObj = []
-
-                var systemPromptObject = {
-                    role: 'system',
-                    content: systemPrompt
-                }
+                var D1JBObj = { role: 'system', content: D1JB }
+                var D4ANObj = { role: 'system', content: D4AN }
+                var systemPromptObject = { role: 'system', content: systemPrompt }
 
                 let promptTokens = countTokens(systemPromptObject['content'])
                 //logger.debug(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
@@ -368,6 +386,9 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 for (let i = chatHistory.length - 1; i >= 0; i--) {
                     let obj = chatHistory[i];
                     let newItem
+                    if (i === chatHistory.length - 3) {
+                        CCMessageObj.push(D4ANObj)
+                    }
                     if (i === chatHistory.length - 2) {
                         CCMessageObj.push(D1JBObj)
                     }
@@ -391,12 +412,13 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         insertedItems.push(newObj); // Add new item to the array
                     }
                 }
-            }
-            CCMessageObj.push({ role: 'system', content: '[Start a New Chat]' })
+                CCMessageObj.push({ role: 'system', content: '[Start a New Chat]' })
 
-            CCMessageObj.push(systemPromptObject)
-            CCMessageObj = CCMessageObj.reverse();
-            resolve([CCMessageObj, ChatObjsInPrompt]);
+                CCMessageObj.push(systemPromptObject)
+                CCMessageObj = CCMessageObj.reverse();
+                resolve([CCMessageObj, ChatObjsInPrompt]);
+            }
+
 
 
         } catch (error) {

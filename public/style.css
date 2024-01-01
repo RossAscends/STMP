@@ -463,15 +463,18 @@ input::placeholder {
     height: 33svh;
 } */
 
+#pastChatsWrap,
+#AIConfigWrap {
+    height: 75vh;
+}
+
 #pastChatsList {
     overflow-y: auto;
     overflow-x: hidden;
-    max-height: 25svh;
-    height: 25svh;
     border-radius: 5px;
     padding: 0 4px 0 12px;
-
-    /*makes background on effect text, allowing for it to effect scrollbar but not the whole div*/
+    height: 100%;
+    /*makes background on show text, allowing for it to effect scrollbar but not the whole div*/
     -webkit-background-clip: text;
 }
 
@@ -778,6 +781,10 @@ hr {
     display: none
 }
 
+.isControlPanelToggle {
+    min-height: 5vh;
+}
+
 #profileManagementMenu {
     right: 0;
     top: 2.25em;
@@ -791,6 +798,10 @@ hr {
 
 #innerChatWrap {
     overflow-y: auto;
+}
+
+.overflowYHidden {
+    overflow-y: hidden
 }
 
 .ui-widget-overlay {

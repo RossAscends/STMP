@@ -180,7 +180,9 @@ async function initFiles() {
         isStreaming: true,
         selectedPreset: "public/api-presets/TC-Temp-2_MinP-0.2.json",
         instructFormat: "public/instructFormats/ChatML.json",
-        D1JB: ''
+        D1JB: '',
+        D4AN: '',
+        systemPrompt: ''
     };
 
     const instructSequences = await fio.readFile(defaultConfig.instructFormat)
@@ -255,7 +257,7 @@ wssServer.on('connection', (ws, request) => {
 async function broadcast(message, role = 'all') {
     return new Promise(async (resolve, reject) => {
         try {
-            // change BuggyType to whatever message type you want to log in the server console
+
             Object.keys(clientsObject).forEach(async clientUUID => {
                 const client = clientsObject[clientUUID];
                 const socket = client.socket;
@@ -275,7 +277,7 @@ async function broadcast(message, role = 'all') {
                 //change this to any valid type for logging
                 //or change the logic to !== to log all
                 if (message.type === "BuggyTypeHere") {
-                    logger.debug(`Sent "${message.type}" message to ${user.username}(${role})`);
+                    logger.debug(`Sent "${message.type}" message to ${client.username}(${role})`);
                     logger.debug(message);
                 }
             })
@@ -430,6 +432,8 @@ async function handleConnections(ws, type, request) {
         connectionConfirmedMessage["contextSize"] = liveConfig.contextSize
         connectionConfirmedMessage["responseLength"] = liveConfig.responseLength
         connectionConfirmedMessage["D1JB"] = liveConfig.D1JB
+        connectionConfirmedMessage["D4AN"] = liveConfig.D4AN
+        connectionConfirmedMessage["systemPrompt"] = liveConfig.systemPrompt
         connectionConfirmedMessage["instructFormat"] = liveConfig.instructFormat
         connectionConfirmedMessage["APIList"] = apis
         connectionConfirmedMessage["selectedAPI"] = liveConfig.selectedAPI
@@ -732,6 +736,26 @@ async function handleConnections(ws, type, request) {
                     await broadcast(changeD1JBMessage, 'host');
                     return
                 }
+                else if (parsedMessage.type === 'changeD4AN') {
+                    const changeD4ANMessage = {
+                        type: 'changeD4AN',
+                        newD4AN: parsedMessage.newD4AN
+                    }
+                    liveConfig.D4AN = parsedMessage.newD4AN
+                    await fio.writeConfig(liveConfig)
+                    await broadcast(changeD4ANMessage, 'host');
+                    return
+                }
+                else if (parsedMessage.type === 'changeSystemPrompt') {
+                    const changeSystemPromptMessage = {
+                        type: 'changeSystemPrompt',
+                        newSystemPrompt: parsedMessage.newSystemPrompt
+                    }
+                    liveConfig.systemPrompt = parsedMessage.newSystemPrompt
+                    await fio.writeConfig(liveConfig)
+                    await broadcast(changeSystemPromptMessage, 'host');
+                    return
+                }
                 else if (parsedMessage.type === 'AIRetry') {
                     // Read the AIChat file
                     try {
@@ -959,7 +983,9 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
 
     //just get the AI chat userlist with 'true' as last argument
     //this is jank..
+    //logger.warn('Dry run to get the AI UserList')
     let AIChatUserList = await api.getAIResponse(isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, true, parsedMessage);
+    //logger.warn('now for the real deal')
 
     if (isStreaming) {
 

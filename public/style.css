@@ -400,7 +400,7 @@ input::placeholder {
 }
 
 .chatHeader {
-    height: 2.5em
+    /* height: 2.5em */
 }
 
 #controlPanelToggle {
@@ -630,6 +630,14 @@ hr {
     flex-wrap: nowrap;
 }
 
+.noTextWrap {
+    text-wrap: nowrap;
+}
+
+.greenHighlight {
+    background-color: #496951 !important;
+}
+
 .flexFlowCol {
     flex-flow: column;
 }
@@ -800,7 +808,7 @@ hr {
 #profileManagementMenu {
     right: 0;
     top: 2.25em;
-    background-color: #393a3f;
+    background-color: #313338;
     width: min-content;
     padding: 5px;
     z-index: 10;
@@ -877,7 +885,7 @@ input:read-only {
         flex-flow: column;
     }
 
-    #universalControls {
+    #universalControls button {
         position: relative;
         font-size: 1.5em;
     }

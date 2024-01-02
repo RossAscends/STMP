@@ -1,5 +1,9 @@
 var username, isAutoResponse, isStreaming, isClaude, contextSize, responseLength, isPhone, currentlyStreaming
 
+var doKeepAliveAudio = false
+var isKeepAliveAudioPlaying = false
+var keepAliveAudio = new Audio('silence.mp3');
+
 export var isUserScrollingAIChat = false;
 export var isUserScrollingUserChat = false;
 let UserChatScrollTimeout, AIChatScrollTimeout
@@ -282,6 +286,7 @@ async function processConfirmedConnection(parsedMessage) {
         } else if ($("#controlPanel").hasClass('initialState')) { //handle first load for PC, shows the panel
             betterSlideToggle($("#controlPanel"), 100, 'width')
             $("#controlPanel").removeClass('initialState')
+            $("#keepAliveAudio").hide() //hide it, does nothing for PCs
         }
 
         console.debug('updating UI to match server state...')
@@ -709,6 +714,7 @@ async function betterSlideToggle(target, speed = 250, animationDirection) {
             },
             complete: () => {
                 target.removeClass('isAnimating')
+                target.toggleClass('needsReset')
                 resolve()
             }
         });
@@ -813,6 +819,7 @@ function handleSocketOpening() {
     console.debug(`connected as ${username}`)
     $("#messageInput").prop("disabled", false).prop('placeholder', 'Message the User Chat').removeClass('disconnected')
     $("#AIMessageInput").prop("disabled", false).prop('placeholder', 'Message the AI Chat').removeClass('disconnected')
+    heartbeat()
 };
 
 function disconnectWebSocket() {
@@ -876,13 +883,27 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
+
+function heartbeat() {
+    if (socket && socket.readyState !== WebSocket.OPEN) {
+        console.log("[heartbeat()] saw the socket was disconnected");
+        $("#reconnectButton").show()
+        $("#disconnectButton").hide()
+        $("#userList ul").empty()
+        $("#messageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
+        $("#AIMessageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
+        return
+    }
+    setTimeout(function () {
+        heartbeat()
+    }, 1000)
+}
+
 $(async function () {
     console.debug('document is ready')
     let { username, AIChatUsername } = await startupUsernames();
     $("#usernameInput").val(username)
-    flashElement('usernameInput', 'good')
     $("#AIUsernameInput").val(AIChatUsername)
-    flashElement('AIUsernameInput', 'good')
 
     connectWebSocket(username);
 
@@ -1032,6 +1053,7 @@ $(async function () {
         if (oldUsername !== currentUsername) {
             console.debug('notifying server of UserChat username change...')
             control.updateUserName(myUUID, currentUsername)
+            flashElement('usernameInput', 'good')
         }
     })
 
@@ -1168,7 +1190,6 @@ $(async function () {
             if ($("#roleKeyInputDiv").hasClass('needsReset')) {
                 $("#roleKeyInputDiv").fadeToggle().removeClass('needsReset')
             }
-
         }
     });
     const $controlPanel = $("#controlPanel");
@@ -1192,8 +1213,6 @@ $(async function () {
             $LLMChatWrapper.addClass('transition500').css({ flex: '0', opacity: '0' });
         }
     });
-
-
 
     $("#userListsToggle").off('click').on('click', function () {
         betterSlideToggle($("#AIChatUserList"), 250, 'width')
@@ -1274,11 +1293,6 @@ $(async function () {
         flashElement('apiList', 'good')
     })
 
-    //disabled this for now, assuming adding a new API will be done through the selector option.
-    /*     $("#addNewAPIButton").on('click', function () {
-            addNewAPI()
-        }) */
-
     $("#editAPIButton").on('click', function () {
         control.enableAPIEdit()
         betterSlideToggle($("#AIConfigInputs"), 250, 'height')
@@ -1345,23 +1359,12 @@ $(async function () {
             if (panelTarget.hasClass('isAnimating')) { return; }
             panelToggle.children('i').removeClass('fa-toggle-on').addClass('fa-toggle-off');
             await betterSlideToggle(panelTarget, 100, 'height')
-                .then(async () => {
-                    //     setHeightToDivHeight(panelTarget, panelTarget.parent());
-                })
-
-
         });
 
         // Open the clicked panel
         toggle.children('i').toggleClass('fa-toggle-on fa-toggle-off');
         await betterSlideToggle(target, 100, 'height')
-            .then(async () => {
-                // setHeightToDivHeight(target, target.parent());
-            })
-
-
     }
-
 
     //target and reference are both JQuery DOM objects ala $("#myDiv")
     function setHeightToDivHeight(target, reference) {
@@ -1394,6 +1397,72 @@ $(async function () {
         }, 250);
     }, 100))
 
+    //listener for mobile users that detects change in visiible of the app.
+    //it checks the websocket's readyState when the app becomes visible again
+    //and provides immediate feedback on whether the websocket is still open or if 
+    //they have been disconnected while the app was invisible.
+    //also it will pause/play the keepAlive audio if it's enabled.
+    document.addEventListener("visibilitychange", function () {
+        // Check WebSocket status immediately when the app becomes visible
+        if (socket && socket.readyState !== WebSocket.OPEN) {
+            console.log("App became visible, and the socket is disconnected");
+            $("#reconnectButton").show();
+            $("#disconnectButton").hide();
+            $("#userList ul").empty();
+            $("#messageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
+            $("#AIMessageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
+        }
+
+        if (isPhone && document.visibilityState === "visible") {
+            //pause any playing audio
+            if (doKeepAliveAudio && isKeepAliveAudioPlaying) {
+                keepAliveAudio.pause()
+                isKeepAliveAudioPlaying = false
+            }
+        } else if (isPhone && document.visibilityState === "hidden") {
+            // play the background audio if it's set to on.
+            if (doKeepAliveAudio && !isKeepAliveAudioPlaying) {
+                keepAliveAudio.play()
+                isKeepAliveAudioPlaying = true
+            }
+            //TODO: add automatic class toggling when visibility changes, to dim userlist.
+        }
+    });
+
+    //simple toggle for whether to play KeepAliveAudio for minimized mobile users
+    $("#keepAliveAudio").on("touchstart", function () {
+        doKeepAliveAudio = !doKeepAliveAudio
+        $("#keepAliveAudio").toggleClass('greenHighlight')
+        //this should never happen due to the auto stop when visible, but just in case.
+        if (!keepAliveAudio && isKeepAliveAudioPlaying) {
+            keepAliveAudio.pause()
+        }
+    });
+
+    /*     function sendKeepAlive() {
+            // Set the interval for sending messages (e.g., every 1 second)
+            const interval = 1000;
+            const keepAliveMessage = {
+                type: "keepAlive",
+                UUID: myUUID,
+                value: "Ping?"
+            }
+            //messageServer(keepAliveMessage);
+    
+            // Start the interval timer for sending periodic messages
+            const timerId = setInterval(function () {
+                console.log('sending KeepAlive Message')
+                messageServer(keepAliveMessage)
+            }, interval);
+    
+            // Stop the interval when the app becomes visible again
+            document.addEventListener("visibilitychange", function () {
+                if (document.visibilityState === "visible") {
+                    console.log('Clearing Keep Alive loop')
+                    clearInterval(timerId);
+                }
+            });
+        } */
 
     function correctSizeChats() {
         let universalControlsHeight = $("#universalControls").outerHeight()
@@ -1460,6 +1529,7 @@ $(async function () {
     $(window).on('resize', async function () {
         correctSizeBody()
     })
+
     correctSizeBody()
     correctSizeChats()
     //close the past chats and crowd controls on page load
@@ -1467,7 +1537,6 @@ $(async function () {
     toggleControlPanelBlocks($("#crowdControlToggle"), 'single')
     await delay(1000)
     $("#customPromptsBlock").css('height', heightMinusDivHeight($("#AIConfigWrap"), $("#configSelectorsBlock")))
-
 })
 
 

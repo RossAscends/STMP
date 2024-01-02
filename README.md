@@ -127,7 +127,9 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 > Most other LLM backends that provide an API in the same format should be compatible with STMP.
 
 - [TabbyAPI](https://github.com/theroyallab/tabbyAPI) and [KoboldCPP](https://github.com/LostRuins/koboldcpp) are confirmed to work with STMP's TC API mode.
-- We suspect [Aphrodite](https://github.com/PygmalionAI/aphrodite-engine) and [Oobabooga Textgeneration Webui](https://github.com/PygmalionAI/aphrodite-engine) should be compatible as well, but have not tested them yet.
+- [Oobabooga Textgeneration Webui](https://github.com/PygmalionAI/aphrodite-engine) works with their OpenAI-compatible CC API mode.
+- [OpenRouter](https://openrouter.ai) is supported in CC mode.
+- We suspect [Aphrodite](https://github.com/PygmalionAI/aphrodite-engine) should be compatible as well, but have not tested it yet.
 
 1. select `Add new API` from the `API` selector to open the API Editing panel.
 2. A new panel will be displayed with new inputs:

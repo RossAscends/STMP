@@ -627,11 +627,13 @@ async function getModelList(api) {
 }
 
 async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, includedChatObjects, isTest, liveConfig) {
-    let isClaude = liveAPI.claude
-    const isCCSelected = liveAPI.type === 'CC' ? true : false
     const TCEndpoint = liveAPI.endpoint
     const TCAPIKey = liveAPI.key
     const key = TCAPIKey.trim()
+
+    const isCCSelected = liveAPI.type === 'CC' ? true : false
+    let isOpenRouter = TCEndpoint.includes('openrouter') ? true : false
+    let isClaude = liveAPI.claude
 
     //this is brought in from the sampler preset, but we don't use it yet.
     //better to not show it in the API gen call response, would be confusing.
@@ -639,11 +641,11 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
 
     let baseURL = TCEndpoint.trim()
     let chatURL
-    const headers = {
+    var headers = {
         'Content-Type': 'application/json',
-        'Cache': 'no-cache',
+        Cache: 'no-cache',
         'x-api-key': key,
-        'Authorization': `Bearer ${key}`,
+        Authorization: `Bearer ${key}`,
     };
 
     if (isCCSelected && !isClaude) { //for CC, OAI and others
@@ -662,7 +664,19 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
         if (APICallParamsAndPrompt.temperature > 1) { APICallParamsAndPrompt.temperature = 1 }
     }
 
+    if (isOpenRouter) {
+
+        headers = {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${key}`,
+            'HTTP-Referer': 'http://127.0.0.1:8181/'
+        }
+        APICallParamsAndPrompt.transforms = ['middle-out']
+        APICallParamsAndPrompt.route = 'fallback'
+    }
+
     try {
+
         APICallParamsAndPrompt.model = liveConfig.selectedModel
         APICallParamsAndPrompt.stream = isStreaming
 
@@ -687,14 +701,12 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
 
         //console.log(args)
         // const response = await fetch(chatURL, args)
-        let key = `Bearer ${TCAPIKey}`
-
         const response = await fetch(chatURL, args)
         /* console.log('FULL RESPONSE')
         console.log('=====================')
         console.log(util.inspect(response, { depth: null }));
         console.log('=====================')
- */
+    */
         if (response.status === 200) {
             logger.debug('Status 200: Ok.')
             return await processResponse(response, isCCSelected, isTest, isStreaming, liveAPI)

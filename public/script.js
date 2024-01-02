@@ -67,6 +67,7 @@ function convertNonsenseTokensToUTF(x) {
     x = x.replace(/Ã¢ÂÂ¦/g, '...')
     x = x.replace(/â|â/g, '"');
     x = x.replace(/â/g, "'");
+    x = x.replace(/ÃÂ¢ÃÂÃÂ/g, '\'')
     x = x.replace(/â([^“(”)]*)â/g, '<q class="invisible-quotation">\'$1\'</q>');
     return x;
 }
@@ -75,6 +76,8 @@ var quotesExtension = function () {
     var regexes = [
         { regex: /â|â/g, replace: '"' },
         { regex: /â/g, replace: '\'' },
+        { regex: /ÃÂ¢ÃÂÃÂ/g, replace: '\'' },
+        { regex: /Ã¢ÂÂ/g, replace: '\'' },
         { regex: /"([^"]*)"/g, replace: '<q>$1</q>' },
         { regex: /“([^“”]*)”/g, replace: '<q class="invisible-quotation">"$1"</q>' },
         { regex: /‘([^‘’]*)’/g, replace: '<q class="invisible-quotation">\'$1\'</q>' },

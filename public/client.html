@@ -35,7 +35,7 @@
                     </div>
                     <div id="AIConfigWrap" class="flexbox flexFlowCol heightFitContent">
                         <div id="AIConfigInputs" class="flexbox flexFlowCol">
-                            <div class="flexbox justifySpaceAround marginBot5">
+                            <div id="configSelectorsBlock" class="flexbox justifySpaceAround">
                                 <div class="flexbox flexFlowCol">
                                     <small class="alignSelfCenter">Mode</small>
                                     <button id="toggleMode" class="tabbyMode mutedColor square1p5em fontSize1p5em bgBrightUp textshadow" title="Toggle API Mode">📑</button>
@@ -100,19 +100,20 @@
 
                                 </div>
                             </div>
-                            <div id="systemPromptBlock" class="flexbox flexFlowCol Hcentered dummyBG">
-                                <span class="widthFitContent alignSelfCenter">First Instruction (Top of Prompt)</span>
-                                <textarea class="bgBrightUp" rows=6 id="systemPromptInput" placeholder="Put your system prompt here"></textarea>
+                            <div id="customPromptsBlock" class="transition250 flexbox flexFlowCol">
+                                <div id="systemPromptBlock" class="flexbox flexFlowCol Hcentered dummyBG">
+                                    <span class="widthFitContent alignSelfCenter">System Prompt</span>
+                                    <textarea class="bgBrightUp" rows=6 id="systemPromptInput" placeholder="Text in this box will be inserted at the top of the prompt before anything else."></textarea>
+                                </div>
+                                <div id="authorsNoteBlock" class="flexbox flexFlowCol Hcentered dummyBG ">
+                                    <span class="widthFitContent alignSelfCenter">D4 Insertion</span>
+                                    <textarea class="bgBrightUp" rows=6 id="D4ANInput" placeholder="Useful place to put character definitions, World Info, or other constantly relevant information."></textarea>
+                                </div>
+                                <div id="finalInstructionBlock" class="flexbox flexFlowCol Hcentered dummyBG ">
+                                    <span class="widthFitContent alignSelfCenter">D1 Insertion "JB"</span>
+                                    <textarea class="bgBrightUp" rows=6 id="D1JBInput" placeholder="A very powerful override instruction. Mostly useful as a jailbreak for CC APIs. For TC, it is usually too strong and will override the D4 insertion"></textarea>
+                                </div>
                             </div>
-                            <div id="authorsNoteBlock" class="flexbox flexFlowCol Hcentered dummyBG">
-                                <span class="widthFitContent alignSelfCenter">Author Note (D4)</span>
-                                <textarea class="bgBrightUp" rows=6 id="D4ANInput" placeholder="Put your Author's Note here"></textarea>
-                            </div>
-                            <div id="finalInstructionBlock" class="flexbox flexFlowCol Hcentered dummyBG">
-                                <span class="widthFitContent alignSelfCenter">Final Instruction (D1, "JB")</span>
-                                <textarea class="bgBrightUp" rows=6 id="D1JBInput" placeholder="Put your Depth 1 instruction here"></textarea>
-                            </div>
-
                         </div>
                         <div id="addNewAPI" class="flexbox flexFlowCol width100p marginBot5" style="display:none;">
                             <h4 id="apiTitle" class="alignSelfCenter">API Info</h4>

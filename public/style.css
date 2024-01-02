@@ -130,6 +130,18 @@ select,
     z-index: 2;
 }
 
+#finalInstructionBlock,
+#systemPromptBlock,
+#authorsNoteBlock {
+    height: 33%;
+    max-height: 33%;
+    min-height: 33%;
+}
+
+#controlPanel textarea {
+    height: 100%
+}
+
 button,
 select,
 .nonButtonButton {

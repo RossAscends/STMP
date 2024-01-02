@@ -1416,6 +1416,37 @@ $(async function () {
         correctSizeChats()
     };
 
+    //args passed as JQUery DOM Objects //e.g. $("#myDiv")
+    // subtracts the height of a child div from that of its parent and returns the remaining height.
+    // used to calculate exact heights of divs that should fill container space.
+    // if no childToSubtract is passed, returns the container's height.
+    function heightMinusDivHeight(container, childToSubtract = null) {
+
+        if (childToSubtract) {
+            let containerHeight = container.outerHeight()
+            let childHeight = childToSubtract.outerHeight()
+
+            let containerGapSize = container.css('gap').replace('px', '')
+            if (!containerGapSize) { containerGapSize = 0 }
+            let numberOfContainerGaps = container.children().length - 1
+
+            let numChildGaps = childToSubtract.children().length - 1
+            let childGapSize = childToSubtract.css('gap').replace('px', '')
+            if (!childGapSize) { childGapSize = 0 }
+
+            let containerPaddingTop = container.css('padding-top').replace('px', '')
+            let containerPaddingBottom = container.css('padding-bottom').replace('px', '')
+            let gapCope = (containerGapSize * numberOfContainerGaps) + (numChildGaps * childGapSize)
+
+            let remainingHeight = containerHeight - childHeight - gapCope - containerPaddingTop - containerPaddingBottom + "px"
+            console.log(`${containerHeight} - ${childHeight} - ((${numberOfContainerGaps}*${containerGapSize}) + (${numChildGaps}*${childGapSize})) - ${containerPaddingTop} - ${containerPaddingBottom} = ${remainingHeight}px`)
+            return remainingHeight
+        } else {
+            return container.outerHeight()
+        }
+
+    }
+
     $(window).on('resize', async function () {
         correctSizeBody()
     })
@@ -1424,7 +1455,8 @@ $(async function () {
     //close the past chats and crowd controls on page load
     toggleControlPanelBlocks($("#pastChatsToggle"), 'single')
     toggleControlPanelBlocks($("#crowdControlToggle"), 'single')
-
+    await delay(1000)
+    $("#customPromptsBlock").css('height', heightMinusDivHeight($("#AIConfigWrap"), $("#configSelectorsBlock")))
 
 })
 

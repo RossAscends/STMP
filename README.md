@@ -174,6 +174,7 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
   - (⛔) clears the saved Usernames and UniqueID from localStorage.
     - If you are not the primary Host you will lose any roles you were given.
     - You will be asked to register a new username next time you sign in on the same browser.
+  - (🔊) (only on mobile) will cause a 10 minute silent audio to play when you minimize the browser window, preventing the websocket from being disconnected while the window is minimized. This is played each time you minimize the app.
 
 #### In the Chat Windows
 

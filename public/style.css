@@ -638,6 +638,14 @@ hr {
     background-color: #496951 !important;
 }
 
+.borderRad5 {
+    border-radius: 5px;
+}
+
+.borderRad10 {
+    border-radius: 10px;
+}
+
 .flexFlowCol {
     flex-flow: column;
 }

@@ -272,7 +272,7 @@ async function populateAPIValues(api) {
     $("#addNewAPIButton").hide()
     $("#editAPIButton").show()
     $("#apiTitle").text('API Info')
-    $("#hasModelsCheckbox").trigger('click')
+    $("#modelLoadButton").trigger('click')
 }
 
 // set the engine mode to either horde or Text Completions based on a value from the websocket

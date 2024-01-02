@@ -1,6 +1,7 @@
 
 const fs = require('fs');
 const $ = require('jquery');
+const util = require('util');
 const { Readable } = require('stream');
 const { EventEmitter } = require('events');
 const textEmitter = new EventEmitter();
@@ -39,6 +40,7 @@ async function getAPIDefaults(shouldReturn = null) {
 
 async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage) {
     let isCCSelected = liveAPI.type === 'CC' ? true : false
+    let isClaude = liveAPI.claude
     try {
         let APICallParams = {}
         if (engineMode === 'TC') {
@@ -68,9 +70,9 @@ async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredential
             APICallParams[key] = value;
         }
         //add full prompt to API call
-        if (!isCCSelected) {
+        if (!isCCSelected || isClaude) { //TC and Claude get 'prompt' (even though Claude is CC)
             APICallParams.prompt = fullPromptforAI;
-        } else {
+        } else { //CC gets 'messages'
             APICallParams.messages = fullPromptforAI
         }
 
@@ -315,7 +317,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             var systemPrompt = `${systemSequence}${systemMessage}${endSequence}${systemSequence}${descToAdd}${personalityToAdd}${scenarioToAdd}`
             var systemPromptforCC = `${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
 
-            if (!isCCSelected) { //craft the TC prompt
+            if (!isCCSelected || isClaude) { //craft the TC prompt
                 //this will be what we return to TC as the prompt
                 var stringToReturn = systemPrompt
 
@@ -552,26 +554,36 @@ async function testAPI(isStreaming, api, liveConfig) {
     logger.debug(`[testAPI] >> GO`)
     logger.info('api:')
     logger.info(api)
-    let testMessage
+    let testMessage = 'User: Ping? (if you can see me say "Pong!\n\nAssistant:")'
     let payload = {
-        stream: isStreaming,
-        seed: -1,
-        stop: [' ']
+        prompt: '',
+        stream: false, //no point to stream test messages
+        seed: api.claude ? undefined : -1,
+        stop: ['.'],
+        stop_sequence: ['.'],
+        stop_sequences: ['.'],
+        max_tokens_to_sample: 50,
+        max_tokens: 50,
+        max_length: 50
     }
-    let testMessageObject = [{ entity: 'human', content: 'Test Message' }]
-    let TCTestMessage = 'User: Test Message'
-    if (api.type === 'CC') {
+
+    let testMessageObject = [{ role: 'user', content: 'Ping? (if you can see me say "Pong!")' }]
+    //does claude even use CC? is it not prompt instead of message objects?
+    let testMessageObjectForClaude = [{ role: 'human', content: 'Test Message' }]
+    if (api.type === 'CC' && !api.claude) {
         payload.model = liveConfig.selectedModel
-        testMessage = testMessageObject
+        payload.messages = testMessageObject
 
     } else {
-        testMessage = TCTestMessage
-        payload.prompt = TCTestMessage
-        //delete payload.stop
+        payload.prompt = testMessage
+        if (api.claude) {
+            let tempPrompt = payload.prompt
+            tempPrompt = tempPrompt.replace('User', 'Human')
+        }
     }
 
 
-    let result = await requestToTCorCC(isStreaming, api, payload, testMessage, true, liveConfig)
+    let result = await requestToTCorCC(false, api, payload, testMessage, true, liveConfig)
 
     return result
 
@@ -579,42 +591,27 @@ async function testAPI(isStreaming, api, liveConfig) {
 
 async function getModelList(api) {
     let isClaude = api.isClaude
-    let baseURL = api.endpoint
+    let modelsEndpoint = api.endpoint + 'models/'
+    let key = 'Bearer ' + api.key
 
-    headers = {
+    let headers = {
         'Content-Type': 'application/json',
         'x-api-key': api.key,
-        'Authorization': 'Bearer ' + api.key,
+        Authorization: key
     }
-    //console.log(headers)
-
-    /*     if (!isClaude) {
-            try {
-                const modelInfoUrl = baseURL + 'model/';
-                console.log(modelInfoUrl)
-                const modelInfoReply = await fetch(modelInfoUrl, headers);
-                if (modelInfoReply) {
-                    const modelInfo = await modelInfoReply.json();
-                    console.log(modelInfo)
-                    return modelInfo
-                }
-            }
-            catch (error) {
-                console.log(error)
-            }
-        } */
-
-    let modelsEndpoint = baseURL + 'models/'
-    logger.info(`Fetching model list from: ${modelsEndpoint}`)
 
     if (isClaude) {
         headers['anthropic-version'] = '2023-06-01';
     }
-
-    const response = await fetch(modelsEndpoint, {
+    let args = {
         method: 'GET',
-        headers: headers,
-    });
+        headers: headers
+    }
+    logger.info(`Fetching model list from: ${modelsEndpoint}`)
+    logger.debug(modelsEndpoint)
+    logger.debug(args)
+
+    const response = await fetch(modelsEndpoint, args);
 
     if (response.status === 200) {
         let responseJSON = await response.json();
@@ -649,19 +646,20 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
         'Authorization': `Bearer ${key}`,
     };
 
-    if (isCCSelected) { //for CC, OAI and others
-        chatURL = baseURL + 'chat/completions/'
+    if (isCCSelected && !isClaude) { //for CC, OAI and others
+        chatURL = baseURL + 'chat/completions'
         APICallParamsAndPrompt.add_generation_prompt = true
         delete APICallParamsAndPrompt.prompt
     } else { //for TC (Tabby, KCPP, and OR?)
-        chatURL = baseURL + 'completions/'
+        chatURL = baseURL + 'completions'
         delete APICallParamsAndPrompt.messages
     }
     if (isClaude) {
-        chatURL = baseURL + 'complete/'
+        chatURL = baseURL + 'complete'
         headers['anthropic-version'] = '2023-06-01';
         APICallParamsAndPrompt.max_tokens_to_sample = APICallParamsAndPrompt.max_tokens
         delete APICallParamsAndPrompt.max_tokens
+        if (APICallParamsAndPrompt.temperature > 1) { APICallParamsAndPrompt.temperature = 1 }
     }
 
     try {
@@ -674,7 +672,7 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
         console.log(APICallParamsAndPrompt)
 
         const body = JSON.stringify(APICallParamsAndPrompt);
-        //const abortController = new AbortController();
+        //console.log(body)
 
         let streamingReportText = APICallParamsAndPrompt.stream ? 'streamed' : 'non-streamed'
         logger.info(`Sending ${streamingReportText} ${liveAPI.type} API request to ${chatURL}..`);
@@ -685,11 +683,18 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
             headers: headers,
             body: body,
             timeout: 0,
-            //signal: abortController.signal
         }
-        //console.log(args)
-        const response = await fetch(chatURL, args)
 
+        //console.log(args)
+        // const response = await fetch(chatURL, args)
+        let key = `Bearer ${TCAPIKey}`
+
+        const response = await fetch(chatURL, args)
+        /* console.log('FULL RESPONSE')
+        console.log('=====================')
+        console.log(util.inspect(response, { depth: null }));
+        console.log('=====================')
+ */
         if (response.status === 200) {
             logger.debug('Status 200: Ok.')
             return await processResponse(response, isCCSelected, isTest, isStreaming, liveAPI)
@@ -714,29 +719,18 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
 
 async function processResponse(response, isCCSelected, isTest, isStreaming, liveAPI) {
     let isClaude = liveAPI.claude
+
     if (!isStreaming) {
         try {
             let JSONResponse = await response.json();
             //logger.debug('Response JSON:', JSONResponse);
-            return processNonStreamedResponse(JSONResponse, isCCSelected, isTest);
+            return processNonStreamedResponse(JSONResponse, isCCSelected, isTest, isClaude);
         }
-
         catch (error) {
             console.error('Error parsing JSON:', error);
         }
     } else {
-
-        if (isTest) {
-            let status = response.status
-            let testResults = {
-                status: status,
-                value: text
-            }
-            return testResults
-        }
-        //look for streams first
         if (response.body) {
-
             let stream = response.body;
             let data = '';
             if (typeof stream.on !== 'function') {
@@ -815,8 +809,6 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
                         textEmitter.emit('text', text);
 
                     }
-
-
                     // Remove the processed JSON object from the data string
                     data = data.substring(jsonEndIndex + 1);
                 }
@@ -860,32 +852,35 @@ async function readStreamChunks(readableStream) {
     });
 }
 
-async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest) {
+async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest, isClaude) {
 
-    let text, status
-    logger.info('--- API RESPONSE')
-    logger.info(JSONResponse)
+    let text
+    let apistatus = 200 //if we got here it's 200.
+    /*     logger.info('--- API RESPONSE')
+        logger.info(JSONResponse) */
+    //console.log(`isCCSelected? ${isCCSelected}`)
+    //console.log(`isTest? ${isTest}`)
+    if (isCCSelected) {
+        if (isClaude) {
+            text = JSONResponse.completion;
+        }
+        else if (JSONResponse.choices && JSONResponse.choices.length > 0) {
+            text = JSONResponse.choices[0].message?.content
+        }
+        else {
+            logger.info(JSONResponse)
+            return "Unknown API type. Couldn't find response. Check console log."
+        }
+    } else { // text completions have data in 'choices'
+        text = JSONResponse.choices[0].text
+    }
     if (isTest) {
-        status = response.status
         let testResults = {
-            status: status,
+            status: apistatus,
             value: text
         }
         return testResults
     }
-    if (isCCSelected) {
-        //look for 'choices' from OAI first..
-        if (JSONResponse.choices && JSONResponse.choices.length > 0) {
-            text = JSONResponse.choices[0].message?.content || JSONResponse.completion;
-        } else { //look for Claude stream data location 'completions'
-            text = JSONResponse.completion;
-        }
-
-    } else { // text completions have data in 'choices'
-        text = JSONResponse.choices[0].text
-    }
-
-
     return text
 }
 

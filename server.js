@@ -224,6 +224,14 @@ async function initFiles() {
     if (!liveConfig.selectedCharacter || liveConfig.selectedCharacter === '') {
         logger.warn('No selected character found, getting the latest...')
         let latestCharacter = await db.getLatestCharacter()
+        //If three is no latest character, then use the default
+        if (latestCharacter === undefined || latestCharacter === null) {
+            logger.warn('No latest character found, using default...')
+            latestCharacter = {
+                char_id: 'public/characters/CodingSensei.png',
+                displayname: 'Coding Sensei'
+            }
+        }
         logger.warn(latestCharacter)
         liveConfig.selectedCharacter = latestCharacter.char_id
         liveConfig.selectedCharDisplayName = latestCharacter.displayname;

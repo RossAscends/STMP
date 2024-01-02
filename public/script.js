@@ -58,6 +58,15 @@ var sanitizeExtension = {
     }
 };
 
+function convertNonsenseTokensToUTF(x) {
+    x = x.replace(/â¦/g, '...')
+    x = x.replace(/Ã¢ÂÂ¦/g, '...')
+    x = x.replace(/â|â/g, '"');
+    x = x.replace(/â/g, "'");
+    x = x.replace(/â([^“(”)]*)â/g, '<q class="invisible-quotation">\'$1\'</q>');
+    return x;
+}
+
 var quotesExtension = function () {
     var regexes = [
         { regex: /â|â/g, replace: '"' },
@@ -676,7 +685,8 @@ async function displayStreamedResponse(message) {
     // }
 
     // Create a temporary span element with raw text
-    const sanitizedToken = DOMPurify.sanitize(content);
+    const fixedToken = convertNonsenseTokensToUTF(content)
+    const sanitizedToken = DOMPurify.sanitize(fixedToken);
     accumulatedContent += sanitizedToken;
     const spanElement = $('<span>').html(sanitizedToken);
     // Find and preserve existing username span within .incomingStreamDiv

@@ -75,6 +75,8 @@ function convertNonsenseTokensToUTF(x) {
 var quotesExtension = function () {
     var regexes = [
         { regex: /â|â/g, replace: '"' },
+        { regex: /â¦/g, replace: '...' },
+        { regex: /Ã¢ÂÂ¦/g, replace: '...' },
         { regex: /â/g, replace: '\'' },
         { regex: /ÃÂ¢ÃÂÃÂ/g, replace: '\'' },
         { regex: /Ã¢ÂÂ/g, replace: '\'' },

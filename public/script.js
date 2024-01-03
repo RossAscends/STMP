@@ -261,7 +261,7 @@ async function processConfirmedConnection(parsedMessage) {
     console.debug('[processConfirmedConnection()]>> GO');
     const { clientUUID, newAIChatDelay, newUserChatDelay, role, D1JB, D4AN, systemPrompt, instructList, instructFormat,
         selectedCharacter, selectedCharacterDisplayName, selectedSamplerPreset, chatHistory,
-        AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, isStreaming, contextSize,
+        AIChatHistory, cardList, samplerPresetList, userList, isAutoResponse, isStreaming, D4CharDefs, contextSize,
         responseLength, engineMode, APIList, selectedAPI, selectedModel, API } = parsedMessage;
     if (newAIChatDelay) {
         AIChatDelay = newAIChatDelay * 1000
@@ -301,6 +301,8 @@ async function processConfirmedConnection(parsedMessage) {
         flashElement('AIAutoResponse', 'good')
         $("#streamingCheckbox").prop('checked', isStreaming)
         flashElement('streamingCheckbox', 'good')
+        $("#D4CharDefs").prop('checked', D4CharDefs)
+        flashElement('D4CharDefs', 'good')
         $("#maxContext").find(`option[value="${contextSize}"]`).prop('selected', true)
         flashElement('maxContext', 'good')
         $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
@@ -535,6 +537,10 @@ async function connectWebSocket(username) {
             case 'streamingToggleUpdate':
                 $("#streamingCheckbox").prop('checked', parsedMessage.value)
                 console.debug('streaming toggle updated')
+                break
+            case 'D4CharDefsToggleUpdate':
+                $("#D4CharDefs").prop('checked', parsedMessage.value)
+                console.debug('D4 Char Defs toggle updated')
                 break
             case 'claudeToggleUpdate':
                 $("#isClaudeCheckbox").prop('checked', parsedMessage.value)
@@ -957,6 +963,18 @@ $(async function () {
         }
         messageServer(streamingStateMessage);
         flashElement('streamingCheckbox', 'good')
+    })
+
+    $("#D4CharDefs").on('input', function () {
+        let D4CharDefs = $(this).prop('checked')
+        console.debug(`D4 Char Defs = ${D4CharDefs}`)
+        const D4CharDefsMessage = {
+            type: 'toggleD4CharDefs',
+            UUID: myUUID,
+            value: D4CharDefs
+        }
+        messageServer(D4CharDefsMessage);
+        flashElement('D4CharDefs', 'good')
     })
 
     $("#maxContext").on('input', function () {

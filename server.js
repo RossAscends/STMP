@@ -182,7 +182,8 @@ async function initFiles() {
         instructFormat: "public/instructFormats/ChatML.json",
         D1JB: '',
         D4AN: '',
-        systemPrompt: ''
+        systemPrompt: '',
+        D4CharDefs: false
     };
 
     const instructSequences = await fio.readFile(defaultConfig.instructFormat)
@@ -429,6 +430,7 @@ async function handleConnections(ws, type, request) {
         connectionConfirmedMessage["engineMode"] = liveConfig.engineMode
         connectionConfirmedMessage["isAutoResponse"] = liveConfig.isAutoResponse
         connectionConfirmedMessage["isStreaming"] = liveConfig.isStreaming
+        connectionConfirmedMessage["D4CharDefs"] = liveConfig.D4CharDefs
         connectionConfirmedMessage["contextSize"] = liveConfig.contextSize
         connectionConfirmedMessage["responseLength"] = liveConfig.responseLength
         connectionConfirmedMessage["D1JB"] = liveConfig.D1JB
@@ -509,6 +511,16 @@ async function handleConnections(ws, type, request) {
                     let settingChangeMessage = {
                         type: 'streamingToggleUpdate',
                         value: liveConfig.isStreaming
+                    }
+                    await broadcast(settingChangeMessage, 'host')
+                    return
+                }
+                else if (parsedMessage.type === 'toggleD4CharDefs') {
+                    liveConfig.D4CharDefs = parsedMessage.value
+                    await fio.writeConfig(liveConfig, 'D4CharDefs', liveConfig.D4CharDefs)
+                    let settingChangeMessage = {
+                        type: 'D4CharDefsToggleUpdate',
+                        value: liveConfig.D4CharDefs
                     }
                     await broadcast(settingChangeMessage, 'host')
                     return

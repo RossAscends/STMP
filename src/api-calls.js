@@ -282,6 +282,9 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
     //logger.debug(liveAPI)
     let isClaude = liveAPI.claude
     let isCCSelected = liveAPI.type === 'CC' ? true : false
+    let doD4CharDefs = liveConfig.D4CharDefs
+    console.log(doD4CharDefs)
+
 
     //logger.debug(`addCharDefsToPrompt: ${username}`)
     return new Promise(async function (resolve, reject) {
@@ -298,11 +301,17 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             let replacedString = postProcessText(replaceMacros(jsonString, username, charJSON.name))
             const replacedData = JSON.parse(replacedString);
 
+            const descToAdd = replacedData.description.length > 0 ? `\n${replacedData.description.trim()}` : ''
+            const personalityToAdd = replacedData.personality.length > 0 ? `\n${replacedData.personality.trim()}` : ''
+            const scenarioToAdd = replacedData.scenario.length > 0 ? `\n${replacedData.scenario.trim()}` : ''
+
             //replace {{user}} and {{char}} for D1JB
             var D1JB = postProcessText(replaceMacros(liveConfig.D1JB, username, charJSON.name)) || ''
             var D4AN = postProcessText(replaceMacros(liveConfig.D4AN, username, charJSON.name)) || ''
+            if (doD4CharDefs) {
+                D4AN = `${descToAdd}${personalityToAdd}${scenarioToAdd}\n${D4AN}`
+            }
             var systemMessage = postProcessText(replaceMacros(liveConfig.systemPrompt, username, charJSON.name)) || `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
-
 
             const instructSequence = JSON.parse(liveConfig.instructSequences)
             const inputSequence = replaceMacros(instructSequence.input_sequence, username, charJSON.name)
@@ -310,12 +319,14 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             const systemSequence = replaceMacros(instructSequence.system_sequence, username, charJSON.name)
             const endSequence = replaceMacros(instructSequence.end_sequence, username, charJSON.name)
 
-            const descToAdd = replacedData.description.length > 0 ? `\n${replacedData.description.trim()}` : ''
-            const personalityToAdd = replacedData.personality.length > 0 ? `\n${replacedData.personality.trim()}` : ''
-            const scenarioToAdd = replacedData.scenario.length > 0 ? `\n${replacedData.scenario.trim()}` : ''
+            if (!doD4CharDefs) {
+                var systemPrompt = `${systemSequence}${systemMessage}${endSequence}${systemSequence}${descToAdd}${personalityToAdd}${scenarioToAdd}`
+                var systemPromptforCC = `${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
+            } else {
+                var systemPrompt = `${systemSequence}${systemMessage}`
+                var systemPromptforCC = `${systemMessage}`
+            }
 
-            var systemPrompt = `${systemSequence}${systemMessage}${endSequence}${systemSequence}${descToAdd}${personalityToAdd}${scenarioToAdd}`
-            var systemPromptforCC = `${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
 
             if (!isCCSelected || isClaude) { //craft the TC prompt
                 //this will be what we return to TC as the prompt
@@ -356,9 +367,11 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         insertedItems.push(newItem); // Add new item to the array
                     }
                 }
-
+                //reverse to prepare for D4AN insertion
+                insertedItems.reverse()
                 let numOfObjects = insertedItems.length
                 let positionForD4AN = numOfObjects - 4
+                logger.warn(`D4AN will be inserted at position ${positionForD4AN} of ${numOfObjects}`)
                 if (D4AN.length !== 0 && D4AN !== '' && D4AN !== undefined && D4AN !== null) {
                     if (insertedItems.length < 5) {
                         logger.warn('adding D4AN at top of prompt because it is small')
@@ -372,7 +385,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 // Reverse the array before appending to insertedChatHistory
                 //let reversedItems = insertedItems.reverse();
                 //let insertedChatHistory = reversedItems.join('');
-                let insertedChatHistory = insertedItems.reverse().join('');
+                let insertedChatHistory = insertedItems.join('');
                 stringToReturn += insertedChatHistory
                 stringToReturn += `${endSequence}`
                 //add the final mes and userInput        
@@ -386,14 +399,6 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 } else {
                     stringToReturn += lastUserMesageAndCharName.trim();
                 }
-
-                /*                 if (isCCSelected) {
-                                    logger.debug('========== DOING CC conversion =======')
-                                    const [CCMessages, CCStops] = TCtoCC(includedChatObjects, APICallParamsAndPrompt.stop)
-                                    APICallParamsAndPrompt.stop = CCStops
-                                    APICallParamsAndPrompt.messages = CCMessages
-                
-                                } */
 
                 stringToReturn = postProcessText(stringToReturn)
 
@@ -412,7 +417,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 for (let i = chatHistory.length - 1; i >= 0; i--) {
                     let obj = chatHistory[i];
                     let newItem
-                    if (i === chatHistory.length - 3) {
+                    if (i === chatHistory.length - 4) {
                         CCMessageObj.push(D4ANObj)
                     }
                     if (i === chatHistory.length - 2) {

@@ -1,30 +1,19 @@
-var username, isAutoResponse, isStreaming, isClaude, contextSize, responseLength, isPhone, currentlyStreaming
+import control from './src/controls.js'
+import util from './src/utils.js'
+
+export var username, isAutoResponse, isStreaming, isClaude, contextSize, responseLength, isPhone, isLandscape, currentlyStreaming
+export var myUUID, myUsername
+export var socket = null
+export var isUserScrollingAIChat = false;
+export var isUserScrollingUserChat = false;
+let UserChatScrollTimeout, AIChatScrollTimeout
 
 var doKeepAliveAudio = false
 var isKeepAliveAudioPlaying = false
 var keepAliveAudio = new Audio('silence.mp3');
 
-export var isUserScrollingAIChat = false;
-export var isUserScrollingUserChat = false;
-let UserChatScrollTimeout, AIChatScrollTimeout
-
-
 //this prevents selectors from firing off when being initially populated
 var initialLoad = true
-
-import control from './src/controls.js'
-
-export function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function debounce(func, delay) {
-    let timeoutId;
-    return function () {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(func, delay);
-    };
-}
 
 function startupUsernames() {
     async function initializeUsername() {
@@ -62,16 +51,6 @@ var sanitizeExtension = {
     }
 };
 
-function convertNonsenseTokensToUTF(x) {
-    x = x.replace(/â¦/g, '...')
-    x = x.replace(/Ã¢ÂÂ¦/g, '...')
-    x = x.replace(/â|â/g, '"');
-    x = x.replace(/â/g, "'");
-    x = x.replace(/ÃÂ¢ÃÂÃÂ/g, '\'')
-    x = x.replace(/â([^“(”)]*)â/g, '<q class="invisible-quotation">\'$1\'</q>');
-    return x;
-}
-
 var quotesExtension = function () {
     var regexes = [
         { regex: /â|â/g, replace: '"' },
@@ -100,6 +79,20 @@ var quotesExtension = function () {
     });
 };
 
+var BRTagsToParagraphTags = function () {
+    var regexes = [
+        { regex: /<br>/g, replace: '</p><p>' },
+    ];
+
+    return regexes.map(function (rule) {
+        return {
+            type: 'output',
+            regex: rule.regex,
+            replace: rule.replace
+        };
+    });
+};
+
 var converter = new showdown.Converter({
     simpleLineBreaks: true,
     openLinksInNewWindow: true,
@@ -108,7 +101,7 @@ var converter = new showdown.Converter({
     backslashEscapesHTMLTags: true,
     literalMidWordUnderscores: true,
     strikethrough: true,
-    extensions: [sanitizeExtension, quotesExtension]
+    extensions: [sanitizeExtension, quotesExtension, BRTagsToParagraphTags]
 });
 
 //routine to check if we are on an iOS device or not
@@ -124,16 +117,9 @@ var port = window.location?.port;
 var wsType = /[a-zA-Z]/.test(window.location.hostname) && window.location.hostname !== 'localhost' ? 'wss' : 'ws';
 console.debug(`We will connect to "${wsType}" server..`)
 var serverUrl = `${wsType}://${hostname}:${port}`
-export var myUUID, myUsername
 
-var socket = null
 var isHost
-
 var AIChatDelay, userChatDelay
-
-export function messageServer(message) {
-    socket.send(JSON.stringify(message))
-}
 
 function updateUserChatUserList(userList) {
     console.debug("updating user chat user list");
@@ -181,82 +167,6 @@ function updateAIChatUserList(message) {
     });
 }
 
-async function addNewAPI() {
-    //check each field for validity, flashElement if invalid
-    console.debug('[addNewAPI()] >> GO')
-    let name = $("#newAPIName").val()
-    let endpoint = $("#newAPIEndpoint").val()
-    let key = $("#newAPIKey").val()
-    let type = $("#newAPIEndpointType").val()
-    let claude = $("#isClaudeCheckbox").prop('checked')
-    console.log(`Claude value: ${claude}`)
-
-    if (name === '') {
-        await flashElement('newAPIName', 'bad')
-        return
-    }
-    if (endpoint === '') {
-        await flashElement('newAPIEndpoint', 'bad')
-        return
-    }
-
-    messageServer({
-        type: 'addNewAPI',
-        name: name,
-        endpoint: endpoint,
-        key: key,
-        endpointType: type,
-        claude: claude,
-        UUID: myUUID
-    })
-    await delay(250)
-    //hide edit panel after save is done
-    betterSlideToggle($("#addNewAPI"), 250, 'height')
-    control.disableAPIEdit()
-
-}
-
-function testNewAPI() {
-    let name = $("#newAPIName").val()
-    let endpoint = $("#newAPIEndpoint").val()
-    let key = $("#newAPIKey").val()
-    let type = $("#newAPIEndpointType").val()
-    let claude = $("#isClaudeCheckbox").prop('checked')
-
-    messageServer({
-        type: 'testNewAPI',
-        UUID: myUUID,
-        api: {
-            name: name,
-            endpoint: endpoint,
-            key: key,
-            type: type,
-            claude: claude
-        }
-    })
-}
-
-async function getModelList() {
-    let name = $("#newAPIName").val()
-    let endpoint = $("#newAPIEndpoint").val()
-    let key = $("#newAPIKey").val()
-    let type = $("#newAPIEndpointType").val()
-    let claude = $("#isClaudeCheckbox").prop('checked')
-    let modelListRequestMessage = {
-        UUID: myUUID,
-        type: 'modelListRequest',
-        api: {
-            name: name,
-            endpoint: endpoint,
-            key: key,
-            type: type,
-            claude: claude
-        }
-
-    }
-    messageServer(modelListRequestMessage)
-}
-
 async function processConfirmedConnection(parsedMessage) {
     console.debug('[processConfirmedConnection()]>> GO');
     const { clientUUID, newAIChatDelay, newUserChatDelay, role, D1JB, D4AN, systemPrompt, instructList, instructFormat,
@@ -266,12 +176,12 @@ async function processConfirmedConnection(parsedMessage) {
     if (newAIChatDelay) {
         AIChatDelay = newAIChatDelay * 1000
         $("#AIChatInputDelay").val(newAIChatDelay)
-        flashElement('AIChatInputDelay', 'good')
+        util.flashElement('AIChatInputDelay', 'good')
     }
     if (newUserChatDelay) {
         userChatDelay = newUserChatDelay * 1000
         $("#UserChatInputDelay").val(newUserChatDelay)
-        flashElement('UserChatInputDelay', 'good')
+        util.flashElement('UserChatInputDelay', 'good')
     }
     myUUID = myUUID === '' ? clientUUID : myUUID;
     localStorage.setItem('UUID', myUUID);
@@ -289,7 +199,7 @@ async function processConfirmedConnection(parsedMessage) {
                 $("#controlPanel").removeClass('initialState').hide()
             }
         } else if ($("#controlPanel").hasClass('initialState')) { //handle first load for PC, shows the panel
-            betterSlideToggle($("#controlPanel"), 100, 'width')
+            util.betterSlideToggle($("#controlPanel"), 100, 'width')
             $("#controlPanel").removeClass('initialState')
             $("#keepAliveAudio").hide() //hide it, does nothing for PCs
         }
@@ -298,27 +208,27 @@ async function processConfirmedConnection(parsedMessage) {
         //populate and load config inputs & checkboxes
         $(".hostControls").css('display', 'flex')
         $("#AIAutoResponse").prop('checked', isAutoResponse)
-        flashElement('AIAutoResponse', 'good')
+        util.flashElement('AIAutoResponse', 'good')
         $("#streamingCheckbox").prop('checked', isStreaming)
-        flashElement('streamingCheckbox', 'good')
+        util.flashElement('streamingCheckbox', 'good')
         $("#D4CharDefs").prop('checked', D4CharDefs)
-        flashElement('D4CharDefs', 'good')
+        util.flashElement('D4CharDefs', 'good')
         $("#maxContext").find(`option[value="${contextSize}"]`).prop('selected', true)
-        flashElement('maxContext', 'good')
+        util.flashElement('maxContext', 'good')
         $("#responseLength").find(`option[value="${responseLength}"]`).prop('selected', true)
-        flashElement('responseLength', 'good')
+        util.flashElement('responseLength', 'good')
 
         control.populateAPISelector(APIList, selectedAPI);
         $("#apiList").find(`option[value="${selectedAPI}"]`).prop('selected', true)
         $(("#apiList")).trigger('change')
 
         control.populateAPIValues(API)
-        flashElement('newAPIName', 'good')
-        flashElement('newAPIEndpoint', 'good')
-        flashElement('newAPIKey', 'good')
-        flashElement('newAPIEndpointType', 'good')
-        flashElement('isClaudeCheckbox', 'good')
-        flashElement('apiList', 'good')
+        util.flashElement('newAPIName', 'good')
+        util.flashElement('newAPIEndpoint', 'good')
+        util.flashElement('newAPIKey', 'good')
+        util.flashElement('newAPIEndpointType', 'good')
+        util.flashElement('isClaudeCheckbox', 'good')
+        util.flashElement('apiList', 'good')
 
         control.disableAPIEdit()
 
@@ -488,18 +398,18 @@ async function connectWebSocket(username) {
                 break;
             case 'keyAccepted':
                 //refresh page to get new info, could be done differently in the future
-                await flashElement('roleKeyInput', 'good')
+                await util.flashElement('roleKeyInput', 'good')
                 console.debug('key accepted, refreshing page...')
                 location.reload();
                 break;
             case 'keyRejected':
                 console.log('key rejected')
                 $("#roleKeyInput").val('')
-                await flashElement('roleKeyInput', 'bad')
+                await util.flashElement('roleKeyInput', 'bad')
                 break;
             case 'pastChatsList':
                 let chatList = parsedMessage.pastChats
-                showPastChats(chatList)
+                control.showPastChats(chatList)
                 break;
             case 'APIList':
                 let APIList = parsedMessage.APIList;
@@ -555,26 +465,26 @@ async function connectWebSocket(username) {
                 $("#modelList").empty().attr('disabled', false)
                 // Update the Name, endpoint, and key fields with the new API info
                 control.populateAPIValues(parsedMessage)
-                flashElement('newAPIName', 'good')
-                flashElement('newAPIEndpoint', 'good')
-                flashElement('newAPIKey', 'good')
-                flashElement('newAPIEndpointType', 'good')
-                flashElement('isClaudeCheckbox', 'good')
-                flashElement('apiList', 'good')
+                util.flashElement('newAPIName', 'good')
+                util.flashElement('newAPIEndpoint', 'good')
+                util.flashElement('newAPIKey', 'good')
+                util.flashElement('newAPIEndpointType', 'good')
+                util.flashElement('isClaudeCheckbox', 'good')
+                util.flashElement('apiList', 'good')
                 break
             case 'testAPIResult':
                 let result = parsedMessage.value
                 console.debug(result)
                 if (result.status === 200) {
-                    flashElement('APIEditDiv', 'good')
+                    util.flashElement('APIEditDiv', 'good')
                 } else {
-                    await flashElement('APIEditDiv', 'bad', 150, 3)
+                    await util.flashElement('APIEditDiv', 'bad', 150, 3)
                     alert(`Error: status code ${result.status}`)
                 }
                 break
             case 'modelListResult':
                 if (parsedMessage.value === 'ERROR') {
-                    flashElement('modelList', 'bad')
+                    util.flashElement('modelList', 'bad')
                     $("#modelList").attr('disabled', true)
                 } else {
                     let modelList = parsedMessage.value
@@ -603,12 +513,11 @@ async function connectWebSocket(username) {
                 currentlyStreaming = true
                 let newStreamDivSpan;
                 if (!$("#AIChat .incomingStreamDiv").length) {
-                    newStreamDivSpan = $(`<div class="incomingStreamDiv"><span style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}🤖</span><p></p></div>`);
+                    newStreamDivSpan = $(`<div class="incomingStreamDiv"><div style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}🤖</div><span></span></div>`);
                     $("#AIChat").append(newStreamDivSpan);
                     control.kindlyScrollDivToBottom($("#AIChat"))
                 }
                 await displayStreamedResponse(message)
-
 
                 $("#AISendButton").prop('disabled', true);
                 $("#deleteLastMessageButton").prop('disabled', true);
@@ -621,20 +530,14 @@ async function connectWebSocket(username) {
                 break;
             case 'streamedAIResponseEnd':
                 console.debug('saw stream end')
-                //const HTMLizedContent = converter.makeHtml(accumulatedContent);
                 console.log(accumulatedContent)
-                const newDivElement = $('<div>').html(accumulatedContent);
-                const usernameSpan = $('.incomingStreamDiv').find('.chatUserName');
-                if (usernameSpan.length > 0) {
-                    // Remove all elements after the username span
-                    const elementsToRemove = $(usernameSpan).nextAll();
-                    elementsToRemove.remove();
-                    $(usernameSpan).after(newDivElement.html());
-                } else {
-                    // If there is no existing username span, replace .incomingStreamDiv with new content
-                    $('.incomingStreamDiv').replaceWith(newDivElement);
-                }
+                const HTMLizedContent = converter.makeHtml(accumulatedContent);
+                const newDivElement = $('<p>').html(HTMLizedContent);
+                const elementsToRemove = $('.incomingStreamDiv').children('span');
+                elementsToRemove.remove();
+                $('.incomingStreamDiv').append(newDivElement.html());
                 accumulatedContent = ''
+                fullRawAccumulatedContent = ''
                 $('.incomingStreamDiv').removeClass('incomingStreamDiv')
                 currentlyStreaming = false
                 $('body').removeClass('currentlyStreaming')
@@ -648,16 +551,10 @@ async function connectWebSocket(username) {
                 updateAIChatUserList(parsedMessage.AIChatUserList)
                 break;
             case 'AIResponse':
-            case 'trimmedStreamMessage':
             case 'chatMessage':
                 let isAIResponse = false
                 console.debug('saw chat message')
-                if (parsedMessage.type === 'trimmedStreamMessage') {
-                    console.log('saw trimmed stream, removing last div')
-                    $("#AIChat div").last().remove()
-                }
-
-                if (parsedMessage.type === 'AIResponse' || parsedMessage.type === 'trimmedStreamMessage') {
+                if (parsedMessage.type === 'AIResponse') {
                     isAIResponse = true
                 }
                 var { chatID, username, content, userColor, color, workerName, hordeModel, kudosCost, AIChatUserList } = JSON.parse(message);
@@ -666,7 +563,7 @@ async function connectWebSocket(username) {
                 const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
                 let newChatItem = $('<div>');
                 let usernameToShow = isAIResponse ? `${username} 🤖` : username
-                newChatItem.html(`<span style="color:${userColor ? userColor : color}" class="chatUserName">${usernameToShow}</span> ${sanitizedMessage}`)
+                newChatItem.html(`<div style="color:${userColor ? userColor : color}" class="chatUserName">${usernameToShow}</div> ${sanitizedMessage}`)
                 if (workerName !== undefined && hordeModel !== undefined && kudosCost !== undefined) {
                     $(newChatItem).prop('title', `${workerName} - ${hordeModel} (Kudos: ${kudosCost})`);
                 }
@@ -688,139 +585,45 @@ async function connectWebSocket(username) {
         }
     });
 }
-
-let accumulatedContent = ''; // variable to store accumulated content
+let fullRawAccumulatedContent = ''; //store the whole message
+let accumulatedContent = ''; // variable to store tokens for the currently streaming paragraph
 async function displayStreamedResponse(message) {
+    await util.delay(0)
     var { chatID, username, content, userColor, AIChatUserList } = JSON.parse(message);
-    let newStreamDivSpan;
-    //if (!$("#AIChat .incomingStreamDiv").length) {
-    //  newStreamDivSpan = $(`<div class="incomingStreamDiv"><span style="color:${userColor}" class="chatUserName">${username}</span><p></p></div>`);
-    //  $("#AIChat").append(newStreamDivSpan);
-    //} else {
-    newStreamDivSpan = $("#AIChat .incomingStreamDiv p");
-    // }
+    let newStreamDivSpan = $("#AIChat .incomingStreamDiv span:last");
+    let newStreamDiv = $("#AIChat .incomingStreamDiv");
 
-    // Create a temporary span element with raw text
-    const fixedToken = convertNonsenseTokensToUTF(content)
-    const sanitizedToken = DOMPurify.sanitize(fixedToken);
-    accumulatedContent += sanitizedToken;
-    const spanElement = $('<span>').html(sanitizedToken);
+    content = util.convertNonsenseTokensToUTF(content)
+    content = DOMPurify.sanitize(content);
+
+    let spanElement, contentLeftover
+    if (content.includes('\n')) { //preprocess individual paragraphs.
+        //sometimes AI produces new lines with the start of the next sentence together.
+        //we want to remove the newlines, but keep the first word of the next paragraph.
+        contentLeftover = content.replaceAll('\n', '')
+        if (!contentLeftover) { contentLeftover === '' }//if there was nothing else, set it to blank.
+        let trimmedParagraph = util.trimIncompleteSentences(accumulatedContent) //trim what we accumulated so far.
+        let markdownParagraph = converter.makeHtml(trimmedParagraph) //make it markdown
+        $(newStreamDiv).children('span').remove() //remove all the token spans that went into producing it.
+        $(newStreamDiv).append(markdownParagraph) //add the markdown paragraph inplace of the token spans.
+        accumulatedContent = contentLeftover //set accumulated content the leftovers after the newline cut (first character/word of next sentence)
+        newStreamDiv.append($('<span>'));//add a new span for the new paragraph's tokens to come into.
+    } else { //if we are still doing the same paragraph, just add tokens into spans
+        accumulatedContent += content
+        spanElement = $('<span>').html(content);
+        newStreamDivSpan.append(spanElement);
+    }
+
     // Find and preserve existing username span within .incomingStreamDiv
     //const existingUsernameSpan = newStreamDivSpan.find('.chatUserName');
 
-    newStreamDivSpan.append(spanElement);
     control.kindlyScrollDivToBottom($("#AIChat"))
 
     // Scroll to the bottom of the div to view incoming tokens
     //not sure this is working
 }
 
-async function betterSlideToggle(target, speed = 250, animationDirection) {
-    return new Promise((resolve) => {
-        if (target.hasClass('isAnimating')) { return }
-        target.animate({ [animationDirection]: 'toggle', opacity: 'toggle' }, {
-            duration: speed,
-            start: () => {
-                target.addClass('isAnimating')
-            },
-            complete: () => {
-                target.removeClass('isAnimating')
-                target.toggleClass('needsReset')
-                resolve()
-            }
-        });
-    })
-}
 
-export async function flashElement(elementID, type, flashDelay = 400, times = 1) {
-    var element = $('#' + elementID);
-    let color
-    switch (type) {
-        case 'good':
-            color = '#496951'
-            break;
-        case 'bad':
-            color = '#8a4f4e'
-            break;
-        case 'warn':
-            color = '#a4a155'
-            break;
-    }
-    for (var i = 0; i < times; i++) {
-        element.css('background-color', color);
-        await delay(flashDelay);
-        element.css('background-color', '');
-        await delay(flashDelay);
-    }
-}
-
-function showPastChats(chatList) {
-    const $pastChatsList = $("#pastChatsList");
-    $pastChatsList.empty();
-
-    const chatArray = Object.values(chatList);
-    chatArray.sort((a, b) => b.session_id - a.session_id); // Sort in descending order
-
-    if (chatArray.length === 0) {
-        $pastChatsList.html('<span class="flexbox Hcentered" style="margin-left: -15px;">No past chats yet!</span>');
-        return;
-    }
-
-    for (let i = 0; i < chatArray.length; i++) {
-        const item = chatArray[i];
-        const divElement = $(`<div class="pastChatItem flexbox transition250" data-session_id="${item.session_id}">`);
-        if (item.is_active) {
-            divElement.addClass('activeChat');
-        }
-        const formattedTimestamp = formatSQLTimestamp(item.latestTimestamp);
-        const sessionText = $(`<span>${item.aiName} (${item.messageCount})</span>`);
-        const nameAndTimestampDiv = $(`<div data-session_id="${item.session_id}" class="pastChatInfo flexbox flexFlowCol flex1">`);
-        const timestampText = $(`<small>${formattedTimestamp}</small>`);
-        const delButton = $(`<button data-session_id="${item.session_id}" class="pastChatDelButton opacityHalf bgTransparent">🗑️</button>`);
-        divElement.append(nameAndTimestampDiv).append(delButton);
-        nameAndTimestampDiv.append(sessionText).append(timestampText);
-        $pastChatsList.append(divElement);
-    }
-
-    $pastChatsList.off('click', '.pastChatDelButton').on('click', '.pastChatDelButton', async function (e) {
-        const $parent = $(this).parent();
-        $parent.animate({ opacity: 0, height: 0 }, {
-            duration: 250,
-            complete: async function () {
-                await delay(250);
-                $parent.hide();
-                e.preventDefault();
-                const sessionID = $parent.data('session_id');
-                console.debug(`Loading Chat ${sessionID}`);
-                const pastChatDelMessage = {
-                    type: 'pastChatDelete',
-                    UUID: myUUID,
-                    sessionID: sessionID
-                };
-                messageServer(pastChatDelMessage);
-            }
-        });
-    });
-
-    $pastChatsList.off('click', '.pastChatInfo').on('click', '.pastChatInfo', function () {
-        const sessionID = $(this).data('session_id');
-        console.debug(`requesting to load chat from session ${sessionID}...`);
-        const pastChatListRequest = {
-            UUID: myUUID,
-            type: "loadPastChat",
-            session: sessionID
-        };
-        messageServer(pastChatListRequest);
-    });
-}
-
-function formatSQLTimestamp(timestamp) {
-    var date = new Date(timestamp);
-    var formattedDate = date.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    var formattedTime = date.toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
-    var formattedTimestamp = formattedDate + ' ' + formattedTime;
-    return formattedTimestamp;
-}
 
 function handleSocketOpening() {
     console.log("WebSocket opened to server:", serverUrl);
@@ -830,7 +633,7 @@ function handleSocketOpening() {
     console.debug(`connected as ${username}`)
     $("#messageInput").prop("disabled", false).prop('placeholder', 'Message the User Chat').removeClass('disconnected')
     $("#AIMessageInput").prop("disabled", false).prop('placeholder', 'Message the AI Chat').removeClass('disconnected')
-    heartbeat()
+    util.heartbeat()
 };
 
 function disconnectWebSocket() {
@@ -854,7 +657,7 @@ function doAIRetry() {
         username: username,
         char: char
     }
-    messageServer(retryMessage)
+    util.messageServer(retryMessage)
 }
 
 async function sendMessageToAIChat(type) {
@@ -881,7 +684,7 @@ async function sendMessageToAIChat(type) {
         userInput: markdownContent,
     }
     localStorage.setItem('AIChatUsername', username);
-    messageServer(websocketRequest);
+    util.messageServer(websocketRequest);
     messageInput.val('').trigger('focus');
 }
 
@@ -893,22 +696,6 @@ window.addEventListener('beforeunload', () => {
         isDisconnecting = true;
     }
 });
-
-
-function heartbeat() {
-    if (socket && socket.readyState !== WebSocket.OPEN) {
-        console.log("[heartbeat()] saw the socket was disconnected");
-        $("#reconnectButton").show()
-        $("#disconnectButton").hide()
-        $("#userList ul").empty()
-        $("#messageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
-        $("#AIMessageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
-        return
-    }
-    setTimeout(function () {
-        heartbeat()
-    }, 1000)
-}
 
 $(async function () {
     console.debug('document is ready')
@@ -930,7 +717,7 @@ $(async function () {
 
     $("#submitkey").off('click').on('click', function () {
         if (isPhone) {
-            betterSlideToggle($("#profileManagementMenu"), 250, 'width')
+            util.betterSlideToggle($("#profileManagementMenu"), 250, 'width')
         }
         $("#roleKeyInputDiv").css('height', 'unset').toggleClass('needsReset').fadeToggle()
     })
@@ -949,8 +736,8 @@ $(async function () {
             UUID: myUUID,
             value: isAutoResponse
         }
-        messageServer(autoResponseStateMessage);
-        flashElement('AIAutoResponse', 'good')
+        util.messageServer(autoResponseStateMessage);
+        util.flashElement('AIAutoResponse', 'good')
     })
 
     $("#streamingCheckbox").on('input', function () {
@@ -961,8 +748,8 @@ $(async function () {
             UUID: myUUID,
             value: isStreaming
         }
-        messageServer(streamingStateMessage);
-        flashElement('streamingCheckbox', 'good')
+        util.messageServer(streamingStateMessage);
+        util.flashElement('streamingCheckbox', 'good')
     })
 
     $("#D4CharDefs").on('input', function () {
@@ -973,8 +760,8 @@ $(async function () {
             UUID: myUUID,
             value: D4CharDefs
         }
-        messageServer(D4CharDefsMessage);
-        flashElement('D4CharDefs', 'good')
+        util.messageServer(D4CharDefsMessage);
+        util.flashElement('D4CharDefs', 'good')
     })
 
     $("#maxContext").on('input', function () {
@@ -984,8 +771,8 @@ $(async function () {
             UUID: myUUID,
             value: contextSize
         }
-        messageServer(adjustCtxMes);
-        flashElement('maxContext', 'good')
+        util.messageServer(adjustCtxMes);
+        util.flashElement('maxContext', 'good')
     })
 
     $("#responseLength").on('input', function () {
@@ -995,8 +782,8 @@ $(async function () {
             UUID: myUUID,
             value: responseLength
         }
-        messageServer(adjustResponseLength);
-        flashElement('responseLength', 'good')
+        util.messageServer(adjustResponseLength);
+        util.flashElement('responseLength', 'good')
     })
 
     // Send a message to the user chat
@@ -1029,7 +816,7 @@ $(async function () {
             content: markdownContent,
         };
         localStorage.setItem('username', username);
-        messageServer(messageObj);
+        util.messageServer(messageObj);
         messageInput.val('');
         messageInput.trigger('focus').trigger('input');
     });
@@ -1066,7 +853,7 @@ $(async function () {
             $("#TCCCAPIBlock").show()
             $("#streamingChekboxBlock").show()
         }
-        messageServer(modeChangeMessage);
+        util.messageServer(modeChangeMessage);
     })
 
     $("#usernameInput").on('blur', function () {
@@ -1076,7 +863,7 @@ $(async function () {
         if (oldUsername !== currentUsername) {
             console.debug('notifying server of UserChat username change...')
             control.updateUserName(myUUID, currentUsername)
-            flashElement('usernameInput', 'good')
+            util.flashElement('usernameInput', 'good')
         }
     })
 
@@ -1098,7 +885,7 @@ $(async function () {
             type: 'clearChat',
             UUID: myUUID,
         };
-        messageServer(clearMessage);
+        util.messageServer(clearMessage);
     })
 
     $("#clearAIChat").off('click').on('click', function () {
@@ -1107,7 +894,7 @@ $(async function () {
             type: 'clearAIChat',
             UUID: myUUID
         };
-        messageServer(clearMessage);
+        util.messageServer(clearMessage);
     })
 
     $("#deleteLastMessageButton").off('click').on('click', function () {
@@ -1116,13 +903,13 @@ $(async function () {
             type: 'deleteLast',
             UUID: myUUID,
         }
-        messageServer(delLastMessage);
+        util.messageServer(delLastMessage);
     })
 
-    $("#profileManagementButton").on('click', function () { betterSlideToggle($("#profileManagementMenu"), 250, 'width') })
+    $("#profileManagementButton").on('click', function () { util.betterSlideToggle($("#profileManagementMenu"), 250, 'width') })
 
     $('#clearLocalStorage').on('click', function () {
-        betterSlideToggle($("#profileManagementMenu"), 250, 'width')
+        util.betterSlideToggle($("#profileManagementMenu"), 250, 'width')
         $("<div></div>").dialog({
             draggable: false,
             resizable: false,
@@ -1179,19 +966,8 @@ $(async function () {
         })
     }
 
-    function enterToSendChat(event, buttonElementId) {
-        if (event.which === 13) {
-            if (event.shiftKey || event.metaKey || isPhone) {
-                // Ctrl+Enter was pressed, allow default behavior
-                return;
-            }
-            event.preventDefault();
-            $(buttonElementId).trigger('click');
-        }
-    }
-
-    $("#messageInput").on("keypress", function (event) { enterToSendChat(event, "#sendButton"); });
-    $("#AIMessageInput").on("keypress", function (event) { enterToSendChat(event, "#AISendButton"); });
+    $("#messageInput").on("keypress", function (event) { util.enterToSendChat(event, "#sendButton"); });
+    $("#AIMessageInput").on("keypress", function (event) { util.enterToSendChat(event, "#AISendButton"); });
 
     $("#showPastChats").on('click', function () {
         console.debug('requesting past chat list')
@@ -1199,7 +975,7 @@ $(async function () {
             UUID: myUUID,
             type: "pastChatsRequest"
         }
-        messageServer(pastChatListRequest)
+        util.messageServer(pastChatListRequest)
     })
 
     $(document).on('click', async function (e) {
@@ -1208,7 +984,7 @@ $(async function () {
             && !$target.parents("#profileManagementMenu").length
             && !$target.is("#roleKeyInput")) {
             if ($("#profileManagementMenu").hasClass('needsReset')) {
-                betterSlideToggle($("#profileManagementMenu"), 250, 'width');
+                util.betterSlideToggle($("#profileManagementMenu"), 250, 'width');
             }
             if ($("#roleKeyInputDiv").hasClass('needsReset')) {
                 $("#roleKeyInputDiv").fadeToggle().removeClass('needsReset')
@@ -1221,25 +997,35 @@ $(async function () {
     const $AIChatInputButtons = $("#AIChatInputButtons");
     const $UserChatInputButtons = $("#UserChatInputButtons");
 
-    $('#controlPanelToggle').on('click', async function () { await betterSlideToggle($controlPanel, 100, 'width') });
+    $('#controlPanelToggle').on('click', async function () { await util.betterSlideToggle($controlPanel, 100, 'width') });
 
     var chatsToggleState = 0;
-    $("#chatsToggle").off('click').on('click', function () {
+    $("#chatsToggle").off('click').on('click', async function () {
         chatsToggleState = (chatsToggleState + 1) % 3; // Increment the state and wrap around to 0 after the third state
         if (chatsToggleState === 0) {
             $LLMChatWrapper.removeClass('transition500').css({ flex: '1', opacity: '1' });
             $OOCChatWrapper.removeClass('transition500').css({ flex: '1', opacity: '1' });
+            if (!isPhone && isLandscape) {
+                $('body').removeClass('halfWidthChatWrap');
+            }
+
         } else if (chatsToggleState === 1) {
             $OOCChatWrapper.css({ flex: '0', opacity: '0' });
+            console.log(isPhone, isLandscape)
+            if (!isPhone && isLandscape) {
+                $('body').addClass('halfWidthChatWrap')
+            }
         } else if (chatsToggleState === 2) {
+
+
             $OOCChatWrapper.addClass('transition500').css({ flex: '1', opacity: '1' });
             $LLMChatWrapper.addClass('transition500').css({ flex: '0', opacity: '0' });
         }
     });
 
     $("#userListsToggle").off('click').on('click', function () {
-        betterSlideToggle($("#AIChatUserList"), 250, 'width')
-        betterSlideToggle($("#userList"), 250, 'width')
+        util.betterSlideToggle($("#AIChatUserList"), 250, 'width')
+        util.betterSlideToggle($("#userList"), 250, 'width')
     })
 
     //this auto resizes the chat input box as the input gets longer
@@ -1279,8 +1065,8 @@ $(async function () {
             type: messageType,
             value: $(this).val()
         };
-        messageServer(settingsChangeMessage);
-        flashElement(this.id, 'good');
+        util.messageServer(settingsChangeMessage);
+        util.flashElement(this.id, 'good');
     });
 
     $("#apiList").on('change', function () {
@@ -1293,17 +1079,17 @@ $(async function () {
             $("#addNewAPI input").val('')
             control.enableAPIEdit()
             //hide API config, show API edit panel.
-            betterSlideToggle($("#AIConfigInputs"), 250, 'height')
-            betterSlideToggle($("#addNewAPI"), 250, 'height')
+            util.betterSlideToggle($("#AIConfigInputs"), 250, 'height')
+            util.betterSlideToggle($("#addNewAPI"), 250, 'height')
             return
         } else {
             console.debug(`[#apilist]...to "${$(this).val()}"`)
             if ($("#addNewAPI").css('display') !== 'none') {
-                betterSlideToggle($("#addNewAPI"), 250, 'height')
+                util.betterSlideToggle($("#addNewAPI"), 250, 'height')
                 control.hideAddNewAPIDiv()
             }
             if ($("#AIConfigInputs").css('display') === 'none') {
-                betterSlideToggle($("#AIConfigInputs"), 250, 'height')
+                util.betterSlideToggle($("#AIConfigInputs"), 250, 'height')
             }
 
         }
@@ -1312,25 +1098,25 @@ $(async function () {
             UUID: myUUID,
             newAPI: $(this).val()
         }
-        messageServer(APIChangeMessage);
-        flashElement('apiList', 'good')
+        util.messageServer(APIChangeMessage);
+        util.flashElement('apiList', 'good')
     })
 
     $("#editAPIButton").on('click', function () {
         control.enableAPIEdit()
-        betterSlideToggle($("#AIConfigInputs"), 250, 'height')
-        betterSlideToggle($("#addNewAPI"), 250, 'height')
+        util.betterSlideToggle($("#AIConfigInputs"), 250, 'height')
+        util.betterSlideToggle($("#addNewAPI"), 250, 'height')
     })
 
     $("#saveAPIButton").on('click', async function () {
-        await addNewAPI()
-        betterSlideToggle($("#AIConfigInputs"), 250, 'height')
+        await control.addNewAPI()
+        util.betterSlideToggle($("#AIConfigInputs"), 250, 'height')
     })
-    $("#testAPIButton").on('click', function () { testNewAPI() })
+    $("#testAPIButton").on('click', function () { control.testNewAPI() })
 
     $("#canceAPIEditButton").on('click', function () {
-        betterSlideToggle($("#AIConfigInputs"), 250, 'height')
-        betterSlideToggle($("#addNewAPI"), 250, 'height')
+        util.betterSlideToggle($("#AIConfigInputs"), 250, 'height')
+        util.betterSlideToggle($("#addNewAPI"), 250, 'height')
         //select the second option if we cancel out of making a new API
         //this is not ideal and shuld really select whatever was selected previous before 'add new api' was selected.
         if ($("#apiList").val() === 'addNewAPI') {
@@ -1339,7 +1125,7 @@ $(async function () {
     })
 
     $("#modelLoadButton").on('click', async function () {
-        await getModelList()
+        await control.getModelList()
     })
 
     $("#modelList").on('input', function () {
@@ -1349,58 +1135,15 @@ $(async function () {
             UUID: myUUID,
             value: selectedModel
         }
-        messageServer(modelSelectMessage);
-        flashElement('responseLength', 'good')
+        util.messageServer(modelSelectMessage);
+        util.flashElement('responseLength', 'good')
     })
 
     $(".isControlPanelToggle").on('click', function () {
-        toggleControlPanelBlocks($(this), 'all')
+        util.toggleControlPanelBlocks($(this), 'all')
     })
 
-    async function toggleControlPanelBlocks(toggle, type = null) {
-        let target = toggle.parent().children().eq(1);
-        if (target.hasClass('isAnimating')) { return; }
-
-        if (type === 'single') {
-            // Toggle the target panel
-            console.debug(`Toggling panel view ${target.attr('id')}`);
-            toggle.children('i').toggleClass('fa-toggle-on fa-toggle-off');
-            await betterSlideToggle(target, 100, 'height');
-            if (target.css('display') !== 'none') {
-                toggle.hide()
-            } else { toggle.show() }
-            return;
-        }
-
-        // Close all panels
-        $(".isControlPanelToggle").each(async function () {
-            let panelToggle = $(this);
-            let panelTarget = panelToggle.parent().children().eq(1);
-            if (panelTarget.css('display') == 'none') {
-                return;
-            }
-            if (panelTarget.hasClass('isAnimating')) { return; }
-            panelToggle.children('i').removeClass('fa-toggle-on').addClass('fa-toggle-off');
-            await betterSlideToggle(panelTarget, 100, 'height')
-        });
-
-        // Open the clicked panel
-        toggle.children('i').toggleClass('fa-toggle-on fa-toggle-off');
-        await betterSlideToggle(target, 100, 'height')
-    }
-
-    //target and reference are both JQuery DOM objects ala $("#myDiv")
-    function setHeightToDivHeight(target, reference) {
-        if (target.hasClass('isAnimating') || reference.hasClass('isAnimating')) {
-            console.log('saw animating reference div, waiting')
-            setTimeout(function () { setHeightToDivHeight(target, reference) }, 100)
-            return
-        }
-        console.log(target.attr('id'), reference.attr('id'), reference.css('height'))
-        target.css('height', reference.css('height'))
-    }
-
-    $("#AIChat").on('scroll', debounce(function () {
+    $("#AIChat").on('scroll', util.debounce(function () {
         if (!$("#AIChat").not(":focus")) { return }
         isUserScrollingAIChat = true
         clearTimeout(AIChatScrollTimeout);
@@ -1410,7 +1153,7 @@ $(async function () {
         }, 250);
     }, 100))
 
-    $("#chat").on('scroll', debounce(function () {
+    $("#chat").on('scroll', util.debounce(function () {
         if (!$("#chat").not(":focus")) { return }
         isUserScrollingUserChat = true
         clearTimeout(UserChatScrollTimeout);
@@ -1462,104 +1205,17 @@ $(async function () {
         }
     });
 
-    /*     function sendKeepAlive() {
-            // Set the interval for sending messages (e.g., every 1 second)
-            const interval = 1000;
-            const keepAliveMessage = {
-                type: "keepAlive",
-                UUID: myUUID,
-                value: "Ping?"
-            }
-            //messageServer(keepAliveMessage);
-    
-            // Start the interval timer for sending periodic messages
-            const timerId = setInterval(function () {
-                console.log('sending KeepAlive Message')
-                messageServer(keepAliveMessage)
-            }, interval);
-    
-            // Stop the interval when the app becomes visible again
-            document.addEventListener("visibilitychange", function () {
-                if (document.visibilityState === "visible") {
-                    console.log('Clearing Keep Alive loop')
-                    clearInterval(timerId);
-                }
-            });
-        } */
-
-    function correctSizeChats() {
-        let universalControlsHeight = $("#universalControls").outerHeight()
-        let totalHeight = $(window).height()
-        let chatHeight = totalHeight - universalControlsHeight - 10 + 'px'
-        $("#OOCChatWrapper, #LLMChatWrapper, #innerChatWrap").animate({ height: chatHeight }, { duration: 1 })
-    }
-
-    function correctSizeBody() {
-        var orientation = window.orientation;
-        if (isPhone && (orientation === 90 || orientation === -90)) {
-            // Landscape orientation on iOS
-            if (isIOS) {
-                $('body').css({
-                    'padding-right': '0px',
-                    'width': 'calc(100svw - 10px)',
-                    'height': 'calc(100svh - 36px)'
-                })
-            }
-        } else {
-            // Portrait orientation
-            $('body').css({
-                'padding': '0px',
-                'padding-left': '',
-                'width': 'calc(100svw - 10px)',
-                'height': '100svh',
-                'margin': 'auto'
-            });
-        }
-        correctSizeChats()
-    };
-
-    //args passed as JQUery DOM Objects //e.g. $("#myDiv")
-    // subtracts the height of a child div from that of its parent and returns the remaining height.
-    // used to calculate exact heights of divs that should fill container space.
-    // if no childToSubtract is passed, returns the container's height.
-    function heightMinusDivHeight(container, childToSubtract = null) {
-
-        if (childToSubtract) {
-            let containerHeight = container.outerHeight()
-            let childHeight = childToSubtract.outerHeight()
-
-            let containerGapSize = container.css('gap').replace('px', '')
-            if (!containerGapSize) { containerGapSize = 0 }
-            let numberOfContainerGaps = container.children().length - 1
-
-            let numChildGaps = childToSubtract.children().length - 1
-            let childGapSize = childToSubtract.css('gap').replace('px', '')
-            if (!childGapSize) { childGapSize = 0 }
-
-            let containerPaddingTop = container.css('padding-top').replace('px', '')
-            let containerPaddingBottom = container.css('padding-bottom').replace('px', '')
-            let gapCope = (containerGapSize * numberOfContainerGaps) + (numChildGaps * childGapSize)
-
-            let remainingHeight = containerHeight - childHeight - gapCope - containerPaddingTop - containerPaddingBottom + "px"
-            console.log(`${containerHeight} - ${childHeight} - ((${numberOfContainerGaps}*${containerGapSize}) + (${numChildGaps}*${childGapSize})) - ${containerPaddingTop} - ${containerPaddingBottom} = ${remainingHeight}px`)
-            return remainingHeight
-        } else {
-            return container.outerHeight()
-        }
-
-    }
-
     $(window).on('resize', async function () {
-        correctSizeBody()
+        util.correctSizeBody()
     })
 
-    correctSizeBody()
-    correctSizeChats()
+    isLandscape = util.checkIsLandscape()
+
+    util.correctSizeBody()
+    util.correctSizeChats()
     //close the past chats and crowd controls on page load
-    toggleControlPanelBlocks($("#pastChatsToggle"), 'single')
-    toggleControlPanelBlocks($("#crowdControlToggle"), 'single')
-    await delay(1000)
-    $("#customPromptsBlock").css('height', heightMinusDivHeight($("#AIConfigWrap"), $("#configSelectorsBlock")))
+    util.toggleControlPanelBlocks($("#pastChatsToggle"), 'single')
+    util.toggleControlPanelBlocks($("#crowdControlToggle"), 'single')
+    await util.delay(1000)
+    $("#customPromptsBlock").css('height', util.heightMinusDivHeight($("#AIConfigWrap"), $("#configSelectorsBlock")))
 })
-
-

@@ -947,9 +947,12 @@ async function handleConnections(ws, type, request) {
 let accumulatedStreamOutput = ''
 
 const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => {
-    //let responseEnded = false;
+    let currentlyStreaming
 
     const endResponse = async () => {
+        logger.warn('AIChatUserList in text Listener EndResponse')
+        logger.warn(AIChatUserList)
+        currentlyStreaming = false
         //if (!responseEnded) {
         //    responseEnded = true;
         api.textEmitter.removeAllListeners('text');
@@ -960,17 +963,23 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => 
             username: liveConfig.selectedCharDisplayName,
             type: 'streamedAIResponseEnd',
         };
+        logger.warn('sending stream end')
         broadcast(streamEndToken); // Emit the event to clients
         //}
     };
 
     return async (text) => {
+
         //add the newest token to the accumulated variable for later chat saving. 
         //console.log(text);
         // Check if the response stream has ended
-        if (text === 'END_OF_RESPONSE' || text === null || text === undefined) {
+        if (currentlyStreaming) {
+            if (text === 'END_OF_RESPONSE' || text === null || text === undefined) {
+                endResponse();
+                return
+            }
             //logger.debug('saw end of stream or invalid token')
-            endResponse();
+        } else if (text === 'END_OF_RESPONSE' || text === null || text === undefined) {
             return
         }
 
@@ -985,6 +994,7 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => 
             color: user.color ? user.color : 'red',
         };
         await broadcast(streamedTokenMessage);
+        currentlyStreaming = true
 
 
     };
@@ -998,6 +1008,8 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
     //logger.warn('Dry run to get the AI UserList')
     let AIChatUserList = await api.getAIResponse(isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, true, parsedMessage);
     //logger.warn('now for the real deal')
+    //.warn('AIChatUserList in handleResponse')
+    //logger.warn(AIChatUserList)
 
     if (isStreaming) {
 
@@ -1015,15 +1027,14 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
             let trimmedStreamedResponse = await api.trimIncompleteSentences(accumulatedStreamOutput)
             //logger.debug('trimming stream results:')
             //logger.debug(trimmedStreamedResponse)
-            let trimmedStreamMessage = {
-                'type': 'trimmedStreamMessage',
-                'chatID': 'AIChat',
-                'username': liveConfig.selectedCharDisplayName,
-                'content': trimmedStreamedResponse,
-                'color': user.color ? user.color : 'red',
-            }
-            broadcast(trimmedStreamMessage)
-            console.log(trimmedStreamMessage)
+            /*             let trimmedStreamMessage = {
+                            'type': 'trimmedStreamMessage',
+                            'chatID': 'AIChat',
+                            'username': liveConfig.selectedCharDisplayName,
+                            'content': trimmedStreamedResponse,
+                            'color': user.color ? user.color : 'red',
+                        }
+                        broadcast(trimmedStreamMessage) */
             await db.writeAIChatMessage(liveConfig.selectedCharDisplayName, 'AI', trimmedStreamedResponse, 'AI')
             //console.log('message was:')
             //console.log(liveConfig.selectedCharDisplayName + ':' + accumulatedStreamOutput)

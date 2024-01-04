@@ -132,9 +132,7 @@ async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredential
 //this array is returned and sent along with the AI response, in order to populate the AI Chat UserList.
 
 async function makeAIChatUserList(entitiesList, chatHistoryFromPrompt) {
-    //logger.trace('-----------MAKING ENTITIES LIST NOW');
     const chatHistoryEntities = entitiesList;
-    //logger.trace(chatHistoryEntities)
     const fullChatDataJSON = chatHistoryFromPrompt;
     const AIChatUserList = [];
 
@@ -199,7 +197,7 @@ async function ObjectifyChatHistory() {
 }
 
 async function setStopStrings(liveConfig, APICallParams, includedChatObjects, liveAPI) {
-    logger.debug(`[setStopStrings] >> GO`)
+    //logger.debug(`[setStopStrings] >> GO`)
     //logger.debug(APICallParams)
     //an array of chat message objects which made it into the AI prompt context limit
     let chatHistory = includedChatObjects;
@@ -439,8 +437,8 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     if (promptTokens + newItemTokens < liveConfig.contextSize) {
                         promptTokens += newItemTokens;
                         CCMessageObj.push(newObj)
+                        ChatObjsInPrompt.push(obj)
                         //logger.debug(`added new item, prompt tokens: ~${promptTokens}`);
-                        insertedItems.push(newObj); // Add new item to the array
                     }
                 }
                 CCMessageObj.push({ role: 'system', content: '[Start a New Chat]' })

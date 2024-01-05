@@ -335,6 +335,10 @@ async function setSelectedAPI(newAPI) {
     logger.debug(`Selected API is now ${selectedAPI}`)
 }
 
+function duplicateNameToValue(array) {
+    return array.map((obj) => ({ ...obj, value: obj.name }));
+}
+
 async function handleConnections(ws, type, request) {
     // Parse the URL to get the query parameters
     const urlParams = new URLSearchParams(request.url.split('?')[1]);
@@ -402,8 +406,6 @@ async function handleConnections(ws, type, request) {
     var AIChatJSON = await db.readAIChat();
     var userChatJSON = await db.readUserChat()
 
-
-
     //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
     let connectionConfirmedMessage = {
         clientUUID: uuid,
@@ -413,38 +415,53 @@ async function handleConnections(ws, type, request) {
         color: thisUserColor,
         role: thisUserRole,
         selectedCharacterDisplayName: liveConfig.selectedCharDisplayName,
-        newUserChatDelay: liveConfig?.userChatDelay,
-        newAIChatDelay: liveConfig?.AIChatDelay,
+        crowdControl: {
+            userChatDelay: liveConfig?.userChatDelay,
+            AIChatDelay: liveConfig?.AIChatDelay,
+        },
         userList: connectedUsers
     }
+
     //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
         let apis = await db.getAPIs();
+        apis = duplicateNameToValue(apis) //duplicate the name property as value property for each object in array. this is for selector population purposes.
         let api = await db.getAPI(selectedAPI);
         hostUUID = uuid
-        connectionConfirmedMessage["cardList"] = cardList
-        connectionConfirmedMessage["instructList"] = instructList
-        connectionConfirmedMessage["samplerPresetList"] = samplerPresetList
-        connectionConfirmedMessage["selectedCharacter"] = liveConfig.selectedCharacter
-        connectionConfirmedMessage["selectedSamplerPreset"] = liveConfig.selectedPreset
-        connectionConfirmedMessage["engineMode"] = liveConfig.engineMode
-        connectionConfirmedMessage["isAutoResponse"] = liveConfig.isAutoResponse
-        connectionConfirmedMessage["isStreaming"] = liveConfig.isStreaming
-        connectionConfirmedMessage["D4CharDefs"] = liveConfig.D4CharDefs
-        connectionConfirmedMessage["contextSize"] = liveConfig.contextSize
-        connectionConfirmedMessage["responseLength"] = liveConfig.responseLength
-        connectionConfirmedMessage["D1JB"] = liveConfig.D1JB
-        connectionConfirmedMessage["D4AN"] = liveConfig.D4AN
-        connectionConfirmedMessage["systemPrompt"] = liveConfig.systemPrompt
-        connectionConfirmedMessage["instructFormat"] = liveConfig.instructFormat
-        connectionConfirmedMessage["APIList"] = apis
-        connectionConfirmedMessage["selectedAPI"] = liveConfig.selectedAPI
-        connectionConfirmedMessage["selectedModel"] = liveConfig?.selectedModel
-        connectionConfirmedMessage["API"] = api //this is the full api object
+
+        let promptConfig = {
+            cardList: cardList,
+            selectedCharacter: liveConfig.selectedCharacter,
+            contextSize: liveConfig.contextSize,
+            responseLength: liveConfig.responseLength,
+            instructList: instructList,
+            selectedInstruct: liveConfig.instructFormat,
+            samplerPresetList: samplerPresetList,
+            selectedSamplerPreset: liveConfig.selectedPreset,
+            engineMode: liveConfig.engineMode,
+            isAutoResponse: liveConfig.isAutoResponse,
+            isStreaming: liveConfig.isStreaming,
+            D4CharDefs: liveConfig.D4CharDefs,
+            D1JB: liveConfig.D1JB,
+            D4AN: liveConfig.D4AN,
+            systemPrompt: liveConfig.systemPrompt,
+            APIList: apis, //the array of every API and its properties
+        }
+
+        let APIConfig = {
+            selectedAPI: liveConfig.selectedAPI,
+            liveAPI: api, //this is the full object for the selected api,
+            modeList: liveConfig?.modelList,
+            selectedModel: liveConfig?.selectedModel,
+        }
+
+        connectionConfirmedMessage.promptConfig = promptConfig
+        connectionConfirmedMessage.APIConfig = APIConfig
+
     }
 
     await broadcastUserList()
-
+    //logger.info(`the connection messsage to new client`,connectionConfirmedMessage)
     ws.send(JSON.stringify(connectionConfirmedMessage))
 
     function updateConnectedUsers() {

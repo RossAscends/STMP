@@ -276,22 +276,7 @@ async function populateAPIValues(api) {
     $("#modelLoadButton").trigger('click')
 }
 
-// set the engine mode to either horde or Text Completions based on a value from the websocket
-function setEngineMode(mode) {
-    const toggleModeElement = $("#toggleMode");
-    const isHordeMode = (mode === 'horde');
-    toggleModeElement.toggleClass('TCMode', !isHordeMode)
-        .toggleClass('hordeMode', isHordeMode)
-        .text(isHordeMode ? '🧟' : '📑')
-        .attr('title', isHordeMode ? 'Click to switch to Text Completions Mode' : 'Click to switch to Horde Mode');
-    console.log(`Switching to ${isHordeMode ? 'Horde' : 'Text Completions'} Mode`);
-    util.flashElement('toggleMode', 'good');
-    if (isHordeMode) {
-        $("#TCCCAPIBlock").hide()
-    } else {
-        $("#TCCCAPIBlock").show()
-    }
-}
+
 
 async function addNewAPI() {
     //check each field for validity, flashElement if invalid
@@ -369,30 +354,6 @@ async function getModelList() {
     util.messageServer(modelListRequestMessage)
 }
 
-//gets args as JQuery objects: $("#ElementID")
-//only scrolls to bottom if the user scroll point was already within 100px of bottom
-//and the user is not presently scrolling.
-//used to keep streamed chats in view as they come in if you're sitting at the bottom
-//but allows for uninterrupted chat history viewing when new messages arrive as well.
-function kindlyScrollDivToBottom(divElement) {
-    let relevantScrollStatus = false
-    if (divElement.get(0) === $("#AIChat").get(0)) {
-        relevantScrollStatus = isUserScrollingAIChat
-    }
-    if (divElement.get(0) === $("#chat").get(0)) {
-        relevantScrollStatus = isUserScrollingUserChat
-    }
-
-    const isScrolledToBottom = divElement.scrollTop() + divElement.outerHeight() >= divElement[0].scrollHeight - 100;
-
-    //console.log(divElement.attr('id'), isScrolledToBottom, relevantScrollStatus, isUserScrollingAIChat, isUserScrollingUserChat)
-    //console.log(`scrolling? ${isScrolledToBottom && !relevantScrollStatus}`)
-
-    if (isScrolledToBottom && !relevantScrollStatus) {
-        divElement.scrollTop(divElement[0].scrollHeight);
-    }
-}
-
 function showPastChats(chatList) {
     const $pastChatsList = $("#pastChatsList");
     $pastChatsList.empty();
@@ -454,30 +415,28 @@ function showPastChats(chatList) {
 }
 
 export default {
-    setEngineMode: setEngineMode,
-    populateAPISelector: populateAPISelector,
-    populateSelector: populateSelector,
-    submitKey: submitKey,
-    updateUserName: updateUserName,
-    updateD1JBInput: updateD1JBInput,
-    updateInstructFormat: updateInstructFormat,
-    updateSelectedSamplerPreset: updateSelectedSamplerPreset,
-    updateSelectedChar: updateSelectedChar,
-    updateAIChatUserName: updateAIChatUserName,
-    updateAPI: updateAPI,
-    populateAPIValues: populateAPIValues,
-    showAddNewAPIDiv: showAddNewAPIDiv,
-    hideAddNewAPIDiv: hideAddNewAPIDiv,
-    addNewAPI: addNewAPI,
-    testNewAPI: testNewAPI,
-    getModelList: getModelList,
-    enableAPIEdit: enableAPIEdit,
-    disableAPIEdit: disableAPIEdit,
-    populateModelsList: populateModelsList,
-    updateSelectedModel: updateSelectedModel,
-    kindlyScrollDivToBottom: kindlyScrollDivToBottom,
-    updateD4ANInput: updateD4ANInput,
-    updateSystemPromptInput: updateSystemPromptInput,
-    showPastChats: showPastChats,
+    populateAPISelector,
+    populateSelector,
+    submitKey,
+    updateUserName,
+    updateD1JBInput,
+    updateInstructFormat,
+    updateSelectedSamplerPreset,
+    updateSelectedChar,
+    updateAIChatUserName,
+    updateAPI,
+    populateAPIValues,
+    showAddNewAPIDiv,
+    hideAddNewAPIDiv,
+    addNewAPI,
+    testNewAPI,
+    getModelList,
+    enableAPIEdit,
+    disableAPIEdit,
+    populateModelsList,
+    updateSelectedModel,
+    updateD4ANInput,
+    updateSystemPromptInput,
+    showPastChats,
 
 }

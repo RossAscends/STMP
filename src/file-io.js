@@ -186,10 +186,10 @@ async function getCardList() {
             jsonData.filename = `${path}/${file}`
             cards[i] = {
                 name: jsonData.name,
-                filename: jsonData.filename
+                value: jsonData.filename
             }
             thisCharColor = charnameColors[Math.floor(Math.random() * charnameColors.length)];
-            db.upsertChar(jsonData.filename, jsonData.name, thisCharColor)
+            db.upsertChar(jsonData.value, jsonData.name, thisCharColor)
         } catch (error) {
             logger.error(`Error reading file ${file}:`, error);
         }
@@ -214,7 +214,7 @@ async function getInstructList() {
             jsonData.filename = `${path}/${file}`
             instructs[i] = {
                 name: jsonData.name,
-                filename: jsonData.filename
+                value: jsonData.filename
             }
         } catch (error) {
             logger.error(`Error reading file ${file}:`, error);
@@ -236,7 +236,7 @@ async function getSamplerPresetList() {
                 const fullPath = `${path}/${file}`;
                 presets.push({
                     name: file.replace('.json', ''),
-                    filename: fullPath,
+                    value: fullPath,
                 });
             }
         } catch (error) {

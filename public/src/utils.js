@@ -263,21 +263,46 @@ function messageServer(message) {
     socket.send(JSON.stringify(message))
 }
 
+//gets args as JQuery objects: $("#ElementID")
+//only scrolls to bottom if the user scroll point was already within 100px of bottom
+//and the user is not presently scrolling.
+//used to keep streamed chats in view as they come in if you're sitting at the bottom
+//but allows for uninterrupted chat history viewing when new messages arrive as well.
+function kindlyScrollDivToBottom(divElement) {
+    let relevantScrollStatus = false
+    if (divElement.get(0) === $("#AIChat").get(0)) {
+        relevantScrollStatus = isUserScrollingAIChat
+    }
+    if (divElement.get(0) === $("#chat").get(0)) {
+        relevantScrollStatus = isUserScrollingUserChat
+    }
+
+    const isScrolledToBottom = divElement.scrollTop() + divElement.outerHeight() >= divElement[0].scrollHeight - 100;
+
+    //console.log(divElement.attr('id'), isScrolledToBottom, relevantScrollStatus, isUserScrollingAIChat, isUserScrollingUserChat)
+    //console.log(`scrolling? ${isScrolledToBottom && !relevantScrollStatus}`)
+
+    if (isScrolledToBottom && !relevantScrollStatus) {
+        divElement.scrollTop(divElement[0].scrollHeight);
+    }
+}
+
 export default {
-    heightMinusDivHeight: heightMinusDivHeight,
-    correctSizeBody: correctSizeBody,
-    correctSizeChats: correctSizeChats,
-    toggleControlPanelBlocks: toggleControlPanelBlocks,
-    enterToSendChat: enterToSendChat,
-    checkIsLandscape: checkIsLandscape,
-    heartbeat: heartbeat,
-    formatSQLTimestamp: formatSQLTimestamp,
-    flashElement: flashElement,
-    betterSlideToggle: betterSlideToggle,
-    setHeightToDivHeight: setHeightToDivHeight,
-    debounce: debounce,
-    delay: delay,
-    trimIncompleteSentences: trimIncompleteSentences,
-    convertNonsenseTokensToUTF: convertNonsenseTokensToUTF,
-    messageServer: messageServer,
+    heightMinusDivHeight,
+    correctSizeBody,
+    correctSizeChats,
+    toggleControlPanelBlocks,
+    enterToSendChat,
+    checkIsLandscape,
+    heartbeat,
+    formatSQLTimestamp,
+    flashElement,
+    betterSlideToggle,
+    setHeightToDivHeight,
+    debounce,
+    delay,
+    trimIncompleteSentences,
+    convertNonsenseTokensToUTF,
+    messageServer,
+    kindlyScrollDivToBottom,
 }    

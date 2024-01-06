@@ -679,7 +679,13 @@ window.addEventListener("beforeunload", () => {
 
 
 $(async function () {
-  console.debug("document is ready");
+
+  const $controlPanel = $("#controlPanel");
+  const $LLMChatWrapper = $("#LLMChatWrapper");
+  const $OOCChatWrapper = $("#OOCChatWrapper");
+  const $AIChatInputButtons = $("#AIChatInputButtons");
+  const $UserChatInputButtons = $("#UserChatInputButtons");
+
   let { username, AIChatUsername } = await startupUsernames();
   $("#usernameInput").val(username);
   $("#AIUsernameInput").val(AIChatUsername);
@@ -934,11 +940,7 @@ $(async function () {
       }
     }
   });
-  const $controlPanel = $("#controlPanel");
-  const $LLMChatWrapper = $("#LLMChatWrapper");
-  const $OOCChatWrapper = $("#OOCChatWrapper");
-  const $AIChatInputButtons = $("#AIChatInputButtons");
-  const $UserChatInputButtons = $("#UserChatInputButtons");
+
 
   $("#controlPanelToggle").on("click", async function () {
     await util.betterSlideToggle($controlPanel, 100, "width");
@@ -1031,7 +1033,7 @@ $(async function () {
     control.testNewAPI();
   });
 
-  $("#canceAPIEditButton").on("click", function () {
+  $("#cancelAPIEditButton").on("click", function () {
     util.betterSlideToggle($("#promptConfig"), 250, "height");
     util.betterSlideToggle($("#APIConfig"), 250, "height");
     //select the second option if we cancel out of making a new API

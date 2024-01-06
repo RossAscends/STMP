@@ -379,41 +379,6 @@ async function connectWebSocket(username) {
         let newCharDisplayName = parsedMessage.charDisplayName;
         $("#charName").text(newCharDisplayName);
         break;
-      case "changeSamplerPreset":
-        let currentPreset = $("#samplerPreset").val();
-        let newPreset = parsedMessage.newPreset;
-        if (currentPreset !== newPreset) {
-          control.updateSelectedSamplerPreset(myUUID, newPreset, "forced");
-        }
-        break;
-      case "changeInstructFormat":
-        let currentFormat = $("#instructStyle").val();
-        let newFormat = parsedMessage.newInstructFormat;
-        if (currentFormat !== newFormat) {
-          control.updateInstructFormat(myUUID, newFormat, "forced");
-        }
-        break;
-      case "changeD1JB":
-        let currentJB = $("#D1JBInput").val();
-        let newJB = parsedMessage.newD1JB;
-        if (currentJB !== newJB) {
-          control.updateD1JBInput(myUUID, newJB, "forced");
-        }
-        break;
-      case "changeD4AN":
-        let currentD4AN = $("#D4ANInput").val();
-        let newD4AN = parsedMessage.newD4AN;
-        if (currentD4AN !== newD4AN) {
-          control.updateD4ANInput(myUUID, newD4AN, "forced");
-        }
-        break;
-      case "changeSystemPrompt":
-        let currentSystemPrompt = $("#systemPromptInput").val();
-        let newSystemPrompt = parsedMessage.newSystemPrompt;
-        if (currentSystemPrompt !== newSystemPrompt) {
-          control.updateSystemPromptInput(myUUID, newSystemPrompt, "forced");
-        }
-        break;
       case "keyAccepted":
         //refresh page to get new info, could be done differently in the future
         await util.flashElement("roleKeyInput", "good");
@@ -456,28 +421,6 @@ async function connectWebSocket(username) {
         }
         $("#showPastChats").trigger("click");
         break;
-      case "autoAItoggleUpdate":
-        $("#AIAutoResponse").prop("checked", parsedMessage.value);
-        console.debug("autoAI toggle updated");
-        break;
-      case "streamingToggleUpdate":
-        $("#streamingCheckbox").prop("checked", parsedMessage.value);
-        console.debug("streaming toggle updated");
-        break;
-      case "D4CharDefsToggleUpdate":
-        $("#D4CharDefs").prop("checked", parsedMessage.value);
-        console.debug("D4 Char Defs toggle updated");
-        break;
-      case "claudeToggleUpdate":
-        $("#isClaudeCheckbox").prop("checked", parsedMessage.value);
-        console.debug("Claude toggle updated");
-        break;
-      case "contextSizeChange":
-        $("#maxContext")
-          .find(`option[value="${parsedMessage.value}"]`)
-          .prop("selected", true);
-        console.debug("maxContext updated");
-        break;
       case "testAPIResult":
         let result = parsedMessage.result;
         console.debug(result);
@@ -508,20 +451,6 @@ async function connectWebSocket(username) {
       case "modelChange":
         let selectedModel = parsedMessage.value;
         control.updateSelectedModel(selectedModel);
-        break;
-      case "responseLengthChange":
-        $("#responseLength")
-          .find(`option[value="${parsedMessage.value}"]`)
-          .prop("selected", true);
-        console.debug("responseLength updated");
-        break;
-      case "AIChatDelayChange":
-        AIChatDelay = parsedMessage.value * 1000;
-        console.debug("AI Chat delay updated");
-        break;
-      case "userChatDelayChange":
-        userChatDelay = parsedMessage.value * 1000;
-        console.debug("User Chat delay updated");
         break;
       case "streamedAIResponse":
         $("body").addClass("currentlyStreaming");

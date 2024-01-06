@@ -247,10 +247,18 @@ async function initFiles() {
     //if (!liveConfig?.promptConfig?.selectedCharacter || liveConfig?.promptConfig?.selectedCharacter === '') {
     //    logger.warn('No selected character found, getting the latest...')
     let latestCharacter = await db.getLatestCharacter()
-    logger.warn(latestCharacter)
+    logger.debug(latestCharacter)
+    if (!latestCharacter) { //for first runs they will have no character in the DB
+        logger.info('Database had no character in it! Adding Coding Sensei..')
+        await db.upsertChar('Coding Sensei', 'Coding Sensei', 'green')
+        latestCharacter = await db.getLatestCharacter()
+        logger.warn(latestCharacter)
+    }
+
     liveConfig.promptConfig.selectedCharacter = latestCharacter.char_id
     liveConfig.promptConfig.selectedCharacterDisplayName = latestCharacter.displayname; //for hosts
     liveConfig.selectedCharacterDisplayName = latestCharacter.displayname; //for guest
+    logger.info('Writing character info to liveConfig and config.json')
     await fio.writeConfig(liveConfig, 'promptConfig.selectedCharacter', latestCharacter.char_id)
     await fio.writeConfig(liveConfig, 'promptConfig.selectedCharacterDisplayName', latestCharacter.displayname)
     await fio.writeConfig(liveConfig, 'selectedCharacterDisplayName', latestCharacter.displayname)
@@ -259,6 +267,7 @@ async function initFiles() {
     secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
     //TCAPIkey = secretsObj.api_key
     STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string
+    logger.info('File initialization compelete!')
 }
 
 // Create directories
@@ -451,6 +460,7 @@ async function handleConnections(ws, type, request) {
 
     //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
+
         let apis = await db.getAPIs();
         apis = duplicateNameToValue(apis) //duplicate the name property as value property for each object in array. this is for selector population purposes.
         let APIConfig = await db.getAPI(liveConfig.promptConfig.selectedAPI);
@@ -549,15 +559,51 @@ async function handleConnections(ws, type, request) {
             //first check if the sender is host, and if so, process possible host commands
             if (user.role === 'host') {
                 if (parsedMessage.type === 'clientStateChange') {
-                    console.log('saw new liveConfig from Host client ')
+                    logger.info('Received updated liveConfig from Host client...')
+
+                    logger.info('Checking APIList for changes..')
+                    if (liveConfig.promptConfig.APIList !== parsedMessage.value.promptConfig.APIList) {
+
+                        if (parsedMessage.value.promptConfig.APIList.length < liveConfig.promptConfig.APIList.length) {
+                            let found = false;
+                            let APIToDelete
+                            for (const serverListAPI of liveConfig.promptConfig.APIList) {
+                                found = parsedMessage.value.promptConfig.APIList.some((clientListAPI) => {
+                                    if (serverListAPI.name === clientListAPI.name) {
+                                        return true;
+                                    }
+                                    APIToDelete = serverListAPI.name
+                                    return false;
+                                });
+                            }
+                            if (!found) {
+                                logger.warn(`Saw extra API in server list called "${APIToDelete}"...removing.`);
+                                await db.deleteAPI(APIToDelete);
+                                parsedMessage.value.promptConfig.selectedAPI = 'Default' //we hve to edit parsedMessage because we set this to liveConfig later
+                            }
+                        } else {
+                            logger.warn('saw new API..adding to DB..')
+                            var difference = parsedMessage.value.promptConfig.APIList.filter(function (obj) {
+                                return !liveConfig.promptConfig.APIList.some(function (item) {
+                                    return obj.name === item.name;
+                                })
+                            });
+                            //logger.info('server current API List', liveConfig.promptConfig.APIList)
+                            //logger.info('incoming API list', parsedMessage.value.promptConfig.APIList)
+                            logger.info('New API:', difference)
+                            difference.forEach(async function (api) {
+                                await db.upsertAPI(api.name, api.endpoint, api.key, api.type, api.claude);
+                            });
+                        }
+                    }
+                    logger.info('writing liveConfig to file')
                     liveConfig = parsedMessage.value
+                    await fio.writeConfig(liveConfig)
+                    logger.info('broadcasting new liveconfig to all hosts')
                     let hostStateChangeMessage = {
                         type: 'hostStateChange',
                         value: liveConfig
                     }
-                    console.log('writing liveConfig to file')
-                    await fio.writeConfig(liveConfig)
-                    console.log('broadcasting new liveconfig to all hosts')
                     await broadcast(hostStateChangeMessage, 'host');
                     return
                 }
@@ -667,16 +713,21 @@ async function handleConnections(ws, type, request) {
                         name: parsedMessage.name,
                         endpoint: parsedMessage.endpoint,
                         key: parsedMessage.key,
-                        endpointType: parsedMessage.endpointType,
+                        endpointType: parsedMessage.type,
                         claude: parsedMessage.claude
                     }
-                    await db.upsertAPI(newAPI.name, newAPI.endpoint, newAPI.key, newAPI.endpointType, newAPI.claude)
+                    logger.info('Adding new API to database...')
+                    await db.upsertAPI(newAPI.name, newAPI.endpoint, newAPI.key, newAPI.type, newAPI.claude)
+                    logger.info('Refreshing API List from database..')
                     let apis = await db.getAPIs();
+                    logger.info('Updating API List in server liveConfig..')
+                    liveConfig.promptConfig.APIList.push(newAPI)
                     let APIListMessage = {
                         type: 'APIList',
                         APIList: apis,
                         selectedAPI: liveConfig.promptConfig.selectedAPI
                     }
+                    logger.info('Sending new API List to all Hosts..')
                     await broadcast(APIListMessage, 'host')
 
                     let APIChangeMessage = {
@@ -918,7 +969,7 @@ async function handleConnections(ws, type, request) {
             if (parsedMessage.type === 'usernameChange') {
                 clientsObject[uuid].username = parsedMessage.newName;
                 updateConnectedUsers()
-                db.upsertUser(parsedMessage.UUID, parsedMessage.newName, user.color ? user.color : thisClientObj.color)
+                await db.upsertUser(parsedMessage.UUID, parsedMessage.newName, user.color ? user.color : thisClientObj.color)
                 const nameChangeNotification = {
                     type: 'userChangedName',
                     content: `[System]: ${parsedMessage.oldName} >>> ${parsedMessage.newName}`
@@ -933,7 +984,7 @@ async function handleConnections(ws, type, request) {
                         type: 'keyAccepted',
                         role: 'host'
                     }
-                    db.upsertUserRole(uuid, 'host');
+                    await db.upsertUserRole(uuid, 'host');
                     await ws.send(JSON.stringify(keyAcceptedMessage))
                 }
                 else if (parsedMessage.key === modKey) {
@@ -941,7 +992,7 @@ async function handleConnections(ws, type, request) {
                         type: 'keyAccepted',
                         role: 'mod'
                     }
-                    db.upsertUserRole(uuid, 'mod');
+                    await db.upsertUserRole(uuid, 'mod');
                     await ws.send(JSON.stringify(keyAcceptedMessage))
                 }
                 else {

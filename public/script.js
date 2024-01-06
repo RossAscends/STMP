@@ -1114,9 +1114,12 @@ $(async function () {
     util.betterSlideToggle($("#APIConfig"), 250, "height");
   });
 
+  $("#deleteAPIButton").on("click", function () {
+    handleconfig.deleteAPI();
+  });
+
   $("#saveAPIButton").on("click", async function () {
-    await control.addNewAPI();
-    util.betterSlideToggle($("#promptConfig"), 250, "height");
+    await handleconfig.addNewAPI();
   });
   $("#testAPIButton").on("click", function () {
     control.testNewAPI();

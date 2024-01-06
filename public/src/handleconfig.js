@@ -51,9 +51,10 @@ Based on the following array sent from server:
 */
 
 import util from "./utils.js";
+import control from "./controls.js";
 import { myUUID } from "../script.js";
 
-var liveConfig
+var liveConfig, APIConfig, liveAPI, promptConfig, crowdControl
 
 async function processLiveConfig(configArray) {
 
@@ -74,7 +75,6 @@ async function processLiveConfig(configArray) {
   } = liveConfig.promptConfig
 
   //Process APIConfig
-  let liveAPI, APIConfig, promptConfig, crowdControl
   liveAPI = liveConfig.promptConfig.APIList.find(api => api.name === selectedAPI)
   APIConfig = liveConfig.APIConfig
   promptConfig = liveConfig.promptConfig
@@ -157,7 +157,9 @@ async function populateSelector(itemsObj, elementID, selectedValue = null) {
 
     itemsObj.forEach((item) => {
       const newElem = $("<option>");
-      newElem.val(item.value);
+      //the optional use of 'name' here is for APIs added by the local user
+      //when the server sends the API list it duplicates the 'name' to 'value' for the selector population
+      newElem.val(item.value || item.name);
       newElem.text(item.name);
       selectElement.append(newElem);
     });
@@ -323,6 +325,34 @@ async function setEngineMode(mode) {
   }
 }
 
+function deleteAPI() {
+  let APIToDelete = $("#APIList").children('option:selected').val();
+
+  if (APIToDelete === 'Default' || APIToDelete === 'Add New API') {
+    alert(`Cannot delete required options in this selector ('Default' and 'Add New API'!`)
+    return
+  }
+
+  console.log(APIToDelete)
+  let indexToDelete = liveConfig.promptConfig.APIList.findIndex(function (item) {
+    return item.name === APIToDelete;
+  });
+
+  if (indexToDelete !== -1) {
+    liveConfig.promptConfig.APIList.splice(indexToDelete, 1);
+    liveConfig.promptConfig.selectedAPI = 'Default'
+  }
+
+  console.log(liveConfig.promptConfig.APIList)
+  console.log(liveConfig.promptConfig.selectedAPI)
+
+
+  updateConfigState($("#APIList"))
+  $("#APIList").children('option[value="Default"]').prop('selected', true).trigger('input');
+  util.betterSlideToggle($("#promptConfig"), 250, "height");
+  util.betterSlideToggle($("#APIConfig"), 250, "height");
+}
+
 async function updateConfigState(element) {
   let $element = element
   let elementID = $element.prop('id')
@@ -399,6 +429,7 @@ $("#APIList").on("change", function () {
   liveConfig['promptConfig']['selectedAPI'] = $(this).val()
   let selectedAPI = liveConfig.promptConfig.selectedAPI
   liveConfig['APIConfig'] = liveConfig.promptConfig.APIList.find(api => api.name === selectedAPI)
+  console.log(liveConfig.APIConfig)
 
   let stateChangeMessage = {
     UUID: myUUID,
@@ -410,10 +441,68 @@ $("#APIList").on("change", function () {
   util.flashElement("apiList", "good");
 });
 
-$("#controlPanel input, #controlPanel select:not(#APIList), #cardList").on('change', function () { updateConfigState($(this)) })
-$("#controlPanel textarea").on('blur', function () { updateConfigState($(this)) })
+$("#promptConfig input, #promptConfig select:not(#APIList), #crowdControl input, #cardList").on('change', function () { updateConfigState($(this)) })
+$("#promptConfig textarea").on('blur', function () { updateConfigState($(this)) })
+
+async function addNewAPI() {
+  //check each field for validity, flashElement if invalid
+  console.debug('[addNewAPI()] >> GO')
+  let name = $("#selectedAPI").val()
+  let endpoint = $("#endpoint").val()
+  let key = $("#key").val()
+  let type = $("#type").val()
+  let claude = $("#claude").prop('checked')
+
+  if (name === '' || name === 'Default' || name === 'Add New API') {
+    await util.flashElement('selectedAPI', 'bad')
+    alert(`This name is reserved by system.`)
+    return
+  }
+  if (endpoint === '' || !util.isValidURL(endpoint)) {
+    await util.flashElement('endpoint', 'bad')
+    alert(`Invalid URL structure.`)
+    return
+  }
+
+  let newAPI = {
+    name: name,
+    endpoint: endpoint,
+    key: key,
+    type: type,
+    claude: claude,
+  }
+
+  liveConfig.promptConfig.APIList.push(newAPI)
+  liveConfig.promptConfig.selectedAPI = name
+  liveConfig.promptConfig.APIConfig = newAPI
+  liveAPI = newAPI
+  APIConfig = newAPI
+
+
+  console.log(APIConfig)
+  console.log(liveAPI)
+  console.log(liveConfig.promptConfig.APIList)
+
+  console.log('added new API to local liveConfig. Sending to server.')
+  let newAPIMessage = {
+    UUID: myUUID,
+    type: 'clientStateChange',
+    value: liveConfig
+  }
+
+  util.messageServer(newAPIMessage)
+
+  await util.delay(250)
+  //hide edit panel after save is done
+  util.betterSlideToggle($("#APIConfig"), 250, 'height')
+  util.betterSlideToggle($("#promptConfig"), 250, "height");
+  control.disableAPIEdit()
+
+}
 
 export default {
   processLiveConfig,
   setEngineMode,
+  addNewAPI,
+  deleteAPI,
 };

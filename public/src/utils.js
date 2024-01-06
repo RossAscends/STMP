@@ -12,6 +12,11 @@ function debounce(func, delay) {
     };
 }
 
+function isValidURL(url) {
+    const urlRegex = /^(http(s)?:\/\/)?[\w.-]+\.[a-zA-Z]{2,3}(\.[a-zA-Z]{2,3})?\/?$/;
+    return urlRegex.test(url);
+}
+
 //target and reference are both JQuery DOM objects ala $("#myDiv")
 function setHeightToDivHeight(target, reference) {
     if (target.hasClass('isAnimating') || reference.hasClass('isAnimating')) {
@@ -305,4 +310,5 @@ export default {
     convertNonsenseTokensToUTF,
     messageServer,
     kindlyScrollDivToBottom,
+    isValidURL,
 }    

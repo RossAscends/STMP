@@ -272,42 +272,6 @@ async function populateAPIValues(api) {
     $("#modelLoadButton").trigger('click')
 }
 
-
-
-async function addNewAPI() {
-    //check each field for validity, flashElement if invalid
-    console.debug('[addNewAPI()] >> GO')
-    let name = $("#selectedAPI").val()
-    let endpoint = $("#endpoint").val()
-    let key = $("#key").val()
-    let type = $("#type").val()
-    let claude = $("#claude").prop('checked')
-
-    if (name === '') {
-        await util.flashElement('selectedAPI', 'bad')
-        return
-    }
-    if (endpoint === '') {
-        await util.flashElement('endpoint', 'bad')
-        return
-    }
-
-    util.messageServer({
-        type: 'addNewAPI',
-        name: name,
-        endpoint: endpoint,
-        key: key,
-        endpointType: type,
-        claude: claude,
-        UUID: myUUID
-    })
-    await util.delay(250)
-    //hide edit panel after save is done
-    util.betterSlideToggle($("#APIConfig"), 250, 'height')
-    disableAPIEdit()
-
-}
-
 function testNewAPI() {
     let name = $("#newAPIName").val()
     let endpoint = $("#newAPIEndpoint").val()
@@ -423,7 +387,7 @@ export default {
     //populateAPIValues,
     showAddNewAPIDiv,
     hideAddNewAPIDiv,
-    addNewAPI,
+    //addNewAPI,
     testNewAPI,
     getModelList,
     enableAPIEdit,

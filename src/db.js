@@ -214,6 +214,21 @@ async function deletePastChat(sessionID) {
     }
 }
 
+async function deleteAPI(APIName) {
+    logger.debug('[deleteAPI()] Deleting API named:' + APIName);
+    const db = await dbPromise;
+    try {
+        const row = await db.get('SELECT * FROM apis WHERE name = ?', [APIName]);
+        if (row) {
+            await db.run('DELETE FROM apis WHERE name = ?', [APIName]);
+            logger.debug(`API ${APIName} was deleted`);
+        }
+        return ['ok'];
+    } catch (err) {
+        logger.error('Error deleting API:', err);
+    }
+}
+
 // Only read the user chat messages that are active
 async function readUserChat() {
     logger.debug('Reading user chat...');
@@ -498,11 +513,23 @@ async function getMessage(messageID) {
 }
 
 async function upsertAPI(name, endpoint, key, type, claude) {
-    logger.debug('Adding/updating API...' + name);
+    var argsArray = Array.from(arguments);
+    if (argsArray.includes(null) || argsArray.includes(undefined)) {
+        logger.error('New API has undefined datatypes; cannot register.')
+        logger.error(argsArray)
+        return;
+    }
+    logger.info('Adding/updating API...' + name);
     const db = await dbPromise;
     try {
         await db.run('INSERT OR REPLACE INTO apis (name, endpoint, key, type, claude) VALUES (?, ?, ?, ?, ?)', [name, endpoint, key, type, claude]);
         logger.debug('An API was upserted');
+
+        const nullRows = await db.get('SELECT * FROM apis WHERE name IS NULL OR endpoint IS NULL OR name = "" OR endpoint = ""');
+        if (nullRows) {
+            await db.run('DELETE FROM apis WHERE name IS NULL OR endpoint IS NULL OR name = "" OR endpoint = ""');
+            logger.debug('Cleaned up rows with no name or endpoint values');
+        }
     } catch (err) {
         logger.error('Error writing API:', err);
     }
@@ -579,25 +606,26 @@ ensureDatabaseSchema(schemaDictionary);
 
 
 module.exports = {
-    writeUserChatMessage: writeUserChatMessage,
-    writeAIChatMessage: writeAIChatMessage,
-    newSession: newSession,
-    upsertUser: upsertUser,
-    getUser: getUser,
-    readAIChat: readAIChat,
-    readUserChat: readUserChat,
-    upsertChar: upsertChar,
-    removeLastAIChatMessage: removeLastAIChatMessage,
-    getPastChats: getPastChats,
-    deleteMessage: deleteMessage,
-    getMessage: getMessage,
-    deletePastChat: deletePastChat,
-    getUserColor: getUserColor,
-    upsertUserRole: upsertUserRole,
-    getCharacterColor: getCharacterColor,
-    upsertAPI: upsertAPI,
-    getAPIs: getAPIs,
-    getAPI: getAPI,
-    newUserChatSession: newUserChatSession,
-    getLatestCharacter: getLatestCharacter,
+    writeUserChatMessage,
+    writeAIChatMessage,
+    newSession,
+    upsertUser,
+    getUser,
+    readAIChat,
+    readUserChat,
+    upsertChar,
+    removeLastAIChatMessage,
+    getPastChats,
+    deleteMessage,
+    getMessage,
+    deletePastChat,
+    getUserColor,
+    upsertUserRole,
+    getCharacterColor,
+    upsertAPI,
+    getAPIs,
+    getAPI,
+    newUserChatSession,
+    getLatestCharacter,
+    deleteAPI
 };

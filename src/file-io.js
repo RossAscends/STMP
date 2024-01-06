@@ -188,7 +188,7 @@ async function charaRead(img_url, input_format) {
 }
 
 async function getCardList() {
-    console.debug('Gathering character card list..')
+    logger.info('Gathering character card list..')
     const path = 'public/characters'
     const files = await fs.promises.readdir(path);
     var cards = []

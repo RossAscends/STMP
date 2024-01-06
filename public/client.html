@@ -40,7 +40,7 @@
                                     <small class="alignSelfCenter">Mode</small>
                                     <button id="toggleMode" class="tabbyMode mutedColor square1p5em fontSize1p5em bgBrightUp textshadow" title="Toggle API Mode">📑</button>
                                 </div>
-                                <div id="TCCCAPIBlock" class="flexbox alignItemsEnd">
+                                <div id="TCCCAPIBlock" class="flexbox alignItemsEnd Hcentered">
 
                                     <div class="flexbox flexFlowCol justifySpaceBetween noWrap">
                                         <small class="alignSelfCenter">API</small>
@@ -50,6 +50,17 @@
                                             </div>
                                             <!-- <div class="flexbox Vcentered"><button id="addNewAPIButton">Add</button></div> -->
                                             <div class="flexbox Vcentered"><button id="editAPIButton">Edit</button></div>
+                                        </div>
+                                    </div>
+                                    <div id="modelListBlock" class="flexbox flexFlowCol">
+                                        <small class="alignSelfCenter">Models</small>
+                                        <div class="flexbox">
+                                            <div class="custom-select flexbox flexFlowCol">
+                                                <select id="modelList" class="dynamicSelector">
+                                                    <option>Waiting for Model List</option>
+                                                </select>
+                                            </div>
+                                            <button class="alignSelfCenter margin0 Vcentered bgBrightUp" id="modelLoadButton"><i class="fa-solid fa-refresh"></i></button>
                                         </div>
                                     </div>
 
@@ -147,23 +158,12 @@
                                             </option>
                                         </div>
                                     </div>
-                                    <div class="flexbox flexFlowCol">
-                                        <button class="alignSelfCenter margin0" id="modelLoadButton" style="display:none;">Get Models</button>
-                                    </div>
 
                                     <div class="flexbox flexFlowCol ">
                                         <small class="alignSelfCenter">Claude</small>
                                         <label for="claude" class="checkbox_label flexbox flexFlowCol">
                                             <input type="checkbox" class="alignSelfCenter margin0" id="claude">
                                         </label>
-                                    </div>
-                                    <div id="modelListBlock" class="flexbox flexFlowCol">
-                                        <small class="alignSelfCenter">Models</small>
-                                        <div class="custom-select flexbox flexFlowCol">
-                                            <select id="modelList" class="dynamicSelector">
-                                                <option>Waiting for Model List</option>
-                                            </select>
-                                        </div>
                                     </div>
                                 </div>
 

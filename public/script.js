@@ -21,6 +21,9 @@ var doKeepAliveAudio = false;
 var isKeepAliveAudioPlaying = false;
 var keepAliveAudio = new Audio("silence.mp3");
 
+var isHost;
+var AIChatDelay, userChatDelay;
+
 //this prevents selectors from firing off when being initially populated
 var initialLoad = true;
 
@@ -141,8 +144,6 @@ var wsType =
 console.debug(`We will connect to "${wsType}" server..`);
 var serverUrl = `${wsType}://${hostname}:${port}`;
 
-var isHost;
-var AIChatDelay, userChatDelay;
 
 function updateUserChatUserList(userList) {
   console.debug("updating user chat user list");
@@ -297,8 +298,6 @@ async function connectWebSocket(username) {
     }
 
     /*TODO: 
-    condense all host-facing config updates to and from server into a single message type
-
         condense anything that is related to user state into a single message type: 
             userList, AIChatUserlist, userconnect, userDisconnect, username change
 
@@ -351,6 +350,14 @@ async function connectWebSocket(username) {
       case "hostStateChange":
         handleconfig.processLiveConfig(parsedMessage);
         break;
+      case "guestStateChange":
+        let state = parsedMessage.state
+        let selectedCharacter
+        ({ selectedCharacter, AIChatDelay, userChatDelay } = state)
+        userChatDelay = userChatDelay * 1000
+        AIChatDelay = AIChatDelay * 1000
+        $("#charName").text(selectedCharacter);
+        break
       case "userChangedName":
         console.debug("saw notification of user name change");
         var { type, content } = JSON.parse(message);
@@ -389,6 +396,10 @@ async function connectWebSocket(username) {
         console.log("key rejected");
         $("#roleKeyInput").val("");
         await util.flashElement("roleKeyInput", "bad");
+        break;
+      case 'modelListError':
+        await util.flashElement($("#modelList"), 'bad')
+        alert('Could not get a model list')
         break;
       case "pastChatsList":
         let chatList = parsedMessage.pastChats;
@@ -438,19 +449,6 @@ async function connectWebSocket(username) {
           await util.flashElement("APIEditDiv", "bad", 150, 3);
           alert(alertMessage);
         }
-        break;
-      case "modelListResult":
-        if (parsedMessage.value === "ERROR") {
-          util.flashElement("modelList", "bad");
-          $("#modelList").attr("disabled", true);
-        } else {
-          let modelList = parsedMessage.value;
-          control.populateModelsList(modelList);
-        }
-        break;
-      case "modelChange":
-        let selectedModel = parsedMessage.value;
-        control.updateSelectedModel(selectedModel);
         break;
       case "streamedAIResponse":
         $("body").addClass("currentlyStreaming");
@@ -1048,13 +1046,17 @@ $(async function () {
   });
 
   $("#modelList").on("input", function () {
+
     let selectedModel = $(this).find(`option:selected`).val();
     const modelSelectMessage = {
       type: "modelSelect",
       UUID: myUUID,
       value: selectedModel,
     };
-    util.messageServer(modelSelectMessage);
+    if (initialLoad === true) { return } else {
+      util.messageServer(modelSelectMessage);
+    }
+
     util.flashElement("modelList", "good");
   });
 

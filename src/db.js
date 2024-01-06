@@ -69,6 +69,8 @@ const schemaDictionary = {
         claude: "BOOLEAN DEFAULT FALSE",
         created_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
         last_used_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
+        modelList: "TEXT",
+        selectedModel: "TEXT"
     }
 };
 
@@ -512,7 +514,7 @@ async function getMessage(messageID) {
     }
 }
 
-async function upsertAPI(name, endpoint, key, type, claude) {
+async function upsertAPI(name, endpoint, key, type, claude, modelList, selectedModel) {
     var argsArray = Array.from(arguments);
     if (argsArray.includes(null) || argsArray.includes(undefined)) {
         logger.error('New API has undefined datatypes; cannot register.')
@@ -522,7 +524,8 @@ async function upsertAPI(name, endpoint, key, type, claude) {
     logger.info('Adding/updating API...' + name);
     const db = await dbPromise;
     try {
-        await db.run('INSERT OR REPLACE INTO apis (name, endpoint, key, type, claude) VALUES (?, ?, ?, ?, ?)', [name, endpoint, key, type, claude]);
+        await db.run('INSERT OR REPLACE INTO apis (name, endpoint, key, type, claude, modelList, selectedModel) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [name, endpoint, key, type, claude, modelList, selectedModel]);
         logger.debug('An API was upserted');
 
         const nullRows = await db.get('SELECT * FROM apis WHERE name IS NULL OR endpoint IS NULL OR name = "" OR endpoint = ""');
@@ -539,7 +542,17 @@ async function getAPIs() {
     logger.debug('Getting APIs...');
     const db = await dbPromise;
     try {
-        return await db.all('SELECT * FROM apis');
+        const rows = await db.all('SELECT * FROM apis');
+        const apis = rows.map(row => {
+            try {
+                row.modelList = JSON.parse(row.modelList);
+            } catch (err) {
+                logger.error(`Error parsing modelList for API ${row.name}:`, err);
+                row.modelList = []; // Assign an empty array as the default value
+            }
+            return row;
+        });
+        return apis;
     } catch (err) {
         logger.error('Error getting APIs:', err);
         throw err;
@@ -551,8 +564,13 @@ async function getAPI(name) {
     const db = await dbPromise;
     try {
         let gotAPI = await db.get('SELECT * FROM apis WHERE name = ?', [name]);
-        logger.debug(gotAPI);
         if (gotAPI) {
+            try {
+                gotAPI.modelList = JSON.parse(gotAPI.modelList);
+            } catch (err) {
+                logger.error(`Error parsing modelList for API ${gotAPI.name}:`, err);
+                gotAPI.modelList = []; // Assign an empty array as the default value
+            }
             return gotAPI;
         } else {
             logger.error('API not found:', name);

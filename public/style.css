@@ -233,6 +233,10 @@ select:hover:not(:disabled),
     top: 50%;
 }
 
+#modelList {
+    max-width: 200px;
+}
+
 /*CHECKBOXES*/
 input[type='checkbox'] {
     -webkit-appearance: none;

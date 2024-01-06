@@ -34,10 +34,10 @@ Based on the following array sent from server:
           isAutoResponse,     //boolean for checkbox
       },
       APIConfig: {
-              selectedAPI,        //selector value, matches the value of one of the 'name' props in above APIList
+              name,               //string
               endpoint,           //string
               key,                //string
-              endpointType,       //selector value
+              type,               //selector value,
               claude,             //checkbox
               selectedModel,      //selector value, matches an item from the modelList below
               modelList: {}       //list for a selector
@@ -55,6 +55,7 @@ import control from "./controls.js";
 import { myUUID } from "../script.js";
 
 var liveConfig, APIConfig, liveAPI, promptConfig, crowdControl
+var initialLoad = true
 
 async function processLiveConfig(configArray) {
 
@@ -117,13 +118,14 @@ async function processLiveConfig(configArray) {
   await populateInput(AIChatDelay, "AIChatDelay");
 
 
-  /* 
-    if (!modelList) {
-      $("#modelLoadButton").trigger("click");
-      console.log("did not see modelList, clicking the button to get it");
-    } else {
-      await populateSelector(modelList, "modelList", selectedModel);
-    } */
+  if (!APIConfig.modelList) {
+    console.warn('Did not see a modelList for this API, clicking modelListButton to get one.')
+    $("#modelLoadButton").trigger("click");
+  } else {
+    await populateSelector(APIConfig.modelList, "modelList", APIConfig.selectedModel);
+    //await selectFromPopulatedSelector(APIConfig.selectedModel, 'modelList', true)
+  }
+  initialLoad = false
 }
 
 /**
@@ -156,8 +158,10 @@ async function populateSelector(itemsObj, elementID, selectedValue = null) {
       const newElem = $("<option>");
       //the optional use of 'name' here is for APIs added by the local user
       //when the server sends the API list it duplicates the 'name' to 'value' for the selector population
-      newElem.val(item.value || item.name);
-      newElem.text(item.name);
+      //console.log(item)
+      newElem.val(item.value || item.name || item);
+      newElem.text(item.name || item);
+      //console.log(newElem.html())
       selectElement.append(newElem);
     });
 
@@ -179,7 +183,7 @@ async function selectFromPopulatedSelector(value, elementID) {
     }
 
     const selectElement = $(`#${elementID}`);
-    selectElement.val(value).trigger("input");
+    selectElement.val(value)//.trigger("input");
     console.debug(`confirming ${elementID} value is now ${selectElement.val()}`);
     resolve();
   });
@@ -303,6 +307,7 @@ async function verifyValuesAreTheSame(value, elementID) {
 
 // set the engine mode to either horde or Text Completions based on a value from the websocket
 async function setEngineMode(mode) {
+  if (initialLoad) { return }
   console.debug("API MODE:", mode);
   const toggleModeElement = $("#toggleMode");
   const isHordeMode = mode === "horde";
@@ -354,6 +359,8 @@ function deleteAPI() {
 }
 
 async function updateConfigState(element) {
+  if (initialLoad) { return }
+
   let $element = element
   let elementID = $element.prop('id')
 
@@ -401,7 +408,7 @@ async function updateConfigState(element) {
 }
 
 
-$("#APIList").on("change", function () {
+$("#APIList").on("change", async function () {
   if ($(this).val() === "Default") {
     return;
   }
@@ -441,8 +448,8 @@ $("#APIList").on("change", function () {
   util.flashElement("apiList", "good");
 });
 
-$("#promptConfig input, #promptConfig select:not(#APIList), #crowdControl input, #cardList").on('change', function () { updateConfigState($(this)) })
-$("#promptConfig textarea").on('blur', function () { updateConfigState($(this)) })
+$("#promptConfig input, #promptConfig select:not(#APIList, #modelList), #cardList").on('change', function () { updateConfigState($(this)) })
+$("#promptConfig textarea, #crowdControl input").on('blur', function () { updateConfigState($(this)) })
 
 async function addNewAPI() {
   //check each field for validity, flashElement if invalid

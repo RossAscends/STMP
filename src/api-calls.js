@@ -555,15 +555,15 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     };
 }
 
-async function testAPI(isStreaming, api, liveConfig) {
+async function testAPI(api, liveConfig) {
     logger.debug(`[testAPI] >> GO`)
-    logger.info('api:')
+    logger.info('Test Message API Info:')
     logger.info(api)
     let testMessage = 'User: Ping? (if you can see me say "Pong!\n\nAssistant:")'
     let payload = {
         prompt: '',
         stream: false, //no point to stream test messages
-        seed: api.claude ? undefined : -1,
+        seed: undefined,
         stop: ['.'],
         stop_sequence: ['.'],
         stop_sequences: ['.'],
@@ -573,20 +573,24 @@ async function testAPI(isStreaming, api, liveConfig) {
     }
 
     let testMessageObject = [{ role: 'user', content: 'Ping? (if you can see me say "Pong!")' }]
+
     if (api.type === 'CC' && !api.claude) {
-        payload.model = api.selectedModel
+        payload.model = api.model
         payload.messages = testMessageObject
-    } else {
-        payload.prompt = testMessage
-        if (api.claude) {
-            let tempPrompt = payload.prompt
-            tempPrompt = tempPrompt.replace('User', 'Human')
-        }
+        delete payload.prompt
     }
 
+    if (api.type === 'TC') {
+        payload.prompt = testMessage
+    }
+
+    if (api.claude) {
+        payload.model = api.model
+        let tempPrompt = payload.prompt
+        tempPrompt = tempPrompt.replace('User', 'Human')
+    }
 
     let result = await requestToTCorCC(false, api, payload, testMessage, true, liveConfig)
-
     return result
 
 }
@@ -620,7 +624,8 @@ async function getModelList(api) {
         let modelNames = responseJSON.data.map(item => item.id);
         logger.info('Available models:');
         logger.info(modelNames);
-        return responseJSON.data;
+        return modelNames
+        //return responseJSON.data;
     } else {
         logger.error(`Error getting models. Code ${response.status}`)
     }

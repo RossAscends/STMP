@@ -44,24 +44,6 @@ function submitKey(myUUID) {
     util.messageServer(keyMessage)
 }
 
-async function populateModelsList(list) {
-    console.debug('[populateModelList()] >> GO')
-    const $selector = $('#modelList');
-    $selector.empty()
-
-    await new Promise((resolve) => {
-        $.each(list, function (index, item) {
-            $selector.append($('<option>', {
-                value: item.id,
-                text: item.id
-            }));
-        });
-        resolve();
-    });
-    console.debug('selecting the second entry of #apilist..should be "Default"')
-    $("#modelList option:eq(1)").prop('selected', true).trigger('input')
-}
-
 function showAddNewAPIDiv() {
     //console.debug('showing div for adding new API')
     $("#APIConfig").show()
@@ -115,14 +97,14 @@ async function testNewAPI() {
     let key = $("#key").val()
     let type = $("#type").val()
     let claude = $("#claude").prop('checked')
+    let model = $("#modelList").val()
 
     if (endpoint.includes('localhost:')) {
         await util.flashElement('endpoint', 'bad')
         alert('For local connections use 127.0.0.1, not localhost')
         return
     }
-
-    util.messageServer({
+    let testRequestMesage = {
         type: 'testNewAPI',
         UUID: myUUID,
         api: {
@@ -130,17 +112,20 @@ async function testNewAPI() {
             endpoint: endpoint,
             key: key,
             type: type,
-            claude: claude
+            claude: claude,
+            model: model
         }
-    })
+    }
+    console.debug(testRequestMesage)
+    util.messageServer(testRequestMesage)
 }
 
 async function getModelList() {
-    let name = $("#newAPIName").val()
-    let endpoint = $("#newAPIEndpoint").val()
-    let key = $("#newAPIKey").val()
-    let type = $("#newAPIEndpointType").val()
-    let claude = $("#isClaudeCheckbox").prop('checked')
+    let name = $("#selectedAPI").val()
+    let endpoint = $("#endpoint").val()
+    let key = $("#key").val()
+    let type = $("#type").val()
+    let claude = $("#claude").prop('checked')
     let modelListRequestMessage = {
         UUID: myUUID,
         type: 'modelListRequest',
@@ -226,7 +211,6 @@ export default {
     getModelList,
     enableAPIEdit,
     disableAPIEdit,
-    populateModelsList,
     updateSelectedModel,
     showPastChats,
 }

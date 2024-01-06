@@ -624,6 +624,17 @@ async function handleConnections(ws, type, request) {
                         value: liveConfig
                     }
                     await broadcast(hostStateChangeMessage, 'host');
+
+                    let guestStateMessage = {
+                        type: "guestStateChange",
+                        state: {
+                            selectedCharacter: liveConfig.promptConfig.selectedCharacterDisplayName,
+                            userChatDelay: liveConfig.crowdControl.userChatDelay,
+                            AIChatDelay: liveConfig.crowdControl.AIChatDelay
+                        }
+
+                    }
+                    await broadcast(guestStateMessage, 'guest');
                     return
                 }
                 if (parsedMessage.type === 'clearChat') {
@@ -637,17 +648,19 @@ async function handleConnections(ws, type, request) {
                 }
                 else if (parsedMessage.type === 'modelSelect') {
                     selectedModel = parsedMessage.value
-                    liveConfig.promptConfig.selectedModel = selectedModel
-                    await fio.writeConfig(liveConfig, 'promptConfig.selectedModel', selectedModel)
+                    liveConfig.APIConfig.selectedModel = selectedModel
+                    await fio.writeConfig(liveConfig, 'APIConfig.selectedModel', selectedModel)
                     let settingChangeMessage = {
-                        type: 'modelChange',
-                        value: liveConfig.promptConfig.selectedModel
+                        type: 'hostStateChange',
+                        value: liveConfig
                     }
+                    let api = liveConfig.APIConfig
+                    await db.upsertAPI(api.name, api.endpoint, api.key, api.type, api.claude, JSON.stringify(api.modelList) || '', selectedModel)
                     await broadcast(settingChangeMessage, 'host')
                     return
                 }
                 else if (parsedMessage.type === 'testNewAPI') {
-                    let result = await api.testAPI(isStreaming, parsedMessage.api, liveConfig)
+                    let result = await api.testAPI(parsedMessage.api, liveConfig)
                     console.log(result)
                     testAPIResult = {
                         type: 'testAPIResult',
@@ -659,16 +672,24 @@ async function handleConnections(ws, type, request) {
                 }
                 else if (parsedMessage.type === 'modelListRequest') {
                     logger.trace('saw model list request')
-                    let list = await api.getModelList(parsedMessage.api)
+                    let modelList = await api.getModelList(parsedMessage.api)
+                    let liveAPI = parsedMessage.api
                     let modelListResult = {}
-                    if (typeof list === 'object') {
+                    if (typeof modelList === 'object') {
+                        console.log(modelList)
+                        liveConfig.APIConfig.modelList = modelList
+                        liveConfig.APIConfig.selectedModel = modelList[0]
+                        console.log('selecting', modelList[0])
+                        let selectedModel = modelList[0]
+                        await db.upsertAPI(liveAPI.name, liveAPI.endpoint, liveAPI.key, liveAPI.type, liveAPI.claude, JSON.stringify(modelList), selectedModel)
+                        await fio.writeConfig(liveConfig)
                         modelListResult = {
-                            type: 'modelListResult',
-                            value: list
+                            type: 'hostStateChange',
+                            value: liveConfig
                         }
                     } else {
                         modelListResult = {
-                            type: 'modelListResult',
+                            type: 'modelListError',
                             value: 'ERROR'
                         }
                     }

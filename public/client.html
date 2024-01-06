@@ -34,7 +34,7 @@
                         <h4>AI Config</h4>
                     </div>
                     <div id="AIConfigWrap" class="flexbox flexFlowCol heightFitContent">
-                        <div id="AIConfigInputs" class="flexbox flexFlowCol">
+                        <div id="promptConfig" class="isArrayType flexbox flexFlowCol">
                             <div id="configSelectorsBlock" class="flexbox justifySpaceAround">
                                 <div class="flexbox flexFlowCol">
                                     <small class="alignSelfCenter">Mode</small>
@@ -46,7 +46,7 @@
                                         <small class="alignSelfCenter">API</small>
                                         <div class="flexbox">
                                             <div class="custom-select">
-                                                <select id="apiList"></select>
+                                                <select id="APIList" class="dynamicSelector"></select>
                                             </div>
                                             <!-- <div class="flexbox Vcentered"><button id="addNewAPIButton">Add</button></div> -->
                                             <div class="flexbox Vcentered"><button id="editAPIButton">Edit</button></div>
@@ -54,11 +54,11 @@
                                     </div>
 
                                 </div>
-                                <div id="PromptParameterInputs" class="flexbox justifySpaceAround">
+                                <div id="promptConfigSelectorsAnddToggles" class="flexbox justifySpaceAround">
                                     <div class="flexbox flexFlowCol alignItemsCenter">
                                         <small class="alignSelfCenter">Context</small>
                                         <div class="custom-select">
-                                            <select id="maxContext">
+                                            <select id="contextSize">
                                                 <option value="1024">1024</option>
                                                 <option value="2048">2048</option>
                                                 <option value="4096">4096</option>
@@ -81,32 +81,36 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <div id="streamingChekboxBlock" class="flexbox flexFlowCol widthFitContent">
+                                    <div id="isStreamingChekboxBlock" class="flexbox flexFlowCol widthFitContent">
                                         <small class="alignSelfCenter">Streaming</small>
-                                        <label for="streamingCheckbox" class="checkbox_label flexbox flexFlowCol">
-                                            <input type="checkbox" class="alignSelfCenter margin0" id="streamingCheckbox">
+                                        <label for="isStreaming" class="checkbox_label flexbox flexFlowCol">
+                                            <input type="checkbox" class="alignSelfCenter margin0" id="isStreaming">
+                                        </label>
+                                    </div>
+                                    <div id="isAutoResponseChekboxBlock" class="flexbox flexFlowCol widthFitContent">
+                                        <small class="alignSelfCenter">AutoAI</small>
+                                        <label for="isAutoResponse" class="checkbox_label flexbox flexFlowCol">
+                                            <input type="checkbox" class="Vcentered" id="isAutoResponse">
                                         </label>
                                     </div>
                                     <div class="flexbox flexFlowCol alignItemsCenter">
                                         <small class="alignSelfCenter">Instruct</small>
                                         <div class="custom-select">
-                                            <select id="instructStyle"></select>
+                                            <select id="instructList" class="dynamicSelector"></select>
                                         </div>
                                     </div>
                                     <div class="flexbox flexFlowCol">
                                         <small class="alignSelfCenter">Samplers</small>
                                         <div class="custom-select">
-                                            <select id="samplerPreset"></select>
+                                            <select id="samplerPresetList" class="dynamicSelector"></select>
                                         </div>
                                     </div>
-
-
                                 </div>
                             </div>
-                            <div id="customPromptsBlock" class="transition250 flexbox flexFlowCol">
+                            <div id="promptConfigTextFields" class="transition250 flexbox flexFlowCol">
                                 <div id="systemPromptBlock" class="flexbox flexFlowCol Hcentered dummyBG">
                                     <span class="widthFitContent alignSelfCenter">System Prompt</span>
-                                    <textarea class="bgBrightUp" rows=6 id="systemPromptInput" placeholder="Text in this box will be inserted at the top of the prompt before anything else."></textarea>
+                                    <textarea class="bgBrightUp" rows=6 id="systemPrompt" placeholder="Text in this box will be inserted at the top of the prompt before anything else."></textarea>
                                 </div>
                                 <div id="authorsNoteBlock" class="flexbox flexFlowCol Hcentered dummyBG ">
                                     <div class="flexbox Hcentered">
@@ -117,26 +121,26 @@
                                         </label>
                                     </div>
 
-                                    <textarea class="bgBrightUp" rows=6 id="D4ANInput" placeholder="Useful place to put character definitions, World Info, or other constantly relevant information."></textarea>
+                                    <textarea class="bgBrightUp" rows=6 id="D4AN" placeholder="Useful place to put character definitions, World Info, or other constantly relevant information."></textarea>
                                 </div>
                                 <div id="finalInstructionBlock" class="flexbox flexFlowCol Hcentered dummyBG ">
                                     <span class="widthFitContent alignSelfCenter">D1 Insertion "JB"</span>
-                                    <textarea class="bgBrightUp" rows=6 id="D1JBInput" placeholder="A very powerful override instruction. Mostly useful as a jailbreak for CC APIs. For TC, it is usually too strong and will override the D4 insertion"></textarea>
+                                    <textarea class="bgBrightUp" rows=6 id="D1JB" placeholder="A very powerful override instruction. Mostly useful as a jailbreak for CC APIs. For TC, it is usually too strong and will override the D4 insertion"></textarea>
                                 </div>
                             </div>
                         </div>
-                        <div id="addNewAPI" class="flexbox flexFlowCol width100p" style="display:none;">
+                        <div id="APIConfig" class="isArrayType flexbox flexFlowCol width100p" style="display:none;">
                             <h4 id="apiTitle" class="alignSelfCenter">API Info</h4>
                             <div id="APIEditDiv" class="transition250 flexbox flexFlowCol  padding5 borderRad5">
-                                <small>Name</small><input id="newAPIName" class="width100p" placeholder="API Name">
-                                <small>API Base URL</small><input id="newAPIEndpoint" class="width100p" title="http://127.0.0.1:(port)/ for local backends, or https://what.ever-URL.is/given/ for external/Cloud-based APIs." placeholder="http://127.0.0.1:5000/">
-                                <small>Key</small><input id="newAPIKey" class="width100p" placeholder="API Key (empty if none)">
+                                <small>Name</small><input id="selectedAPI" class="width100p" placeholder="API Name">
+                                <small>API Base URL</small><input id="endpoint" class="width100p" title="http://127.0.0.1:(port)/ for local backends, or https://what.ever-URL.is/given/ for external/Cloud-based APIs." placeholder="http://127.0.0.1:5000/">
+                                <small>Key</small><input id="key" class="width100p" placeholder="API Key (empty if none)">
 
                                 <div class="flexbox Vcentered">
                                     <div class="flexbox flexFlowCol">
                                         <small class="alignSelfCenter">Endpoint Type</small>
                                         <div class="custom-select flexbox flexFlowCol">
-                                            <select id="newAPIEndpointType">
+                                            <select id="type">
                                                 <option value="TC">Text Completion</option>
                                                 <option value="CC">Chat Completion</option>
                                             </select>
@@ -149,29 +153,33 @@
 
                                     <div class="flexbox flexFlowCol ">
                                         <small class="alignSelfCenter">Claude</small>
-                                        <label for="isClaudeCheckbox" class="checkbox_label flexbox flexFlowCol">
-                                            <input type="checkbox" class="alignSelfCenter margin0" id="isClaudeCheckbox">
+                                        <label for="claude" class="checkbox_label flexbox flexFlowCol">
+                                            <input type="checkbox" class="alignSelfCenter margin0" id="claude">
                                         </label>
                                     </div>
                                     <div id="modelListBlock" class="flexbox flexFlowCol">
                                         <small class="alignSelfCenter">Models</small>
                                         <div class="custom-select flexbox flexFlowCol">
-                                            <select id="modelList">
+                                            <select id="modelList" class="dynamicSelector">
                                                 <option>Waiting for Model List</option>
                                             </select>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="flexbox justifySpaceAround">
-                                    <button class="flexbox Vcentered bgBrightUp" id="canceAPIEditButton">Close</button>
-                                    <button class="flexbox Vcentered bgBrightUp" id="testAPIButton">Test</button>
-                                    <button class="flexbox Vcentered bgBrightUp" id="saveAPIButton">Save</button>
+                                <div class="flexbox flexFlowCol Hcentered marginTop5">
+                                    <div class="flexbox justifySpaceAround">
+                                        <button class="flexbox Vcentered bgBrightUp" id="cancelAPIEditButton">Close</button>
+                                        <button class="flexbox Vcentered bgBrightUp" id="testAPIButton">Test</button>
+                                        <button class="flexbox Vcentered bgBrightUp" id="saveAPIButton">Save</button>
+                                    </div>
+                                    <div class="flexbox Hcentered marginTop5">
+                                        <button class="flexbox Hcentered bgBrightUp" id="deleteAPIButton" style="color:red">Delete</button>
+                                    </div>
                                 </div>
                             </div>
 
                         </div>
-
                     </div>
                 </div>
                 <hr>
@@ -180,25 +188,22 @@
                         <i class="nonButtonButton fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
                         <h4>Crowd Control</h4>
                     </div>
-                    <div id="crowdControlWrap" class="flexbox flexFlowCol heightFitContent">
+                    <div id="crowdControl" class="isArrayType flexbox flexFlowCol heightFitContent">
                         <!-- 
                         <div class="flexbox" style="display:none;">
                             <button id="disableInput" class="flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable User Input">🤐</button>
                             <button id="turnBasedMode" class="flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔠</button>
                         </div>
                          -->
-                        <label for="AIChatInputDelay" class="flexbox noWrap">
+                        <label for="AIChatDelay" class="flexbox noWrap">
                             <div class="fontSize1p25em mutedColor textshadow " title="AI Chat Delay">🤖⏳</div>
-                            <input type="number" id="AIChatInputDelay" class=" flexbox Vcentered width50px" min="0" max="600" value="2" title="AI Chat Delay">sec
+                            <input type="number" id="AIChatDelay" class=" flexbox Vcentered width50px" min="0" max="600" value="2" title="AI Chat Delay">sec
                         </label>
-                        <label for="UserChatInputDelay" class="flexbox noWrap">
+                        <label for="userChatDelay" class="flexbox noWrap">
                             <div class="fontSize1p25em mutedColor textshadow " title="User Chat Delay">🧑⏳</div>
-                            <input type="number" id="UserChatInputDelay" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="User Chat Delay">sec
+                            <input type="number" id="userChatDelay" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="User Chat Delay">sec
                         </label>
-                        <label for="AIAutoResponse" class="checkbox_label flexbox alignItemsCenter">
-                            AutoAI
-                            <input type="checkbox" class="Vcentered" id="AIAutoResponse">
-                        </label>
+
                     </div>
                 </div>
                 <hr>
@@ -256,7 +261,7 @@
                     <div class="chatHeader Hcentered Vcentered flexbox positionRelative marginBot5">
                         Chat with
                         <div class="custom-select hostControls">
-                            <select id="characters" class="flex1"></select>
+                            <select id="cardList" class="flex1 dynamicSelector"></select>
                         </div>
                         <span id="charName"></span>
                     </div>

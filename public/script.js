@@ -297,7 +297,9 @@ async function connectWebSocket(username) {
     }
 
     /*TODO: 
-        condense anythign that is related to user state into a single message type: 
+    condense all host-facing config updates to and from server into a single message type
+
+        condense anything that is related to user state into a single message type: 
             userList, AIChatUserlist, userconnect, userDisconnect, username change
 
      *condense both clearchats into a single type with a 'chatID' property
@@ -341,8 +343,13 @@ async function connectWebSocket(username) {
       case "forceDisconnect":
         disconnectWebSocket();
         break;
+      case "guestConnectionConfirmed":
+
       case "connectionConfirmed":
         processConfirmedConnection(parsedMessage);
+        break;
+      case "hostStateChange":
+        handleconfig.processLiveConfig(parsedMessage);
         break;
       case "userChangedName":
         console.debug("saw notification of user name change");
@@ -372,41 +379,6 @@ async function connectWebSocket(username) {
         let newCharDisplayName = parsedMessage.charDisplayName;
         $("#charName").text(newCharDisplayName);
         break;
-      case "changeSamplerPreset":
-        let currentPreset = $("#samplerPreset").val();
-        let newPreset = parsedMessage.newPreset;
-        if (currentPreset !== newPreset) {
-          control.updateSelectedSamplerPreset(myUUID, newPreset, "forced");
-        }
-        break;
-      case "changeInstructFormat":
-        let currentFormat = $("#instructStyle").val();
-        let newFormat = parsedMessage.newInstructFormat;
-        if (currentFormat !== newFormat) {
-          control.updateInstructFormat(myUUID, newFormat, "forced");
-        }
-        break;
-      case "changeD1JB":
-        let currentJB = $("#D1JBInput").val();
-        let newJB = parsedMessage.newD1JB;
-        if (currentJB !== newJB) {
-          control.updateD1JBInput(myUUID, newJB, "forced");
-        }
-        break;
-      case "changeD4AN":
-        let currentD4AN = $("#D4ANInput").val();
-        let newD4AN = parsedMessage.newD4AN;
-        if (currentD4AN !== newD4AN) {
-          control.updateD4ANInput(myUUID, newD4AN, "forced");
-        }
-        break;
-      case "changeSystemPrompt":
-        let currentSystemPrompt = $("#systemPromptInput").val();
-        let newSystemPrompt = parsedMessage.newSystemPrompt;
-        if (currentSystemPrompt !== newSystemPrompt) {
-          control.updateSystemPromptInput(myUUID, newSystemPrompt, "forced");
-        }
-        break;
       case "keyAccepted":
         //refresh page to get new info, could be done differently in the future
         await util.flashElement("roleKeyInput", "good");
@@ -421,10 +393,6 @@ async function connectWebSocket(username) {
       case "pastChatsList":
         let chatList = parsedMessage.pastChats;
         control.showPastChats(chatList);
-        break;
-      case "APIList":
-        let APIList = parsedMessage.APIList;
-        control.populateAPISelector(APIList, parsedMessage.selectedAPI);
         break;
       case "pastChatToLoad":
         console.debug("loading past chat session");
@@ -453,50 +421,22 @@ async function connectWebSocket(username) {
         }
         $("#showPastChats").trigger("click");
         break;
-      case "autoAItoggleUpdate":
-        $("#AIAutoResponse").prop("checked", parsedMessage.value);
-        console.debug("autoAI toggle updated");
-        break;
-      case "streamingToggleUpdate":
-        $("#streamingCheckbox").prop("checked", parsedMessage.value);
-        console.debug("streaming toggle updated");
-        break;
-      case "D4CharDefsToggleUpdate":
-        $("#D4CharDefs").prop("checked", parsedMessage.value);
-        console.debug("D4 Char Defs toggle updated");
-        break;
-      case "claudeToggleUpdate":
-        $("#isClaudeCheckbox").prop("checked", parsedMessage.value);
-        console.debug("Claude toggle updated");
-        break;
-      case "contextSizeChange":
-        $("#maxContext")
-          .find(`option[value="${parsedMessage.value}"]`)
-          .prop("selected", true);
-        console.debug("maxContext updated");
-        break;
-      case "apiChange":
-        $("#apiList")
-          .find(`option[value="${parsedMessage.name}"]`)
-          .prop("selected", true);
-        $("#modelList").empty().attr("disabled", false);
-        // Update the Name, endpoint, and key fields with the new API info
-        control.populateAPIValues(parsedMessage);
-        util.flashElement("newAPIName", "good");
-        util.flashElement("newAPIEndpoint", "good");
-        util.flashElement("newAPIKey", "good");
-        util.flashElement("newAPIEndpointType", "good");
-        util.flashElement("isClaudeCheckbox", "good");
-        util.flashElement("apiList", "good");
-        break;
       case "testAPIResult":
-        let result = parsedMessage.value;
+        let result = parsedMessage.result;
         console.debug(result);
         if (result.status === 200) {
           util.flashElement("APIEditDiv", "good");
         } else {
+          let alertMessage
+          if (!result.status || !result.statusText) {
+            let reason = JSON.stringify(result)
+            alertMessage = `Error ${reason}`
+          } else {
+            alertMessage = `Error [${result.status}]: ${result.statusText}`
+          }
+
           await util.flashElement("APIEditDiv", "bad", 150, 3);
-          alert(`Error: status code ${result.status}`);
+          alert(alertMessage);
         }
         break;
       case "modelListResult":
@@ -511,20 +451,6 @@ async function connectWebSocket(username) {
       case "modelChange":
         let selectedModel = parsedMessage.value;
         control.updateSelectedModel(selectedModel);
-        break;
-      case "responseLengthChange":
-        $("#responseLength")
-          .find(`option[value="${parsedMessage.value}"]`)
-          .prop("selected", true);
-        console.debug("responseLength updated");
-        break;
-      case "AIChatDelayChange":
-        AIChatDelay = parsedMessage.value * 1000;
-        console.debug("AI Chat delay updated");
-        break;
-      case "userChatDelayChange":
-        userChatDelay = parsedMessage.value * 1000;
-        console.debug("User Chat delay updated");
         break;
       case "streamedAIResponse":
         $("body").addClass("currentlyStreaming");
@@ -751,8 +677,15 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
+
 $(async function () {
-  console.debug("document is ready");
+
+  const $controlPanel = $("#controlPanel");
+  const $LLMChatWrapper = $("#LLMChatWrapper");
+  const $OOCChatWrapper = $("#OOCChatWrapper");
+  const $AIChatInputButtons = $("#AIChatInputButtons");
+  const $UserChatInputButtons = $("#UserChatInputButtons");
+
   let { username, AIChatUsername } = await startupUsernames();
   $("#usernameInput").val(username);
   $("#AIUsernameInput").val(AIChatUsername);
@@ -791,150 +724,65 @@ $(async function () {
     }
   });
 
-  $("#AIAutoResponse").on("input", function () {
-    isAutoResponse = $(this).prop("checked");
-    console.debug(`AutoResponse = ${isAutoResponse}`);
-    const autoResponseStateMessage = {
-      type: "toggleAutoResponse",
-      UUID: myUUID,
-      value: isAutoResponse,
-    };
-    util.messageServer(autoResponseStateMessage);
-    util.flashElement("AIAutoResponse", "good");
-  });
 
-  $("#streamingCheckbox").on("input", function () {
-    isStreaming = $(this).prop("checked");
-    console.debug(`Streaming = ${isStreaming}`);
-    const streamingStateMessage = {
-      type: "toggleStreaming",
-      UUID: myUUID,
-      value: isStreaming,
-    };
-    util.messageServer(streamingStateMessage);
-    util.flashElement("streamingCheckbox", "good");
-  });
-
-  $("#D4CharDefs").on("input", function () {
-    let D4CharDefs = $(this).prop("checked");
-    console.debug(`D4 Char Defs = ${D4CharDefs}`);
-    const D4CharDefsMessage = {
-      type: "toggleD4CharDefs",
-      UUID: myUUID,
-      value: D4CharDefs,
-    };
-    util.messageServer(D4CharDefsMessage);
-    util.flashElement("D4CharDefs", "good");
-  });
-
-  $("#maxContext").on("input", function () {
-    contextSize = $(this).find(`option:selected`).val();
-    const adjustCtxMes = {
-      type: "adjustContextSize",
-      UUID: myUUID,
-      value: contextSize,
-    };
-    util.messageServer(adjustCtxMes);
-    util.flashElement("maxContext", "good");
-  });
-
-  $("#responseLength").on("input", function () {
-    responseLength = $(this).find(`option:selected`).val();
-    const adjustResponseLength = {
-      type: "adjustResponseLength",
-      UUID: myUUID,
-      value: responseLength,
-    };
-    util.messageServer(adjustResponseLength);
-    util.flashElement("responseLength", "good");
-  });
 
   // Send a message to the user chat
-  $("#sendButton")
-    .off("click")
-    .on("click", function () {
-      if ($(this).hasClass("disabledButton")) {
-        return;
-      }
-      if ($("#usernameInput").val().trim() === "") {
-        alert("Can't send chat message with no username!");
-        return;
-      }
-      var messageInput = $("#messageInput");
-      if (messageInput.val().trim() === "") {
-        alert("Can't send empty message!");
-        return;
-      }
+  $("#sendButton").off("click").on("click", function () {
 
-      $(this).addClass("disabledButton").text("🚫");
-      setTimeout(() => {
-        $(this).removeClass("disabledButton").text("✏️");
-      }, userChatDelay);
+    if ($(this).hasClass("disabledButton")) {
+      return;
+    }
+    if ($("#usernameInput").val().trim() === "") {
+      alert("Can't send chat message with no username!");
+      return;
+    }
+    var messageInput = $("#messageInput");
+    if (messageInput.val().trim() === "") {
+      alert("Can't send empty message!");
+      return;
+    }
 
-      username = $("#usernameInput").val();
-      var markdownContent = `${messageInput.val()}`;
-      //var htmlContent = converter.makeHtml(markdownContent);
-      var messageObj = {
-        type: "chatMessage",
-        chatID: "UserChat",
-        UUID: myUUID,
-        username: username,
-        content: markdownContent,
-      };
-      localStorage.setItem("username", username);
-      util.messageServer(messageObj);
-      messageInput.val("");
-      messageInput.trigger("focus").trigger("input");
-    });
+    $(this).addClass("disabledButton").text("🚫");
+    setTimeout(() => {
+      $(this).removeClass("disabledButton").text("✏️");
+    }, userChatDelay);
 
-  $("#triggerAIResponse")
-    .off("click")
-    .on("click", function () {
-      sendMessageToAIChat("forced");
-    });
-
-  $("#AIRetry")
-    .off("click")
-    .on("click", function () {
-      doAIRetry();
-    });
-
-  $("#characters").on("change", function () {
-    let displayName = $("#characters").find("option:selected").text();
-    control.updateSelectedChar(myUUID, $(this).val(), displayName);
+    username = $("#usernameInput").val();
+    var markdownContent = `${messageInput.val()}`;
+    //var htmlContent = converter.makeHtml(markdownContent);
+    var messageObj = {
+      type: "chatMessage",
+      chatID: "UserChat",
+      UUID: myUUID,
+      username: username,
+      content: markdownContent,
+    };
+    localStorage.setItem("username", username);
+    util.messageServer(messageObj);
+    messageInput.val("");
+    messageInput.trigger("focus").trigger("input");
   });
 
-  $("#samplerPreset").on("change", function () {
-    control.updateSelectedSamplerPreset(myUUID, $(this).val());
-  });
-  $("#instructStyle").on("change", function () {
-    control.updateInstructFormat(myUUID, $(this).val());
-  });
-  $("#D1JBInput").on("blur", function () {
-    control.updateD1JBInput(myUUID, $(this).val());
-  });
-  $("#D4ANInput").on("blur", function () {
-    control.updateD4ANInput(myUUID, $(this).val());
-  });
-  $("#systemPromptInput").on("blur", function () {
-    control.updateSystemPromptInput(myUUID, $(this).val());
+  $("#triggerAIResponse").off("click").on("click", function () {
+    sendMessageToAIChat("forced");
   });
 
+  $("#AIRetry").off("click").on("click", function () {
+    doAIRetry();
+  });
 
   //A clickable icon that toggles between Text Completions and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.
-  $("#toggleMode")
-    .off("click")
-    .on("click", async function () {
-      let newMode = $("#toggleMode").hasClass("hordeMode") ? "TC" : "horde";
-      await handleconfig.setEngineMode(newMode)
+  $("#toggleMode").off("click").on("click", async function () {
+    let newMode = $("#toggleMode").hasClass("hordeMode") ? "TC" : "horde";
+    await handleconfig.setEngineMode(newMode)
 
-      let modeChangeMessage = {
-        type: "modeChange",
-        UUID: myUUID,
-        newMode: newMode,
-      };
-      util.messageServer(modeChangeMessage);
-    });
+    let modeChangeMessage = {
+      type: "modeChange",
+      UUID: myUUID,
+      newMode: newMode,
+    };
+    util.messageServer(modeChangeMessage);
+  });
 
   $("#usernameInput").on("blur", function () {
     console.debug("saw username input blur");
@@ -951,52 +799,46 @@ $(async function () {
     control.updateAIChatUserName();
   });
 
-  $("#AISendButton")
-    .off("click")
-    .on("click", function () {
-      if ($(this).hasClass("disabledButton")) {
-        return;
-      }
-      sendMessageToAIChat();
-      $("#AIMessageInput").trigger("input");
-      $(this).addClass("disabledButton").text("🚫");
-      setTimeout(() => {
-        $(this).removeClass("disabledButton").text("✏️");
-      }, AIChatDelay);
-    });
+  $("#AISendButton").off("click").on("click", function () {
+    if ($(this).hasClass("disabledButton")) {
+      return;
+    }
+    sendMessageToAIChat();
+    $("#AIMessageInput").trigger("input");
+    $(this).addClass("disabledButton").text("🚫");
+    setTimeout(() => {
+      $(this).removeClass("disabledButton").text("✏️");
+    }, AIChatDelay);
+  });
 
-  $("#clearUserChat")
-    .off("click")
-    .on("click", function () {
-      console.debug("Requesting OOC Chat clear");
-      const clearMessage = {
-        type: "clearChat",
-        UUID: myUUID,
-      };
-      util.messageServer(clearMessage);
-    });
 
-  $("#clearAIChat")
-    .off("click")
-    .on("click", function () {
-      console.debug("Requesting AI Chat clear");
-      const clearMessage = {
-        type: "clearAIChat",
-        UUID: myUUID,
-      };
-      util.messageServer(clearMessage);
-    });
+  $("#clearUserChat").off("click").on("click", function () {
 
-  $("#deleteLastMessageButton")
-    .off("click")
-    .on("click", function () {
-      console.debug("deleting last AI Chat message");
-      const delLastMessage = {
-        type: "deleteLast",
-        UUID: myUUID,
-      };
-      util.messageServer(delLastMessage);
-    });
+    console.debug("Requesting OOC Chat clear");
+    const clearMessage = {
+      type: "clearChat",
+      UUID: myUUID,
+    };
+    util.messageServer(clearMessage);
+  });
+
+  $("#clearAIChat").off("click").on("click", function () {
+    console.debug("Requesting AI Chat clear");
+    const clearMessage = {
+      type: "clearAIChat",
+      UUID: myUUID,
+    };
+    util.messageServer(clearMessage);
+  });
+
+  $("#deleteLastMessageButton").off("click").on("click", function () {
+    console.debug("deleting last AI Chat message");
+    const delLastMessage = {
+      type: "deleteLast",
+      UUID: myUUID,
+    };
+    util.messageServer(delLastMessage);
+  });
 
   $("#profileManagementButton").on("click", function () {
     util.betterSlideToggle($("#profileManagementMenu"), 250, "width");
@@ -1098,53 +940,45 @@ $(async function () {
       }
     }
   });
-  const $controlPanel = $("#controlPanel");
-  const $LLMChatWrapper = $("#LLMChatWrapper");
-  const $OOCChatWrapper = $("#OOCChatWrapper");
-  const $AIChatInputButtons = $("#AIChatInputButtons");
-  const $UserChatInputButtons = $("#UserChatInputButtons");
+
 
   $("#controlPanelToggle").on("click", async function () {
     await util.betterSlideToggle($controlPanel, 100, "width");
   });
 
   var chatsToggleState = 0;
-  $("#chatsToggle")
-    .off("click")
-    .on("click", async function () {
-      chatsToggleState = (chatsToggleState + 1) % 3; // Increment the state and wrap around to 0 after the third state
-      if (chatsToggleState === 0) {
-        $LLMChatWrapper
-          .removeClass("transition500")
-          .css({ flex: "1", opacity: "1" });
-        $OOCChatWrapper
-          .removeClass("transition500")
-          .css({ flex: "1", opacity: "1" });
-        if (!isPhone && isLandscape) {
-          $("body").removeClass("halfWidthChatWrap");
-        }
-      } else if (chatsToggleState === 1) {
-        $OOCChatWrapper.css({ flex: "0", opacity: "0" });
-        console.log(isPhone, isLandscape);
-        if (!isPhone && isLandscape) {
-          $("body").addClass("halfWidthChatWrap");
-        }
-      } else if (chatsToggleState === 2) {
-        $OOCChatWrapper
-          .addClass("transition500")
-          .css({ flex: "1", opacity: "1" });
-        $LLMChatWrapper
-          .addClass("transition500")
-          .css({ flex: "0", opacity: "0" });
+  $("#chatsToggle").off("click").on("click", async function () {
+    chatsToggleState = (chatsToggleState + 1) % 3; // Increment the state and wrap around to 0 after the third state
+    if (chatsToggleState === 0) {
+      $LLMChatWrapper
+        .removeClass("transition500")
+        .css({ flex: "1", opacity: "1" });
+      $OOCChatWrapper
+        .removeClass("transition500")
+        .css({ flex: "1", opacity: "1" });
+      if (!isPhone && isLandscape) {
+        $("body").removeClass("halfWidthChatWrap");
       }
-    });
+    } else if (chatsToggleState === 1) {
+      $OOCChatWrapper.css({ flex: "0", opacity: "0" });
+      console.log(isPhone, isLandscape);
+      if (!isPhone && isLandscape) {
+        $("body").addClass("halfWidthChatWrap");
+      }
+    } else if (chatsToggleState === 2) {
+      $OOCChatWrapper
+        .addClass("transition500")
+        .css({ flex: "1", opacity: "1" });
+      $LLMChatWrapper
+        .addClass("transition500")
+        .css({ flex: "0", opacity: "0" });
+    }
+  });
 
-  $("#userListsToggle")
-    .off("click")
-    .on("click", function () {
-      util.betterSlideToggle($("#AIChatUserList"), 250, "width");
-      util.betterSlideToggle($("#userList"), 250, "width");
-    });
+  $("#userListsToggle").off("click").on("click", function () {
+    util.betterSlideToggle($("#AIChatUserList"), 250, "width");
+    util.betterSlideToggle($("#userList"), 250, "width");
+  });
 
   //this auto resizes the chat input box as the input gets longer
   $("#AIMessageInput, #messageInput").on("input", function () {
@@ -1182,73 +1016,29 @@ $(async function () {
   AIChatDelay = $("#AIChatInputDelay").val() * 1000;
   userChatDelay = $("#UserChatInputDelay").val() * 1000;
 
-  $("#UserChatInputDelay, #AIChatInputDelay").on("change", function () {
-    const messageType =
-      this.id === "UserChatInputDelay"
-        ? "userChatDelayChange"
-        : "AIChatDelayChange";
-    const settingsChangeMessage = {
-      type: messageType,
-      value: $(this).val(),
-    };
-    util.messageServer(settingsChangeMessage);
-    util.flashElement(this.id, "good");
-  });
-
-  $("#apiList").on("change", function () {
-    if ($(this).val() === "Default") {
-      return;
-    }
-
-    console.debug("[#apilist] changed");
-    if ($(this).val() === "addNewAPI") {
-      console.debug('[#apilist]...to "addNewApi"');
-      //clear all inputs for API editing
-      $("#addNewAPI input").val("");
-      control.enableAPIEdit();
-      //hide API config, show API edit panel.
-      util.betterSlideToggle($("#AIConfigInputs"), 250, "height");
-      util.betterSlideToggle($("#addNewAPI"), 250, "height");
-      return;
-    } else {
-      console.debug(`[#apilist]...to "${$(this).val()}"`);
-      if ($("#addNewAPI").css("display") !== "none") {
-        util.betterSlideToggle($("#addNewAPI"), 250, "height");
-        control.hideAddNewAPIDiv();
-      }
-      if ($("#AIConfigInputs").css("display") === "none") {
-        util.betterSlideToggle($("#AIConfigInputs"), 250, "height");
-      }
-    }
-    const APIChangeMessage = {
-      type: "APIChange",
-      UUID: myUUID,
-      newAPI: $(this).val(),
-    };
-    util.messageServer(APIChangeMessage);
-    util.flashElement("apiList", "good");
-  });
-
   $("#editAPIButton").on("click", function () {
     control.enableAPIEdit();
-    util.betterSlideToggle($("#AIConfigInputs"), 250, "height");
-    util.betterSlideToggle($("#addNewAPI"), 250, "height");
+    util.betterSlideToggle($("#promptConfig"), 250, "height");
+    util.betterSlideToggle($("#APIConfig"), 250, "height");
+  });
+
+  $("#deleteAPIButton").on("click", function () {
+    handleconfig.deleteAPI();
   });
 
   $("#saveAPIButton").on("click", async function () {
-    await control.addNewAPI();
-    util.betterSlideToggle($("#AIConfigInputs"), 250, "height");
+    await handleconfig.addNewAPI();
   });
   $("#testAPIButton").on("click", function () {
     control.testNewAPI();
   });
 
-  $("#canceAPIEditButton").on("click", function () {
-    util.betterSlideToggle($("#AIConfigInputs"), 250, "height");
-    util.betterSlideToggle($("#addNewAPI"), 250, "height");
+  $("#cancelAPIEditButton").on("click", function () {
+    util.betterSlideToggle($("#promptConfig"), 250, "height");
+    util.betterSlideToggle($("#APIConfig"), 250, "height");
     //select the second option if we cancel out of making a new API
     //this is not ideal and shuld really select whatever was selected previous before 'add new api' was selected.
-    if ($("#apiList").val() === "addNewAPI") {
+    if ($("#apiList").val() === "APIConfig") {
       $("#apiList option:eq(1)").prop("selected", "width");
     }
   });

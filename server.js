@@ -83,9 +83,6 @@ const authString = "_STUsername_:_STPassword_";
 const secretsPath = path.join(__dirname, 'secrets.json');
 let engineMode = 'TC'
 
-logger.info('Starting SillyTavern MultiPlayer...')
-
-
 localApp.get('/', (req, res) => {
     const filePath = path.join(__dirname, '/public/client.html');
     fs.readFile(filePath, 'utf8', (err, data) => {
@@ -143,7 +140,7 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function generateAndPrintKeys() {
+function generateServerKeys() {
 
     // Generate a 16-byte hex string for the host key
     hostKey = crypto.randomBytes(16).toString('hex');
@@ -161,9 +158,7 @@ function generateAndPrintKeys() {
         }
     }
 
-    // Print the keys
-    logger.info(`${color.yellow(`Host Key: ${hostKey}`)}`);
-    logger.info(`${color.yellow(`Mod Key: ${modKey}`)}`);
+    return [hostKey, modKey]
 }
 
 async function initFiles() {
@@ -172,75 +167,132 @@ async function initFiles() {
 
     // Default values for config.json
     const defaultConfig = {
-        engineMode: 'TC',
-        selectedCharacter: 'public/characters/CodingSensei.png',
-        responseLength: 200,
-        contextSize: 2048,
-        isAutoResponse: true,
-        isStreaming: true,
-        selectedPreset: "public/api-presets/TC-Temp-2_MinP-0.2.json",
-        instructFormat: "public/instructFormats/ChatML.json",
-        D1JB: '',
-        D4AN: '',
-        systemPrompt: '',
-        D4CharDefs: false
+        promptConfig: {
+            engineMode: 'TC',
+            responseLength: "200",
+            contextSize: "2048",
+            isAutoResponse: true,
+            isStreaming: true,
+            cardList: {},
+            selectedCharacter: 'public/characters/CodingSensei.png',
+            selectedCharacterDisplayName: 'Coding Sensei',
+            samplerPresetList: {},
+            selectedSamplerPreset: "public/api-presets/TC-Deterministic.json",
+            instructList: {},
+            selectedInstruct: "public/instructFormats/None.json",
+            systemPrompt: '',
+            D4AN: '',
+            D4CharDefs: false,
+            D1JB: '',
+            APIList: {},
+            selectedAPI: "Default",
+        },
+        APIConfig: {
+            name: "Default",
+            endpoint: "localhost:5000",
+            key: "",
+            type: "TC",
+            claude: 0,
+            created_at: "",
+            last_used_at: ""
+        },
+        crowdControl: {
+            AIChatDelay: "2",
+            userChatDelay: "2",
+        }
     };
 
-    const instructSequences = await fio.readFile(defaultConfig.instructFormat)
-    defaultConfig.instructSequences = instructSequences
+    async function mainInit() {
+        const instructSequences = await fio.readFile(defaultConfig.promptConfig.selectedInstruct);
+        defaultConfig.instructSequences = instructSequences;
 
-    const samplerData = await fio.readFile(defaultConfig.selectedPreset)
-    defaultConfig.samplers = samplerData
+        const samplerData = await fio.readFile(defaultConfig.promptConfig.selectedSamplerPreset);
+        defaultConfig.samplers = samplerData;
 
-    defaultConfig.selectedCharDisplayName = "Coding Sensei"
+        defaultConfig.selectedCharacterDisplayName = 'Coding Sensei';
 
-    // Default values for secrets.json
-    const defaultSecrets = {
-        api_key: 'YourAPIKey',
-        authString: 'YourAuthString'
-    };
+        // Default values for secrets.json
+        const defaultSecrets = {
+            api_key: 'YourAPIKey',
+            authString: 'YourAuthString',
+        };
 
-    // Check and create config.json if it doesn't exist
-    if (!await existsAsync(configPath)) {
-        logger.warn('Creating config.json with default values...');
-        await writeFileAsync(configPath, JSON.stringify(defaultConfig, null, 2));
-        logger.debug('config.json created.');
-        liveConfig = await fio.readConfig()
-    } else {
-        logger.debug('Loading config.json...');
-        liveConfig = await fio.readConfig()
+        // Check and create config.json if it doesn't exist
+        if (!(await existsAsync(configPath))) {
+            logger.warn('Creating config.json with default values...');
+            await writeFileAsync(configPath, JSON.stringify(defaultConfig, null, 2));
+            logger.debug('config.json created.');
+            liveConfig = await fio.readConfig();
+        } else {
+            logger.debug('Loading config.json...');
+            liveConfig = await fio.readConfig();
+        }
 
+        // Check and create secrets.json if it doesn't exist
+        if (!(await existsAsync(secretsPath))) {
+            logger.warn('Creating secrets.json with default values...');
+            await writeFileAsync(secretsPath, JSON.stringify(defaultSecrets, null, 2));
+            logger.warn('secrets.json created, please update it with real credentials now and restart the server.');
+        }
+
+        cardList = await fio.getCardList();
+        //logger.debug(cardList);
+
+        if (!liveConfig?.promptConfig?.selectedCharacter || liveConfig?.promptConfig?.selectedCharacter === '') {
+            logger.warn('No selected character found, getting the latest...');
+            let latestCharacter = await db.getLatestCharacter();
+            logger.debug(latestCharacter);
+            if (!latestCharacter) {
+                // For first runs they will have no character in the DB yet
+                logger.info('Database had no character in it! Adding Coding Sensei..');
+                await db.upsertChar('Coding Sensei', 'Coding Sensei', 'green');
+                latestCharacter = await db.getLatestCharacter();
+                logger.debug(latestCharacter);
+            }
+
+            liveConfig.promptConfig.selectedCharacter = latestCharacter.char_id;
+            liveConfig.promptConfig.selectedCharacterDisplayName = latestCharacter.displayname; // For hosts
+            liveConfig.selectedCharacterDisplayName = latestCharacter.displayname; // For guest
+            logger.info('Writing character info to liveConfig and config.json');
+            await fio.writeConfig(liveConfig, 'promptConfig.selectedCharacter', latestCharacter.char_id);
+            await fio.writeConfig(liveConfig, 'promptConfig.selectedCharacterDisplayName', latestCharacter.displayname);
+            await fio.writeConfig(liveConfig, 'selectedCharacterDisplayName', latestCharacter.displayname);
+        }
+
+        secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
+        // TCAPIkey = secretsObj.api_key
+        STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string;
+        logger.info('File initialization complete!');
     }
 
-    // Check and create secrets.json if it doesn't exist
-    if (!await existsAsync(secretsPath)) {
-        logger.warn('Creating secrets.json with default values...');
-        await writeFileAsync(secretsPath, JSON.stringify(defaultSecrets, null, 2));
-        logger.warn('secrets.json created, please update it with real credentials now and restart the server.');
-    }
+    await mainInit();
+    let [hostKey, modKey] = generateServerKeys();
 
-    cardList = await fio.getCardList()
-    logger.debug(cardList)
+    console.log('')
+    console.log('')
+    console.log('')
+    logger.info('Starting SillyTavern MultiPlayer...')
 
-    if (!liveConfig.selectedCharacter || liveConfig.selectedCharacter === '') {
-        logger.warn('No selected character found, getting the latest...')
-        let latestCharacter = await db.getLatestCharacter()
-        logger.warn(latestCharacter)
-        liveConfig.selectedCharacter = latestCharacter.char_id
-        liveConfig.selectedCharDisplayName = latestCharacter.displayname;
-        await fio.writeConfig(liveConfig, 'selectedCharacter', latestCharacter.char_id)
-        await fio.writeConfig(liveConfig, 'selectedCharDisplayName', latestCharacter.displayname)
-    }
+    // Start the server
+    localServer.listen(wsPort, '0.0.0.0', () => {
+        logger.info('===========================');
+        logger.info(`Host Server: ${color.yellow(`http://localhost:${wsPort}/`)}`);
+        logger.info('===========================');
+    });
 
-    secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
-    //TCAPIkey = secretsObj.api_key
-    STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string
+    guestServer.listen(wssPort, '0.0.0.0', () => {
+        logger.info(`Guest Server: ${color.yellow(`http://localhost:${wssPort}/`)}`);
+        logger.info(`Run ${color.yellow('Remote-Link.cmd')} to make a Cloudflare tunnel for remote Guests.`);
+        logger.info('===========================');
+    });
+
+    logger.info(`${color.yellow(`Host Key: ${hostKey}`)}`);
+    logger.info(`${color.yellow(`Mod Key: ${modKey}`)}`);
 }
+
 
 // Create directories
 fio.createDirectoryIfNotExist("./public/api-presets");
-
-generateAndPrintKeys();
 
 // Call the function to initialize the files
 initFiles();
@@ -328,10 +380,12 @@ async function saveAndClearChat(type) {
 
 async function setSelectedAPI(newAPI) {
     selectedAPI = newAPI.name
-    liveConfig.selectedAPI = selectedAPI
-    liveConfig.selectedModel = ''
+    liveConfig.promptConfig.selectedAPI = selectedAPI
+    liveConfig.promptConfig.selectedModel = ''
     liveAPI = newAPI
-    await fio.writeConfig(liveConfig, 'selectedAPI', selectedAPI)
+    liveConfig.APIConfig = await db.getAPI(selectedAPI);
+    await fio.writeConfig(liveConfig, 'promptConfig.selectedAPI', selectedAPI)
+    await fio.writeConfig(liveConfig, 'liveConfig.APIConfig', liveConfig.APIConfig)
     logger.debug(`Selected API is now ${selectedAPI}`)
 }
 
@@ -409,60 +463,83 @@ async function handleConnections(ws, type, request) {
     //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
     let connectionConfirmedMessage = {
         clientUUID: uuid,
-        type: 'connectionConfirmed',
+        type: 'guestConnectionConfirmed',
         chatHistory: userChatJSON,
         AIChatHistory: AIChatJSON,
         color: thisUserColor,
         role: thisUserRole,
-        selectedCharacterDisplayName: liveConfig.selectedCharDisplayName,
+        selectedCharacterDisplayName: liveConfig.selectedCharacterDisplayName || liveConfig.promptConfig.selectedCharacterDisplayName,
+        userList: connectedUsers,
         crowdControl: {
-            userChatDelay: liveConfig?.userChatDelay,
-            AIChatDelay: liveConfig?.AIChatDelay,
+            userChatDelay: liveConfig?.crowdControl.userChatDelay || "2",
+            AIChatDelay: liveConfig?.crowdControl.AIChatDelay || "2",
         },
-        userList: connectedUsers
+
     }
 
     //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
+
         let apis = await db.getAPIs();
         apis = duplicateNameToValue(apis) //duplicate the name property as value property for each object in array. this is for selector population purposes.
-        let api = await db.getAPI(selectedAPI);
+        let APIConfig = await db.getAPI(liveConfig.promptConfig.selectedAPI);
         hostUUID = uuid
+
+        //we need it to be inside liveConfig object for hosts
+        console.log(connectionConfirmedMessage)
+
 
         let promptConfig = {
             cardList: cardList,
-            selectedCharacter: liveConfig.selectedCharacter,
-            contextSize: liveConfig.contextSize,
-            responseLength: liveConfig.responseLength,
+            selectedCharacter: liveConfig.promptConfig.selectedCharacter,
+            selectedCharacterDisplayName: liveConfig.promptConfig.selectedCharacterDisplayName,
+            contextSize: liveConfig.promptConfig.contextSize,
+            responseLength: liveConfig.promptConfig.responseLength,
             instructList: instructList,
-            selectedInstruct: liveConfig.instructFormat,
+            selectedInstruct: liveConfig.promptConfig.selectedInstruct,
             samplerPresetList: samplerPresetList,
-            selectedSamplerPreset: liveConfig.selectedPreset,
-            engineMode: liveConfig.engineMode,
-            isAutoResponse: liveConfig.isAutoResponse,
-            isStreaming: liveConfig.isStreaming,
-            D4CharDefs: liveConfig.D4CharDefs,
-            D1JB: liveConfig.D1JB,
-            D4AN: liveConfig.D4AN,
-            systemPrompt: liveConfig.systemPrompt,
+            selectedSamplerPreset: liveConfig.promptConfig.selectedSamplerPreset,
+            engineMode: liveConfig.promptConfig.engineMode,
+            isAutoResponse: liveConfig.promptConfig.isAutoResponse,
+            isStreaming: liveConfig.promptConfig.isStreaming,
+            D4CharDefs: liveConfig.promptConfig.D4CharDefs,
+            D1JB: liveConfig.promptConfig.D1JB,
+            D4AN: liveConfig.promptConfig.D4AN,
+            systemPrompt: liveConfig.promptConfig.systemPrompt,
             APIList: apis, //the array of every API and its properties
+            selectedAPI: liveConfig.promptConfig.selectedAPI,
         }
+        connectionConfirmedMessage.liveConfig = {}
 
-        let APIConfig = {
-            selectedAPI: liveConfig.selectedAPI,
-            liveAPI: api, //this is the full object for the selected api,
-            modeList: liveConfig?.modelList,
-            selectedModel: liveConfig?.selectedModel,
-        }
+        connectionConfirmedMessage.liveConfig.crowdControl = connectionConfirmedMessage.crowdControl
 
-        connectionConfirmedMessage.promptConfig = promptConfig
-        connectionConfirmedMessage.APIConfig = APIConfig
+        connectionConfirmedMessage.liveConfig.promptConfig = promptConfig
+        connectionConfirmedMessage.liveConfig.APIConfig = APIConfig
 
+        liveConfig = {}
+
+        liveConfig.promptConfig = connectionConfirmedMessage.liveConfig.promptConfig
+        liveConfig.APIConfig = connectionConfirmedMessage.liveConfig.APIConfig
+        liveConfig.crowdControl = connectionConfirmedMessage.liveConfig.crowdControl
+
+        await fio.writeConfig(liveConfig)
+        liveConfig = await fio.readConfig()
+        console.log(`---------------------------LIVE CONFIG-----------------------------------------`)
+        console.log(liveConfig)
+        console.log(`---------------------------CONNECTION CONFIRM MESSAGE--------------------------`)
+        console.log(connectionConfirmedMessage)
+        console.log(`--------------------------------------------------------------------`)
+        await broadcastUserList()
+        //logger.info(`the connection messsage to new client`,connectionConfirmedMessage)
+        ws.send(JSON.stringify(connectionConfirmedMessage))
+
+    } else {
+        await broadcastUserList()
+        //logger.info(`the connection messsage to new client`,connectionConfirmedMessage)
+        ws.send(JSON.stringify(connectionConfirmedMessage))
     }
 
-    await broadcastUserList()
-    //logger.info(`the connection messsage to new client`,connectionConfirmedMessage)
-    ws.send(JSON.stringify(connectionConfirmedMessage))
+
 
     function updateConnectedUsers() {
         const userList = Object.values(clientsObject).map(client => ({
@@ -500,8 +577,56 @@ async function handleConnections(ws, type, request) {
 
             //first check if the sender is host, and if so, process possible host commands
             if (user.role === 'host') {
-                if (parsedMessage.type === 'clearChat') {
+                if (parsedMessage.type === 'clientStateChange') {
+                    logger.info('Received updated liveConfig from Host client...')
 
+                    logger.info('Checking APIList for changes..')
+                    if (liveConfig.promptConfig.APIList !== parsedMessage.value.promptConfig.APIList) {
+
+                        if (parsedMessage.value.promptConfig.APIList.length < liveConfig.promptConfig.APIList.length) {
+                            let found = false;
+                            let APIToDelete
+                            for (const serverListAPI of liveConfig.promptConfig.APIList) {
+                                found = parsedMessage.value.promptConfig.APIList.some((clientListAPI) => {
+                                    if (serverListAPI.name === clientListAPI.name) {
+                                        return true;
+                                    }
+                                    APIToDelete = serverListAPI.name
+                                    return false;
+                                });
+                            }
+                            if (!found) {
+                                logger.warn(`Saw extra API in server list called "${APIToDelete}"...removing.`);
+                                await db.deleteAPI(APIToDelete);
+                                parsedMessage.value.promptConfig.selectedAPI = 'Default' //we hve to edit parsedMessage because we set this to liveConfig later
+                            }
+                        } else {
+                            logger.warn('saw new API..adding to DB..')
+                            var difference = parsedMessage.value.promptConfig.APIList.filter(function (obj) {
+                                return !liveConfig.promptConfig.APIList.some(function (item) {
+                                    return obj.name === item.name;
+                                })
+                            });
+                            //logger.info('server current API List', liveConfig.promptConfig.APIList)
+                            //logger.info('incoming API list', parsedMessage.value.promptConfig.APIList)
+                            logger.info('New API:', difference)
+                            difference.forEach(async function (api) {
+                                await db.upsertAPI(api.name, api.endpoint, api.key, api.type, api.claude);
+                            });
+                        }
+                    }
+                    logger.info('writing liveConfig to file')
+                    liveConfig = parsedMessage.value
+                    await fio.writeConfig(liveConfig)
+                    logger.info('broadcasting new liveconfig to all hosts')
+                    let hostStateChangeMessage = {
+                        type: 'hostStateChange',
+                        value: liveConfig
+                    }
+                    await broadcast(hostStateChangeMessage, 'host');
+                    return
+                }
+                if (parsedMessage.type === 'clearChat') {
                     //clear the UserChat.json file
                     await saveAndClearChat('UserChat')
                     const clearUserChatInstruction = {
@@ -510,151 +635,28 @@ async function handleConnections(ws, type, request) {
                     await broadcast(clearUserChatInstruction);
                     return
                 }
-                else if (parsedMessage.type === 'toggleAutoResponse') {
-                    isAutoResponse = parsedMessage.value
-                    liveConfig.isAutoResponse = isAutoResponse
-                    await fio.writeConfig(liveConfig, 'isAutoResponse', isAutoResponse)
-                    let settingChangeMessage = {
-                        type: 'autoAItoggleUpdate',
-                        value: liveConfig.isAutoResponse
-                    }
-                    await broadcast(settingChangeMessage, 'host')
-                    return
-                }
-                else if (parsedMessage.type === 'toggleStreaming') {
-                    isStreaming = parsedMessage.value
-                    liveConfig.isStreaming = isStreaming
-                    await fio.writeConfig(liveConfig, 'isStreaming', isStreaming)
-                    let settingChangeMessage = {
-                        type: 'streamingToggleUpdate',
-                        value: liveConfig.isStreaming
-                    }
-                    await broadcast(settingChangeMessage, 'host')
-                    return
-                }
-                else if (parsedMessage.type === 'toggleD4CharDefs') {
-                    liveConfig.D4CharDefs = parsedMessage.value
-                    await fio.writeConfig(liveConfig, 'D4CharDefs', liveConfig.D4CharDefs)
-                    let settingChangeMessage = {
-                        type: 'D4CharDefsToggleUpdate',
-                        value: liveConfig.D4CharDefs
-                    }
-                    await broadcast(settingChangeMessage, 'host')
-                    return
-                }
-                else if (parsedMessage.type === 'adjustContextSize') {
-                    contextSize = parsedMessage.value
-                    liveConfig.contextSize = contextSize
-                    await fio.writeConfig(liveConfig, 'contextSize', contextSize)
-                    let settingChangeMessage = {
-                        type: 'contextSizeChange',
-                        value: liveConfig.contextSize
-                    }
-                    await broadcast(settingChangeMessage, 'host')
-                    return
-
-                }
-                else if (parsedMessage.type === 'adjustResponseLength') {
-                    responseLength = parsedMessage.value
-                    liveConfig.responseLength = responseLength
-                    await fio.writeConfig(liveConfig, 'responseLength', responseLength)
-                    let settingChangeMessage = {
-                        type: 'responseLengthChange',
-                        value: liveConfig.responseLength
-                    }
-                    await broadcast(settingChangeMessage, 'host')
-                    return
-
-                }
                 else if (parsedMessage.type === 'modelSelect') {
                     selectedModel = parsedMessage.value
-                    liveConfig.selectedModel = selectedModel
-                    await fio.writeConfig(liveConfig, 'selectedModel', selectedModel)
+                    liveConfig.promptConfig.selectedModel = selectedModel
+                    await fio.writeConfig(liveConfig, 'promptConfig.selectedModel', selectedModel)
                     let settingChangeMessage = {
                         type: 'modelChange',
-                        value: liveConfig.selectedModel
+                        value: liveConfig.promptConfig.selectedModel
                     }
                     await broadcast(settingChangeMessage, 'host')
                     return
                 }
-                else if (parsedMessage.type === 'AIChatDelayChange') {
-                    AIChatDelay = parsedMessage.value
-                    liveConfig.AIChatDelay = AIChatDelay
-                    await fio.writeConfig(liveConfig, 'AIChatDelay', AIChatDelay)
-                    let settingChangeMessage = {
-                        type: 'AIChatDelayChange',
-                        value: liveConfig.AIChatDelay
-                    }
-                    await broadcast(settingChangeMessage)
-                    return
-                }
-                else if (parsedMessage.type === 'userChatDelayChange') {
-                    userChatDelay = parsedMessage.value
-                    liveConfig.userChatDelay = userChatDelay
-                    await fio.writeConfig(liveConfig, 'userChatDelay', userChatDelay)
-                    let settingChangeMessage = {
-                        type: 'userChatDelayChange',
-                        value: liveConfig.userChatDelay
-                    }
-                    await broadcast(settingChangeMessage)
-                    return
-                }
-
-                else if (parsedMessage.type === 'addNewAPI') {
-                    const newAPI = {
-                        name: parsedMessage.name,
-                        endpoint: parsedMessage.endpoint,
-                        key: parsedMessage.key,
-                        endpointType: parsedMessage.endpointType,
-                        claude: parsedMessage.claude
-                    }
-                    await db.upsertAPI(newAPI.name, newAPI.endpoint, newAPI.key, newAPI.endpointType, newAPI.claude)
-                    let apis = await db.getAPIs();
-                    let APIListMessage = {
-                        type: 'APIList',
-                        APIList: apis,
-                        selectedAPI: liveConfig.selectedAPI
-                    }
-                    await broadcast(APIListMessage, 'host')
-
-                    let APIChangeMessage = {
-                        type: 'apiChange',
-                        name: newAPI.name,
-                        endpoint: newAPI.endpoint,
-                        key: newAPI.key,
-                        endpointType: newAPI.type,
-                        claude: newAPI.claude
-                    }
-                    setSelectedAPI(newAPI);
-                    await broadcast(APIChangeMessage, 'host')
-                    return
-                }
-                else if (parsedMessage.type === 'APIChange') {
-                    newAPI = await db.getAPI(parsedMessage.newAPI)
-                    const changeAPI = {
-                        type: 'apiChange',
-                        name: newAPI.name,
-                        endpoint: newAPI.endpoint,
-                        key: newAPI.key,
-                        endpointType: newAPI.type,
-                        claude: newAPI.claude
-                    }
-                    setSelectedAPI(newAPI);
-                    await broadcast(changeAPI, 'host');
-                    return
-                }
-
                 else if (parsedMessage.type === 'testNewAPI') {
                     let result = await api.testAPI(isStreaming, parsedMessage.api, liveConfig)
+                    console.log(result)
                     testAPIResult = {
                         type: 'testAPIResult',
-                        value: result
+                        result: result
                     }
                     //only send back to the user who is doing the test.
                     await ws.send(JSON.stringify(testAPIResult))
                     return
                 }
-
                 else if (parsedMessage.type === 'modelListRequest') {
                     logger.trace('saw model list request')
                     let list = await api.getModelList(parsedMessage.api)
@@ -674,14 +676,13 @@ async function handleConnections(ws, type, request) {
                     await ws.send(JSON.stringify(modelListResult))
                     return
                 }
-
                 else if (parsedMessage.type === 'clearAIChat') {
                     await saveAndClearChat('AIChat')
                     const clearAIChatInstruction = {
                         type: 'clearAIChat'
                     }
                     await broadcast(clearAIChatInstruction);
-                    let charFile = liveConfig.selectedCharacter
+                    let charFile = liveConfig.promptConfig.selectedCharacter
                     logger.debug(`selected character: ${charFile}`)
                     let cardData = await fio.charaRead(charFile, 'png')
                     let cardJSON = JSON.parse(cardData)
@@ -713,8 +714,8 @@ async function handleConnections(ws, type, request) {
                         charDisplayName: parsedMessage.newCharDisplayName
                     }
 
-                    liveConfig.selectedCharacter = parsedMessage.newChar
-                    liveConfig.selectedCharDisplayName = parsedMessage.newCharDisplayName
+                    liveConfig.promptConfig.selectedCharacter = parsedMessage.newChar
+                    liveConfig.promptConfig.selectedCharacterDisplayName = parsedMessage.newCharDisplayName
                     await fio.writeConfig(liveConfig)
                     await db.upsertChar(parsedMessage.newChar, parsedMessage.newCharDisplayName, user.color)
                     await broadcast(changeCharMessage, 'host');
@@ -728,63 +729,7 @@ async function handleConnections(ws, type, request) {
                     await broadcast(changeCharMessage, 'guest');
                     return
                 }
-                else if (parsedMessage.type === 'changeSamplerPreset') {
-                    const changePresetMessage = {
-                        type: 'changeSamplerPreset',
-                        newPreset: parsedMessage.newPreset
-                    }
-                    selectedPreset = parsedMessage.newPreset
-                    liveConfig.selectedPreset = selectedPreset
-                    const samplerData = await fio.readFile(selectedPreset)
-                    liveConfig.samplers = samplerData
-                    await fio.writeConfig(liveConfig, 'samplers', liveConfig.samplers)
-                    await fio.writeConfig(liveConfig, 'selectedPreset', selectedPreset)
-                    await broadcast(changePresetMessage, 'host');
-                    return
-                }
-                else if (parsedMessage.type === 'changeInstructFormat') {
-                    const changeInstructMessage = {
-                        type: 'changeInstructFormat',
-                        newInstructFormat: parsedMessage.newInstructFormat
-                    }
-                    liveConfig.instructFormat = parsedMessage.newInstructFormat
-                    const instructSequences = await fio.readFile(liveConfig.instructFormat)
-                    liveConfig.instructSequences = instructSequences
-                    await fio.writeConfig(liveConfig, 'instructSequences', liveConfig.instructSequences)
-                    await fio.writeConfig(liveConfig, 'instructFormat', parsedMessage.newInstructFormat)
-                    await broadcast(changeInstructMessage, 'host');
-                    return
-                }
-                else if (parsedMessage.type === 'changeD1JB') {
-                    const changeD1JBMessage = {
-                        type: 'changeD1JB',
-                        newD1JB: parsedMessage.newD1JB
-                    }
-                    liveConfig.D1JB = parsedMessage.newD1JB
-                    await fio.writeConfig(liveConfig)
-                    await broadcast(changeD1JBMessage, 'host');
-                    return
-                }
-                else if (parsedMessage.type === 'changeD4AN') {
-                    const changeD4ANMessage = {
-                        type: 'changeD4AN',
-                        newD4AN: parsedMessage.newD4AN
-                    }
-                    liveConfig.D4AN = parsedMessage.newD4AN
-                    await fio.writeConfig(liveConfig)
-                    await broadcast(changeD4ANMessage, 'host');
-                    return
-                }
-                else if (parsedMessage.type === 'changeSystemPrompt') {
-                    const changeSystemPromptMessage = {
-                        type: 'changeSystemPrompt',
-                        newSystemPrompt: parsedMessage.newSystemPrompt
-                    }
-                    liveConfig.systemPrompt = parsedMessage.newSystemPrompt
-                    await fio.writeConfig(liveConfig)
-                    await broadcast(changeSystemPromptMessage, 'host');
-                    return
-                }
+
                 else if (parsedMessage.type === 'AIRetry') {
                     // Read the AIChat file
                     try {
@@ -804,14 +749,16 @@ async function handleConnections(ws, type, request) {
                         return;
                     }
                 }
+
+                //TODO: merge this into clientStateChange
                 else if (parsedMessage.type === 'modeChange') {
                     engineMode = parsedMessage.newMode
                     const modeChangeMessage = {
                         type: 'modeChange',
                         engineMode: engineMode
                     }
-                    liveConfig.engineMode = engineMode
-                    await fio.writeConfig(liveConfig, 'engineMode', engineMode)
+                    liveConfig.promptConfig.engineMode = engineMode
+                    await fio.writeConfig(liveConfig, 'promptConfig.engineMode', engineMode)
                     await broadcast(modeChangeMessage, 'host');
                     return
                 }
@@ -856,7 +803,7 @@ async function handleConnections(ws, type, request) {
             if (parsedMessage.type === 'usernameChange') {
                 clientsObject[uuid].username = parsedMessage.newName;
                 updateConnectedUsers()
-                db.upsertUser(parsedMessage.UUID, parsedMessage.newName, user.color ? user.color : thisClientObj.color)
+                await db.upsertUser(parsedMessage.UUID, parsedMessage.newName, user.color ? user.color : thisClientObj.color)
                 const nameChangeNotification = {
                     type: 'userChangedName',
                     content: `[System]: ${parsedMessage.oldName} >>> ${parsedMessage.newName}`
@@ -871,7 +818,7 @@ async function handleConnections(ws, type, request) {
                         type: 'keyAccepted',
                         role: 'host'
                     }
-                    db.upsertUserRole(uuid, 'host');
+                    await db.upsertUserRole(uuid, 'host');
                     await ws.send(JSON.stringify(keyAcceptedMessage))
                 }
                 else if (parsedMessage.key === modKey) {
@@ -879,7 +826,7 @@ async function handleConnections(ws, type, request) {
                         type: 'keyAccepted',
                         role: 'mod'
                     }
-                    db.upsertUserRole(uuid, 'mod');
+                    await db.upsertUserRole(uuid, 'mod');
                     await ws.send(JSON.stringify(keyAcceptedMessage))
                 }
                 else {
@@ -918,7 +865,7 @@ async function handleConnections(ws, type, request) {
                         await broadcast(userPrompt)
                     }
 
-                    if (liveConfig.isAutoResponse || isEmptyTrigger) {
+                    if (liveConfig.promptConfig.isAutoResponse || isEmptyTrigger) {
                         handleResponse(
                             parsedMessage, selectedAPI, STBasicAuthCredentials,
                             engineMode, user, liveConfig
@@ -965,10 +912,11 @@ let accumulatedStreamOutput = ''
 
 const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => {
     let currentlyStreaming
+    logger.warn(parsedMessage)
 
     const endResponse = async () => {
-        logger.warn('AIChatUserList in text Listener EndResponse')
-        logger.warn(AIChatUserList)
+        //logger.warn('AIChatUserList in text Listener EndResponse')
+        //logger.warn(AIChatUserList)
         currentlyStreaming = false
         //if (!responseEnded) {
         //    responseEnded = true;
@@ -977,7 +925,7 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => 
             chatID: parsedMessage.chatID,
             AIChatUserList: AIChatUserList,
             userColor: parsedMessage.userColor,
-            username: liveConfig.selectedCharDisplayName,
+            username: liveConfig.promptConfig.selectedCharacterDisplayName,
             type: 'streamedAIResponseEnd',
         };
         logger.warn('sending stream end')
@@ -1006,7 +954,7 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => 
         const streamedTokenMessage = {
             chatID: parsedMessage.chatID,
             content: text,
-            username: liveConfig.selectedCharDisplayName,
+            username: liveConfig.promptConfig.selectedCharacterDisplayName,
             type: 'streamedAIResponse',
             color: user.color ? user.color : 'red',
         };
@@ -1020,10 +968,12 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => 
 async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig) {
     let AIResponse
 
+    //console.log(liveConfig)
+
     //just get the AI chat userlist with 'true' as last argument
     //this is jank..
     //logger.warn('Dry run to get the AI UserList')
-    let AIChatUserList = await api.getAIResponse(isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, true, parsedMessage);
+    let AIChatUserList = await api.getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveConfig.APIConfig, true, parsedMessage);
     //logger.warn('now for the real deal')
     //.warn('AIChatUserList in handleResponse')
     //logger.warn(AIChatUserList)
@@ -1037,24 +987,14 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
 
         // Make the API request for streamed responses
 
-        const response = await api.getAIResponse(isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, false, parsedMessage);
+        const response = await api.getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage);
 
         if (response === null) {
             textListener('END_OF_RESPONSE');
             let trimmedStreamedResponse = await api.trimIncompleteSentences(accumulatedStreamOutput)
-            //logger.debug('trimming stream results:')
-            //logger.debug(trimmedStreamedResponse)
-            /*             let trimmedStreamMessage = {
-                            'type': 'trimmedStreamMessage',
-                            'chatID': 'AIChat',
-                            'username': liveConfig.selectedCharDisplayName,
-                            'content': trimmedStreamedResponse,
-                            'color': user.color ? user.color : 'red',
-                        }
-                        broadcast(trimmedStreamMessage) */
-            await db.writeAIChatMessage(liveConfig.selectedCharDisplayName, 'AI', trimmedStreamedResponse, 'AI')
+            await db.writeAIChatMessage(liveConfig.promptConfig.selectedCharacterDisplayName, 'AI', trimmedStreamedResponse, 'AI')
             //console.log('message was:')
-            //console.log(liveConfig.selectedCharDisplayName + ':' + accumulatedStreamOutput)
+            //console.log(liveConfig.promptConfig.selectedCharacterDisplayName + ':' + accumulatedStreamOutput)
             accumulatedStreamOutput = ''
         }
 
@@ -1062,12 +1002,12 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
         //logger.info('SENDING BACK NON-STREAM RESPONSE')
         // Handle non-streamed response
         [AIResponse, AIChatUserList] = await api.getAIResponse(
-            isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, false, parsedMessage);
+            isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage);
 
         const AIResponseMessage = {
             chatID: parsedMessage.chatID,
             content: AIResponse,
-            username: liveConfig.selectedCharDisplayName,
+            username: liveConfig.promptConfig.selectedCharacterDisplayName,
             type: 'AIResponse',
             color: user.color,
             AIChatUserList: AIChatUserList
@@ -1076,22 +1016,6 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
 
     }
 }
-
-
-
-// Start the server
-localServer.listen(wsPort, '0.0.0.0', () => {
-    logger.info('===========================')
-    logger.info(`Host Server is listening on all available network interfaces on port ${wsPort}`);
-    logger.info(`Typically, the Host should access ${color.yellow(`http://localhost:${wsPort}/`)} in your web browser.`)
-    logger.info('===========================')
-});
-guestServer.listen(wssPort, '0.0.0.0', () => {
-    logger.info(`The Guest Server is listening on port ${wssPort}`);
-    logger.info(`Run the ${color.yellow('Remote-Link.cmd')} file in the STMP directory`)
-    logger.info('to setup a Cloudflare tunnel for remote Guest connections.')
-    logger.info('===========================')
-});
 
 // Handle server shutdown via ctrl+c
 process.on('SIGINT', async () => {

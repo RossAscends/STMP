@@ -38,7 +38,7 @@ async function getAPIDefaults(shouldReturn = null) {
     }
 }
 
-async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage) {
+async function getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage) {
     let isCCSelected = liveAPI.type === 'CC' ? true : false
     let isClaude = liveAPI.claude
     try {
@@ -52,7 +52,7 @@ async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredential
 
         //if it's not an empty trigger from host
         //if userInput is empty we can just request the AI directly
-        let charFile = liveConfig.selectedCharacter
+        let charFile = liveConfig.promptConfig.selectedCharacter
         logger.trace(`selected character: ${charFile}`)
         let cardData = await fio.charaRead(charFile, 'png')
         let cardJSON = JSON.parse(cardData)
@@ -63,7 +63,8 @@ async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredential
         //a careful observer might notice that we don't set the userInput string into the 'prompt' section of the API Params at this point.
         //this is because the userInput has already been saved into the chat session, and the next function will read 
         const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, fixedFinalCharName, parsedMessage.username, liveAPI)
-        const samplers = JSON.parse(liveConfig.samplers);
+        const samplerData = await fio.readFile(liveConfig.promptConfig.selectedSamplerPreset)
+        const samplers = JSON.parse(samplerData);
         //logger.debug(samplers)
         //apply the selected preset values to the API call
         for (const [key, value] of Object.entries(samplers)) {
@@ -77,17 +78,17 @@ async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredential
         }
 
         //ctx and response length for Text Completion API
-        APICallParams.truncation_length = Number(liveConfig.contextSize)
-        APICallParams.max_tokens = Number(liveConfig.responseLength)
+        APICallParams.truncation_length = Number(liveConfig.promptConfig.contextSize)
+        APICallParams.max_tokens = Number(liveConfig.promptConfig.responseLength)
         //ctx and response length for Horde
-        APICallParams.max_context_length = Number(liveConfig.contextSize)
-        APICallParams.max_length = Number(liveConfig.responseLength)
+        APICallParams.max_context_length = Number(liveConfig.promptConfig.contextSize)
+        APICallParams.max_length = Number(liveConfig.promptConfig.responseLength)
 
         //add stop strings
         const [finalAPICallParams, entitiesList] = await setStopStrings(liveConfig, APICallParams, includedChatObjects, liveAPI)
 
         var AIResponse = '';
-        if (liveConfig.engineMode === 'horde') {
+        if (liveConfig.promptConfig.engineMode === 'horde') {
             const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(STBasicAuthCredentials, finalAPICallParams);
             AIResponse = hordeResponse;
         }
@@ -234,7 +235,7 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
     if (liveAPI.claude === 1) { //for claude
         logger.debug('setting Claude stop strings')
         APICallParams.stop_sequences = targetObj
-    } else if (liveConfig.engineMode === 'TC' || liveConfig.engineMode === 'CC' && liveAPI.claude !== 1) { //for TC and OAI CC
+    } else if (liveConfig.promptConfig.engineMode === 'TC' || liveConfig.promptConfig.engineMode === 'CC' && liveAPI.claude !== 1) { //for TC and OAI CC
         logger.debug('setting TC/OAI stop strings')
         APICallParams.stop = targetObj
     } else { //for horde
@@ -277,10 +278,10 @@ function postProcessText(text) {
 
 async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharName, username, liveAPI) {
     logger.debug(`[addCharDefsToPrompt] >> GO`)
-    //logger.debug(liveAPI)
+    logger.debug(liveAPI)
     let isClaude = liveAPI.claude
     let isCCSelected = liveAPI.type === 'CC' ? true : false
-    let doD4CharDefs = liveConfig.D4CharDefs
+    let doD4CharDefs = liveConfig.promptConfig.D4CharDefs
     console.log(doD4CharDefs)
 
 
@@ -304,14 +305,14 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             const scenarioToAdd = replacedData.scenario.length > 0 ? `\n${replacedData.scenario.trim()}` : ''
 
             //replace {{user}} and {{char}} for D1JB
-            var D1JB = postProcessText(replaceMacros(liveConfig.D1JB, username, charJSON.name)) || ''
-            var D4AN = postProcessText(replaceMacros(liveConfig.D4AN, username, charJSON.name)) || ''
+            var D1JB = postProcessText(replaceMacros(liveConfig.promptConfig.D1JB, username, charJSON.name)) || ''
+            var D4AN = postProcessText(replaceMacros(liveConfig.promptConfig.D4AN, username, charJSON.name)) || ''
             if (doD4CharDefs) {
                 D4AN = `${descToAdd}${personalityToAdd}${scenarioToAdd}\n${D4AN}`
             }
-            var systemMessage = postProcessText(replaceMacros(liveConfig.systemPrompt, username, charJSON.name)) || `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
-
-            const instructSequence = JSON.parse(liveConfig.instructSequences)
+            var systemMessage = postProcessText(replaceMacros(liveConfig.promptConfig.systemPrompt, username, charJSON.name)) || `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
+            const instructData = await fio.readFile(liveConfig.promptConfig.selectedInstruct)
+            const instructSequence = JSON.parse(instructData)
             const inputSequence = replaceMacros(instructSequence.input_sequence, username, charJSON.name)
             const outputSequence = replaceMacros(instructSequence.output_sequence, username, charJSON.name)
             const systemSequence = replaceMacros(instructSequence.system_sequence, username, charJSON.name)
@@ -358,7 +359,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     }
 
                     let newItemTokens = countTokens(newItem);
-                    if (promptTokens + newItemTokens < liveConfig.contextSize) {
+                    if (promptTokens + newItemTokens < liveConfig.promptConfig.contextSize) {
                         promptTokens += newItemTokens;
                         ChatObjsInPrompt.push(obj)
                         logger.trace(`added new item, prompt tokens: ~${promptTokens}`);
@@ -434,7 +435,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     }
 
                     let newItemTokens = countTokens(newObj.content);
-                    if (promptTokens + newItemTokens < liveConfig.contextSize) {
+                    if (promptTokens + newItemTokens < liveConfig.promptConfig.contextSize) {
                         promptTokens += newItemTokens;
                         CCMessageObj.push(newObj)
                         ChatObjsInPrompt.push(obj)
@@ -550,6 +551,7 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     } else {
         logger.error('Error while requesting ST');
         logger.error(response)
+        return response
     };
 }
 
@@ -571,12 +573,9 @@ async function testAPI(isStreaming, api, liveConfig) {
     }
 
     let testMessageObject = [{ role: 'user', content: 'Ping? (if you can see me say "Pong!")' }]
-    //does claude even use CC? is it not prompt instead of message objects?
-    let testMessageObjectForClaude = [{ role: 'human', content: 'Test Message' }]
     if (api.type === 'CC' && !api.claude) {
-        payload.model = liveConfig.selectedModel
+        payload.model = api.selectedModel
         payload.messages = testMessageObject
-
     } else {
         payload.prompt = testMessage
         if (api.claude) {
@@ -643,6 +642,25 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
     delete APICallParamsAndPrompt.system_prompt
 
     let baseURL = TCEndpoint.trim()
+
+    // Check if baseURL contains "localhost" or "127.0.0.1"
+    if (!/^https?:\/\//i.test(baseURL)) {
+        if (baseURL.includes("localhost") || baseURL.includes("127.0.0.1")) {
+            // Add "http://" at the beginning
+            baseURL = "http://" + baseURL;
+        } else {
+            // Add "https://" at the beginning
+            baseURL = "https://" + baseURL;
+        }
+    }
+
+    // Check if baseURL ends with "/"
+    if (!/\/$/.test(baseURL)) {
+        // Add "/" at the end
+        baseURL += "/";
+    }
+
+
     let chatURL
     var headers = {
         'Content-Type': 'application/json',
@@ -680,7 +698,7 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
 
     try {
 
-        APICallParamsAndPrompt.model = liveConfig.selectedModel
+        APICallParamsAndPrompt.model = liveAPI.selectedModel
         APICallParamsAndPrompt.stream = isStreaming
 
         logger.debug('HEADERS')
@@ -714,14 +732,27 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
             logger.debug('Status 200: Ok.')
             return await processResponse(response, isCCSelected, isTest, isStreaming, liveAPI)
         } else {
-            logger.warn('API error: ' + response.status)
+            let responseStatus = response.status
+            logger.warn('API error: ' + responseStatus)
 
-            let JSONResponse = await response.json()
-            logger.warn(JSONResponse);
+            let parsedResponse, unparsedResponse
+            try {
+                parsedResponse = await response.json()
+                logger.warn(parsedResponse);
+            }
+            catch {
+                logger.warn('could not parse response, returning it as-is')
+                unparsedResponse = response
+            }
+            let errorResponse = {
+                status: response.status,
+                statusText: response.statusText
+
+            }
             //these are error message attributes from Tabby
             //logger.debug(JSONResponse.detail[0].loc) //shows the location of the error causing thing
             //logger.debug(JSONResponse.detail[0].input) //just shows the value of messages object
-            return JSONResponse;
+            return errorResponse
         }
 
     } catch (error) {
@@ -729,6 +760,7 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
         const line = error.stack.split('\n').pop().split(':').pop();
         logger.error(line);
         logger.error(error);
+        return error
     }
 }
 
@@ -889,9 +921,11 @@ async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest, is
     } else { // text completions have data in 'choices'
         text = JSONResponse.choices[0].text
     }
+    //this assumes we got a response from the server that was not 200
     if (isTest) {
         let testResults = {
             status: apistatus,
+            statusText: statusText,
             value: text
         }
         return testResults

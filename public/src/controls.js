@@ -1,117 +1,11 @@
 import util from './utils.js'
 import { isUserScrollingAIChat, isUserScrollingUserChat, myUUID } from '../script.js'
 
-function updateSelectedChar(myUUID, char, displayName, type) {
-    console.debug(char, displayName)
-    $("#charName").text(displayName)
-    if (type === 'forced') { //if server ordered it
-        console.debug('changing Char from server command')
-        $("#characters").find(`option[value="${char}"]`).prop('selected', true)
-    } else { //if user did it
-        //let newChar = String($("#characters").val())
-        console.debug('I manually changed char, and updating to server')
-        let newCharDisplayName = $("#characters").find(`option[value="${char}"]`).text()
-        let changeCharacterRequest = {
-            type: 'changeCharacterRequest',
-            UUID: myUUID,
-            newChar: char,
-            newCharDisplayName: newCharDisplayName
-        }
-        util.messageServer(changeCharacterRequest);
-    }
-    util.flashElement('characters', 'good')
-}
-
-function updateSelectedSamplerPreset(myUUID, preset, type) {
-    console.debug(preset)
-    if (type === 'forced') {
-        console.debug('changing preset from server command')
-        $("#samplerPreset").find(`option[value="${preset}"]`).prop('selected', true)
-    } else {
-        console.debug('I manually changed char, and updating to server')
-        let changeSamplerPresetMessage = {
-            type: 'changeSamplerPreset',
-            UUID: myUUID,
-            newPreset: preset
-        }
-        util.messageServer(changeSamplerPresetMessage);
-    }
-    util.flashElement('samplerPreset', 'good')
-}
 
 function updateSelectedModel(model) {
     console.debug(`[updateSelectedModel()] Changing model from server command to ${model}.`)
     $("#modelList").find(`option[value="${model}"]`).prop('selected', true).trigger('change')
     util.flashElement('modelList', 'good')
-}
-
-function updateInstructFormat(myUUID, format, type) {
-    console.debug(format)
-    if (type === 'forced') {
-        console.debug('changing Instruct format from server command')
-        $("#instructStyle").find(`option[value="${format}"]`).prop('selected', true)
-
-    } else {
-        console.debug('I manually changed Instruct format, and updating to server')
-        let changeInstructFormatMessage = {
-            type: 'changeInstructFormat',
-            UUID: myUUID,
-            newInstructFormat: format
-        }
-        util.messageServer(changeInstructFormatMessage);
-    }
-    util.flashElement('instructStyle', 'good')
-}
-
-function updateD1JBInput(myUUID, jb, type) {
-    console.debug(jb, type)
-    if (type === 'forced') {
-        console.debug('changing D1JB from server command')
-        $("#D1JBInput").val(jb)
-    } else {
-        console.debug('I manually changed D1JB, and updating to server')
-        let changeD1JBMessage = {
-            type: 'changeD1JB',
-            UUID: myUUID,
-            newD1JB: jb
-        }
-        util.messageServer(changeD1JBMessage);
-    }
-    util.flashElement('D1JBInput', 'good')
-}
-
-function updateD4ANInput(myUUID, D4AN, type) {
-    console.debug(D4AN, type)
-    if (type === 'forced') {
-        console.debug('changing D1JB from server command')
-        $("#D4ANInput").val(D4AN)
-    } else {
-        console.debug('I manually changed D4AN, and updating to server')
-        let changeD4ANMessage = {
-            type: 'changeD4AN',
-            UUID: myUUID,
-            newD4AN: D4AN
-        }
-        util.messageServer(changeD4ANMessage);
-    }
-    util.flashElement('D4ANInput', 'good')
-}
-
-function updateSystemPromptInput(myUUID, systemPrompt, type) {
-    console.debug(systemPrompt, type)
-    if (type === 'forced') {
-        console.debug('changing D1JB from server command')
-        $("#systemPromptInput").val(systemPrompt)
-    } else {
-        console.debug('I manually changed system Prompt, and updating to server')
-        let changeSystemPromptMessage = {
-            type: 'changeSystemPrompt',
-            UUID: myUUID,
-            newSystemPrompt: systemPrompt
-        }
-        util.messageServer(changeSystemPromptMessage);
-    }
-    util.flashElement('systemPromptInput', 'good')
 }
 
 function updateUserName(myUUID, username) {
@@ -127,17 +21,6 @@ function updateUserName(myUUID, username) {
     util.messageServer(nameChangeMessage)
     util.flashElement('usernameInput', 'good')
 }
-
-function updateAPI(myUUID, api) {
-    let apiChangeMessage = {
-        type: 'apiChange',
-        UUID: myUUID,
-        newAPI: api
-    }
-    util.messageServer(apiChangeMessage)
-    util.flashElement('apiList', 'good')
-}
-
 
 //Just update Localstorage, no need to send anything to server for this.
 //but possibly add it in the future if we want to let users track which user is speaking as which entity in AI Chat.
@@ -161,19 +44,6 @@ function submitKey(myUUID) {
     util.messageServer(keyMessage)
 }
 
-async function populateSelector(list, elementId) {
-    console.debug(list);
-    const selectElement = $(`#${elementId}`);
-    selectElement.empty();
-
-    for (const item of list) {
-        const newElem = $('<option>');
-        newElem.val(item.filename);
-        newElem.text(item.name);
-        selectElement.append(newElem);
-    }
-}
-
 async function populateModelsList(list) {
     console.debug('[populateModelList()] >> GO')
     const $selector = $('#modelList');
@@ -192,37 +62,19 @@ async function populateModelsList(list) {
     $("#modelList option:eq(1)").prop('selected', true).trigger('input')
 }
 
-async function populateAPISelector(API, selectedAPI) {
-
-    console.debug('[populateAPISelector()] >> GO')
-    let APISelectElement = $("#apiList");
-    APISelectElement.empty()
-    APISelectElement.append($('<option>').val('addNewAPI').text('Add New API'));
-    for (const api of API) {
-        let newElem = $('<option>');
-        newElem.val(api.name);
-        newElem.text(api.name);
-        APISelectElement.append(newElem);
-    }
-    if (selectedAPI) {
-        console.debug(`selectedAPI = ${selectedAPI}..selecting it.`)
-        $("#apiList").find(`option[value="${selectedAPI}"]`).prop('selected', true)
-    }
-}
-
 function showAddNewAPIDiv() {
     //console.debug('showing div for adding new API')
-    $("#addNewAPI").show()
+    $("#APIConfig").show()
     $("#addNewAPIButton").show()
     $("#editAPIButton").hide()
-    $("#newAPIName").val('')
-    $("#newAPIEndpoint").val('')
-    $("#newAPIKey").val('')
-    $("#newAPIEndpointType").val('TC')
-    $("#newAPIEndpointType").prop('disabled', false)
-    $("#newAPIName").prop('readonly', false)
-    $("#newAPIEndpoint").prop('readonly', false)
-    $("#newAPIKey").prop('readonly', false)
+    $("#selectedAPI").val('')
+    $("#endpoint").val('')
+    $("#key").val('')
+    $("#type").val('TC')
+    $("#type").prop('disabled', false)
+    $("#selectedAPI").prop('readonly', false)
+    $("#endpoint").prop('readonly', false)
+    $("#key").prop('readonly', false)
     $("#apiTitle").text('New API Info')
     $("#saveAPIButton").show()
 }
@@ -231,20 +83,16 @@ function hideAddNewAPIDiv() {
     console.debug('[hideAddNewAPIDiv()] >> GO')
     $("#addNewAPIButton").hide()
     $("#editAPIButton").show()
-    //$("#newAPIName").prop('readonly', true)
-    //$("#newAPIEndpoint").prop('readonly', true)
-    //$("#newAPIKey").prop('readonly', true)
-    //$("#newAPIEndpointType").prop('disabled', true)
-    $("#addNewAPI").hide()
+    $("#APIConfig").hide()
     $("#saveAPIButton").hide()
 }
 
 function enableAPIEdit() {
     console.debug('[enableAPIEdit()] >> GO')
-    $("#newAPIName").prop('readonly', false)
-    $("#newAPIEndpoint").prop('readonly', false)
-    $("#newAPIKey").prop('readonly', false)
-    $("#newAPIEndpointType").prop('disabled', false)
+    $("#selectedAPI").prop('readonly', false)
+    $("#endpoint").prop('readonly', false)
+    $("#key").prop('readonly', false)
+    $("#type").prop('disabled', false)
     $("#saveAPIButton").show()
     //Set the title 
     $("#apiTitle").text('Edit API Info')
@@ -252,73 +100,27 @@ function enableAPIEdit() {
 
 function disableAPIEdit() {
     console.debug('[disableAPIEdit()] >> GO')
-    $("#newAPIName").prop('readonly', true)
-    $("#newAPIEndpoint").prop('readonly', true)
-    $("#newAPIKey").prop('readonly', true)
-    $("#newAPIEndpointType").prop('disabled', true)
+    $("#selectedAPI").prop('readonly', true)
+    $("#endpoint").prop('readonly', true)
+    $("#key").prop('readonly', true)
+    $("#type").prop('disabled', true)
     $("#saveAPIButton").hide()
     //Set the title 
     $("#apiTitle").text('')
 }
 
-async function populateAPIValues(api) {
-    console.debug(api)
-    $("#newAPIName").val(api.name)
-    $("#newAPIKey").val(api.key)
-    $("#newAPIEndpoint").val(api.endpoint)
-    $("#newAPIEndpointType").find(`option[value="${api.endpointType}"]`).prop('selected', true)
-    $("#isClaudeCheckbox").prop('checked', api.claude)
-    // hide the add button, only do it through the selector
-    // can change this later if we need to, if a button is more intuitive.
-    $("#addNewAPIButton").hide()
-    $("#editAPIButton").show()
-    $("#apiTitle").text('API Info')
-    $("#modelLoadButton").trigger('click')
-}
+async function testNewAPI() {
+    let name = $("#selectedAPI").val()
+    let endpoint = $("#endpoint").val()
+    let key = $("#key").val()
+    let type = $("#type").val()
+    let claude = $("#claude").prop('checked')
 
-
-
-async function addNewAPI() {
-    //check each field for validity, flashElement if invalid
-    console.debug('[addNewAPI()] >> GO')
-    let name = $("#newAPIName").val()
-    let endpoint = $("#newAPIEndpoint").val()
-    let key = $("#newAPIKey").val()
-    let type = $("#newAPIEndpointType").val()
-    let claude = $("#isClaudeCheckbox").prop('checked')
-    console.log(`Claude value: ${claude}`)
-
-    if (name === '') {
-        await util.flashElement('newAPIName', 'bad')
+    if (endpoint.includes('localhost:')) {
+        await util.flashElement('endpoint', 'bad')
+        alert('For local connections use 127.0.0.1, not localhost')
         return
     }
-    if (endpoint === '') {
-        await util.flashElement('newAPIEndpoint', 'bad')
-        return
-    }
-
-    util.messageServer({
-        type: 'addNewAPI',
-        name: name,
-        endpoint: endpoint,
-        key: key,
-        endpointType: type,
-        claude: claude,
-        UUID: myUUID
-    })
-    await util.delay(250)
-    //hide edit panel after save is done
-    util.betterSlideToggle($("#addNewAPI"), 250, 'height')
-    disableAPIEdit()
-
-}
-
-function testNewAPI() {
-    let name = $("#newAPIName").val()
-    let endpoint = $("#newAPIEndpoint").val()
-    let key = $("#newAPIKey").val()
-    let type = $("#newAPIEndpointType").val()
-    let claude = $("#isClaudeCheckbox").prop('checked')
 
     util.messageServer({
         type: 'testNewAPI',
@@ -415,28 +217,16 @@ function showPastChats(chatList) {
 }
 
 export default {
-    populateAPISelector,
-    populateSelector,
     submitKey,
     updateUserName,
-    updateD1JBInput,
-    updateInstructFormat,
-    updateSelectedSamplerPreset,
-    updateSelectedChar,
     updateAIChatUserName,
-    updateAPI,
-    populateAPIValues,
     showAddNewAPIDiv,
     hideAddNewAPIDiv,
-    addNewAPI,
     testNewAPI,
     getModelList,
     enableAPIEdit,
     disableAPIEdit,
     populateModelsList,
     updateSelectedModel,
-    updateD4ANInput,
-    updateSystemPromptInput,
     showPastChats,
-
 }

@@ -13,7 +13,7 @@ function debounce(func, delay) {
 }
 
 function isValidURL(url) {
-    const urlRegex = /^(http(s)?:\/\/)?[\w.-]+\.[a-zA-Z]{2,3}(\.[a-zA-Z]{2,3})?\/?$/;
+    const urlRegex = /^((?:[\w-]+:\/\/|)(?:[\d.]+|localhost)(?::\d+)?(?:\/[\w.-]*)*\/?)$/;
     return urlRegex.test(url);
 }
 

@@ -28,9 +28,10 @@ Based on the following array sent from server:
               key,
               type,
               claude,
-              value
+              value              //this is a copy of 'name' for selector population purposes
             },
           selectedAPI,          //just the name
+          isAutoResponse,     //boolean for checkbox
       },
       APIConfig: {
               selectedAPI,        //selector value, matches the value of one of the 'name' props in above APIList
@@ -39,13 +40,12 @@ Based on the following array sent from server:
               endpointType,       //selector value
               claude,             //checkbox
               selectedModel,      //selector value, matches an item from the modelList below
-              modelList: {}        //list for a selector
+              modelList: {}       //list for a selector
           },
       },
       crowdControl: {
           userChatDelay,      //number input value
           AIChatDelay,           //number input value
-          isAutoResponse,     //boolean for checkbox
       },
   ]
 */
@@ -218,7 +218,7 @@ async function toggleCheckbox(value, elementID) {
 }
 
 async function checkArguments(functionName, args, isSelectorCheck = false) {
-  return true //comment this line if we need to lint the DOM or args being passed
+  //return true //comment this line if we need to lint the DOM or args being passed
 
 
   const [value, elementID, selectedValue] = args;
@@ -253,7 +253,6 @@ async function checkArguments(functionName, args, isSelectorCheck = false) {
   if (areValuesTheSame) {
     return false
   }
-
 
   return true;
 }
@@ -291,11 +290,15 @@ async function verifyValuesAreTheSame(value, elementID) {
   } else {
     elementValue = $element.val();
   }
-  let result = elementValue === value ? true : false
-  if (!result) {
-    console.log(`Compared values for ${elementID}:
-    New "${value}"
-    Old "${elementValue}"
+
+  //console.log('elementValue:', elementValue);
+  //console.log('value:', value);
+  let result = elementValue === value
+  //console.log('result:', result);
+  if (result === false) {
+    console.debug(`Compared values for ${elementID}:
+    New ${value}
+    Old ${elementValue}
     Needs update!`);
   }
   return result;
@@ -361,8 +364,8 @@ async function updateConfigState(element) {
 
   if ($element.is('input[type=checkbox]')) {
     value = $element.prop('checked')
-    if (value = 0) { value = false }
-    if (value = 1) { value = true }
+    if (value === 0) { value = false }
+    if (value === 1) { value = true }
   }
   else { // selectors and text inputs
     value = $element.val()
@@ -458,6 +461,13 @@ async function addNewAPI() {
     alert(`This name is reserved by system.`)
     return
   }
+
+  if (endpoint.includes('localhost:')) {
+    await util.flashElement('endpoint', 'bad')
+    alert('For local connections use 127.0.0.1, not localhost')
+    return
+  }
+
   if (endpoint === '' || !util.isValidURL(endpoint)) {
     await util.flashElement('endpoint', 'bad')
     alert(`Invalid URL structure.`)
@@ -472,12 +482,20 @@ async function addNewAPI() {
     claude: claude,
   }
 
-  liveConfig.promptConfig.APIList.push(newAPI)
+  let matchingAPI = liveConfig.promptConfig.APIList.findIndex(obj => obj.name === newAPI.name);
+
+  if (matchingAPI !== -1) {
+    // Replace the object at the found index with newAPI
+    liveConfig.promptConfig.APIList[matchingAPI] = newAPI;
+  } else {
+    // Add newAPI to the array
+    liveConfig.promptConfig.APIList.push(newAPI);
+  }
+
   liveConfig.promptConfig.selectedAPI = name
-  liveConfig.promptConfig.APIConfig = newAPI
+  liveConfig.APIConfig = newAPI
   liveAPI = newAPI
   APIConfig = newAPI
-
 
   console.log(APIConfig)
   console.log(liveAPI)

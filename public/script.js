@@ -478,28 +478,22 @@ async function connectWebSocket(username) {
           .prop("selected", true);
         console.debug("maxContext updated");
         break;
-      case "apiChange":
-        $("#apiList")
-          .find(`option[value="${parsedMessage.name}"]`)
-          .prop("selected", true);
-        $("#modelList").empty().attr("disabled", false);
-        // Update the Name, endpoint, and key fields with the new API info
-        control.populateAPIValues(parsedMessage);
-        util.flashElement("newAPIName", "good");
-        util.flashElement("newAPIEndpoint", "good");
-        util.flashElement("newAPIKey", "good");
-        util.flashElement("newAPIEndpointType", "good");
-        util.flashElement("isClaudeCheckbox", "good");
-        util.flashElement("apiList", "good");
-        break;
       case "testAPIResult":
-        let result = parsedMessage.value;
+        let result = parsedMessage.result;
         console.debug(result);
         if (result.status === 200) {
           util.flashElement("APIEditDiv", "good");
         } else {
+          let alertMessage
+          if (!result.status || !result.statusText) {
+            let reason = JSON.stringify(result)
+            alertMessage = `Error ${reason}`
+          } else {
+            alertMessage = `Error [${result.status}]: ${result.statusText}`
+          }
+
           await util.flashElement("APIEditDiv", "bad", 150, 3);
-          alert(`Error: status code ${result.status}`);
+          alert(alertMessage);
         }
         break;
       case "modelListResult":
@@ -1090,23 +1084,6 @@ $(async function () {
 
   AIChatDelay = $("#AIChatInputDelay").val() * 1000;
   userChatDelay = $("#UserChatInputDelay").val() * 1000;
-
-  $("#UserChatInputDelay, #AIChatInputDelay").on("change", function () {
-    const messageType =
-      this.id === "UserChatInputDelay"
-        ? "userChatDelayChange"
-        : "AIChatDelayChange";
-    const settingsChangeMessage = {
-      type: messageType,
-      value: $(this).val(),
-    };
-    util.messageServer(settingsChangeMessage);
-    util.flashElement(this.id, "good");
-  });
-
-
-
-
 
   $("#editAPIButton").on("click", function () {
     control.enableAPIEdit();

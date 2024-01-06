@@ -199,13 +199,13 @@ async function getCardList() {
             let fullPath = `${path}/${file}`
             const cardData = await charaRead(fullPath);
             var jsonData = JSON.parse(cardData);
-            jsonData.filename = `${path}/${file}`
+            jsonData.filename = fullPath
             cards[i] = {
                 name: jsonData.name,
                 value: jsonData.filename
             }
             thisCharColor = charnameColors[Math.floor(Math.random() * charnameColors.length)];
-            db.upsertChar(jsonData.value, jsonData.name, thisCharColor)
+            db.upsertChar(jsonData.filename, jsonData.name, thisCharColor)
         } catch (error) {
             logger.error(`Error reading file ${file}:`, error);
         }

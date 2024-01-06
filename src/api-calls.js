@@ -551,6 +551,7 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     } else {
         logger.error('Error while requesting ST');
         logger.error(response)
+        return response
     };
 }
 
@@ -572,12 +573,9 @@ async function testAPI(isStreaming, api, liveConfig) {
     }
 
     let testMessageObject = [{ role: 'user', content: 'Ping? (if you can see me say "Pong!")' }]
-    //does claude even use CC? is it not prompt instead of message objects?
-    let testMessageObjectForClaude = [{ role: 'human', content: 'Test Message' }]
     if (api.type === 'CC' && !api.claude) {
         payload.model = api.selectedModel
         payload.messages = testMessageObject
-
     } else {
         payload.prompt = testMessage
         if (api.claude) {
@@ -644,6 +642,25 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
     delete APICallParamsAndPrompt.system_prompt
 
     let baseURL = TCEndpoint.trim()
+
+    // Check if baseURL contains "localhost" or "127.0.0.1"
+    if (!/^https?:\/\//i.test(baseURL)) {
+        if (baseURL.includes("localhost") || baseURL.includes("127.0.0.1")) {
+            // Add "http://" at the beginning
+            baseURL = "http://" + baseURL;
+        } else {
+            // Add "https://" at the beginning
+            baseURL = "https://" + baseURL;
+        }
+    }
+
+    // Check if baseURL ends with "/"
+    if (!/\/$/.test(baseURL)) {
+        // Add "/" at the end
+        baseURL += "/";
+    }
+
+
     let chatURL
     var headers = {
         'Content-Type': 'application/json',
@@ -715,14 +732,27 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
             logger.debug('Status 200: Ok.')
             return await processResponse(response, isCCSelected, isTest, isStreaming, liveAPI)
         } else {
-            logger.warn('API error: ' + response.status)
+            let responseStatus = response.status
+            logger.warn('API error: ' + responseStatus)
 
-            let JSONResponse = await response.json()
-            logger.warn(JSONResponse);
+            let parsedResponse, unparsedResponse
+            try {
+                parsedResponse = await response.json()
+                logger.warn(parsedResponse);
+            }
+            catch {
+                logger.warn('could not parse response, returning it as-is')
+                unparsedResponse = response
+            }
+            let errorResponse = {
+                status: response.status,
+                statusText: response.statusText
+
+            }
             //these are error message attributes from Tabby
             //logger.debug(JSONResponse.detail[0].loc) //shows the location of the error causing thing
             //logger.debug(JSONResponse.detail[0].input) //just shows the value of messages object
-            return JSONResponse;
+            return errorResponse
         }
 
     } catch (error) {
@@ -730,6 +760,7 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
         const line = error.stack.split('\n').pop().split(':').pop();
         logger.error(line);
         logger.error(error);
+        return error
     }
 }
 
@@ -890,9 +921,11 @@ async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest, is
     } else { // text completions have data in 'choices'
         text = JSONResponse.choices[0].text
     }
+    //this assumes we got a response from the server that was not 200
     if (isTest) {
         let testResults = {
             status: apistatus,
+            statusText: statusText,
             value: text
         }
         return testResults

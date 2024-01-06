@@ -91,8 +91,8 @@ function heartbeat() {
 }
 
 function checkIsLandscape() {
-    console.log('checking landscape or not..')
-    console.log($(window).height(), $(window).width())
+    console.debug('checking landscape or not..')
+    console.debug($(window).height(), $(window).width())
     if ($(window).height() > $(window).width()) { return false }
     else { return true }
 }
@@ -220,7 +220,8 @@ function heightMinusDivHeight(container, childToSubtract = null) {
         let gapCope = (containerGapSize * numberOfContainerGaps) + (numChildGaps * childGapSize)
 
         let remainingHeight = containerHeight - childHeight - gapCope - containerPaddingTop - containerPaddingBottom + "px"
-        console.log(`${containerHeight} - ${childHeight} - ((${numberOfContainerGaps}*${containerGapSize}) + (${numChildGaps}*${childGapSize})) - ${containerPaddingTop} - ${containerPaddingBottom} = ${remainingHeight}px`)
+
+        console.debug(`Returning height for ${container} as: ${containerHeight} - ${childHeight} - ((${numberOfContainerGaps}*${containerGapSize}) + (${numChildGaps}*${childGapSize})) - ${containerPaddingTop} - ${containerPaddingBottom} = ${remainingHeight}px`)
         return remainingHeight
     } else {
         return container.outerHeight()

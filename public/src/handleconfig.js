@@ -96,10 +96,7 @@ async function processLiveConfig(configArray) {
   await populateInput(selectedAPI, "selectedAPI");
 
   await populateSelector(samplerPresetList, "samplerPresetList", selectedSamplerPreset);
-  console.log('SETTING INSTRUCT NOW')
-  console.log(selectedInstruct)
   await populateSelector(instructList, "instructList", selectedInstruct);
-  console.log(liveConfig.promptConfig.selectedInstruct)
 
   await selectFromPopulatedSelector(responseLength, "responseLength");
   await selectFromPopulatedSelector(contextSize, "contextSize");
@@ -306,7 +303,7 @@ async function verifyValuesAreTheSame(value, elementID) {
 
 // set the engine mode to either horde or Text Completions based on a value from the websocket
 async function setEngineMode(mode) {
-  console.log("API MODE:", mode);
+  console.debug("API MODE:", mode);
   const toggleModeElement = $("#toggleMode");
   const isHordeMode = mode === "horde";
   toggleModeElement

@@ -22,9 +22,6 @@ Based on the following array sent from server:
           D4AN,                   //text field value
           D4CharDefs,             //checkbox boolean
           D1JB,                   //text field value
-      },
-      APIConfig: {
-          engineMode,         //string
           APIList: {
               name,
               endpoint,
@@ -33,8 +30,9 @@ Based on the following array sent from server:
               claude,
               value
             },
-          }
-          selectedAPI: {
+          selectedAPI,          //just the name
+      },
+      APIConfig: {
               selectedAPI,        //selector value, matches the value of one of the 'name' props in above APIList
               endpoint,           //string
               key,                //string
@@ -53,59 +51,82 @@ Based on the following array sent from server:
 */
 
 import util from "./utils.js";
+import { myUUID } from "../script.js";
 
-async function processLiveConfig(liveConfig) {
-  const { promptConfig, APIConfig, crowdControl } = liveConfig;
+var liveConfig
+
+async function processLiveConfig(configArray) {
+
+  if (configArray.liveConfig) {
+    liveConfig = configArray.liveConfig;  //for the first time reception
+  } else {
+    liveConfig = configArray.value //for everytime after that.
+  }
 
   // Process promptConfig
-
   const {
     selectedCharacter, cardList,
     selectedInstruct, instructList,
     selectedSamplerPreset, samplerPresetList,
-    APIList,
+    APIList, selectedAPI,
     responseLength, contextSize, isStreaming, isAutoResponse, engineMode,
     systemPrompt, D4AN, D4CharDefs, D1JB,
-  } = promptConfig || {};
+  } = liveConfig.promptConfig
 
   //Process APIConfig
-  const { selectedAPI, liveAPI, selectedModel, modelList } = APIConfig || {};
+  let liveAPI, APIConfig, promptConfig, crowdControl
+  liveAPI = liveConfig.promptConfig.APIList.find(api => api.name === selectedAPI)
+  APIConfig = liveConfig.APIConfig
+  promptConfig = liveConfig.promptConfig
+  crowdControl = liveConfig.crowdControl
 
-  // Process crowdControl
-  const { userChatDelay, AIChatDelay } = crowdControl;
+  //console.log(liveAPI)
+  //console.log(APIConfig)
+  //console.log(promptConfig)
+  //console.log(crowdControl)
+
+  const { userChatDelay, AIChatDelay } = liveConfig.crowdControl;
+
 
   setEngineMode(engineMode);
 
-  await populateSelector(cardList, "characters", selectedCharacter);
-  await populateSelector(samplerPresetList, "samplerPreset", selectedSamplerPreset);
-  await populateSelector(instructList, "instructStyle", selectedInstruct);
+  await populateSelector(cardList, "cardList", selectedCharacter);
+
+  await populateSelector(APIList, "APIList", selectedAPI);
+  await populateInput(selectedAPI, "selectedAPI");
+
+  await populateSelector(samplerPresetList, "samplerPresetList", selectedSamplerPreset);
+  console.log('SETTING INSTRUCT NOW')
+  console.log(selectedInstruct)
+  await populateSelector(instructList, "instructList", selectedInstruct);
+  console.log(liveConfig.promptConfig.selectedInstruct)
 
   await selectFromPopulatedSelector(responseLength, "responseLength");
-  await selectFromPopulatedSelector(contextSize, "maxContext");
-  await toggleCheckbox(isAutoResponse, "AIAutoResponse");
-  await toggleCheckbox(isStreaming, "streamingCheckbox");
+  await selectFromPopulatedSelector(contextSize, "contextSize");
+  await toggleCheckbox(isAutoResponse, "isAutoResponse");
+  await toggleCheckbox(isStreaming, "isStreaming");
 
-  await populateInput(systemPrompt, "systemPromptInput");
-  await populateInput(D4AN, "D4ANInput");
+  await populateInput(liveAPI.endpoint, "endpoint");
+  await populateInput(liveAPI.key, "key");
+  await selectFromPopulatedSelector(liveAPI.type, "type");
+  await toggleCheckbox(liveAPI.claude, "claude");
+
+  await populateInput(systemPrompt, "systemPrompt");
+  await populateInput(D4AN, "D4AN");
   await toggleCheckbox(D4CharDefs, "D4CharDefs");
-  await populateInput(D1JB, "D1JBInput");
+  await populateInput(D1JB, "D1JB");
 
-  await populateInput(userChatDelay, "UserChatInputDelay");
-  await populateInput(AIChatDelay, "AIChatInputDelay");
+  await populateInput(userChatDelay, "userChatDelay");
+  await populateInput(AIChatDelay, "AIChatDelay");
 
-  await populateSelector(APIList, "apiList", selectedAPI);
-  await populateInput(selectedAPI, "newAPIName");
-  await populateInput(liveAPI.endpoint, "newAPIEndpoint");
-  await populateInput(liveAPI.key, "newAPIKey");
-  await selectFromPopulatedSelector(liveAPI.type, "newAPIEndpointType");
-  await toggleCheckbox(liveAPI.claude, "isClaudeCheckbox");
 
-  if (!modelList) {
-    $("#modelLoadButton").trigger("click");
-    console.log("did not see modelList, clicking the button to get it");
-  } else {
-    await populateSelector(modelList, "modelList", selectedModel);
-  }
+  /* 
+    if (!modelList) {
+      $("#modelLoadButton").trigger("click");
+      console.log("did not see modelList, clicking the button to get it");
+    } else {
+      await populateSelector(modelList, "modelList", selectedModel);
+    } */
 }
 
 /**
@@ -118,13 +139,22 @@ async function processLiveConfig(liveConfig) {
  */
 async function populateSelector(itemsObj, elementID, selectedValue = null) {
   return new Promise(async (resolve) => {
-    checkArguments("populateSelector", arguments) === true ? undefined : () => { resolve(); return }
+    let shouldContinue = await checkArguments("selectFromPopulatedSelector", arguments) === true ? true : false
+    if (!shouldContinue) {
+      console.log('early stop')
+      resolve();
+      return
+    }
 
     console.debug(itemsObj);
     console.debug(`is this an array for ${elementID}? ${Array.isArray(itemsObj)}`);
 
     const selectElement = $(`#${elementID}`);
     selectElement.empty();
+    if (elementID === 'APIList') {
+      selectElement.append($('<option>').val('addNewAPI').text('Add New API'));
+    }
+
     itemsObj.forEach((item) => {
       const newElem = $("<option>");
       newElem.val(item.value);
@@ -143,25 +173,26 @@ async function populateSelector(itemsObj, elementID, selectedValue = null) {
 
 async function selectFromPopulatedSelector(value, elementID) {
   return new Promise(async (resolve) => {
-    checkArguments("selectFromPopulatedSelector", arguments, true) === true ? undefined : () => { resolve(); return }
+    let shouldContinue = await checkArguments("selectFromPopulatedSelector", arguments, true) === true ? true : false
+    if (!shouldContinue) {
+      resolve();
+      return
+    }
 
     const selectElement = $(`#${elementID}`);
     selectElement.val(value).trigger("input");
     console.debug(`confirming ${elementID} value is now ${selectElement.val()}`);
-    util.flashElement(elementID, "good");
     resolve();
   });
 }
 
-/**
- * Fills a specific text input field with a string.
- *
- * @param {string} value  - the string being inserted into the text input field
- * @param {string} elementID - the ID of the text field.
- */
 async function populateInput(value, elementID) {
   return new Promise(async (resolve) => {
-    checkArguments("populateInput", arguments) === true ? undefined : () => { resolve(); return }
+    let shouldContinue = await checkArguments("selectFromPopulatedSelector", arguments) === true ? true : false
+    if (!shouldContinue) {
+      resolve();
+      return
+    }
 
     $(`#${elementID}`).val(value);
     util.flashElement(elementID, "good");
@@ -170,20 +201,59 @@ async function populateInput(value, elementID) {
   })
 }
 
-/**
- * toggles a checkbox's state based on passed boolean arg
- *
- * @param {boolean} value - true or false
- * @param {string} elementID - the checkbox ID
- */
 async function toggleCheckbox(value, elementID) {
   return new Promise(async (resolve) => {
-    checkArguments("toggleCheckbox", arguments) === true ? undefined : () => { resolve(); return }
+    let shouldContinue = await checkArguments("selectFromPopulatedSelector", arguments) === true ? true : false
+    if (!shouldContinue) {
+      resolve();
+      return
+    }
 
     $(`#${elementID}`).prop("checked", value);
     util.flashElement(elementID, "good");
     resolve();
   });
+}
+
+async function checkArguments(functionName, args, isSelectorCheck = false) {
+  return true //comment this line if we need to lint the DOM or args being passed
+
+
+  const [value, elementID, selectedValue] = args;
+
+  if (value === null || value === undefined) {
+    console.warn(`Error: Invalid arguments for function ${functionName}!`, value, elementID, selectedValue);
+    await util.flashElement(elementID, 'bad');
+    return false;
+  }
+
+  if (elementID === null || elementID === undefined) {
+    console.warn(`Error: Invalid arguments for function ${functionName}!`, value, elementID, selectedValue);
+    await util.flashElement('AIConfigWrap', 'bad');
+    return false;
+  }
+
+  const elementExists = await verifyElementExists(elementID);
+  if (!elementExists) {
+    await util.flashElement('AIConfigWrap', 'bad');
+    return false;
+  }
+
+  if (isSelectorCheck) {
+    const optionExists = await verifyOptionExists(value, elementID);
+    if (!optionExists) {
+      await util.flashElement(elementID, 'bad');
+      return false;
+    }
+  }
+
+  const areValuesTheSame = await verifyValuesAreTheSame(value, elementID);
+  if (areValuesTheSame) {
+    return false
+  }
+
+
+  return true;
 }
 
 async function verifyElementExists(elementID) {
@@ -219,44 +289,14 @@ async function verifyValuesAreTheSame(value, elementID) {
   } else {
     elementValue = $element.val();
   }
-
-  console.debug(`Comparing values for ${elementID}: "${value}" - VS - "${elementValue}"`);
-  return elementValue === value;
-}
-
-async function checkArguments(functionName, args, isSelectorCheck = false) {
-  const [value, elementID, selectedValue] = args;
-
-  if (value === null || value === undefined) {
-    console.warn(`Error: Invalid arguments for function ${functionName}!`, value, elementID, selectedValue);
-    await util.flashElement(elementID, 'bad');
-    return false;
+  let result = elementValue === value ? true : false
+  if (!result) {
+    console.log(`Compared values for ${elementID}:
+    New "${value}"
+    Old "${elementValue}"
+    Needs update!`);
   }
-
-  if (elementID === null || elementID === undefined) {
-    console.warn(`Error: Invalid arguments for function ${functionName}!`, value, elementID, selectedValue);
-    await util.flashElement('AIConfigWrap', 'bad');
-    return false;
-  }
-
-  const elementExists = await verifyElementExists(elementID);
-  if (!elementExists) {
-    return false;
-  }
-
-  if (isSelectorCheck) {
-    const optionExists = await verifyOptionExists(value, elementID);
-    if (!optionExists) {
-      return false;
-    }
-  }
-
-  if (selectedValue !== undefined) {
-    const areValuesTheSame = await verifyValuesAreTheSame(selectedValue, elementID);
-    return !areValuesTheSame;
-  }
-
-  return true;
+  return result;
 }
 
 // set the engine mode to either horde or Text Completions based on a value from the websocket
@@ -282,6 +322,96 @@ async function setEngineMode(mode) {
     $("#streamingChekboxBlock").show();
   }
 }
+
+async function updateConfigState(element) {
+  let $element = element
+  let elementID = $element.prop('id')
+
+  let arrayName, propName, value
+
+  if ($element.is('input[type=checkbox]')) {
+    value = $element.prop('checked')
+    if (value = 0) { value = false }
+    if (value = 1) { value = true }
+  }
+  else { // selectors and text inputs
+    value = $element.val()
+  }
+
+  if (elementID === 'cardList') {
+    arrayName = 'promptConfig'
+    propName = 'selectedCharacter'
+    liveConfig['promptConfig']['selectedCharacterDisplayName'] = $element.find('option:selected').text()
+  }
+  else if ($element.is('select') && $element.hasClass('dynamicSelector')) {
+    //console.log('dynamic selector')
+    arrayName = elementID.replace('List', '');
+    let arrayNameForParse = arrayName.charAt(0).toUpperCase() + arrayName.slice(1);
+    arrayName = $element.closest('.isArrayType').prop('id')
+    propName = 'selected' + arrayNameForParse
+
+  }
+  else {
+    //console.log('static selector, text field, or checkbox')
+    propName = elementID
+    arrayName = $element.closest('.isArrayType').prop('id')
+  }
+
+  console.debug(`${arrayName}.${propName}: "${value}"`)
+
+  liveConfig[arrayName][propName] = value
+
+  let stateChangeMessage = {
+    UUID: myUUID,
+    type: 'clientStateChange',
+    value: liveConfig
+  }
+  await util.flashElement(elementID, 'good')
+  util.messageServer(stateChangeMessage)
+}
+
+
+$("#APIList").on("change", function () {
+  if ($(this).val() === "Default") {
+    return;
+  }
+
+  console.debug("[#apilist] changed");
+  if ($(this).val() === "addNewAPI") {
+    console.debug('[#apilist]...to "addNewApi"');
+    //clear all inputs for API editing
+    $("#APIConfig input").val("");
+    control.enableAPIEdit();
+    //hide API config, show API edit panel.
+    util.betterSlideToggle($("#promptConfig"), 250, "height");
+    util.betterSlideToggle($("#APIConfig"), 250, "height");
+    return;
+  } else {
+    console.debug(`[#apilist]...to "${$(this).val()}"`);
+    if ($("#APIConfig").css("display") !== "none") {
+      util.betterSlideToggle($("#APIConfig"), 250, "height");
+      control.hideAddNewAPIDiv();
+    }
+    if ($("#promptConfig").css("display") === "none") {
+      util.betterSlideToggle($("#promptConfig"), 250, "height");
+    }
+  }
+  liveConfig['promptConfig']['selectedAPI'] = $(this).val()
+  let selectedAPI = liveConfig.promptConfig.selectedAPI
+  liveConfig['APIConfig'] = liveConfig.promptConfig.APIList.find(api => api.name === selectedAPI)
+
+  let stateChangeMessage = {
+    UUID: myUUID,
+    type: 'clientStateChange',
+    value: liveConfig
+  }
+
+  util.messageServer(stateChangeMessage);
+  util.flashElement("apiList", "good");
+});
+
+$("#controlPanel input, #controlPanel select:not(#APIList), #cardList").on('change', function () { updateConfigState($(this)) })
+$("#controlPanel textarea").on('blur', function () { updateConfigState($(this)) })
 
 export default {
   processLiveConfig,

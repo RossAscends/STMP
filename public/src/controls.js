@@ -192,10 +192,10 @@ async function populateModelsList(list) {
     $("#modelList option:eq(1)").prop('selected', true).trigger('input')
 }
 
-async function populateAPISelector(API, selectedAPI) {
+/* async function populateAPISelector(API, selectedAPI) {
 
     console.debug('[populateAPISelector()] >> GO')
-    let APISelectElement = $("#apiList");
+    let APISelectElement = $("#APIList");
     APISelectElement.empty()
     APISelectElement.append($('<option>').val('addNewAPI').text('Add New API'));
     for (const api of API) {
@@ -208,21 +208,21 @@ async function populateAPISelector(API, selectedAPI) {
         console.debug(`selectedAPI = ${selectedAPI}..selecting it.`)
         $("#apiList").find(`option[value="${selectedAPI}"]`).prop('selected', true)
     }
-}
+} */
 
 function showAddNewAPIDiv() {
     //console.debug('showing div for adding new API')
-    $("#addNewAPI").show()
+    $("#APIConfig").show()
     $("#addNewAPIButton").show()
     $("#editAPIButton").hide()
-    $("#newAPIName").val('')
-    $("#newAPIEndpoint").val('')
-    $("#newAPIKey").val('')
-    $("#newAPIEndpointType").val('TC')
-    $("#newAPIEndpointType").prop('disabled', false)
-    $("#newAPIName").prop('readonly', false)
-    $("#newAPIEndpoint").prop('readonly', false)
-    $("#newAPIKey").prop('readonly', false)
+    $("#selectedAPI").val('')
+    $("#endpoint").val('')
+    $("#key").val('')
+    $("#type").val('TC')
+    $("#type").prop('disabled', false)
+    $("#selectedAPI").prop('readonly', false)
+    $("#endpoint").prop('readonly', false)
+    $("#key").prop('readonly', false)
     $("#apiTitle").text('New API Info')
     $("#saveAPIButton").show()
 }
@@ -231,20 +231,16 @@ function hideAddNewAPIDiv() {
     console.debug('[hideAddNewAPIDiv()] >> GO')
     $("#addNewAPIButton").hide()
     $("#editAPIButton").show()
-    //$("#newAPIName").prop('readonly', true)
-    //$("#newAPIEndpoint").prop('readonly', true)
-    //$("#newAPIKey").prop('readonly', true)
-    //$("#newAPIEndpointType").prop('disabled', true)
-    $("#addNewAPI").hide()
+    $("#APIConfig").hide()
     $("#saveAPIButton").hide()
 }
 
 function enableAPIEdit() {
     console.debug('[enableAPIEdit()] >> GO')
-    $("#newAPIName").prop('readonly', false)
-    $("#newAPIEndpoint").prop('readonly', false)
-    $("#newAPIKey").prop('readonly', false)
-    $("#newAPIEndpointType").prop('disabled', false)
+    $("#selectedAPI").prop('readonly', false)
+    $("#endpoint").prop('readonly', false)
+    $("#key").prop('readonly', false)
+    $("#type").prop('disabled', false)
     $("#saveAPIButton").show()
     //Set the title 
     $("#apiTitle").text('Edit API Info')
@@ -252,10 +248,10 @@ function enableAPIEdit() {
 
 function disableAPIEdit() {
     console.debug('[disableAPIEdit()] >> GO')
-    $("#newAPIName").prop('readonly', true)
-    $("#newAPIEndpoint").prop('readonly', true)
-    $("#newAPIKey").prop('readonly', true)
-    $("#newAPIEndpointType").prop('disabled', true)
+    $("#selectedAPI").prop('readonly', true)
+    $("#endpoint").prop('readonly', true)
+    $("#key").prop('readonly', true)
+    $("#type").prop('disabled', true)
     $("#saveAPIButton").hide()
     //Set the title 
     $("#apiTitle").text('')
@@ -263,11 +259,11 @@ function disableAPIEdit() {
 
 async function populateAPIValues(api) {
     console.debug(api)
-    $("#newAPIName").val(api.name)
-    $("#newAPIKey").val(api.key)
-    $("#newAPIEndpoint").val(api.endpoint)
-    $("#newAPIEndpointType").find(`option[value="${api.endpointType}"]`).prop('selected', true)
-    $("#isClaudeCheckbox").prop('checked', api.claude)
+    $("#selectedAPI").val(api.name)
+    $("#endpoint").val(api.key)
+    $("#key").val(api.endpoint)
+    $("#type").find(`option[value="${api.endpointType}"]`).prop('selected', true)
+    $("#claude").prop('checked', api.claude)
     // hide the add button, only do it through the selector
     // can change this later if we need to, if a button is more intuitive.
     $("#addNewAPIButton").hide()
@@ -281,19 +277,18 @@ async function populateAPIValues(api) {
 async function addNewAPI() {
     //check each field for validity, flashElement if invalid
     console.debug('[addNewAPI()] >> GO')
-    let name = $("#newAPIName").val()
-    let endpoint = $("#newAPIEndpoint").val()
-    let key = $("#newAPIKey").val()
-    let type = $("#newAPIEndpointType").val()
-    let claude = $("#isClaudeCheckbox").prop('checked')
-    console.log(`Claude value: ${claude}`)
+    let name = $("#selectedAPI").val()
+    let endpoint = $("#endpoint").val()
+    let key = $("#key").val()
+    let type = $("#type").val()
+    let claude = $("#claude").prop('checked')
 
     if (name === '') {
-        await util.flashElement('newAPIName', 'bad')
+        await util.flashElement('selectedAPI', 'bad')
         return
     }
     if (endpoint === '') {
-        await util.flashElement('newAPIEndpoint', 'bad')
+        await util.flashElement('endpoint', 'bad')
         return
     }
 
@@ -308,7 +303,7 @@ async function addNewAPI() {
     })
     await util.delay(250)
     //hide edit panel after save is done
-    util.betterSlideToggle($("#addNewAPI"), 250, 'height')
+    util.betterSlideToggle($("#APIConfig"), 250, 'height')
     disableAPIEdit()
 
 }
@@ -415,8 +410,8 @@ function showPastChats(chatList) {
 }
 
 export default {
-    populateAPISelector,
-    populateSelector,
+    //populateAPISelector,
+    //populateSelector,
     submitKey,
     updateUserName,
     updateD1JBInput,
@@ -425,7 +420,7 @@ export default {
     updateSelectedChar,
     updateAIChatUserName,
     updateAPI,
-    populateAPIValues,
+    //populateAPIValues,
     showAddNewAPIDiv,
     hideAddNewAPIDiv,
     addNewAPI,

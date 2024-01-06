@@ -87,23 +87,39 @@ async function readConfig() {
     });
 }
 
-async function writeConfig(configObj, key, value) {
-    await acquireLock()
-    await delay(100)
-    //let newObject = await readConfig()
+async function writeConfig(configObj, key = null, value = null) {
+    await acquireLock();
+    await delay(100);
+
     if (key) {
-        configObj[key] = value;
-        logger.debug(`Config updated: ${key}`); // = ${value}`);
+        const parts = key.split(".");
+        let currentObj = configObj;
+
+        for (let i = 0; i < parts.length - 1; i++) {
+            const part = parts[i];
+
+            if (!(part in currentObj)) {
+                currentObj[part] = {};
+            }
+
+            currentObj = currentObj[part];
+        }
+
+        currentObj[parts[parts.length - 1]] = value;
+
+        logger.debug(`Config updated: ${key}`);
     }
-    const writableConfig = JSON.stringify(configObj, null, 2); // Serialize the object with indentation
-    fs.writeFile('./config.json', writableConfig, 'utf8', writeErr => {
+
+    const writableConfig = JSON.stringify(configObj, null, 2);
+    fs.writeFile("./config.json", writableConfig, "utf8", writeErr => {
         if (writeErr) {
-            logger.error('An error occurred while writing to the file:', writeErr);
-            releaseLock()
+            logger.error("An error occurred while writing to the file:", writeErr);
+            releaseLock();
             return;
         }
-        logger.debug('config.json updated.');
-        releaseLock()
+
+        logger.debug("config.json updated.");
+        releaseLock();
     });
 }
 

@@ -172,27 +172,49 @@ async function initFiles() {
 
     // Default values for config.json
     const defaultConfig = {
-        engineMode: 'TC',
-        selectedCharacter: 'public/characters/CodingSensei.png',
-        responseLength: 200,
-        contextSize: 2048,
-        isAutoResponse: true,
-        isStreaming: true,
-        selectedPreset: "public/api-presets/TC-Temp-2_MinP-0.2.json",
-        instructFormat: "public/instructFormats/ChatML.json",
-        D1JB: '',
-        D4AN: '',
-        systemPrompt: '',
-        D4CharDefs: false
+        promptConfig: {
+            engineMode: 'TC',
+            responseLength: "200",
+            contextSize: "2048",
+            isAutoResponse: true,
+            isStreaming: true,
+            cardList: {},
+            selectedCharacter: 'public/characters/CodingSensei.png',
+            selectedCharacterDisplayName: 'Coding Sensei',
+            samplerPresetList: {},
+            selectedSamplerPreset: "public/api-presets/TC-Deterministic.json",
+            instructList: {},
+            selectedInstruct: "public/instructFormats/None.json",
+            systemPrompt: '',
+            D4AN: '',
+            D4CharDefs: false,
+            D1JB: '',
+            APIList: {},
+            selectedAPI: "Default",
+        },
+        APIConfig: {
+            name: "Default",
+            endpoint: "localhost:5000",
+            key: "",
+            type: "TC",
+            claude: 0,
+            created_at: "",
+            last_used_at: ""
+        },
+        crowdControl: {
+            AIChatDelay: 2,
+            userChatDelay: 2,
+        }
+
     };
 
-    const instructSequences = await fio.readFile(defaultConfig.instructFormat)
+    const instructSequences = await fio.readFile(defaultConfig.promptConfig.selectedInstruct)
     defaultConfig.instructSequences = instructSequences
 
-    const samplerData = await fio.readFile(defaultConfig.selectedPreset)
+    const samplerData = await fio.readFile(defaultConfig.promptConfig.selectedSamplerPreset)
     defaultConfig.samplers = samplerData
 
-    defaultConfig.selectedCharDisplayName = "Coding Sensei"
+    defaultConfig.selectedCharacterDisplayName = "Coding Sensei"
 
     // Default values for secrets.json
     const defaultSecrets = {
@@ -222,15 +244,17 @@ async function initFiles() {
     cardList = await fio.getCardList()
     logger.debug(cardList)
 
-    if (!liveConfig.selectedCharacter || liveConfig.selectedCharacter === '') {
-        logger.warn('No selected character found, getting the latest...')
-        let latestCharacter = await db.getLatestCharacter()
-        logger.warn(latestCharacter)
-        liveConfig.selectedCharacter = latestCharacter.char_id
-        liveConfig.selectedCharDisplayName = latestCharacter.displayname;
-        await fio.writeConfig(liveConfig, 'selectedCharacter', latestCharacter.char_id)
-        await fio.writeConfig(liveConfig, 'selectedCharDisplayName', latestCharacter.displayname)
-    }
+    //if (!liveConfig?.promptConfig?.selectedCharacter || liveConfig?.promptConfig?.selectedCharacter === '') {
+    //    logger.warn('No selected character found, getting the latest...')
+    let latestCharacter = await db.getLatestCharacter()
+    logger.warn(latestCharacter)
+    liveConfig.promptConfig.selectedCharacter = latestCharacter.char_id
+    liveConfig.promptConfig.selectedCharacterDisplayName = latestCharacter.displayname; //for hosts
+    liveConfig.selectedCharacterDisplayName = latestCharacter.displayname; //for guest
+    await fio.writeConfig(liveConfig, 'promptConfig.selectedCharacter', latestCharacter.char_id)
+    await fio.writeConfig(liveConfig, 'promptConfig.selectedCharacterDisplayName', latestCharacter.displayname)
+    await fio.writeConfig(liveConfig, 'selectedCharacterDisplayName', latestCharacter.displayname)
+    //}
 
     secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
     //TCAPIkey = secretsObj.api_key
@@ -328,10 +352,12 @@ async function saveAndClearChat(type) {
 
 async function setSelectedAPI(newAPI) {
     selectedAPI = newAPI.name
-    liveConfig.selectedAPI = selectedAPI
+    liveConfig.promptConfig.selectedAPI = selectedAPI
     liveConfig.selectedModel = ''
     liveAPI = newAPI
-    await fio.writeConfig(liveConfig, 'selectedAPI', selectedAPI)
+    liveConfig.APIConfig = await db.getAPI(selectedAPI);
+    await fio.writeConfig(liveConfig, 'promptConfig.selectedAPI', selectedAPI)
+    await fio.writeConfig(liveConfig, 'liveConfig.APIConfig', liveConfig.APIConfig)
     logger.debug(`Selected API is now ${selectedAPI}`)
 }
 
@@ -409,60 +435,82 @@ async function handleConnections(ws, type, request) {
     //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
     let connectionConfirmedMessage = {
         clientUUID: uuid,
-        type: 'connectionConfirmed',
+        type: 'guestConnectionConfirmed',
         chatHistory: userChatJSON,
         AIChatHistory: AIChatJSON,
         color: thisUserColor,
         role: thisUserRole,
-        selectedCharacterDisplayName: liveConfig.selectedCharDisplayName,
+        selectedCharacterDisplayName: liveConfig.selectedCharacterDisplayName || liveConfig.promptConfig.selectedCharacterDisplayName,
+        userList: connectedUsers,
         crowdControl: {
-            userChatDelay: liveConfig?.userChatDelay,
-            AIChatDelay: liveConfig?.AIChatDelay,
+            userChatDelay: liveConfig?.crowdControl.userChatDelay || "2",
+            AIChatDelay: liveConfig?.crowdControl.AIChatDelay || "2",
         },
-        userList: connectedUsers
+
     }
 
     //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
         let apis = await db.getAPIs();
         apis = duplicateNameToValue(apis) //duplicate the name property as value property for each object in array. this is for selector population purposes.
-        let api = await db.getAPI(selectedAPI);
+        let APIConfig = await db.getAPI(liveConfig.promptConfig.selectedAPI);
         hostUUID = uuid
+
+        //we need it to be inside liveConfig object for hosts
+        console.log(connectionConfirmedMessage)
+
 
         let promptConfig = {
             cardList: cardList,
-            selectedCharacter: liveConfig.selectedCharacter,
-            contextSize: liveConfig.contextSize,
-            responseLength: liveConfig.responseLength,
+            selectedCharacter: liveConfig.promptConfig.selectedCharacter,
+            selectedCharacterDisplayName: liveConfig.promptConfig.selectedCharacterDisplayName,
+            contextSize: liveConfig.promptConfig.contextSize,
+            responseLength: liveConfig.promptConfig.responseLength,
             instructList: instructList,
-            selectedInstruct: liveConfig.instructFormat,
+            selectedInstruct: liveConfig.promptConfig.selectedInstruct,
             samplerPresetList: samplerPresetList,
-            selectedSamplerPreset: liveConfig.selectedPreset,
-            engineMode: liveConfig.engineMode,
-            isAutoResponse: liveConfig.isAutoResponse,
-            isStreaming: liveConfig.isStreaming,
-            D4CharDefs: liveConfig.D4CharDefs,
-            D1JB: liveConfig.D1JB,
-            D4AN: liveConfig.D4AN,
-            systemPrompt: liveConfig.systemPrompt,
+            selectedSamplerPreset: liveConfig.promptConfig.selectedSamplerPreset,
+            engineMode: liveConfig.promptConfig.engineMode,
+            isAutoResponse: liveConfig.promptConfig.isAutoResponse,
+            isStreaming: liveConfig.promptConfig.isStreaming,
+            D4CharDefs: liveConfig.promptConfig.D4CharDefs,
+            D1JB: liveConfig.promptConfig.D1JB,
+            D4AN: liveConfig.promptConfig.D4AN,
+            systemPrompt: liveConfig.promptConfig.systemPrompt,
             APIList: apis, //the array of every API and its properties
+            selectedAPI: liveConfig.promptConfig.selectedAPI,
         }
+        connectionConfirmedMessage.liveConfig = {}
 
-        let APIConfig = {
-            selectedAPI: liveConfig.selectedAPI,
-            liveAPI: api, //this is the full object for the selected api,
-            modeList: liveConfig?.modelList,
-            selectedModel: liveConfig?.selectedModel,
-        }
+        connectionConfirmedMessage.liveConfig.crowdControl = connectionConfirmedMessage.crowdControl
 
-        connectionConfirmedMessage.promptConfig = promptConfig
-        connectionConfirmedMessage.APIConfig = APIConfig
+        connectionConfirmedMessage.liveConfig.promptConfig = promptConfig
+        connectionConfirmedMessage.liveConfig.APIConfig = APIConfig
 
+        liveConfig = {}
+
+        liveConfig.promptConfig = connectionConfirmedMessage.liveConfig.promptConfig
+        liveConfig.APIConfig = connectionConfirmedMessage.liveConfig.APIConfig
+        liveConfig.crowdControl = connectionConfirmedMessage.liveConfig.crowdControl
+
+        await fio.writeConfig(liveConfig)
+        liveConfig = await fio.readConfig()
+        console.log(`---------------------------LIVE CONFIG-----------------------------------------`)
+        console.log(liveConfig)
+        console.log(`---------------------------CONNECTION CONFIRM MESSAGE--------------------------`)
+        console.log(connectionConfirmedMessage)
+        console.log(`--------------------------------------------------------------------`)
+        await broadcastUserList()
+        //logger.info(`the connection messsage to new client`,connectionConfirmedMessage)
+        ws.send(JSON.stringify(connectionConfirmedMessage))
+
+    } else {
+        await broadcastUserList()
+        //logger.info(`the connection messsage to new client`,connectionConfirmedMessage)
+        ws.send(JSON.stringify(connectionConfirmedMessage))
     }
 
-    await broadcastUserList()
-    //logger.info(`the connection messsage to new client`,connectionConfirmedMessage)
-    ws.send(JSON.stringify(connectionConfirmedMessage))
+
 
     function updateConnectedUsers() {
         const userList = Object.values(clientsObject).map(client => ({
@@ -500,6 +548,20 @@ async function handleConnections(ws, type, request) {
 
             //first check if the sender is host, and if so, process possible host commands
             if (user.role === 'host') {
+                if (parsedMessage.type === 'clientStateChange') {
+                    console.log('saw new liveConfig from Host client ')
+                    liveConfig = parsedMessage.value
+                    let hostStateChangeMessage = {
+                        type: 'hostStateChange',
+                        value: liveConfig
+                    }
+                    console.log('writing liveConfig to file')
+                    await fio.writeConfig(liveConfig)
+                    console.log('broadcasting new liveconfig to all hosts')
+                    await broadcast(hostStateChangeMessage, 'host');
+                    return
+                }
+
                 if (parsedMessage.type === 'clearChat') {
 
                     //clear the UserChat.json file
@@ -613,7 +675,7 @@ async function handleConnections(ws, type, request) {
                     let APIListMessage = {
                         type: 'APIList',
                         APIList: apis,
-                        selectedAPI: liveConfig.selectedAPI
+                        selectedAPI: liveConfig.promptConfig.selectedAPI
                     }
                     await broadcast(APIListMessage, 'host')
 
@@ -681,7 +743,7 @@ async function handleConnections(ws, type, request) {
                         type: 'clearAIChat'
                     }
                     await broadcast(clearAIChatInstruction);
-                    let charFile = liveConfig.selectedCharacter
+                    let charFile = liveConfig.promptConfig.selectedCharacter
                     logger.debug(`selected character: ${charFile}`)
                     let cardData = await fio.charaRead(charFile, 'png')
                     let cardJSON = JSON.parse(cardData)
@@ -713,8 +775,8 @@ async function handleConnections(ws, type, request) {
                         charDisplayName: parsedMessage.newCharDisplayName
                     }
 
-                    liveConfig.selectedCharacter = parsedMessage.newChar
-                    liveConfig.selectedCharDisplayName = parsedMessage.newCharDisplayName
+                    liveConfig.promptConfig.selectedCharacter = parsedMessage.newChar
+                    liveConfig.promptConfig.selectedCharacterDisplayName = parsedMessage.newCharDisplayName
                     await fio.writeConfig(liveConfig)
                     await db.upsertChar(parsedMessage.newChar, parsedMessage.newCharDisplayName, user.color)
                     await broadcast(changeCharMessage, 'host');
@@ -734,7 +796,7 @@ async function handleConnections(ws, type, request) {
                         newPreset: parsedMessage.newPreset
                     }
                     selectedPreset = parsedMessage.newPreset
-                    liveConfig.selectedPreset = selectedPreset
+                    liveConfig.promptConfig.selectedSamplerPreset = selectedPreset
                     const samplerData = await fio.readFile(selectedPreset)
                     liveConfig.samplers = samplerData
                     await fio.writeConfig(liveConfig, 'samplers', liveConfig.samplers)
@@ -965,10 +1027,11 @@ let accumulatedStreamOutput = ''
 
 const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => {
     let currentlyStreaming
+    logger.warn(parsedMessage)
 
     const endResponse = async () => {
-        logger.warn('AIChatUserList in text Listener EndResponse')
-        logger.warn(AIChatUserList)
+        //logger.warn('AIChatUserList in text Listener EndResponse')
+        //logger.warn(AIChatUserList)
         currentlyStreaming = false
         //if (!responseEnded) {
         //    responseEnded = true;
@@ -977,7 +1040,7 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => 
             chatID: parsedMessage.chatID,
             AIChatUserList: AIChatUserList,
             userColor: parsedMessage.userColor,
-            username: liveConfig.selectedCharDisplayName,
+            username: liveConfig.promptConfig.selectedCharacterDisplayName,
             type: 'streamedAIResponseEnd',
         };
         logger.warn('sending stream end')
@@ -1006,7 +1069,7 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => 
         const streamedTokenMessage = {
             chatID: parsedMessage.chatID,
             content: text,
-            username: liveConfig.selectedCharDisplayName,
+            username: liveConfig.promptConfig.selectedCharacterDisplayName,
             type: 'streamedAIResponse',
             color: user.color ? user.color : 'red',
         };
@@ -1020,10 +1083,12 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => 
 async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig) {
     let AIResponse
 
+    //console.log(liveConfig)
+
     //just get the AI chat userlist with 'true' as last argument
     //this is jank..
     //logger.warn('Dry run to get the AI UserList')
-    let AIChatUserList = await api.getAIResponse(isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, true, parsedMessage);
+    let AIChatUserList = await api.getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveConfig.APIConfig, true, parsedMessage);
     //logger.warn('now for the real deal')
     //.warn('AIChatUserList in handleResponse')
     //logger.warn(AIChatUserList)
@@ -1037,24 +1102,14 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
 
         // Make the API request for streamed responses
 
-        const response = await api.getAIResponse(isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, false, parsedMessage);
+        const response = await api.getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage);
 
         if (response === null) {
             textListener('END_OF_RESPONSE');
             let trimmedStreamedResponse = await api.trimIncompleteSentences(accumulatedStreamOutput)
-            //logger.debug('trimming stream results:')
-            //logger.debug(trimmedStreamedResponse)
-            /*             let trimmedStreamMessage = {
-                            'type': 'trimmedStreamMessage',
-                            'chatID': 'AIChat',
-                            'username': liveConfig.selectedCharDisplayName,
-                            'content': trimmedStreamedResponse,
-                            'color': user.color ? user.color : 'red',
-                        }
-                        broadcast(trimmedStreamMessage) */
-            await db.writeAIChatMessage(liveConfig.selectedCharDisplayName, 'AI', trimmedStreamedResponse, 'AI')
+            await db.writeAIChatMessage(liveConfig.promptConfig.selectedCharacterDisplayName, 'AI', trimmedStreamedResponse, 'AI')
             //console.log('message was:')
-            //console.log(liveConfig.selectedCharDisplayName + ':' + accumulatedStreamOutput)
+            //console.log(liveConfig.selectedCharacterDisplayName + ':' + accumulatedStreamOutput)
             accumulatedStreamOutput = ''
         }
 
@@ -1062,12 +1117,12 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
         //logger.info('SENDING BACK NON-STREAM RESPONSE')
         // Handle non-streamed response
         [AIResponse, AIChatUserList] = await api.getAIResponse(
-            isStreaming, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, false, parsedMessage);
+            isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage);
 
         const AIResponseMessage = {
             chatID: parsedMessage.chatID,
             content: AIResponse,
-            username: liveConfig.selectedCharDisplayName,
+            username: liveConfig.promptConfig.selectedCharacterDisplayName,
             type: 'AIResponse',
             color: user.color,
             AIChatUserList: AIChatUserList

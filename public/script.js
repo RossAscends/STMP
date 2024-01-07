@@ -1155,7 +1155,7 @@ $(async function () {
   util.toggleControlPanelBlocks($("#crowdControlToggle"), "single");
   await util.delay(1000);
   if (isHost) {
-    $("#customPromptsBlock").css(
+    $("#promptConfigTextFields").css(
       "height",
       util.heightMinusDivHeight($("#AIConfigWrap"), $("#configSelectorsBlock"))
     );

@@ -572,7 +572,27 @@ async function testAPI(api, liveConfig) {
 
 async function getModelList(api) {
     let isClaude = api.isClaude
-    let modelsEndpoint = api.endpoint + 'models/'
+    let modelsEndpoint = api.endpoint
+
+    if (!/^https?:\/\//i.test(modelsEndpoint)) {
+        if (modelsEndpoint.includes("localhost") || modelsEndpoint.includes("127.0.0.1")) {
+            // Add "http://" at the beginning
+            modelsEndpoint = "http://" + modelsEndpoint;
+        } else {
+            // Add "https://" at the beginning
+            modelsEndpoint = "https://" + modelsEndpoint;
+        }
+    }
+
+    // Check if baseURL ends with "/"
+    if (!/\/$/.test(modelsEndpoint)) {
+        // Add "/" at the end
+        modelsEndpoint += "/";
+    }
+
+
+
+    modelsEndpoint = modelsEndpoint + 'models/'
     let key = 'Bearer ' + api.key
 
     let headers = {

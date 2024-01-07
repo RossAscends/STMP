@@ -202,10 +202,12 @@ function correctSizeBody() {
 // used to calculate exact heights of divs that should fill container space.
 // if no childToSubtract is passed, returns the container's height.
 function heightMinusDivHeight(container, childToSubtract = null) {
+    console.log(childToSubtract)
+    console.log(childToSubtract.height())
 
     if (childToSubtract) {
-        let containerHeight = container.outerHeight()
-        let childHeight = childToSubtract.outerHeight()
+        let containerHeight = parseFloat(getComputedStyle(container[0]).height);
+        let childHeight = parseFloat(getComputedStyle(childToSubtract[0]).height);
 
         let containerGapSize = container.css('gap').replace('px', '')
         if (!containerGapSize) { containerGapSize = 0 }
@@ -221,7 +223,7 @@ function heightMinusDivHeight(container, childToSubtract = null) {
 
         let remainingHeight = containerHeight - childHeight - gapCope - containerPaddingTop - containerPaddingBottom + "px"
 
-        console.debug(`Returning height for ${container} as: ${containerHeight} - ${childHeight} - ((${numberOfContainerGaps}*${containerGapSize}) + (${numChildGaps}*${childGapSize})) - ${containerPaddingTop} - ${containerPaddingBottom} = ${remainingHeight}px`)
+        console.debug(`Returning height as: ${containerHeight} - ${childHeight} - ((${numberOfContainerGaps}*${containerGapSize}) + (${numChildGaps}*${childGapSize})) - ${containerPaddingTop} - ${containerPaddingBottom} = ${remainingHeight}px`)
         return remainingHeight
     } else {
         return container.outerHeight()

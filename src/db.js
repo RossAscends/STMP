@@ -514,23 +514,45 @@ async function getMessage(messageID) {
     }
 }
 
-async function upsertAPI(name, endpoint, key, type, claude, modelList, selectedModel) {
-    var argsArray = Array.from(arguments);
-    if (argsArray.includes(null) || argsArray.includes(undefined)) {
-        logger.error('New API has undefined datatypes; cannot register.')
-        logger.error(argsArray)
+//takes an object with keys in this order: name, endpoint, key, type, claude, modelList (array), selectedModel
+async function upsertAPI(apiData) {
+    logger.trace(apiData)
+    const { name, endpoint, key, type, claude, modelList, selectedModel } = apiData;
+    logger.info('Adding/updating API...' + name);
+
+    if (
+        [name, endpoint, type, claude, modelList, selectedModel].some(
+            (value) => value === undefined
+        )
+    ) {
+        logger.error('New API has undefined datatypes; cannot register.');
+        logger.error(apiData);
         return;
     }
-    logger.info('Adding/updating API...' + name);
+
     const db = await dbPromise;
     try {
-        await db.run('INSERT OR REPLACE INTO apis (name, endpoint, key, type, claude, modelList, selectedModel) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [name, endpoint, key, type, claude, modelList, selectedModel]);
+        await db.run(
+            'INSERT OR REPLACE INTO apis (name, endpoint, key, type, claude, modelList, selectedModel) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [
+                name,
+                endpoint,
+                key,
+                type,
+                claude,
+                JSON.stringify(modelList),
+                selectedModel,
+            ]
+        );
         logger.debug('An API was upserted');
 
-        const nullRows = await db.get('SELECT * FROM apis WHERE name IS NULL OR endpoint IS NULL OR name = "" OR endpoint = ""');
+        const nullRows = await db.get(
+            'SELECT * FROM apis WHERE name IS NULL OR endpoint IS NULL OR name = "" OR endpoint = ""'
+        );
         if (nullRows) {
-            await db.run('DELETE FROM apis WHERE name IS NULL OR endpoint IS NULL OR name = "" OR endpoint = ""');
+            await db.run(
+                'DELETE FROM apis WHERE name IS NULL OR endpoint IS NULL OR name = "" OR endpoint = ""'
+            );
             logger.debug('Cleaned up rows with no name or endpoint values');
         }
     } catch (err) {

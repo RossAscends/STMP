@@ -378,17 +378,6 @@ async function saveAndClearChat(type) {
     }
 }
 
-async function setSelectedAPI(newAPI) {
-    selectedAPI = newAPI.name
-    liveConfig.promptConfig.selectedAPI = selectedAPI
-    liveConfig.promptConfig.selectedModel = ''
-    liveAPI = newAPI
-    liveConfig.APIConfig = await db.getAPI(selectedAPI);
-    await fio.writeConfig(liveConfig, 'promptConfig.selectedAPI', selectedAPI)
-    await fio.writeConfig(liveConfig, 'liveConfig.APIConfig', liveConfig.APIConfig)
-    logger.debug(`Selected API is now ${selectedAPI}`)
-}
-
 function duplicateNameToValue(array) {
     return array.map((obj) => ({ ...obj, value: obj.name }));
 }
@@ -486,7 +475,7 @@ async function handleConnections(ws, type, request) {
         hostUUID = uuid
 
         //we need it to be inside liveConfig object for hosts
-        console.log(connectionConfirmedMessage)
+        logger.trace(connectionConfirmedMessage)
 
 
         let promptConfig = {
@@ -524,11 +513,11 @@ async function handleConnections(ws, type, request) {
 
         await fio.writeConfig(liveConfig)
         liveConfig = await fio.readConfig()
-        console.log(`---------------------------LIVE CONFIG-----------------------------------------`)
-        console.log(liveConfig)
-        console.log(`---------------------------CONNECTION CONFIRM MESSAGE--------------------------`)
-        console.log(connectionConfirmedMessage)
-        console.log(`--------------------------------------------------------------------`)
+        /*         console.log(`---------------------------LIVE CONFIG-----------------------------------------`)
+                console.log(liveConfig)
+                console.log(`---------------------------CONNECTION CONFIRM MESSAGE--------------------------`)
+                console.log(connectionConfirmedMessage)
+                console.log(`--------------------------------------------------------------------`) */
         await broadcastUserList()
         //logger.info(`the connection messsage to new client`,connectionConfirmedMessage)
         ws.send(JSON.stringify(connectionConfirmedMessage))
@@ -581,40 +570,8 @@ async function handleConnections(ws, type, request) {
                     logger.info('Received updated liveConfig from Host client...')
 
                     logger.info('Checking APIList for changes..')
-                    if (liveConfig.promptConfig.APIList !== parsedMessage.value.promptConfig.APIList) {
+                    await checkAPIListChanges(liveConfig, parsedMessage)
 
-                        if (parsedMessage.value.promptConfig.APIList.length < liveConfig.promptConfig.APIList.length) {
-                            let found = false;
-                            let APIToDelete
-                            for (const serverListAPI of liveConfig.promptConfig.APIList) {
-                                found = parsedMessage.value.promptConfig.APIList.some((clientListAPI) => {
-                                    if (serverListAPI.name === clientListAPI.name) {
-                                        return true;
-                                    }
-                                    APIToDelete = serverListAPI.name
-                                    return false;
-                                });
-                            }
-                            if (!found) {
-                                logger.warn(`Saw extra API in server list called "${APIToDelete}"...removing.`);
-                                await db.deleteAPI(APIToDelete);
-                                parsedMessage.value.promptConfig.selectedAPI = 'Default' //we hve to edit parsedMessage because we set this to liveConfig later
-                            }
-                        } else {
-                            logger.warn('saw new API..adding to DB..')
-                            var difference = parsedMessage.value.promptConfig.APIList.filter(function (obj) {
-                                return !liveConfig.promptConfig.APIList.some(function (item) {
-                                    return obj.name === item.name;
-                                })
-                            });
-                            //logger.info('server current API List', liveConfig.promptConfig.APIList)
-                            //logger.info('incoming API list', parsedMessage.value.promptConfig.APIList)
-                            logger.info('New API:', difference)
-                            difference.forEach(async function (api) {
-                                await db.upsertAPI(api.name, api.endpoint, api.key, api.type, api.claude);
-                            });
-                        }
-                    }
                     logger.info('writing liveConfig to file')
                     liveConfig = parsedMessage.value
                     await fio.writeConfig(liveConfig)
@@ -647,17 +604,18 @@ async function handleConnections(ws, type, request) {
                     return
                 }
                 else if (parsedMessage.type === 'modelSelect') {
-                    selectedModel = parsedMessage.value
-                    liveConfig.APIConfig.selectedModel = selectedModel
-                    await fio.writeConfig(liveConfig, 'APIConfig.selectedModel', selectedModel)
-                    let settingChangeMessage = {
+                    const selectedModel = parsedMessage.value;
+                    logger.info(`Changing selected model for ${liveConfig.APIConfig.name} to ${selectedModel}..`)
+                    liveConfig.APIConfig.selectedModel = selectedModel;
+                    await db.upsertAPI(liveConfig.APIConfig);
+                    liveConfig.promptConfig.APIList = await db.getAPIs();
+                    await fio.writeConfig(liveConfig);
+                    const settingChangeMessage = {
                         type: 'hostStateChange',
                         value: liveConfig
-                    }
-                    let api = liveConfig.APIConfig
-                    await db.upsertAPI(api.name, api.endpoint, api.key, api.type, api.claude, JSON.stringify(api.modelList) || '', selectedModel)
-                    await broadcast(settingChangeMessage, 'host')
-                    return
+                    };
+                    await broadcast(settingChangeMessage, 'host');
+                    return;
                 }
                 else if (parsedMessage.type === 'testNewAPI') {
                     let result = await api.testAPI(parsedMessage.api, liveConfig)
@@ -670,32 +628,34 @@ async function handleConnections(ws, type, request) {
                     await ws.send(JSON.stringify(testAPIResult))
                     return
                 }
-                else if (parsedMessage.type === 'modelListRequest') {
-                    logger.trace('saw model list request')
-                    let modelList = await api.getModelList(parsedMessage.api)
-                    let liveAPI = parsedMessage.api
-                    let modelListResult = {}
+                if (parsedMessage.type === 'modelListRequest') {
+                    let modelList = await api.getModelList(parsedMessage.api);
+                    let modelListResult = {};
+
                     if (typeof modelList === 'object') {
-                        console.log(modelList)
-                        liveConfig.APIConfig.modelList = modelList
-                        liveConfig.APIConfig.selectedModel = modelList[0]
-                        console.log('selecting', modelList[0])
-                        let selectedModel = modelList[0]
-                        await db.upsertAPI(liveAPI.name, liveAPI.endpoint, liveAPI.key, liveAPI.type, liveAPI.claude, JSON.stringify(modelList), selectedModel)
-                        await fio.writeConfig(liveConfig)
+                        liveConfig.APIConfig = {
+                            ...parsedMessage.api,
+                            modelList: modelList,
+                            selectedModel: modelList[0]
+                        };
+
+                        await db.upsertAPI(liveConfig.APIConfig);
+                        liveConfig.promptConfig.APIList = await db.getAPIs();
+                        await fio.writeConfig(liveConfig);
+
                         modelListResult = {
                             type: 'hostStateChange',
                             value: liveConfig
-                        }
+                        };
                     } else {
                         modelListResult = {
                             type: 'modelListError',
                             value: 'ERROR'
-                        }
+                        };
                     }
-                    //not sure if this should be sent to all hosts or not, but for simplicity, only the requester for now
-                    await ws.send(JSON.stringify(modelListResult))
-                    return
+
+                    await ws.send(JSON.stringify(modelListResult));
+                    return;
                 }
                 else if (parsedMessage.type === 'clearAIChat') {
                     await saveAndClearChat('AIChat')
@@ -929,6 +889,83 @@ async function handleConnections(ws, type, request) {
     });
 
 };
+
+//checks an incoming liveConfig from client for changes to the APIList, and adjust server's list and db-registered APIs to match it.
+async function checkAPIListChanges(liveConfig, parsedMessage) {
+    if (JSON.stringify(liveConfig.promptConfig.APIList) !== JSON.stringify(parsedMessage.value.promptConfig.APIList)) { //if the lists are different
+        logger.warn('something is different about the API lists')
+        if (parsedMessage.value.promptConfig.APIList.length < liveConfig.promptConfig.APIList.length) { //if server has more than client, the client deleted something
+            logger.warn(`the client's API list was smaller than server's list...`)
+            let APIToDelete = '';
+
+            for (const serverListAPI of liveConfig.promptConfig.APIList) {
+                logger.info('checking client list for', serverListAPI.name);
+                const found = parsedMessage.value.promptConfig.APIList.some((clientListAPI) => {
+                    if (serverListAPI.name === clientListAPI.name) {
+                        logger.info(`found ${serverListAPI.name} in both`);
+                        return true;
+                    }
+                    return false;
+                });
+
+                if (!found) {
+                    APIToDelete = serverListAPI.name;
+                    break;
+                }
+            }
+
+            if (APIToDelete) {
+                logger.warn(`Client API list no longer contains "${APIToDelete}"... removing it from the server list.`);
+                liveConfig.promptConfig.APIList = liveConfig.promptConfig.APIList.filter(
+                    (api) => api.name !== APIToDelete
+                );
+                await db.deleteAPI(APIToDelete);
+                parsedMessage.value.promptConfig.selectedAPI = 'Default'; // Update parsedMessage as needed
+            }
+
+        } else if (parsedMessage.value.promptConfig.APIList.length > liveConfig.promptConfig.APIList.length) { //if user added an API
+            logger.warn(`there is new API in client's API list..adding to server's API DB table..`)
+            const newAPIs = parsedMessage.value.promptConfig.APIList.filter((api) =>
+                !liveConfig.promptConfig.APIList.some((existingAPI) => existingAPI.name === api.name)
+            );
+            for (const api of newAPIs) {
+                await db.upsertAPI(api);
+            };
+        } else if (parsedMessage.value.promptConfig.APIList.length === liveConfig.promptConfig.APIList.length) {
+            logger.warn(`API list lengths are the same, but content is different...`);
+            for (const clientAPI of parsedMessage.value.promptConfig.APIList) {
+                logger.warn('checking', clientAPI.name);
+                const serverAPI = liveConfig.promptConfig.APIList.find((api) => api.name === clientAPI.name);
+                if (serverAPI) {
+                    for (const key of Object.keys(clientAPI)) {
+                        if (key === 'modelList') {
+                            if (JSON.stringify(clientAPI[key]) !== JSON.stringify(serverAPI[key])) {
+                                // Handle the modelList comparison difference
+                                logger.warn(`Detected change in API called '${clientAPI.name}', key: '${key}'`);
+                                logger.warn(`Previous value: '${JSON.stringify(serverAPI[key])}'`);
+                                logger.warn(`New value: '${JSON.stringify(clientAPI[key])}'`);
+
+                                // Update that API in the db with the new value
+                                await db.upsertAPI(clientAPI);
+                            }
+                        } else if (clientAPI[key] !== serverAPI[key]) {
+                            // Handle the comparison for other keys
+                            logger.warn(`Detected change in API called '${clientAPI.name}', key: '${key}'`);
+                            logger.warn(`Previous value: '${serverAPI[key]}'`);
+                            logger.warn(`New value: '${clientAPI[key]}'`);
+
+                            // Update that API in the db with the new value
+                            await db.upsertAPI(clientAPI);
+                        }
+                    };
+                }
+            };
+        }
+    }
+}
+
+
+
 let accumulatedStreamOutput = ''
 
 const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => {

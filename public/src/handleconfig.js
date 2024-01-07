@@ -351,9 +351,8 @@ function deleteAPI() {
   console.log(liveConfig.promptConfig.APIList)
   console.log(liveConfig.promptConfig.selectedAPI)
 
-
+  $("#APIList").children('option[value="Default"]').prop('selected', true);
   updateConfigState($("#APIList"))
-  $("#APIList").children('option[value="Default"]').prop('selected', true).trigger('input');
   util.betterSlideToggle($("#promptConfig"), 250, "height");
   util.betterSlideToggle($("#APIConfig"), 250, "height");
 }

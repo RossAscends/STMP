@@ -4,7 +4,7 @@ import { isUserScrollingAIChat, isUserScrollingUserChat, myUUID } from '../scrip
 
 function updateSelectedModel(model) {
     console.debug(`[updateSelectedModel()] Changing model from server command to ${model}.`)
-    $("#modelList").find(`option[value="${model}"]`).prop('selected', true).trigger('change')
+    $("#modelList").find(`option[value="${model}"]`).prop('selected', true)
     util.flashElement('modelList', 'good')
 }
 
@@ -120,7 +120,7 @@ async function testNewAPI() {
     util.messageServer(testRequestMesage)
 }
 
-async function getModelList() {
+async function getModelList() { //this gets back a hostStateChange message from server with the modellist for the selected API
     let name = $("#selectedAPI").val()
     let endpoint = $("#endpoint").val()
     let key = $("#key").val()

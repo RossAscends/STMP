@@ -458,31 +458,6 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
     })
 }
 
-function TCtoCC(messages, systemMessage, stops) {
-    //logger.debug('entered the TC to CC function. here is the incoming message array:')
-    //logger.debug(messages)
-    //convert chat history object produced by addCharDefsToPrompt into CC compliant format
-    let CCMessages = messages.map(message => {
-        const { content, entity } = message;
-        let role = '';
-
-        if (entity === 'user') {
-            role = 'user';
-        } else if (entity === 'AI') {
-            role = 'assistant';
-        }
-        return {
-            content,
-            role
-        };
-    });
-    CCMessages.reverse()
-    //reduce stop to 4 items as requried by OAI's CC API
-    let CCStops = stops.slice(0, 4);
-
-    return [CCMessages, CCStops]
-}
-
 async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     logger.info('Sending Horde request...');
     //the ST server must be running with CSRF turned off in order for this to work.

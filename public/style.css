@@ -59,12 +59,12 @@ textarea {
 #chatWrap {
     position: relative;
     max-height: 100%;
-    max-width: 85%;
+    max-width: 70%;
     overflow-y: auto;
 }
 
 body.halfWidthChatWrap #chatWrap {
-    max-width: 50%;
+    max-width: 35%;
 }
 
 body.halfWidthChatWrap #controlPanel {
@@ -107,8 +107,8 @@ body.halfWidthChatWrap #controlPanel {
 }
 
 #controlPanel {
-    max-width: 15svw;
-    width: 15svw;
+    max-width: 25svw;
+    width: 25svw;
     /* min-width: 200px; */
     background-color: #2c2d31;
     margin-right: 5px;

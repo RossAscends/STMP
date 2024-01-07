@@ -640,6 +640,7 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
 
     const isCCSelected = liveAPI.type === 'CC' ? true : false
     let isOpenRouter = TCEndpoint.includes('openrouter') ? true : false
+    let isOpenAI = TCEndpoint.includes('openai') ? true : false
     let isClaude = liveAPI.claude
 
     //this is brought in from the sampler preset, but we don't use it yet.
@@ -699,6 +700,11 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
         }
         APICallParamsAndPrompt.transforms = ['middle-out']
         APICallParamsAndPrompt.route = 'fallback'
+    }
+
+    if (isOpenAI) {
+        console.warn('we are using an OpenAI API, so stop will be trimmed to 4')
+        APICallParamsAndPrompt.stop = APICallParamsAndPrompt.stop.slice(0, 4);
     }
 
     try {

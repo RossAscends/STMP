@@ -931,7 +931,6 @@ async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest, is
     if (isTest) {
         let testResults = {
             status: apistatus,
-            statusText: statusText,
             value: text
         }
         return testResults

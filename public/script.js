@@ -282,7 +282,7 @@ async function connectWebSocket(username) {
   socket = new WebSocket(serverUrl + "?uuid=" + myUUID + "&username=" + encodeURIComponent(username));
   console.log("socket connected!");
 
-  socket.onopen = handleSocketOpening;
+  socket.onopen = function () { handleSocketOpening(socket); }
   socket.onclose = disconnectWebSocket;
   // Handle incoming messages from the server
   socket.addEventListener("message", async function (event) {
@@ -307,6 +307,8 @@ async function connectWebSocket(username) {
      */
 
     switch (parsedMessage?.type) {
+      case 'heartbeatResponse':
+        break
       case "clearChat":
         console.debug("Clearing User Chat");
         $("#chat").empty();
@@ -591,7 +593,7 @@ async function displayStreamedResponse(message) {
   //not sure this is working
 }
 
-function handleSocketOpening() {
+function handleSocketOpening(socket) {
   console.log("WebSocket opened to server:", serverUrl);
   $("#reconnectButton").hide();
   $("#disconnectButton").show();
@@ -605,7 +607,7 @@ function handleSocketOpening() {
     .prop("disabled", false)
     .prop("placeholder", "Message the AI Chat")
     .removeClass("disconnected");
-  util.heartbeat();
+  util.heartbeat(socket);
 }
 
 function disconnectWebSocket() {

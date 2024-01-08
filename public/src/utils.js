@@ -1,4 +1,7 @@
-import { socket, isUserScrollingAIChat, isUserScrollingUserChat, username, isAutoResponse, isStreaming, isClaude, contextSize, responseLength, isPhone, isLandscape, currentlyStreaming } from '../script.js'
+import {
+    socket, isUserScrollingAIChat, isUserScrollingUserChat, username,
+    isAutoResponse, isStreaming, isClaude, contextSize, responseLength, isPhone, isLandscape, currentlyStreaming, myUUID
+} from '../script.js'
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -75,19 +78,30 @@ function formatSQLTimestamp(timestamp) {
     return formattedTimestamp;
 }
 
-function heartbeat() {
-    if (socket && socket.readyState !== WebSocket.OPEN) {
+let heartbeatCounter = 0
+function heartbeat(socket) {
+    if (socket && (socket.readyState !== WebSocket.CONNECTING && socket.readyState !== WebSocket.OPEN)) {
+        console.log(heartbeatCounter);
+        heartbeat = 0
         console.log("[heartbeat()] saw the socket was disconnected");
-        $("#reconnectButton").show()
-        $("#disconnectButton").hide()
-        $("#userList ul").empty()
+        console.log("readystate", socket.readyState);
+        $("#reconnectButton").show();
+        $("#disconnectButton").hide();
+        $("#userList ul").empty();
         $("#messageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
         $("#AIMessageInput").prop("disabled", true).prop('placeholder', 'DISCONNECTED').addClass('disconnected');
-        return
+        return;
     }
+    let heartbeatSend = {
+        UUID: myUUID,
+        type: 'heartbeat',
+        value: 'ping?'
+    }
+    messageServer(heartbeatSend);
     setTimeout(function () {
-        heartbeat()
-    }, 1000)
+        heartbeat(socket);
+        heartbeatCounter++
+    }, 5000);
 }
 
 function checkIsLandscape() {

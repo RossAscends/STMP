@@ -793,6 +793,15 @@ async function handleConnections(ws, type, request) {
                 await broadcast(nameChangeNotification);
                 await broadcastUserList()
             }
+            else if (parsedMessage.type === 'heartbeat') {
+                heartbeatResponse = {
+                    type: 'heartbeatResponse',
+                    value: 'pong!'
+                }
+                //only send back to the user who is doing the test.
+                await ws.send(JSON.stringify(heartbeatResponse))
+                return
+            }
             else if (parsedMessage.type === 'submitKey') {
                 if (parsedMessage.key === hostKey) {
                     const keyAcceptedMessage = {

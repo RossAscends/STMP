@@ -109,7 +109,7 @@ function enterToSendChat(event, buttonElementId) {
 }
 
 async function toggleControlPanelBlocks(toggle, type = null) {
-    let target = toggle.parent().children().eq(1);
+    let target = toggle.next();
     if (target.hasClass('isAnimating')) { return; }
 
     if (type === 'single') {
@@ -117,16 +117,18 @@ async function toggleControlPanelBlocks(toggle, type = null) {
         console.debug(`Toggling panel view ${target.attr('id')}`);
         toggle.children('i').toggleClass('fa-toggle-on fa-toggle-off');
         await betterSlideToggle(target, 100, 'height');
-        if (target.css('display') !== 'none') {
-            toggle.hide()
-        } else { toggle.show() }
+        target.parent().css(
+            "height", 'unset'
+        );
         return;
     }
 
     // Close all panels
-    $(".isControlPanelToggle").each(async function () {
+    $(".isControlPanelToggle:not(.subToggle)").each(async function () {
         let panelToggle = $(this);
-        let panelTarget = panelToggle.parent().children().eq(1);
+
+        let panelTarget = panelToggle.next();
+        console.debug(`toggling: ${panelTarget.prop('id')}`)
         if (panelTarget.css('display') == 'none') {
             return;
         }
@@ -138,6 +140,7 @@ async function toggleControlPanelBlocks(toggle, type = null) {
     // Open the clicked panel
     toggle.children('i').toggleClass('fa-toggle-on fa-toggle-off');
     await betterSlideToggle(target, 100, 'height')
+
 }
 
 /*
@@ -201,32 +204,78 @@ function correctSizeBody() {
 // subtracts the height of a child div from that of its parent and returns the remaining height.
 // used to calculate exact heights of divs that should fill container space.
 // if no childToSubtract is passed, returns the container's height.
+
+
+function calculatePromptsBlockheight() {
+    let controlPanel = parseFloat($("#controlPanel > div").outerHeight());
+    let crowdControlBlock = parseFloat($("#crowdControlBlock").outerHeight());
+    let pastChatsBlock = parseFloat($("#pastChatsBlock").outerHeight())
+    let configSelectorsBlock = parseFloat($("#configSelectorsBlock").outerHeight())
+    let promptsToggle = parseFloat($("#promptsToggle").outerHeight())
+    let AIConfigToggle = parseFloat($("#AIConfigToggle").outerHeight())
+    let hrSize = ($("#controlPanel > div > hr").length) * 11
+
+    let controlPanelGaps = ($("#promptConfig").children().length - 1) * 5;
+
+    let promptsBlockHeight = controlPanel - crowdControlBlock - pastChatsBlock - configSelectorsBlock - promptsToggle - AIConfigToggle - controlPanelGaps - hrSize + 'px';
+
+    console.log(controlPanel, crowdControlBlock, pastChatsBlock, configSelectorsBlock, promptsToggle, AIConfigToggle, controlPanelGaps, hrSize);
+    console.log(promptsBlockHeight);
+
+    return promptsBlockHeight;
+}
+
 function heightMinusDivHeight(container, childToSubtract = null) {
-    console.log(childToSubtract)
-    console.log(childToSubtract.height())
+    console.log(`subtracting ${childToSubtract.prop('id')} height ${childToSubtract.height()} from ${container.prop('id')} height.`)
 
     if (childToSubtract) {
         let containerHeight = parseFloat(getComputedStyle(container[0]).height);
         let childHeight = parseFloat(getComputedStyle(childToSubtract[0]).height);
 
-        let containerGapSize = container.css('gap').replace('px', '')
-        if (!containerGapSize) { containerGapSize = 0 }
-        let numberOfContainerGaps = container.children().length - 1
+        let containerGapSize = parseFloat(container.css('gap').replace('px', '')) || 0;
+        let numberOfContainerGaps = container.children().length;
 
-        let numChildGaps = childToSubtract.children().length - 1
-        let childGapSize = childToSubtract.css('gap').replace('px', '')
-        if (!childGapSize) { childGapSize = 0 }
+        let numChildGaps = childToSubtract.children().length;
+        let childGapSize = parseFloat(childToSubtract.css('gap').replace('px', '')) || 0;
 
-        let containerPaddingTop = container.css('padding-top').replace('px', '')
-        let containerPaddingBottom = container.css('padding-bottom').replace('px', '')
-        let gapCope = (containerGapSize * numberOfContainerGaps) + (numChildGaps * childGapSize)
+        let containerPaddingTop = parseFloat(container.css('padding-top').replace('px', ''));
+        let containerPaddingBottom = parseFloat(container.css('padding-bottom').replace('px', ''));
+        let childPaddingTop = parseFloat(childToSubtract.css('padding-top').replace('px', ''));
+        let childPaddingBottom = parseFloat(childToSubtract.css('padding-bottom').replace('px', ''));
+        let gapCope = (containerGapSize * numberOfContainerGaps) + (numChildGaps * childGapSize);
 
-        let remainingHeight = containerHeight - childHeight - gapCope - containerPaddingTop - containerPaddingBottom + "px"
+        let otherChildrenHeight = 0;
+        container.parent().parent().children().each(function () {
+            console.log(`getting child of ${container.parent().parent().parent().prop('id')} called ${$(this).prop('id')}`)
+            if (!$(this).is(childToSubtract) && !$(this).is(container) && !$(this).is(container.parent())) {
+                let computedHeight = getComputedStyle(this).height;
+                if (computedHeight === 'auto') {
+                    $(this).css('height', 'auto');
+                    computedHeight = $(this).height();
+                    $(this).css('height', '');
+                } else {
+                    computedHeight = parseFloat(computedHeight);
+                }
+                let marginTop = parseFloat(getComputedStyle(this).marginTop);
+                let marginBottom = parseFloat(getComputedStyle(this).marginBottom);
+                computedHeight += marginTop + marginBottom;
+                otherChildrenHeight += computedHeight;
+                console.log(computedHeight);
+            }
+        });
 
-        console.debug(`Returning height as: ${containerHeight} - ${childHeight} - ((${numberOfContainerGaps}*${containerGapSize}) + (${numChildGaps}*${childGapSize})) - ${containerPaddingTop} - ${containerPaddingBottom} = ${remainingHeight}px`)
-        return remainingHeight
+        let controlPanelHeight = parseFloat($("#controlPanel").css('height'))
+        let remainingHeight = controlPanelHeight - childHeight - otherChildrenHeight + 'px';
+
+        console.debug(`Returning height as: 
+        ${containerHeight} (container height)
+        - ${childHeight} (child height)
+        - ${otherChildrenHeight} (other children height)
+        = ${remainingHeight}`);
+
+        return remainingHeight;
     } else {
-        return container.outerHeight()
+        return container.outerHeight();
     }
 }
 
@@ -314,4 +363,5 @@ export default {
     messageServer,
     kindlyScrollDivToBottom,
     isValidURL,
+    calculatePromptsBlockheight
 }    

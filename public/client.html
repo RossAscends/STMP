@@ -118,6 +118,10 @@
 
                                 </div>
                             </div>
+                            <div id="promptsToggle" class="isControlPanelToggle subToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
+                                <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
+                                <h4>Insertions</h4>
+                            </div>
                             <div id="promptConfigTextFields" class="transition250 flexbox flexFlowCol">
                                 <div id="systemPromptBlock" class="flexbox flexFlowCol Hcentered dummyBG">
                                     <span class="widthFitContent alignSelfCenter">System Prompt</span>
@@ -188,20 +192,36 @@
                         <i class="nonButtonButton fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
                         <h4>Crowd Control</h4>
                     </div>
-                    <div id="crowdControl" class="isArrayType flexbox flexFlowCol heightFitContent">
+                    <div id="crowdControl" class="isArrayType flexbox flexFlowCol heightFitContent justifyContentEnd">
                         <!-- 
                         <div class="flexbox" style="display:none;">
                             <button id="disableInput" class="flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable User Input">🤐</button>
                             <button id="turnBasedMode" class="flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔠</button>
                         </div>
                          -->
-                        <label for="AIChatDelay" class="flexbox noWrap">
-                            <div class="fontSize1p25em mutedColor textshadow " title="AI Chat Delay">🤖⏳</div>
+
+                        <label for="AIChatDelay" class="flexbox noWrap fontSize1p25em mutedColor textshadow ">
+                            🤖🖼️⏳
                             <input type="number" id="AIChatDelay" class=" flexbox Vcentered width50px" min="0" max="600" value="2" title="AI Chat Delay">sec
                         </label>
-                        <label for="userChatDelay" class="flexbox noWrap">
-                            <div class="fontSize1p25em mutedColor textshadow " title="User Chat Delay">🧑⏳</div>
+                        <label for="userChatDelay" class="flexbox noWrap fontSize1p25em mutedColor textshadow ">
+                            🤖🖼️🗑️ @
+                            <input type="number" id="userChatDelay" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="AI Chat AutoClear Cadence">msgs
+                        </label>
+                        <label for="userChatDelay" class="flexbox noWrap fontSize1p25em mutedColor textshadow ">
+                            🤖📨 @
+                            <input type="number" id="userChatDelay" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="AI Reply Cadence">
+                            🧑📨
+                        </label>
+                        <label for="userChatDelay" class="flexbox noWrap fontSize1p25em mutedColor textshadow ">
+                            🧑🖼️⏳
                             <input type="number" id="userChatDelay" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="User Chat Delay">sec
+                        </label>
+
+                        <label for="userChatDelay" class="flexbox noWrap fontSize1p25em mutedColor textshadow ">
+                            🧑🖼️🗑️ @
+                            <input type="number" id="userChatDelay" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="User Chat AutoClear Cadence">
+                            📨
                         </label>
 
                     </div>
@@ -217,9 +237,9 @@
                     <div id="pastChatsWrap" class="flexbox flexFlowCol heightFitContent">
                         <button id="showPastChats" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Refresh Past Chats List" hidden>🔄</button>
                         <div id="pastChatsList" class="flexbox Hcentered alignContentStart"></div>
+                        <hr>
                     </div>
-                    <button id="showPastChats" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Refresh Past Chats List" hidden>🔄</button>
-                    <hr>
+
                 </div>
 
             </div>
@@ -228,7 +248,7 @@
 
             <div id="universalControls">
                 <div class="flexbox noWrap heightFitcontent">
-                    <button id="controlPanelToggle" class="hostControls closePanel Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Toggle Control Panel">🎛️</button>
+                    <button id="controlPanelToggle" class="hostControls Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Toggle Control Panel">🎛️</button>
                     <button id="chatsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor textshadow">🖼️</button>
                     <button id="userListsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor textshadow">📜</button>
                 </div>
@@ -270,19 +290,23 @@
                             <button id="clearAIChat" class="hostControls positionAbsolute chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear AI Chat History">🗑️</button>
                             <div id="AIChat" data-chat-id="AIChat"></div>
                         </div>
-                        <div id="AIChatUserList" class="flexbox">
+                        <div id="AIChatUserList" class="flexbox flexFlowCol justifySpaceBetween">
                             <ul></ul>
+                            <div id="AIChatHostControls" class="flexbox justifySpaceBetween noWrap">
+                                <button id="deleteLastMessageButton" class="fontSize1p5em square1p5em bgTransparent hostControls greyscale textshadow" title="Remove last message from chat">✂️</button>
+                                <button id="triggerAIResponse" class="fontSize1p5em square1p5em bgTransparent hostControls greyscale textshadow" title="Request AI Response">🤖</button>
+                                <button id="AIRetry" class="fontSize1p5em square1p5em bgTransparent hostControls greyscale textshadow" title="Regenerate AI Response">🔄</button>
+                            </div>
                         </div>
                     </div>
+
                     <div id="AIInputBlock" class="flexbox noWrap">
                         <div class="inputAndIconsWrapper flexbox transition250 positionRelative">
-                            <textarea id="AIMessageInput" class="" maxlength="1000" placeholder="Message the AI Chat"></textarea>
-                            <div id="AIChatInputButtons" class="flexbox marginRight5 positionAbsolute">
-                                <button id="deleteLastMessageButton" class="bgTransparent hostControls  fontSize1p5em greyscale  textshadow" title="Remove last message from chat">✂️</button>
-                                <button id="triggerAIResponse" class="bgTransparent hostControls  fontSize1p5em greyscale  textshadow" title="Request AI Response">🤖</button>
-                                <button id="AIRetry" class="hostControls bgTransparent greyscale  fontSize1p5em  textshadow" title="Regenerate AI Response">🔄</button>
-                                <button id="AISendButton" class="bgTransparent greyscale  fontSize1p5em  textshadow" title="Send a message">✏️</button>
+                            <textarea id="AIMessageInput" class="flex1" maxlength="1000" placeholder="Message the AI Chat"></textarea>
+                            <div class="flexbox">
+                                <button id="AISendButton" class="bgTransparent greyscale fontSize1p5em square1p5em textshadow" title="Send a message">✏️</button>
                             </div>
+
                         </div>
                     </div>
                 </div>
@@ -302,8 +326,8 @@
                     <div id="inputBlock" class="flexbox noWrap">
                         <div class="inputAndIconsWrapper flexbox transition250 positionRelative">
                             <textarea id="messageInput" class="" maxlength="1000" placeholder="Message the User Chat"></textarea>
-                            <div id="UserChatInputButtons" class="flexbox marginRight5 positionAbsolute">
-                                <button id="sendButton" class="bgTransparent  greyscale square1p5em fontSize1p5em textshadow" title="Send a Message to User Chat">✏️</button>
+                            <div id="UserChatInputButtons" class="flexbox">
+                                <button id="sendButton" class="bgTransparent greyscale fontSize1p5em square1p5em textshadow" title="Send a Message to User Chat">✏️</button>
                             </div>
                         </div>
                     </div>

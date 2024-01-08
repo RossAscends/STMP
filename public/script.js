@@ -215,6 +215,7 @@ async function processConfirmedConnection(parsedMessage) {
   var userRole = isHost ? "Host" : "Guest";
   $("#userRole").text(userRole);
   $("#charName").text(selectedCharacterDisplayName);
+
   if (isHost) {
     //process all control and selector values for hosts
     handleconfig.processLiveConfig(parsedMessage)
@@ -942,6 +943,12 @@ $(async function () {
 
   $("#controlPanelToggle").on("click", async function () {
     await util.betterSlideToggle($controlPanel, 100, "width");
+    if (!$("#promptConfigTextFields").hasClass('heightHasbeenSet') &&
+      $("#controlPanel").css('display') !== 'none') {
+      $("#promptConfigTextFields").css("height", util.calculatePromptsBlockheight())
+      $("#promptConfigTextFields").addClass('heightHasbeenSet')
+    }
+
   });
 
   var chatsToggleState = 0;
@@ -1060,8 +1067,12 @@ $(async function () {
     util.flashElement("modelList", "good");
   });
 
-  $(".isControlPanelToggle").on("click", function () {
+  $("#controlPanel > div > div > .isControlPanelToggle").on("click", function () {
     util.toggleControlPanelBlocks($(this), "all");
+  });
+
+  $("#promptConfig > .isControlPanelToggle").on("click", function () {
+    util.toggleControlPanelBlocks($(this), "single");
   });
 
   $("#AIChat").on(
@@ -1154,11 +1165,5 @@ $(async function () {
   util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");
   util.toggleControlPanelBlocks($("#crowdControlToggle"), "single");
   await util.delay(1000);
-  if (isHost) {
-    $("#promptConfigTextFields").css(
-      "height",
-      util.heightMinusDivHeight($("#AIConfigWrap"), $("#configSelectorsBlock"))
-    );
-  }
 
 });

@@ -353,8 +353,8 @@ pre {
 #chat>div,
 #AIChat>div {
     padding: 5px 5% 5px 10px;
-    margin-bottom: 10px;
     overflow-wrap: break-word;
+    border-radius: 10px;
 }
 
 #chat div:hover,
@@ -378,8 +378,8 @@ pre {
     color: #8ca3d9
 }
 
-#messageInput,
-#AIMessageInput {
+#AIMessageInput,
+#messageInput {
     height: 2.2em;
     min-height: 2.2em;
     flex-grow: 1;
@@ -389,13 +389,31 @@ pre {
     max-height: 50vh;
     overflow-y: auto;
     line-height: 1.4em;
-    padding-top: 5px;
 }
 
 #AIChatInputButtons,
 #UserChatInputButtons {
     top: 0px;
-    right: 5px;
+    background-color: #313338;
+}
+
+#AIChatHostControls {
+    /*height: 2.2em; */
+    /* min-height: 2.2em; */
+    /* flex-grow: 1; */
+    background-color: transparent;
+    /* padding: 5px 10px; */
+    /* font-size: 3em; */
+    /* max-height: 2.2em; */
+    overflow-y: auto;
+    /* line-height: 1.4em; */
+    /* bottom: 0; */
+    /* position: relative;*/
+}
+
+#UserChatInputButtons {
+    border-radius: 0 10px 10px 0;
+    background-color: #393a3f;
 }
 
 #AIChatInputButtons button {
@@ -490,7 +508,7 @@ input::placeholder {
 
 #pastChatsWrap,
 #AIConfigWrap {
-    height: 75vh;
+    /* height: 75vh; */
 }
 
 #pastChatsList {
@@ -635,6 +653,10 @@ hr {
     gap: 5px;
 }
 
+.gap10 {
+    gap: 10px;
+}
+
 .noGap {
     gap: 0
 }
@@ -769,6 +791,10 @@ hr {
 
 .justifyContentCenter {
     justify-content: center;
+}
+
+.justifyContentEnd {
+    justify-content: end;
 }
 
 .textshadow {
@@ -961,6 +987,10 @@ input:read-only {
     input[type='checkbox'] {
         height: 2em;
         width: 2em;
+    }
+
+    button:not(#controlPanel button) {
+        font-size: 1.75em !important;
     }
 
 

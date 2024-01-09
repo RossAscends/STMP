@@ -462,15 +462,17 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     logger.info('Sending Horde request...');
     //the ST server must be running with CSRF turned off in order for this to work.
     var STHordeURL = 'http://127.0.0.1:8000/api/horde/generate-text';
-    //these headers assume there is basicAuth enabled on your ST server
-    //replace the btoa('') with your credentials in a user:pass format within the single quotes
-    //alternatively remove that line if you are not using AUTH
+
     var headers = {
         'Content-Type': 'application/json',
         'Cache': 'no-cache',
-        'Authorization': 'Basic ' + btoa(STBasicAuthCredentials),
         "Client-Agent": "SillyTavern:UNKNOWN:Cohee#1207"
     };
+
+    if (STBasicAuthCredentials && STBasicAuthCredentials !== '' && STBasicAuthCredentials !== undefined) {
+        authValue = `Basic ${btoa(STBasicAuthCredentials)}`
+        headers.Authorization = authValue
+    }
 
     var body = JSON.stringify(stringToSend);
     logger.info(`--- horde payload:`)

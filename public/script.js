@@ -647,7 +647,8 @@ function disconnectWebSocket() {
 }
 
 function doAIRetry() {
-  let char = $("#characters").val();
+  let char = $("#cardList").val();
+  let username = $("#AIUsernameInput").val()
   let retryMessage = {
     type: "AIRetry",
     chatID: "AIChat",

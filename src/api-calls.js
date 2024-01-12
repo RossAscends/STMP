@@ -246,13 +246,12 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
 }
 
 function replaceMacros(string, username = null, charname = null) {
+    logger.warn(username, charname)
     var replacedString = string
-
-    if (username !== null && !charname !== null) {
+    if (username !== null && charname !== null) {
         replacedString = replacedString.replace(/{{user}}/g, username);
         replacedString = replacedString.replace(/{{char}}/g, charname);
     }
-
     return replacedString
 }
 

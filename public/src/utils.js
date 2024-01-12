@@ -82,7 +82,7 @@ let heartbeatCounter = 0
 function heartbeat(socket) {
     if (socket && (socket.readyState !== WebSocket.CONNECTING && socket.readyState !== WebSocket.OPEN)) {
         console.log(heartbeatCounter);
-        heartbeat = 0
+        heartbeatCounter = 0
         console.log("[heartbeat()] saw the socket was disconnected");
         console.log("readystate", socket.readyState);
         $("#reconnectButton").show();

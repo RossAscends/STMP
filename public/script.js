@@ -218,20 +218,30 @@ async function processConfirmedConnection(parsedMessage) {
 
   if (isHost) {
     //process all control and selector values for hosts
-    handleconfig.processLiveConfig(parsedMessage)
+    await handleconfig.processLiveConfig(parsedMessage)
+
     $("#charName").hide();
-    $(".hostControls").show();
+    $(".hostControls").removeClass('hostControls'); //stop them from being hidden
     if (isPhone) {
       //handle initial loads for phones, hide the control panel
+      $("#leftSpanner").css('display', 'block').remove()
       $("#roleKeyInputDiv").removeClass("positionAbsolute");
       if ($("#controlPanel").hasClass("initialState")) {
-        $("#controlPanel").removeClass("initialState").hide();
+        $("#controlPanel").removeClass("initialState").addClass('opacityZero');
       }
+      $("#userListsWrap").hide().addClass('opacityZero')
     } else if ($("#controlPanel").hasClass("initialState")) {
       //handle first load for PC, shows the panel
-      util.betterSlideToggle($("#controlPanel"), 100, "width");
+      $("#controlPanel").addClass('opacityZero').show()
+      $("#controlPanel").removeClass('opacityZero')
+      $("#leftSpanner").css('display', 'block').remove()
       $("#controlPanel").removeClass("initialState");
-      $("#keepAliveAudio").hide(); //hide it, does nothing for PCs
+      $("#keepAliveAudio").hide(); //TODO: figure the logic for this out. It can be helpful perhaps for non localhost Hosts on PC
+    }
+
+    if (!$("#promptConfigTextFields").hasClass('heightHasbeenSet') && $("#controlPanel").css('display') !== 'none') {
+      $("#promptConfigTextFields").css("height", util.calculatePromptsBlockheight())
+      $("#promptConfigTextFields").addClass('heightHasbeenSet')
     }
 
     control.disableAPIEdit();
@@ -240,10 +250,15 @@ async function processConfirmedConnection(parsedMessage) {
   } else {
     //hide control panel and host controls for guests
     $("#controlPanel, .hostControls").remove();
+    if (isPhone) {
+      $("#leftSpanner").css('display', 'block').remove()
+      $("#userListsWrap").hide().addClass('opacityZero')
+    }
   }
 
-  $("#chat").empty();
-  $("#AIChat").empty();
+  $("#chat").empty().addClass('opacityZero')
+  $("#AIChat").empty().addClass('opacityZero')
+
   updateUserChatUserList(userList);
 
   if (chatHistory) {
@@ -257,6 +272,9 @@ async function processConfirmedConnection(parsedMessage) {
     const parsedAIChatHistory = JSON.parse(trimmedAIChatHistoryString);
     appendMessagesWithConverter(parsedAIChatHistory, "#AIChat");
   }
+
+  $("#chat").removeClass('opacityZero')
+  $("#AIChat").removeClass('opacityZero')
 
   //we always want to auto scroll the chats on first load
   $("#chat").scrollTop($("#chat").prop("scrollHeight"));
@@ -682,6 +700,8 @@ window.addEventListener("beforeunload", () => {
 $(async function () {
 
   const $controlPanel = $("#controlPanel");
+  const $chatWrap = $(("#chatWrap"))
+  const $innerChatWrap = $("#innerChatWrap")
   const $LLMChatWrapper = $("#LLMChatWrapper");
   const $OOCChatWrapper = $("#OOCChatWrapper");
   const $AIChatInputButtons = $("#AIChatInputButtons");
@@ -690,6 +710,11 @@ $(async function () {
   let { username, AIChatUsername } = await startupUsernames();
   $("#usernameInput").val(username);
   $("#AIUsernameInput").val(AIChatUsername);
+
+  if (!isPhone) {
+    $("#chat").css('min-width', ($("#bodywrap").width() / 2) - 10);
+    $("#AIChat").css('min-width', ($("#bodywrap").width() / 2) - 10);
+  }
 
   connectWebSocket(username);
 
@@ -944,47 +969,78 @@ $(async function () {
 
 
   $("#controlPanelToggle").on("click", async function () {
-    await util.betterSlideToggle($controlPanel, 100, "width");
-    if (!$("#promptConfigTextFields").hasClass('heightHasbeenSet') &&
-      $("#controlPanel").css('display') !== 'none') {
-      $("#promptConfigTextFields").css("height", util.calculatePromptsBlockheight())
-      $("#promptConfigTextFields").addClass('heightHasbeenSet')
+    if (!isPhone && $("#controlPanel").width() !== 0) {
+      $("#controlPanelContents").css('width', $("#controlPanel").width());
     }
 
+    if (isPhone && $("#controlPanel").hasClass('opacityZero')) {
+      console.log('toggline CP to be visible before fade in')
+      $("#controlPanel").toggle()
+      if (!$("#promptConfigTextFields").hasClass('heightHasbeenSet') && $("#controlPanel").css('display') !== 'none') {
+        $("#promptConfigTextFields").css("height", util.calculatePromptsBlockheight())
+        $("#promptConfigTextFields").addClass('heightHasbeenSet')
+      }
+      await util.delay(1)
+    }
+    //await util.betterSlideToggle($controlPanel, 250, "width");
+    $("#controlPanel").toggleClass('opacityZero')
+    await util.delay(250)
+
+    console.log($("#controlPanel").css('opacity'))
+
+    if (isPhone && $("#controlPanel").hasClass('opacityZero')) {
+      console.log('toggling CP to be invisible after fadeout')
+      $("#controlPanel").toggle()
+    }
   });
 
   var chatsToggleState = 0;
   $("#chatsToggle").off("click").on("click", async function () {
     chatsToggleState = (chatsToggleState + 1) % 3; // Increment the state and wrap around to 0 after the third state
     if (chatsToggleState === 0) {
-      $LLMChatWrapper
-        .removeClass("transition500")
-        .css({ flex: "1", opacity: "1" });
-      $OOCChatWrapper
-        .removeClass("transition500")
-        .css({ flex: "1", opacity: "1" });
+      $LLMChatWrapper.css({ flex: "1", opacity: "1" })
+      $OOCChatWrapper.css({ flex: "1", opacity: "1" })
+
+      if (!isPhone) {
+        $LLMChatWrapper.css({ maxWidth: '100%' })
+        $OOCChatWrapper.css({ maxWidth: '100%' })
+      }
+
+      await util.delay(250)
+
       if (!isPhone && isLandscape) {
         $("body").removeClass("halfWidthChatWrap");
       }
     } else if (chatsToggleState === 1) {
       $OOCChatWrapper.css({ flex: "0", opacity: "0" });
-      console.log(isPhone, isLandscape);
+      if (!isPhone) {
+        $OOCChatWrapper.css({ maxWidth: '50%' })
+        $LLMChatWrapper.css({ maxWidth: '50%' })
+      }
+      console.debug(isPhone, isLandscape);
       if (!isPhone && isLandscape) {
         $("body").addClass("halfWidthChatWrap");
       }
     } else if (chatsToggleState === 2) {
-      $OOCChatWrapper
-        .addClass("transition500")
-        .css({ flex: "1", opacity: "1" });
-      $LLMChatWrapper
-        .addClass("transition500")
-        .css({ flex: "0", opacity: "0" });
+      $LLMChatWrapper.css({ flex: "0", opacity: "0" });
+      $OOCChatWrapper.css({ flex: "1", opacity: "1" });
     }
   });
 
-  $("#userListsToggle").off("click").on("click", function () {
-    util.betterSlideToggle($("#AIChatUserList"), 250, "width");
-    util.betterSlideToggle($("#userList"), 250, "width");
+  $("#userListsToggle").off("click").on("click", async function () {
+    //util.betterSlideToggle($("#AIChatUserList"), 250, "width");
+    //util.betterSlideToggle($("#userList"), 250, "width");
+
+    if (isPhone && !$("#userListsWrap").hasClass('opacityZero')) {
+      $("#userListsWrap").toggleClass('opacityZero')
+      await util.delay(250)
+      $("#userListsWrap").toggle()
+    } else if (isPhone && $("#userListsWrap").hasClass('opacityZero')) {
+      $("#userListsWrap").toggle()
+      $("#userListsWrap").toggleClass('opacityZero')
+    } else {
+      $("#userListsWrap").toggleClass('opacityZero')
+    }
   });
 
   //this auto resizes the chat input box as the input gets longer
@@ -1073,7 +1129,7 @@ $(async function () {
     util.toggleControlPanelBlocks($(this), "all");
   });
 
-  $("#promptConfig > .isControlPanelToggle").on("click", function () {
+  $("#promptConfig > .isControlPanelToggle, #userListsWrap  .isControlPanelToggle").on("click", function () {
     util.toggleControlPanelBlocks($(this), "single");
   });
 
@@ -1165,7 +1221,6 @@ $(async function () {
   util.correctSizeChats();
   //close the past chats and crowd controls on page load
   util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");
-  util.toggleControlPanelBlocks($("#crowdControlToggle"), "single");
   await util.delay(1000);
 
 });

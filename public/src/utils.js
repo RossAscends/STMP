@@ -188,7 +188,7 @@ function correctSizeChats() {
     let universalControlsHeight = $("#universalControls").outerHeight()
     let totalHeight = $(window).height()
     let chatHeight = totalHeight - universalControlsHeight - 10 + 'px'
-    $("#OOCChatWrapper, #LLMChatWrapper, #innerChatWrap").animate({ height: chatHeight }, { duration: 1 })
+    $("#OOCChatWrapper, #LLMChatWrapper, #chatWrap").animate({ height: chatHeight }, { duration: 1 })
 }
 
 function correctSizeBody() {
@@ -202,7 +202,7 @@ function correctSizeBody() {
                 'height': 'calc(100svh - 36px)'
             })
         }
-    } else {
+    } else if (isPhone) {
         // Portrait orientation
         $('body').css({
             'padding': '0px',
@@ -214,15 +214,11 @@ function correctSizeBody() {
     }
     correctSizeChats()
 };
+
 //args passed as JQUery DOM Objects //e.g. $("#myDiv")
-// subtracts the height of a child div from that of its parent and returns the remaining height.
-// used to calculate exact heights of divs that should fill container space.
-// if no childToSubtract is passed, returns the container's height.
-
-
 function calculatePromptsBlockheight() {
     let controlPanel = parseFloat($("#controlPanel > div").outerHeight());
-    let crowdControlBlock = parseFloat($("#crowdControlBlock").outerHeight());
+    //let crowdControlBlock = parseFloat($("#crowdControlBlock").outerHeight());
     let pastChatsBlock = parseFloat($("#pastChatsBlock").outerHeight())
     let configSelectorsBlock = parseFloat($("#configSelectorsBlock").outerHeight())
     let promptsToggle = parseFloat($("#promptsToggle").outerHeight())
@@ -231,66 +227,29 @@ function calculatePromptsBlockheight() {
 
     let controlPanelGaps = ($("#promptConfig").children().length - 1) * 5;
 
-    let promptsBlockHeight = controlPanel - crowdControlBlock - pastChatsBlock - configSelectorsBlock - promptsToggle - AIConfigToggle - controlPanelGaps - hrSize + 'px';
+    let promptsBlockHeight =
+        controlPanel
+        //- crowdControlBlock
+        - pastChatsBlock
+        - configSelectorsBlock
+        - promptsToggle
+        - AIConfigToggle
+        - controlPanelGaps
+        - hrSize
+        - 6 //no idea what this 6px is from..
+        + 'px';
 
-    console.log(controlPanel, crowdControlBlock, pastChatsBlock, configSelectorsBlock, promptsToggle, AIConfigToggle, controlPanelGaps, hrSize);
-    console.log(promptsBlockHeight);
-
+    console.log(`
+    ${controlPanel} controlPanel 
+    ${pastChatsBlock} pastChatsblock 
+    ${configSelectorsBlock}  configSelectorsBlock 
+    ${promptsToggle} promptsToggle 
+    ${AIConfigToggle} AIConfigToggle 
+    ${controlPanelGaps} controlPanelGaps 
+    ${hrSize} hrSize 
+    ---
+    ${promptsBlockHeight}`);
     return promptsBlockHeight;
-}
-
-function heightMinusDivHeight(container, childToSubtract = null) {
-    console.log(`subtracting ${childToSubtract.prop('id')} height ${childToSubtract.height()} from ${container.prop('id')} height.`)
-
-    if (childToSubtract) {
-        let containerHeight = parseFloat(getComputedStyle(container[0]).height);
-        let childHeight = parseFloat(getComputedStyle(childToSubtract[0]).height);
-
-        let containerGapSize = parseFloat(container.css('gap').replace('px', '')) || 0;
-        let numberOfContainerGaps = container.children().length;
-
-        let numChildGaps = childToSubtract.children().length;
-        let childGapSize = parseFloat(childToSubtract.css('gap').replace('px', '')) || 0;
-
-        let containerPaddingTop = parseFloat(container.css('padding-top').replace('px', ''));
-        let containerPaddingBottom = parseFloat(container.css('padding-bottom').replace('px', ''));
-        let childPaddingTop = parseFloat(childToSubtract.css('padding-top').replace('px', ''));
-        let childPaddingBottom = parseFloat(childToSubtract.css('padding-bottom').replace('px', ''));
-        let gapCope = (containerGapSize * numberOfContainerGaps) + (numChildGaps * childGapSize);
-
-        let otherChildrenHeight = 0;
-        container.parent().parent().children().each(function () {
-            console.log(`getting child of ${container.parent().parent().parent().prop('id')} called ${$(this).prop('id')}`)
-            if (!$(this).is(childToSubtract) && !$(this).is(container) && !$(this).is(container.parent())) {
-                let computedHeight = getComputedStyle(this).height;
-                if (computedHeight === 'auto') {
-                    $(this).css('height', 'auto');
-                    computedHeight = $(this).height();
-                    $(this).css('height', '');
-                } else {
-                    computedHeight = parseFloat(computedHeight);
-                }
-                let marginTop = parseFloat(getComputedStyle(this).marginTop);
-                let marginBottom = parseFloat(getComputedStyle(this).marginBottom);
-                computedHeight += marginTop + marginBottom;
-                otherChildrenHeight += computedHeight;
-                console.log(computedHeight);
-            }
-        });
-
-        let controlPanelHeight = parseFloat($("#controlPanel").css('height'))
-        let remainingHeight = controlPanelHeight - childHeight - otherChildrenHeight + 'px';
-
-        console.debug(`Returning height as: 
-        ${containerHeight} (container height)
-        - ${childHeight} (child height)
-        - ${otherChildrenHeight} (other children height)
-        = ${remainingHeight}`);
-
-        return remainingHeight;
-    } else {
-        return container.outerHeight();
-    }
 }
 
 function trimIncompleteSentences(input, include_newline = false) {
@@ -359,7 +318,6 @@ function kindlyScrollDivToBottom(divElement) {
 }
 
 export default {
-    heightMinusDivHeight,
     correctSizeBody,
     correctSizeChats,
     toggleControlPanelBlocks,

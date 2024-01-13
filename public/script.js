@@ -201,7 +201,7 @@ async function processConfirmedConnection(parsedMessage) {
   //process universal stuff for guests
   const {
     clientUUID, role, selectedCharacterDisplayName,
-    chatHistory, AIChatHistory, userList,
+    chatHistory, AIChatHistory, userList, sessionID
   } = parsedMessage;
 
   //these two need to be set as globals here in script.js
@@ -227,9 +227,9 @@ async function processConfirmedConnection(parsedMessage) {
       $("#leftSpanner").css('display', 'block').remove()
       $("#roleKeyInputDiv").removeClass("positionAbsolute");
       if ($("#controlPanel").hasClass("initialState")) {
-        $("#controlPanel").removeClass("initialState").addClass('opacityZero');
+        $("#controlPanel").removeClass("initialState").addClass('opacityZero').addClass('hidden');
       }
-      $("#userListsWrap").hide().addClass('opacityZero')
+      $("#userListsWrap").addClass('hidden').addClass('opacityZero')
     } else if ($("#controlPanel").hasClass("initialState")) {
       //handle first load for PC, shows the panel
       $("#controlPanel").addClass('opacityZero').show()
@@ -252,29 +252,23 @@ async function processConfirmedConnection(parsedMessage) {
     $("#controlPanel, .hostControls").remove();
     if (isPhone) {
       $("#leftSpanner").css('display', 'block').remove()
-      $("#userListsWrap").hide().addClass('opacityZero')
+      $("#userListsWrap").addClass('hidden').addClass('opacityZero')
     }
   }
-
-  $("#chat").empty().addClass('opacityZero')
-  $("#AIChat").empty().addClass('opacityZero')
 
   updateUserChatUserList(userList);
 
   if (chatHistory) {
     const trimmedChatHistoryString = chatHistory.trim();
     const parsedChatHistory = JSON.parse(trimmedChatHistoryString);
-    appendMessagesWithConverter(parsedChatHistory, "#chat");
+    appendMessagesWithConverter(parsedChatHistory, "#chat", sessionID);
   }
 
   if (AIChatHistory) {
     const trimmedAIChatHistoryString = AIChatHistory.trim();
     const parsedAIChatHistory = JSON.parse(trimmedAIChatHistoryString);
-    appendMessagesWithConverter(parsedAIChatHistory, "#AIChat");
+    appendMessagesWithConverter(parsedAIChatHistory, "#AIChat", sessionID);
   }
-
-  $("#chat").removeClass('opacityZero')
-  $("#AIChat").removeClass('opacityZero')
 
   //we always want to auto scroll the chats on first load
   $("#chat").scrollTop($("#chat").prop("scrollHeight"));
@@ -283,13 +277,120 @@ async function processConfirmedConnection(parsedMessage) {
   initialLoad = false;
 }
 
-function appendMessagesWithConverter(messages, elementSelector) {
-  messages.forEach(({ username, userColor, content }) => {
+function appendMessagesWithConverter(messages, elementSelector, sessionID) {
+  messages.forEach(({ username, userColor, content, messageID }) => {
     const message = converter.makeHtml(content);
-    const newDiv = $("<div></div>").html(`<span style="color:${userColor}" class="chatUserName">${username}</span>${message}`);
+    const newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}"></div`).html(`
+    <div class="messageHeader flexbox justifySpaceBetween">
+      <span style="color:${userColor}" class="chatUserName">${username}</span>
+      <div class="messageControls transition250">
+        <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+        <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+      </div>
+    </div>
+    <div class="messageContent">
+    ${message}
+    </div>
+    `);
     $(elementSelector).append(newDiv);
   });
+
+  $(".messageEdit").off('click').on('click', async function () {
+    const mesID = $(this).data('messageid')
+    const sessionID = $(this).data('sessionid')
+    let currentMessageData = await getMessageContent(mesID)
+    console.log(currentMessageData.message)
+
+    await editMessage(currentMessageData.message)
+
+    async function getMessageContent(mesID) {
+      const messageContentRequest = {
+        type: 'messageContentRequest',
+        UUID: myUUID,
+        mesID: mesID
+      };
+
+      return new Promise((resolve, reject) => {
+        const messageContentHandler = (response) => {
+          let responseDataJSON = JSON.parse(response.data)
+          console.log(responseDataJSON)
+          socket.removeEventListener('message', messageContentHandler);
+          resolve(responseDataJSON.content);
+
+        };
+
+        socket.addEventListener('message', messageContentHandler);
+        socket.send(JSON.stringify(messageContentRequest));
+      });
+    }
+
+    async function editMessage(message) {
+      const widthToUse = isPhone ? ($(window).width() - 10) : $("#AIChat").width()
+
+      $(`<div id="mesEditPopup"></div>`)
+        .html(
+          `<textarea id="mesEditText"></textarea>`
+        )
+        .dialog({
+          width: widthToUse,
+          height: widthToUse,
+          draggable: false,
+          resizable: false,
+          modal: true,
+          position: { my: "center", at: "center", of: window },
+          title: "Edit Message",
+          buttons: {
+            Ok: function () {
+              console.log($("#mesEditText").val())
+              $(this).dialog("close");
+              const newMessageContent = $("#mesEditText").val()
+              $(this).remove()
+
+              const mesEditRequest = {
+                type: 'messageEdit',
+                UUID: myUUID,
+                mesID: mesID,
+                sessionID: sessionID,
+                newMessageContent: newMessageContent
+              }
+
+              util.messageServer(mesEditRequest)
+            },
+            Cancel: function () {
+              $(this).dialog("close");
+              $(this).remove()
+            },
+          },
+          open: function () {
+            console.log(message)
+            $("#mesEditText").val(message)
+            $(".ui-button").trigger("blur");
+          },
+          close: function () { },
+        })
+
+    }
+  })
+
+  $(".messageDelete").off('click').on('click', async function () {
+    if ($(this).parent().parent().parent().parent().children().length === 1) { //check how many messages are inside the chat/AIChat container
+      alert('Can not delete the only message in this chat. If you want to delete this chat, use the Past Chats list.')
+      return
+    }
+    const mesID = $(this).data('messageid')
+    const sessionID = $(this).data('sessionid')
+    const mesDelRequest = {
+      type: 'messageDelete',
+      UUID: myUUID,
+      mesID: mesID,
+      sessionID: sessionID
+    }
+    util.messageServer(mesDelRequest)
+  })
+
 }
+
+
 
 async function connectWebSocket(username) {
   var username, AIChatUsername;
@@ -437,14 +538,8 @@ async function connectWebSocket(username) {
           .find(`div[data-session_id="${sessionID}"]`)
           .addClass("activeChat");
         //TODO: this feels like a duplicate of the appendWithConverter function...merge?
-        pastChatHistory.forEach((obj) => {
-          let username = obj.username;
-          let userColor = obj.userColor;
-          let message = converter.makeHtml(obj.content);
-          let newDiv = $(`<div></div>`);
-          newDiv.html(`<span style="color:${userColor}" class="chatUserName">${username}</span>${message}`);
-          $("#AIChat").append(newDiv);
-        });
+        appendMessagesWithConverter(pastChatHistory, "#AIChat", sessionID)
+        util.kindlyScrollDivToBottom($("#AIChat"))
         break;
       case "pastChatDeleted":
         let wasActive = parsedMessage?.wasActive;
@@ -713,8 +808,8 @@ $(async function () {
   $("#AIUsernameInput").val(AIChatUsername);
 
   if (!isPhone) {
-    $("#chat").css('min-width', ($("#bodywrap").width() / 2) - 10);
-    $("#AIChat").css('min-width', ($("#bodywrap").width() / 2) - 10);
+    $("#chat").css('min-width', ($("#OOCChatWrapper").width() / 2) - 10);
+    $("#AIChat").css('min-width', ($("#LLMChatWrapper").width() / 2) - 10);
   }
 
   connectWebSocket(username);
@@ -976,7 +1071,7 @@ $(async function () {
 
     if (isPhone && $("#controlPanel").hasClass('opacityZero')) {
       console.log('toggline CP to be visible before fade in')
-      $("#controlPanel").toggle()
+      $("#controlPanel").toggleClass('hidden')
       if (!$("#promptConfigTextFields").hasClass('heightHasbeenSet') && $("#controlPanel").css('display') !== 'none') {
         $("#promptConfigTextFields").css("height", util.calculatePromptsBlockheight())
         $("#promptConfigTextFields").addClass('heightHasbeenSet')
@@ -991,14 +1086,18 @@ $(async function () {
 
     if (isPhone && $("#controlPanel").hasClass('opacityZero')) {
       console.log('toggling CP to be invisible after fadeout')
-      $("#controlPanel").toggle()
+      $("#controlPanel").toggleClass('hidden')
     }
   });
 
   var chatsToggleState = 0;
   $("#chatsToggle").off("click").on("click", async function () {
     chatsToggleState = (chatsToggleState + 1) % 3; // Increment the state and wrap around to 0 after the third state
-    if (chatsToggleState === 0) {
+
+    if (chatsToggleState === 0) { //going back to dual display
+      $LLMChatWrapper.removeClass('hidden')
+      $OOCChatWrapper.removeClass('hidden')
+      await util.delay(1)
       $LLMChatWrapper.css({ flex: "1", opacity: "1" })
       $OOCChatWrapper.css({ flex: "1", opacity: "1" })
 
@@ -1006,38 +1105,36 @@ $(async function () {
         $LLMChatWrapper.css({ maxWidth: '100%' })
         $OOCChatWrapper.css({ maxWidth: '100%' })
       }
-
       await util.delay(250)
 
-      if (!isPhone && isLandscape) {
-        $("body").removeClass("halfWidthChatWrap");
-      }
-    } else if (chatsToggleState === 1) {
-      $OOCChatWrapper.css({ flex: "0", opacity: "0" });
+    } else if (chatsToggleState === 1) { // only showing AI chat
       if (!isPhone) {
         $OOCChatWrapper.css({ maxWidth: '50%' })
         $LLMChatWrapper.css({ maxWidth: '50%' })
       }
-      console.debug(isPhone, isLandscape);
-      if (!isPhone && isLandscape) {
-        $("body").addClass("halfWidthChatWrap");
-      }
-    } else if (chatsToggleState === 2) {
-      $LLMChatWrapper.css({ flex: "0", opacity: "0" });
+      await util.delay(1)
+      $OOCChatWrapper.css({ flex: "0", opacity: "0" })
+      await util.delay(250)
+      $OOCChatWrapper.addClass('hidden');
+
+    } else if (chatsToggleState === 2) { //only showing user chat
+      $OOCChatWrapper.removeClass('hidden')
+      $LLMChatWrapper.css({ flex: "0", opacity: "0" })
+      await util.delay(250)
+      $LLMChatWrapper.addClass('hidden');
       $OOCChatWrapper.css({ flex: "1", opacity: "1" });
     }
   });
 
   $("#userListsToggle").off("click").on("click", async function () {
-    //util.betterSlideToggle($("#AIChatUserList"), 250, "width");
-    //util.betterSlideToggle($("#userList"), 250, "width");
 
     if (isPhone && !$("#userListsWrap").hasClass('opacityZero')) {
       $("#userListsWrap").toggleClass('opacityZero')
       await util.delay(250)
-      $("#userListsWrap").toggle()
+      $("#userListsWrap").toggleClass('hidden')
     } else if (isPhone && $("#userListsWrap").hasClass('opacityZero')) {
-      $("#userListsWrap").toggle()
+      $("#userListsWrap").toggleClass('hidden')
+      await util.delay(1)
       $("#userListsWrap").toggleClass('opacityZero')
     } else {
       $("#userListsWrap").toggleClass('opacityZero')

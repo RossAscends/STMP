@@ -233,20 +233,20 @@
             </div>
         </div>
         <div id="contentWrap" class="flexbox justifyContentCenter noGap paddingLR5">
-
             <div id="chatWrap" class="flexbox flex1 noWrap transition250 justifyContentCenter alignItemsCenter">
                 <div id="LLMChatWrapper" class="flexbox flexFlowCol transition250 flex1 noGap">
-                    <div class="chatHeader Hcentered Vcentered flexbox positionRelative marginBot5">
+                    <div class="chatHeader Hcentered Vcentered flexbox positionRelative">
                         Chat with
                         <div class="custom-select hostControls">
                             <select id="cardList" class="flex1 dynamicSelector"></select>
                         </div>
                         <span id="charName"></span>
+                        <button id="clearAIChat" class="hostControls chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear AI Chat History">🗑️</button>
                     </div>
-                    <div class="chatAndTrashWrap flexbox positionRelative flex1 overflowXHidden">
-                        <button id="clearAIChat" class="hostControls positionAbsolute chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear AI Chat History">🗑️</button>
-                        <div id="AIChat" data-chat-id="AIChat" class="transition250"></div>
-                    </div>
+                    <!-- <div class="chatAndTrashWrap flexbox positionRelative flex1 overflowXHidden"> -->
+
+                    <div id="AIChat" data-chat-id="AIChat" class="marginTop5 transition250 positionRelative flex1 overflowXHidden width100p"></div>
+                    <!-- </div> -->
                     <div id="AIChatHostControls" class=" flexbox justifySpaceAround noWrap">
                         <button id="deleteLastMessageButton" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Remove last message from chat">✂️</button>
                         <button id="triggerAIResponse" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Request AI Response">🤖</button>
@@ -263,13 +263,15 @@
                 </div>
 
                 <div id="OOCChatWrapper" class="flexbox flexFlowCol transition250 flex1 noGap">
-                    <div class="chatHeader Hcentered Vcentered flexbox positionRelative marginBot5">
+                    <div class="chatHeader Hcentered Vcentered flexbox positionRelative">
                         User Chat
+                        <button id="clearUserChat" class="hostControls chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear User Chat History">🗑️</button>
                     </div>
-                    <div class="chatAndTrashWrap flexbox positionRelative flex1 overflowXHidden">
-                        <button id="clearUserChat" class="hostControls positionAbsolute chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear User Chat History">🗑️</button>
-                        <div id="chat" data-chat-id="UserChat" class="transition250"></div>
-                    </div>
+
+                    <!-- <div class="chatAndTrashWrap flexbox positionRelative flex1 overflowXHidden"> -->
+
+                    <div id="chat" data-chat-id="UserChat" class="marginTop5 transition250 positionRelative flex1 overflowXHidden width100p"></div>
+                    <!-- </div> -->
                     <div id="inputBlock" class="flexbox noWrap">
                         <div class="inputAndIconsWrapper flexbox transition250 positionRelative">
                             <textarea id="messageInput" class="" maxlength="1000" placeholder="Message the User Chat"></textarea>

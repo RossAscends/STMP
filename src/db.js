@@ -216,6 +216,22 @@ async function deletePastChat(sessionID) {
     }
 }
 
+async function deleteMessage(mesID) {
+    const db = await dbPromise;
+    try {
+        const row = await db.get('SELECT * FROM aichats WHERE message_id = ?', [mesID]);
+        if (row) {
+            await db.run('DELETE FROM aichats WHERE message_id = ?', [mesID]);
+            logger.debug(`Message ${mesID} was deleted`);
+            return 'ok';
+        }
+
+    } catch (err) {
+        logger.error('Error deleting message:', err);
+        return 'error';
+    }
+}
+
 async function deleteAPI(APIName) {
     logger.debug('[deleteAPI()] Deleting API named:' + APIName);
     const db = await dbPromise;
@@ -402,6 +418,7 @@ async function readAIChat(sessionID = null) {
     logger.debug('Reading AI chat...');
     const db = await dbPromise;
     let sessionWhereClause = '';
+    let foundSessionID = null
     let params = [];
 
     if (sessionID) {
@@ -423,7 +440,9 @@ async function readAIChat(sessionID = null) {
                         u.username_color
                 END AS userColor,
                 a.message_id,
-                a.entity
+                a.session_id,
+                a.entity,
+                (SELECT session_id FROM sessions WHERE is_active = TRUE) AS foundSessionID
             FROM aichats a
             LEFT JOIN users u ON a.user_id = u.user_id
             ${sessionWhereClause}
@@ -434,9 +453,14 @@ async function readAIChat(sessionID = null) {
             username: row.username,
             content: row.message,
             userColor: row.userColor,
+            sessionID: row.session_id,
             messageID: row.message_id,
             entity: row.entity
         })));
+
+        if (rows.length > 0) {
+            foundSessionID = rows[0].foundSessionID;
+        }
 
         // Update the active session if sessionID is provided
         if (sessionID) {
@@ -444,7 +468,7 @@ async function readAIChat(sessionID = null) {
             await db.run('UPDATE sessions SET is_active = TRUE WHERE session_id = ?', [sessionID]);
         }
         if (sessionID === null) { //happens when loading initial AIchat on page load
-            return result;
+            return [result, foundSessionID];
         } else { //happens when user loads a past chat later.
             return [result, sessionID];
         }
@@ -452,17 +476,6 @@ async function readAIChat(sessionID = null) {
     } catch (err) {
         logger.error('An error occurred while reading from the database:', err);
         throw err;
-    }
-}
-
-async function deleteMessage(messageID) {
-    logger.debug('Deleting message...');
-    const db = await dbPromise;
-    try {
-        await db.run('DELETE FROM aichats WHERE message_id = ?', [messageID]);
-        logger.debug('A message was deleted');
-    } catch (err) {
-        logger.error('Error deleting message:', err);
     }
 }
 
@@ -510,6 +523,17 @@ async function getMessage(messageID) {
         return await db.get('SELECT * FROM aichats WHERE message_id = ?', [messageID]);
     } catch (err) {
         logger.error('Error getting message:', err);
+        throw err;
+    }
+}
+
+async function editMessage(sessionID, mesID, newMessage) {
+    const db = await dbPromise;
+    try {
+        await db.run('UPDATE aichats SET message = ? WHERE message_id = ?', [newMessage, mesID]);
+        return 'ok'
+    } catch (err) {
+        logger.error('Error editing message:', err);
         throw err;
     }
 }
@@ -667,5 +691,6 @@ module.exports = {
     getAPI,
     newUserChatSession,
     getLatestCharacter,
-    deleteAPI
+    deleteAPI,
+    editMessage
 };

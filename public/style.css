@@ -89,6 +89,9 @@ textarea {
     height: 100%;
     overflow: hidden;
     position: relative;
+    background: #313338;
+    border-radius: 10px;
+    padding: 5px;
 }
 
 #inputBlock,
@@ -160,7 +163,8 @@ select,
 
 button,
 select,
-.nonButtonButton {
+.nonButtonButton,
+.messageButton {
     cursor: pointer;
 }
 
@@ -210,8 +214,8 @@ select:hover:not(:disabled),
 }
 
 .chatTrash {
-    top: 5px;
-    right: 15px;
+    top: 0;
+    right: 0;
     background: transparent;
 }
 
@@ -359,14 +363,54 @@ pre {
 
 #chat>div,
 #AIChat>div {
-    padding: 5px 5% 5px 10px;
+    padding: 5px 5px 5px 10px;
     overflow-wrap: break-word;
     border-radius: 10px;
+    width: 100%;
+    height: fit-content;
 }
 
 #chat div:hover,
 #AIChat div:hover {
     background-color: #2f3035
+}
+
+#AIChat>div:hover .messageControls {
+    display: flex;
+
+    opacity: 1;
+
+}
+
+.messageControls {
+    display: none;
+    opacity: 0;
+    right: 5px;
+    gap: 10px;
+    position: relative;
+}
+
+#mesEditPopup {
+    display: flex;
+    flex-flow: column;
+    padding: 5px;
+}
+
+#mesEditText {
+    width: 100%;
+    background-color: #393a3f;
+    padding: 3px 7px;
+    margin-top: 5px;
+    flex: 1;
+}
+
+.ui-dialog .ui-dialog-titlebar {
+    padding-inline-start: 5px;
+    border-radius: 0;
+}
+
+.hidden {
+    display: none;
 }
 
 #chat div p,
@@ -444,7 +488,6 @@ input::placeholder {
 
 #chat,
 #AIChat {
-    background: #313338;
     flex: 1;
     overflow-y: auto;
     height: 100%;
@@ -952,17 +995,19 @@ input:read-only {
         font-size: 1.5em;
     }
 
-    #controlPanel {
+    #controlPanel,
+    #userListsWrap {
         width: 100svw;
         max-width: 100svw;
-        height: calc(100% - 3em);
-        min-height: calc(100svh - 3em);
+        height: calc(100% - 3em - 30px);
+        min-height: calc(100svh - 3em - 30px);
+        padding: 10px;
         top: 3em;
         left: 0px;
         position: absolute;
         border-radius: 0;
         z-index: 25;
-        display: none;
+        /* display: none; */
         box-shadow: 0px 0px 12px 2px rgba(0, 0, 0, 0.5);
     }
 
@@ -973,6 +1018,7 @@ input:read-only {
         flex: 1;
         box-sizing: border-box;
         padding-top: 5px;
+        width: 100%;
     }
 
     .chatHeader {
@@ -984,8 +1030,8 @@ input:read-only {
     }
 
     #chatWrap {
-        max-width: 100svw;
-        max-height: 100svh;
+        max-width: 100%;
+        max-height: calc(100svh - 3em - 30px);
         flex-flow: column;
     }
 
@@ -1004,15 +1050,13 @@ input:read-only {
         width: 2em;
     }
 
-    button:not(#controlPanel button) {
+    button:not(#controlPanel button, .ui-button) {
         font-size: 1.75em !important;
     }
 
-    #userListsWrap {
+    /*     #userListsWrap {
         background: #2c2d31;
         padding: 3em 5px;
-        /* margin: 0 0 0 5px; */
-        /* border-radius: 10px; */
         height: calc(100svh - 3em);
         width: 100vw;
         overflow-x: hidden;
@@ -1021,7 +1065,7 @@ input:read-only {
         right: 0;
         top: 3em;
         z-index: 20;
-    }
+    } */
 
     #userList,
     #AIChatUserList {

@@ -446,7 +446,7 @@ async function handleConnections(ws, type, request) {
 
     const instructList = await fio.getInstructList()
     const samplerPresetList = await fio.getSamplerPresetList()
-    var AIChatJSON = await db.readAIChat();
+    var [AIChatJSON, sessionID] = await db.readAIChat();
     var userChatJSON = await db.readUserChat()
 
     //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
@@ -454,6 +454,7 @@ async function handleConnections(ws, type, request) {
         clientUUID: uuid,
         type: 'guestConnectionConfirmed',
         chatHistory: userChatJSON,
+        sessionID: sessionID,
         AIChatHistory: AIChatJSON,
         color: thisUserColor,
         role: thisUserRole,
@@ -468,7 +469,7 @@ async function handleConnections(ws, type, request) {
 
     //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
-
+        connectionConfirmedMessage.type = 'connectionConfirmed'
         let apis = await db.getAPIs();
         apis = duplicateNameToValue(apis) //duplicate the name property as value property for each object in array. this is for selector population purposes.
         let APIConfig = await db.getAPI(liveConfig.promptConfig.selectedAPI);
@@ -542,7 +543,7 @@ async function handleConnections(ws, type, request) {
     // Handle incoming messages from clients
     ws.on('message', async function (message) {
 
-        logger.debug(`--- MESSAGE IN`)
+        logger.trace(`--- MESSAGE IN`)
         // Parse the incoming message as JSON
         let parsedMessage;
 
@@ -777,6 +778,56 @@ async function handleConnections(ws, type, request) {
                     } else {
                         return
                     }
+                }
+                else if (parsedMessage.type === 'messageDelete') {
+                    const result = await db.deleteMessage(parsedMessage.mesID)
+                    if (result === 'ok') {
+                        const [pastChat, sessionID] = await db.readAIChat(parsedMessage.sessionID)
+                        let jsonArray = JSON.parse(pastChat)
+                        const pastChatsLoadMessage = {
+                            type: 'pastChatToLoad',
+                            pastChatHistory: jsonArray,
+                            sessionID: sessionID
+                        }
+                        await broadcast(pastChatsLoadMessage)
+                        return
+                    } else {
+                        return
+                    }
+
+                }
+                else if (parsedMessage.type === 'messageContentRequest') {
+                    const messageContent = await db.getMessage(parsedMessage.mesID)
+                    logger.warn(messageContent)
+                    const messageContentResponse = {
+                        type: 'messageContentResponse',
+                        content: messageContent
+                    }
+                    ws.send(JSON.stringify(messageContentResponse))
+                    return
+                }
+                else if (parsedMessage.type === 'messageEdit') {
+                    const mesID = parsedMessage.mesID
+                    const sessionID = parsedMessage.sessionID
+                    const newMessage = parsedMessage.newMessageContent
+
+                    const result = await db.editMessage(sessionID, mesID, newMessage)
+                    if (result === 'ok') {
+                        const [pastChat, uselessSessionID] = await db.readAIChat(sessionID)
+                        let jsonArray = JSON.parse(pastChat)
+                        const pastChatsLoadMessage = {
+                            type: 'pastChatToLoad',
+                            pastChatHistory: jsonArray,
+                            sessionID: sessionID
+                        }
+                        await broadcast(pastChatsLoadMessage)
+                        return
+                    } else {
+                        logger.error('could not update message with new edits')
+                        return
+                    }
+
+
                 }
             }
             //process universal message types

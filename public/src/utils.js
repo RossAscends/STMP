@@ -208,7 +208,7 @@ function correctSizeBody() {
             'padding': '0px',
             'padding-left': '',
             'width': 'calc(100svw - 10px)',
-            'height': '100svh',
+            'height': 'calc(100svh - 20px)',
             'margin': 'auto'
         });
     }

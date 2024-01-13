@@ -356,7 +356,7 @@ async function broadcastUserList() {
 
 async function removeLastAIChatMessage() {
     await db.removeLastAIChatMessage()
-    let AIChatJSON = await db.readAIChat();
+    let [AIChatJSON, sessionID] = await db.readAIChat();
     let jsonArray = JSON.parse(AIChatJSON)
     let chatUpdateMessage = {
         type: 'chatUpdate',

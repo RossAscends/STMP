@@ -185,7 +185,8 @@ function trimIncompleteSentences(input, include_newline = false) {
 async function ObjectifyChatHistory() {
     return new Promise(async (resolve, reject) => {
         await delay(100)
-        let data = await db.readAIChat();
+        let [data, sessionID] = await db.readAIChat();
+        logger.warn(data)
         try {
             // Parse the existing contents as a JSON array
             let chatHistory = JSON.parse(data);

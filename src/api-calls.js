@@ -594,7 +594,7 @@ async function getModelList(api) {
 
 
 
-    modelsEndpoint = modelsEndpoint + 'models/'
+    modelsEndpoint = modelsEndpoint + 'models'
     let key = 'Bearer ' + api.key
 
     let headers = {

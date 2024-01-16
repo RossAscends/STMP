@@ -1028,7 +1028,7 @@ async function checkAPIListChanges(liveConfig, parsedMessage) {
 
 let accumulatedStreamOutput = ''
 
-const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => {
+const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user, sessionID, messageID) => {
     let currentlyStreaming
     logger.warn(parsedMessage)
 
@@ -1075,6 +1075,8 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user) => 
             username: liveConfig.promptConfig.selectedCharacterDisplayName,
             type: 'streamedAIResponse',
             color: user.color ? user.color : 'red',
+            sessionID: sessionID,
+            messageID: messageID,
         };
         await broadcast(streamedTokenMessage);
         currentlyStreaming = true
@@ -1097,9 +1099,12 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
     //logger.warn(AIChatUserList)
 
     if (isStreaming) {
-
+        let [activeChat, foundSessionID] = await db.readAIChat()
+        var chatJSON = JSON.parse(activeChat)
+        var lastItem = chatJSON[chatJSON.length - 1]
+        var newMessageID = lastItem?.messageID + 1 || 1;
         api.textEmitter.removeAllListeners('text');
-        const textListener = createTextListener(parsedMessage, liveConfig, AIChatUserList, user);
+        const textListener = createTextListener(parsedMessage, liveConfig, AIChatUserList, user, foundSessionID, newMessageID);
         // Handle streamed response
         api.textEmitter.off('text', textListener).on('text', textListener)
 

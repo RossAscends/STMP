@@ -83,7 +83,7 @@ var quotesExtension = function () {
     { regex: /â/g, replace: "'" },
     { regex: /ÃÂ¢ÃÂÃÂ/g, replace: "'" },
     { regex: /Ã¢ÂÂ/g, replace: "'" },
-    { regex: /"([^"]*)"/g, replace: "<q>$1</q>" },
+    { regex: /(?<!<[^>]+)"([^"]*)"(?![^<]*>)/g, replace: "<q>$1</q>" }, //double quotes, but not those within <tags like="these">
     { regex: /“([^“”]*)”/g, replace: '<q class="invisible-quotation">"$1"</q>', },
     { regex: /‘([^‘’]*)’/g, replace: "<q class=\"invisible-quotation\">'$1'</q>", },
     { regex: /â([^(ââ]*)â/g, replace: "<q class=\"invisible-quotation\">'$1'</q>", },
@@ -279,6 +279,7 @@ async function processConfirmedConnection(parsedMessage) {
 
 function appendMessagesWithConverter(messages, elementSelector, sessionID) {
   messages.forEach(({ username, userColor, content, messageID }) => {
+    content = util.convertNonsenseTokensToUTF(content);
     const message = converter.makeHtml(content);
     const newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}"></div`).html(`
     <div class="messageHeader flexbox justifySpaceBetween">
@@ -293,8 +294,12 @@ function appendMessagesWithConverter(messages, elementSelector, sessionID) {
     </div>
     `);
     $(elementSelector).append(newDiv);
+    addMessageEditListeners(newDiv);
   });
 
+}
+
+function addMessageEditListeners(newDiv) {
   $(".messageEdit").off('click').on('click', async function () {
     const mesID = $(this).data('messageid')
     const sessionID = $(this).data('sessionid')
@@ -370,26 +375,24 @@ function appendMessagesWithConverter(messages, elementSelector, sessionID) {
         })
 
     }
-  })
 
-  $(".messageDelete").off('click').on('click', async function () {
-    if ($(this).parent().parent().parent().parent().children().length === 1) { //check how many messages are inside the chat/AIChat container
-      alert('Can not delete the only message in this chat. If you want to delete this chat, use the Past Chats list.')
-      return
-    }
-    const mesID = $(this).data('messageid')
-    const sessionID = $(this).data('sessionid')
-    const mesDelRequest = {
-      type: 'messageDelete',
-      UUID: myUUID,
-      mesID: mesID,
-      sessionID: sessionID
-    }
-    util.messageServer(mesDelRequest)
+    $(".messageDelete").off('click').on('click', async function () {
+      if ($(this).parent().parent().parent().parent().children().length === 1) { //check how many messages are inside the chat/AIChat container
+        alert('Can not delete the only message in this chat. If you want to delete this chat, use the Past Chats list.')
+        return
+      }
+      const mesID = $(this).data('messageid')
+      const sessionID = $(this).data('sessionid')
+      const mesDelRequest = {
+        type: 'messageDelete',
+        UUID: myUUID,
+        mesID: mesID,
+        sessionID: sessionID
+      }
+      util.messageServer(mesDelRequest)
+    })
   })
-
 }
-
 
 
 async function connectWebSocket(username) {
@@ -445,9 +448,22 @@ async function connectWebSocket(username) {
           let username = obj.username;
           let userColor = obj.userColor;
           let message = converter.makeHtml(obj.content);
-          let newDiv = $(`<div></div>`);
-          newDiv.html(`<span style="color:${userColor}" class="chatUserName">${username}</span>${message}`);
+          let sessionID = obj.sessionID
+          let messageID = obj.messageID
+          const newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}"></div`).html(`
+          <div class="messageHeader flexbox justifySpaceBetween">
+            <span style="color:${userColor}" class="chatUserName">${username}</span>
+            <div class="messageControls transition250">
+              <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+              <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+            </div>
+          </div>
+          <div class="messageContent">
+          ${message}
+          </div>
+          `);
           $("#AIChat").append(newDiv);
+          addMessageEditListeners(newDiv)
         });
         break;
 
@@ -572,14 +588,28 @@ async function connectWebSocket(username) {
         currentlyStreaming = true;
         let newStreamDivSpan;
         if (!$("#AIChat .incomingStreamDiv").length) {
-          newStreamDivSpan = $(
-            `<div class="incomingStreamDiv">
-              <div style="color:${parsedMessage.color}" class="chatUserName">
-                ${parsedMessage.username}🤖
-              </div>
-              <span></span>
-            </div>`
-          );
+          /*           newStreamDivSpan = $(
+                      `<div class="incomingStreamDiv">
+                        <div style="color:${parsedMessage.color}" class="chatUserName">
+                          ${parsedMessage.username}🤖
+                        </div>
+                        <span></span>
+                      </div>`
+                    ); */
+
+          newStreamDivSpan = $(`<div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}"></div`).html(`
+          <div class="messageHeader flexbox justifySpaceBetween">
+            <span style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}🤖</span>
+            <div class="messageControls transition250">
+              <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+              <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+            </div>
+          </div>
+          <div class="messageContent">
+          <span></span>
+          </div>
+          `);
+
           $("#AIChat").append(newStreamDivSpan);
           util.kindlyScrollDivToBottom($("#AIChat"));
         }
@@ -596,11 +626,12 @@ async function connectWebSocket(username) {
         break;
       case "streamedAIResponseEnd":
         console.debug("saw stream end");
-        console.log(accumulatedContent);
+        accumulatedContent = util.trimIncompleteSentences(accumulatedContent);
         const HTMLizedContent = converter.makeHtml(accumulatedContent);
         const newDivElement = $("<p>").html(HTMLizedContent);
-        const elementsToRemove = $(".incomingStreamDiv").children("span");
+        const elementsToRemove = $(".incomingStreamDiv .messageContent").children("span");
         elementsToRemove.remove();
+        addMessageEditListeners('.incomingStreamDiv')
         $(".incomingStreamDiv").append(newDivElement.html());
         accumulatedContent = "";
         fullRawAccumulatedContent = "";
@@ -625,19 +656,25 @@ async function connectWebSocket(username) {
         var {
           chatID, username, content,
           userColor, color, workerName,
-          hordeModel, kudosCost, AIChatUserList,
+          hordeModel, kudosCost, AIChatUserList, messageID
         } = JSON.parse(message);
 
         console.debug(`saw chat message: [${chatID}]${username}:${content}`);
         const HTMLizedMessage = converter.makeHtml(content);
         const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
-        let newChatItem = $("<div>");
         let usernameToShow = isAIResponse ? `${username} 🤖` : username;
-        newChatItem.html(
-          `<div style="color:${userColor ? userColor : color}" class="chatUserName">
-          ${usernameToShow}
-          </div> ${sanitizedMessage}`
-        );
+        const newChatItem = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}"></div`).html(`
+        <div class="messageHeader flexbox justifySpaceBetween">
+          <span style="color:${userColor}" class="chatUserName">${usernameToShow}</span>
+          <div class="messageControls transition250">
+            <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+            <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+          </div>
+        </div>
+        <div class="messageContent">
+        ${sanitizedMessage}
+        </div>
+        `);
         if (
           workerName !== undefined &&
           hordeModel !== undefined &&
@@ -650,6 +687,7 @@ async function connectWebSocket(username) {
         }
         console.debug("appending new message to chat");
         $(`div[data-chat-id="${chatID}"]`).append(newChatItem);
+        addMessageEditListeners(newChatItem)
         util.kindlyScrollDivToBottom($(`div[data-chat-id="${chatID}"]`));
 
         if (chatID === "AIChat") {
@@ -663,14 +701,15 @@ async function connectWebSocket(username) {
     }
   });
 }
+
 let fullRawAccumulatedContent = ""; //store the whole message
 let accumulatedContent = ""; // variable to store tokens for the currently streaming paragraph
 async function displayStreamedResponse(message) {
   await util.delay(0);
   var { chatID, username, content, userColor, AIChatUserList } =
     JSON.parse(message);
-  let newStreamDivSpan = $("#AIChat .incomingStreamDiv span:last");
-  let newStreamDiv = $("#AIChat .incomingStreamDiv");
+  let newStreamDivSpan = $("#AIChat .incomingStreamDiv .messageContent span:last");
+  let newStreamDiv = $("#AIChat .incomingStreamDiv .messageContent");
 
   content = util.convertNonsenseTokensToUTF(content);
   content = DOMPurify.sanitize(content);

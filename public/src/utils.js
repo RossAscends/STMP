@@ -285,6 +285,7 @@ function convertNonsenseTokensToUTF(x) {
     x = x.replace(/â|â/g, '"');
     x = x.replace(/â/g, "'");
     x = x.replace(/ÃÂ¢ÃÂÃÂ/g, '\'')
+    x = x.replace(/â/g, '—')
     x = x.replace(/â([^“(”)]*)â/g, '<q class="invisible-quotation">\'$1\'</q>');
     return x;
 }

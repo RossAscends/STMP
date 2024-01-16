@@ -186,7 +186,6 @@ async function ObjectifyChatHistory() {
     return new Promise(async (resolve, reject) => {
         await delay(100)
         let [data, sessionID] = await db.readAIChat();
-        logger.warn(data)
         try {
             // Parse the existing contents as a JSON array
             let chatHistory = JSON.parse(data);
@@ -247,7 +246,7 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
 }
 
 function replaceMacros(string, username = null, charname = null) {
-    logger.debug(username, charname)
+    //logger.debug(username, charname)
     var replacedString = string
     if (username !== null && charname !== null) {
         replacedString = replacedString.replace(/{{user}}/g, username);
@@ -277,8 +276,8 @@ function postProcessText(text) {
 }
 
 async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharName, username, liveAPI) {
-    logger.debug(`[addCharDefsToPrompt] >> GO`)
-    logger.debug(liveAPI)
+    //logger.debug(`[addCharDefsToPrompt] >> GO`)
+    //logger.debug(liveAPI)
     let isClaude = liveAPI.claude
     let isCCSelected = liveAPI.type === 'CC' ? true : false
     let doD4CharDefs = liveConfig.promptConfig.D4CharDefs
@@ -319,7 +318,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             const endSequence = replaceMacros(instructSequence.end_sequence, username, charJSON.name)
 
             if (!doD4CharDefs) {
-                var systemPrompt = `${systemSequence}${systemMessage}${endSequence}${systemSequence}${descToAdd}${personalityToAdd}${scenarioToAdd}`
+                var systemPrompt = `${systemSequence}${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
                 var systemPromptforCC = `${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
             } else {
                 var systemPrompt = `${systemSequence}${systemMessage}`
@@ -370,13 +369,14 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 insertedItems.reverse()
                 let numOfObjects = insertedItems.length
                 let positionForD4AN = numOfObjects - 4
-                logger.warn(`D4AN will be inserted at position ${positionForD4AN} of ${numOfObjects}`)
+                logger.trace(`D4AN will be inserted at position ${positionForD4AN} of ${numOfObjects}`)
+                D4AN = D4AN.trim()
                 if (D4AN.length !== 0 && D4AN !== '' && D4AN !== undefined && D4AN !== null) {
                     if (insertedItems.length < 5) {
-                        logger.warn('adding D4AN at top of prompt because it is small')
+                        logger.trace('adding D4AN at top of prompt because it is small')
                         insertedItems.splice(1, 0, `${endSequence}${systemSequence}${D4AN}`)
                     } else {
-                        logger.warn('adding D4AN at depth 4')
+                        logger.trace('adding D4AN at depth 4')
                         insertedItems.splice(positionForD4AN, 0, `${endSequence}${systemSequence}${D4AN}`)
                     }
 
@@ -819,7 +819,7 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
 
                     // Check if it's the final object
                     if (jsonChunk === '[DONE]') {
-                        logger.debug('End of stream. Closing the stream.');
+                        //logger.debug('End of stream. Closing the stream.');
                         stream.destroy();
                         break;
                     }
@@ -844,6 +844,8 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
                         } else {
                             text = jsonData.choices[0].text;
                         }
+                        convertToUTF8(text)
+
                         textEmitter.emit('text', text);
                         //logger.debug(text)
 
@@ -878,6 +880,36 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
         }
     }
 
+}
+
+function isNonUTF8Token(token) {
+    for (let i = 0; i < token.length; i++) {
+        const char = token[i];
+        const charCode = char.charCodeAt(0);
+        if (charCode < 32 || charCode > 126 ||
+            charCode === 10 || // \n
+            charCode === 13) { // \r
+            // Non-UTF-8 character found in the token (excluding newline and carriage return characters)
+            return true;
+        }
+    }
+    return false;
+}
+
+function convertToUTF8(inputTokens) {
+    const outputTokens = [];
+    for (let i = 0; i < inputTokens.length; i++) {
+        const token = inputTokens[i];
+        if (isNonUTF8Token(token)) {
+            // Convert the non-UTF-8 token to UTF-8 equivalent
+            const utf8Token = encodeURIComponent(token).replace(/%/g, '');
+            outputTokens.push(utf8Token);
+            logger.warn(`fixed nonUTF8: "${token}", "${utf8Token}"`)
+        } else {
+            outputTokens.push(token);
+        }
+    }
+    return outputTokens;
 }
 
 async function readStreamChunks(readableStream) {

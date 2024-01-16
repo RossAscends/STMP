@@ -883,17 +883,7 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
 }
 
 function isNonUTF8Token(token) {
-    for (let i = 0; i < token.length; i++) {
-        const char = token[i];
-        const charCode = char.charCodeAt(0);
-        if (charCode < 32 || charCode > 126 ||
-            charCode === 10 || // \n
-            charCode === 13) { // \r
-            // Non-UTF-8 character found in the token (excluding newline and carriage return characters)
-            return true;
-        }
-    }
-    return false;
+    return Buffer.from(token, 'utf8').toString('utf8') !== token;
 }
 
 function convertToUTF8(inputTokens) {
@@ -902,9 +892,9 @@ function convertToUTF8(inputTokens) {
         const token = inputTokens[i];
         if (isNonUTF8Token(token)) {
             // Convert the non-UTF-8 token to UTF-8 equivalent
-            const utf8Token = encodeURIComponent(token).replace(/%/g, '');
+            const utf8Token = Buffer.from(token, 'latin1').toString('utf8');
             outputTokens.push(utf8Token);
-            logger.warn(`fixed nonUTF8: "${token}", "${utf8Token}"`)
+            logger.warn(`fixed nonUTF8: "${token}", "${utf8Token}"`);
         } else {
             outputTokens.push(token);
         }

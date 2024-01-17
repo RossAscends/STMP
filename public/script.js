@@ -279,7 +279,7 @@ async function processConfirmedConnection(parsedMessage) {
 
 function appendMessagesWithConverter(messages, elementSelector, sessionID) {
   messages.forEach(({ username, userColor, content, messageID }) => {
-    content = util.convertNonsenseTokensToUTF(content);
+    //content = util.convertNonsenseTokensToUTF(content);
     const message = converter.makeHtml(content);
     const newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}"></div`).html(`
     <div class="messageHeader flexbox justifySpaceBetween">
@@ -444,27 +444,7 @@ async function connectWebSocket(username) {
         console.debug("saw chat update instruction");
         $("#AIChat").empty();
         let resetChatHistory = parsedMessage.chatHistory;
-        resetChatHistory.forEach((obj) => {
-          let username = obj.username;
-          let userColor = obj.userColor;
-          let message = converter.makeHtml(obj.content);
-          let sessionID = obj.sessionID
-          let messageID = obj.messageID
-          const newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}"></div`).html(`
-          <div class="messageHeader flexbox justifySpaceBetween">
-            <span style="color:${userColor}" class="chatUserName">${username}</span>
-            <div class="messageControls transition250">
-              <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
-              <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
-            </div>
-          </div>
-          <div class="messageContent">
-          ${message}
-          </div>
-          `);
-          $("#AIChat").append(newDiv);
-          addMessageEditListeners(newDiv)
-        });
+        appendMessagesWithConverter(resetChatHistory, $("#AIChat"), resetChatHistory[0].sessionID,)
         break;
 
       case "modeChange":
@@ -548,13 +528,12 @@ async function connectWebSocket(username) {
         $("#AIChat").empty();
         $("#AIChatUserList ul").empty();
         let pastChatHistory = parsedMessage.pastChatHistory;
-        let sessionID = parsedMessage.sessionID;
         $("#pastChatsList .activeChat").removeClass("activeChat");
         $("#pastChatsList")
-          .find(`div[data-session_id="${sessionID}"]`)
+          .find(`div[data-session_id="${parsedMessage.sessionID}"]`)
           .addClass("activeChat");
         //TODO: this feels like a duplicate of the appendWithConverter function...merge?
-        appendMessagesWithConverter(pastChatHistory, "#AIChat", sessionID)
+        appendMessagesWithConverter(pastChatHistory, "#AIChat", parsedMessage.sessionID)
         util.kindlyScrollDivToBottom($("#AIChat"))
         break;
       case "pastChatDeleted":
@@ -588,15 +567,6 @@ async function connectWebSocket(username) {
         currentlyStreaming = true;
         let newStreamDivSpan;
         if (!$("#AIChat .incomingStreamDiv").length) {
-          /*           newStreamDivSpan = $(
-                      `<div class="incomingStreamDiv">
-                        <div style="color:${parsedMessage.color}" class="chatUserName">
-                          ${parsedMessage.username}🤖
-                        </div>
-                        <span></span>
-                      </div>`
-                    ); */
-
           newStreamDivSpan = $(`<div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}"></div`).html(`
           <div class="messageHeader flexbox justifySpaceBetween">
             <span style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}🤖</span>
@@ -658,23 +628,42 @@ async function connectWebSocket(username) {
           userColor, color, workerName,
           hordeModel, kudosCost, AIChatUserList, messageID
         } = JSON.parse(message);
+        let sessionID = message.sessionID
 
         console.debug(`saw chat message: [${chatID}]${username}:${content}`);
         const HTMLizedMessage = converter.makeHtml(content);
         const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
         let usernameToShow = isAIResponse ? `${username} 🤖` : username;
-        const newChatItem = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}"></div`).html(`
+        var newChatItem
+        if (chatID === "AIChat") {
+          let sessionAndMessageIDString = `data-sessionid="${sessionID}" data-messageid="${messageID}"`
+
+          newChatItem = $(`<div class="transition250" ${sessionAndMessageIDString}></div`).html(`
+          <div class="messageHeader flexbox justifySpaceBetween">
+            <span style="color:${userColor}" class="chatUserName">${usernameToShow}</span>
+            <div class="messageControls transition250">
+              <i ${sessionAndMessageIDString} class="messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+              <i ${sessionAndMessageIDString} class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+            </div>
+          </div>
+          <div class="messageContent">
+          ${sanitizedMessage}
+          </div>
+          `);
+        } else {
+          newChatItem = $(`<div class="transition250"></div`).html(`
         <div class="messageHeader flexbox justifySpaceBetween">
           <span style="color:${userColor}" class="chatUserName">${usernameToShow}</span>
           <div class="messageControls transition250">
-            <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
-            <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+            <i class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
           </div>
         </div>
         <div class="messageContent">
         ${sanitizedMessage}
         </div>
         `);
+        }
+
         if (
           workerName !== undefined &&
           hordeModel !== undefined &&
@@ -702,6 +691,16 @@ async function connectWebSocket(username) {
   });
 }
 
+function convertToUTF8(inputTokens) {
+  const utf8Encoded = new TextEncoder().encode(inputTokens);
+  const utf8String = new TextDecoder('utf-8').decode(utf8Encoded);
+
+  console.warn(`Input String: ${inputTokens}`);
+  console.warn(`Decoded String: ${utf8String}`);
+
+  return utf8String;
+}
+
 let fullRawAccumulatedContent = ""; //store the whole message
 let accumulatedContent = ""; // variable to store tokens for the currently streaming paragraph
 async function displayStreamedResponse(message) {
@@ -711,19 +710,23 @@ async function displayStreamedResponse(message) {
   let newStreamDivSpan = $("#AIChat .incomingStreamDiv .messageContent span:last");
   let newStreamDiv = $("#AIChat .incomingStreamDiv .messageContent");
 
-  content = util.convertNonsenseTokensToUTF(content);
-  content = DOMPurify.sanitize(content);
+
+  //content = DOMPurify.sanitize(content);
 
   let spanElement, contentLeftover;
   if (content.includes("\n")) {
     //preprocess individual paragraphs.
     //sometimes AI produces new lines with the start of the next sentence together.
     //we want to remove the newlines, but keep the first word of the next paragraph.
+
     contentLeftover = content.replaceAll("\n", "");
+
     if (!contentLeftover) {
       contentLeftover === "";
     } //if there was nothing else, set it to blank.
+    accumulatedContent = convertToUTF8(accumulatedContent);
     let trimmedParagraph = util.trimIncompleteSentences(accumulatedContent); //trim what we accumulated so far.
+
     let markdownParagraph = converter.makeHtml(trimmedParagraph); //make it markdown
     $(newStreamDiv).children("span").remove(); //remove all the token spans that went into producing it.
     $(newStreamDiv).append(markdownParagraph); //add the markdown paragraph inplace of the token spans.

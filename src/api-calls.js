@@ -5,6 +5,7 @@ const util = require('util');
 const { Readable } = require('stream');
 const { EventEmitter } = require('events');
 const textEmitter = new EventEmitter();
+const iconv = require('iconv-lite');
 
 const db = require('./db.js');
 const fio = require('./file-io.js')
@@ -863,6 +864,7 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
                             logger.warn('did not see "choices" object, saw this:')
                             logger.warn(jsonData)
                         }
+                        convertToUTF8(text)
                         textEmitter.emit('text', text);
 
                     }
@@ -883,18 +885,23 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
 }
 
 function isNonUTF8Token(token) {
-    return Buffer.from(token, 'utf8').toString('utf8') !== token;
+    const utf8Buffer = iconv.encode(token, 'utf8');
+    const encodedBuffer = iconv.encode(token, 'binary');
+    return !utf8Buffer.equals(encodedBuffer);
 }
 
 function convertToUTF8(inputTokens) {
+    return inputTokens //let's attempt to handle it client side instead, but keep code incase we need to revert
+
     const outputTokens = [];
     for (let i = 0; i < inputTokens.length; i++) {
         const token = inputTokens[i];
         if (isNonUTF8Token(token)) {
             // Convert the non-UTF-8 token to UTF-8 equivalent
-            const utf8Token = Buffer.from(token, 'latin1').toString('utf8');
+            const encodedBuffer = iconv.encode(token, 'latin1');
+            const utf8Token = iconv.decode(encodedBuffer, 'utf8');
             outputTokens.push(utf8Token);
-            logger.warn(`fixed nonUTF8: "${token}", "${utf8Token}"`);
+            console.warn(`Fixed non-UTF8 token: "${token}", "${utf8Token}"`);
         } else {
             outputTokens.push(token);
         }

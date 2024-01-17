@@ -890,19 +890,26 @@ async function handleConnections(ws, type, request) {
 
                 //setup the userPrompt array in order to send the input into the AIChat box
                 if (chatID === 'AIChat') {
-
-                    userPrompt = {
-                        'type': 'chatMessage',
-                        'chatID': chatID,
-                        'username': username,
-                        //send the HTML-ized message into the AI chat
-                        'content': parsedMessage.userInput,
-                        'userColor': userColor
-                    }
-                    let isEmptyTrigger = userPrompt.content.length == 0 ? true : false
+                    let isEmptyTrigger = parsedMessage.userInput.length == 0 ? true : false
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     if (!isEmptyTrigger) {
+
                         await db.writeAIChatMessage(username, senderUUID, userInput, 'user');
+
+                        let [activeChat, foundSessionID] = await db.readAIChat()
+                        var chatJSON = JSON.parse(activeChat)
+                        var lastItem = chatJSON[chatJSON.length - 1]
+                        var newMessageID = lastItem?.messageID
+                        userPrompt = {
+                            'type': 'chatMessage',
+                            'chatID': chatID,
+                            'username': username,
+                            //send the HTML-ized message into the AI chat
+                            'content': parsedMessage.userInput,
+                            'userColor': userColor,
+                            'sessionID': foundSessionID,
+                            'messageID': newMessageID
+                        }
                         await broadcast(userPrompt)
                     }
 

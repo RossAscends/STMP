@@ -1,6 +1,6 @@
 {
   "name": "stmp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "",
   "main": "client.js",
   "scripts": {
@@ -20,7 +20,8 @@
     "uuid": "^8.3.2",
     "sqlite3": "5.1.6",
     "sqlite": "4.0.23",
-    "log4js": "^6.9.0"
+    "log4js": "^6.9.0",
+    "iconv-lite": "^0.6.3"
   },
   "keywords": [],
   "author": "",

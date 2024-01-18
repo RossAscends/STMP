@@ -13,12 +13,13 @@ body {
     padding: 0;
     font-family: "Noto Sans", "Noto Color Emoji", sans-serif;
     font-size: 15px;
+    font-weight: 500;
     display: flex;
 }
 
 #bodywrap {
-    width: 100%;
-    height: calc(100% - 1px);
+    width: 70vw;
+    height: 100vh
 }
 
 textarea,
@@ -55,18 +56,28 @@ textarea {
     min-height: 40px;
 }
 
+.spanner15vw {
+    width: 15vw;
+}
+
+#contentWrap {
+    max-height: calc(100svh - 3em);
+}
+
 #chatWrap {
     position: relative;
     max-height: 100%;
-    max-width: 85%;
     overflow-y: auto;
 }
 
+#rightWrap {
+    width: 70%;
+}
+
 #universalControls {
-    justify-content: space-between;
-    display: flex;
     position: relative;
     width: 100%;
+    height: 3em;
 }
 
 #universalControls>div {
@@ -78,6 +89,9 @@ textarea {
     height: 100%;
     overflow: hidden;
     position: relative;
+    background: #313338;
+    border-radius: 10px;
+    padding: 5px;
 }
 
 #inputBlock,
@@ -98,15 +112,20 @@ textarea {
 }
 
 #controlPanel {
-    max-width: 15svw;
-    width: 15svw;
+    max-width: 15vw;
+    width: 15vw;
     /* min-width: 200px; */
     background-color: #2c2d31;
-    margin-right: 5px;
-    border-radius: 0 10px 10px 0;
+    /* margin-right: 5px; */
+    /* border-radius: 0 10px 10px 0; */
+    height: 100vh;
+    max-height: 100vw;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
-#controlPanel h4 {
+#controlPanel h4,
+#userListsWrap h4 {
     margin: 5px 0;
     font-size: 1.25em;
     text-align: center;
@@ -130,9 +149,22 @@ select,
     z-index: 2;
 }
 
+#finalInstructionBlock,
+#systemPromptBlock,
+#authorsNoteBlock {
+    height: 33%;
+    max-height: 33%;
+    min-height: 33%;
+}
+
+#controlPanel textarea {
+    height: 100%
+}
+
 button,
 select,
-.nonButtonButton {
+.nonButtonButton,
+.messageButton {
     cursor: pointer;
 }
 
@@ -162,7 +194,7 @@ select:hover:not(:disabled),
 }
 
 .hostControls {
-    display: none
+    display: none !important
 }
 
 .positionAbsolute {
@@ -182,8 +214,8 @@ select:hover:not(:disabled),
 }
 
 .chatTrash {
-    top: 5px;
-    right: 15px;
+    top: 0;
+    right: 0;
     background: transparent;
 }
 
@@ -210,6 +242,10 @@ select:hover:not(:disabled),
     border-right: var(--size) solid transparent;
     border-top: var(--size) solid #888;
     top: 50%;
+}
+
+#modelList {
+    max-width: 200px;
 }
 
 /*CHECKBOXES*/
@@ -325,16 +361,56 @@ pre {
     display: none;
 }
 
-#chat div,
-#AIChat div {
-    padding: 5px 5% 5px 10px;
-    margin-bottom: 10px;
+#chat>div,
+#AIChat>div {
+    padding: 5px 5px 5px 10px;
     overflow-wrap: break-word;
+    border-radius: 10px;
+    width: 100%;
+    height: fit-content;
 }
 
 #chat div:hover,
 #AIChat div:hover {
     background-color: #2f3035
+}
+
+#AIChat>div:hover .messageControls {
+    display: flex;
+
+    opacity: 1;
+
+}
+
+.messageControls {
+    display: none;
+    opacity: 0;
+    right: 5px;
+    gap: 10px;
+    position: relative;
+}
+
+#mesEditPopup {
+    display: flex;
+    flex-flow: column;
+    padding: 5px;
+}
+
+#mesEditText {
+    width: 100%;
+    background-color: #393a3f;
+    padding: 3px 7px;
+    margin-top: 5px;
+    flex: 1;
+}
+
+.ui-dialog .ui-dialog-titlebar {
+    padding-inline-start: 5px;
+    border-radius: 0;
+}
+
+.hidden {
+    display: none;
 }
 
 #chat div p,
@@ -353,8 +429,8 @@ pre {
     color: #8ca3d9
 }
 
-#messageInput,
-#AIMessageInput {
+#AIMessageInput,
+#messageInput {
     height: 2.2em;
     min-height: 2.2em;
     flex-grow: 1;
@@ -364,13 +440,17 @@ pre {
     max-height: 50vh;
     overflow-y: auto;
     line-height: 1.4em;
-    padding-top: 5px;
 }
 
 #AIChatInputButtons,
 #UserChatInputButtons {
     top: 0px;
-    right: 5px;
+    background-color: #313338;
+}
+
+#UserChatInputButtons {
+    border-radius: 0 10px 10px 0;
+    background-color: #393a3f;
 }
 
 #AIChatInputButtons button {
@@ -388,7 +468,7 @@ input::placeholder {
 }
 
 .chatHeader {
-    height: 2.5em
+    /* height: 2.5em */
 }
 
 #controlPanelToggle {
@@ -406,18 +486,8 @@ input::placeholder {
     height: 2em
 }
 
-#userChatAndUserList,
-#AIChatAndAIUserList {
-    overflow-y: auto;
-    height: 100%;
-    max-height: 100%;
-    background-color: #313338;
-    border-radius: 10px 10px 0px 0px;
-}
-
 #chat,
 #AIChat {
-    background: #313338;
     flex: 1;
     overflow-y: auto;
     height: 100%;
@@ -431,25 +501,34 @@ input::placeholder {
     max-height: 100%;
     overflow-y: auto;
     padding-top: 5px;
+    background-color: #313338;
+    border-radius: 10px 10px 0px 0px;
+}
+
+#userListsWrap {
+    background: #2c2d31;
+    padding: 10px 5px;
+    /* margin: 0 0 0 5px; */
+    /* border-radius: 10px; */
+    height: 100vh;
+    width: 15vw;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 #userList,
 #AIChatUserList {
-    background: #2c2d31;
-    overflow: hidden;
-    padding: 0 5px;
-    margin: 5px 5px 0 5px;
-    border-radius: 10px;
-    height: calc(100% - 10px);
-    max-height: 99%;
-    overflow-y: auto;
+    width: 7vw;
+}
+
+#userList {
+    border-right: 1px dashed #1e1f23
 }
 
 #userList ul,
 #AIChatUserList ul {
     list-style: none;
-    padding: 5px;
-    width: 100px;
+    padding: 0;
     margin: 0;
 }
 
@@ -463,8 +542,7 @@ input::placeholder {
     height: 33svh;
 } */
 
-#pastChatsWrap,
-#AIConfigWrap {
+#pastChatsWrap {
     height: 75vh;
 }
 
@@ -557,6 +635,10 @@ hr {
     padding: 5px;
 }
 
+.paddingLR5 {
+    padding: 0 5px;
+}
+
 .Hcentered {
     /* text-align: center; */
     justify-content: center;
@@ -610,12 +692,32 @@ hr {
     gap: 5px;
 }
 
+.gap10 {
+    gap: 10px;
+}
+
 .noGap {
     gap: 0
 }
 
 .noWrap {
     flex-wrap: nowrap;
+}
+
+.noTextWrap {
+    text-wrap: nowrap;
+}
+
+.greenHighlight {
+    background-color: #496951 !important;
+}
+
+.borderRad5 {
+    border-radius: 5px;
+}
+
+.borderRad10 {
+    border-radius: 10px;
 }
 
 .flexFlowCol {
@@ -636,6 +738,10 @@ hr {
 
 .widthFitContent {
     width: fit-content
+}
+
+.width50p {
+    width: 50%
 }
 
 .width100p {
@@ -697,6 +803,11 @@ hr {
     background-color: transparent;
 }
 
+
+.opacityZero {
+    opacity: 0;
+}
+
 .opacityHalf {
     filter: opacity(0.5);
 }
@@ -708,6 +819,10 @@ hr {
 .greyscale:hover,
 .mutedColor:hover {
     filter: saturate(0.7)
+}
+
+.transition125 {
+    transition: all 125ms ease-in-out;
 }
 
 .transition250 {
@@ -728,6 +843,10 @@ hr {
 
 .justifyContentCenter {
     justify-content: center;
+}
+
+.justifyContentEnd {
+    justify-content: end;
 }
 
 .textshadow {
@@ -788,7 +907,7 @@ hr {
 #profileManagementMenu {
     right: 0;
     top: 2.25em;
-    background-color: #393a3f;
+    background-color: #313338;
     width: min-content;
     padding: 5px;
     z-index: 10;
@@ -796,12 +915,17 @@ hr {
     box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
 }
 
-#innerChatWrap {
-    overflow-y: auto;
+#AIChatHostControls {
+    background-color: #313338;
+    z-index: 9;
 }
 
 .overflowYHidden {
     overflow-y: hidden
+}
+
+.overflowXHidden {
+    overflow-x: hidden
 }
 
 .ui-widget-overlay {
@@ -858,29 +982,32 @@ input:read-only {
 
     #bodywrap {
         max-height: calc(100svh - 20px);
+        width: 100svw;
         flex-flow: column;
     }
 
-    #innerChatWrap {
+    #chatWrap {
         flex-flow: column;
     }
 
-    #universalControls {
+    #universalControls button {
         position: relative;
         font-size: 1.5em;
     }
 
-    #controlPanel {
-        width: 100%;
-        max-width: 100%;
-        min-height: 50%;
-        height: calc(100% - 3em);
-        bottom: 0px;
+    #controlPanel,
+    #userListsWrap {
+        width: 100svw;
+        max-width: 100svw;
+        height: calc(100% - 3em - 30px);
+        min-height: calc(100svh - 3em - 30px);
+        padding: 10px;
+        top: 3em;
         left: 0px;
         position: absolute;
         border-radius: 0;
-        z-index: 10;
-        display: none;
+        z-index: 25;
+        /* display: none; */
         box-shadow: 0px 0px 12px 2px rgba(0, 0, 0, 0.5);
     }
 
@@ -891,6 +1018,7 @@ input:read-only {
         flex: 1;
         box-sizing: border-box;
         padding-top: 5px;
+        width: 100%;
     }
 
     .chatHeader {
@@ -902,8 +1030,8 @@ input:read-only {
     }
 
     #chatWrap {
-        max-width: 100svw;
-        max-height: 100svh;
+        max-width: 100%;
+        max-height: calc(100svh - 3em - 30px);
         flex-flow: column;
     }
 
@@ -922,7 +1050,28 @@ input:read-only {
         width: 2em;
     }
 
+    button:not(#controlPanel button, .ui-button) {
+        font-size: 1.75em !important;
+    }
 
+    /*     #userListsWrap {
+        background: #2c2d31;
+        padding: 3em 5px;
+        height: calc(100svh - 3em);
+        width: 100vw;
+        overflow-x: hidden;
+        overflow-y: auto;
+        position: absolute;
+        right: 0;
+        top: 3em;
+        z-index: 20;
+    } */
+
+    #userList,
+    #AIChatUserList {
+        width: 'unset';
+        flex: 1;
+    }
 
 
 

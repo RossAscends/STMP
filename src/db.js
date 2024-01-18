@@ -69,6 +69,8 @@ const schemaDictionary = {
         claude: "BOOLEAN DEFAULT FALSE",
         created_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
         last_used_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
+        modelList: "TEXT",
+        selectedModel: "TEXT"
     }
 };
 
@@ -214,6 +216,37 @@ async function deletePastChat(sessionID) {
     }
 }
 
+async function deleteMessage(mesID) {
+    const db = await dbPromise;
+    try {
+        const row = await db.get('SELECT * FROM aichats WHERE message_id = ?', [mesID]);
+        if (row) {
+            await db.run('DELETE FROM aichats WHERE message_id = ?', [mesID]);
+            logger.debug(`Message ${mesID} was deleted`);
+            return 'ok';
+        }
+
+    } catch (err) {
+        logger.error('Error deleting message:', err);
+        return 'error';
+    }
+}
+
+async function deleteAPI(APIName) {
+    logger.debug('[deleteAPI()] Deleting API named:' + APIName);
+    const db = await dbPromise;
+    try {
+        const row = await db.get('SELECT * FROM apis WHERE name = ?', [APIName]);
+        if (row) {
+            await db.run('DELETE FROM apis WHERE name = ?', [APIName]);
+            logger.debug(`API ${APIName} was deleted`);
+        }
+        return ['ok'];
+    } catch (err) {
+        logger.error('Error deleting API:', err);
+    }
+}
+
 // Only read the user chat messages that are active
 async function readUserChat() {
     logger.debug('Reading user chat...');
@@ -331,23 +364,23 @@ async function upsertUserRole(uuid, role) {
 }
 
 // Create or update the character in the database
-async function upsertChar(uuid, displayname, color) {
-    //logger.debug('Adding/updating character...' + uuid);
+async function upsertChar(char_id, displayname, color) {
+    logger.debug(`Adding/updating ${displayname} (${char_id})`);
     const db = await dbPromise;
     try {
-        const existingRow = await db.get('SELECT displayname FROM characters WHERE char_id = ?', [uuid]);
+        const existingRow = await db.get('SELECT displayname FROM characters WHERE char_id = ?', [char_id]);
 
         if (!existingRow) {
             // Case 1: Row with matching uuid doesn't exist, create a new row
-            await db.run('INSERT INTO characters (char_id, displayname, display_color, last_seen_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [uuid, displayname, color]);
-            logger.debug(`A new character was inserted, ${uuid}, ${displayname}`);
+            await db.run('INSERT INTO characters (char_id, displayname, display_color, last_seen_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)', [char_id, displayname, color]);
+            logger.debug(`A new character was inserted, ${char_id}, ${displayname}`);
         } else if (existingRow.displayname !== displayname) {
             // Case 2: Row with matching uuid exists, but displayname is different, update displayname and last_seen_at
-            await db.run('UPDATE characters SET displayname = ?, last_seen_at = CURRENT_TIMESTAMP WHERE char_id = ?', [displayname, uuid]);
+            await db.run('UPDATE characters SET displayname = ?, last_seen_at = CURRENT_TIMESTAMP WHERE char_id = ?', [displayname, char_id]);
             logger.debug(`Updated displayname for character from ${existingRow.displayname} to ${displayname}`);
         } else {
             // Case 3: Row with matching uuid AND displayname exists, only update last_seen_at
-            await db.run('UPDATE characters SET last_seen_at = CURRENT_TIMESTAMP WHERE char_id = ?', [uuid]);
+            await db.run('UPDATE characters SET last_seen_at = CURRENT_TIMESTAMP WHERE char_id = ?', [char_id]);
             //logger.debug('Last seen timestamp was updated');
         }
     } catch (err) {
@@ -385,6 +418,7 @@ async function readAIChat(sessionID = null) {
     logger.debug('Reading AI chat...');
     const db = await dbPromise;
     let sessionWhereClause = '';
+    let foundSessionID = null
     let params = [];
 
     if (sessionID) {
@@ -406,7 +440,9 @@ async function readAIChat(sessionID = null) {
                         u.username_color
                 END AS userColor,
                 a.message_id,
-                a.entity
+                a.session_id,
+                a.entity,
+                (SELECT session_id FROM sessions WHERE is_active = TRUE) AS foundSessionID
             FROM aichats a
             LEFT JOIN users u ON a.user_id = u.user_id
             ${sessionWhereClause}
@@ -417,9 +453,14 @@ async function readAIChat(sessionID = null) {
             username: row.username,
             content: row.message,
             userColor: row.userColor,
+            sessionID: row.session_id,
             messageID: row.message_id,
             entity: row.entity
         })));
+
+        if (rows.length > 0) {
+            foundSessionID = rows[0].foundSessionID;
+        }
 
         // Update the active session if sessionID is provided
         if (sessionID) {
@@ -427,7 +468,7 @@ async function readAIChat(sessionID = null) {
             await db.run('UPDATE sessions SET is_active = TRUE WHERE session_id = ?', [sessionID]);
         }
         if (sessionID === null) { //happens when loading initial AIchat on page load
-            return result;
+            return [result, foundSessionID];
         } else { //happens when user loads a past chat later.
             return [result, sessionID];
         }
@@ -435,17 +476,6 @@ async function readAIChat(sessionID = null) {
     } catch (err) {
         logger.error('An error occurred while reading from the database:', err);
         throw err;
-    }
-}
-
-async function deleteMessage(messageID) {
-    logger.debug('Deleting message...');
-    const db = await dbPromise;
-    try {
-        await db.run('DELETE FROM aichats WHERE message_id = ?', [messageID]);
-        logger.debug('A message was deleted');
-    } catch (err) {
-        logger.error('Error deleting message:', err);
     }
 }
 
@@ -497,12 +527,58 @@ async function getMessage(messageID) {
     }
 }
 
-async function upsertAPI(name, endpoint, key, type, claude) {
-    logger.debug('Adding/updating API...' + name);
+async function editMessage(sessionID, mesID, newMessage) {
     const db = await dbPromise;
     try {
-        await db.run('INSERT OR REPLACE INTO apis (name, endpoint, key, type, claude) VALUES (?, ?, ?, ?, ?)', [name, endpoint, key, type, claude]);
+        await db.run('UPDATE aichats SET message = ? WHERE message_id = ?', [newMessage, mesID]);
+        return 'ok'
+    } catch (err) {
+        logger.error('Error editing message:', err);
+        throw err;
+    }
+}
+
+//takes an object with keys in this order: name, endpoint, key, type, claude, modelList (array), selectedModel
+async function upsertAPI(apiData) {
+    logger.trace(apiData)
+    const { name, endpoint, key, type, claude, modelList, selectedModel } = apiData;
+    logger.info('Adding/updating API...' + name);
+
+    if (
+        [name, endpoint, type, claude, modelList, selectedModel].some(
+            (value) => value === undefined
+        )
+    ) {
+        logger.error('New API has undefined datatypes; cannot register.');
+        logger.error(apiData);
+        return;
+    }
+
+    const db = await dbPromise;
+    try {
+        await db.run(
+            'INSERT OR REPLACE INTO apis (name, endpoint, key, type, claude, modelList, selectedModel) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [
+                name,
+                endpoint,
+                key,
+                type,
+                claude,
+                JSON.stringify(modelList),
+                selectedModel,
+            ]
+        );
         logger.debug('An API was upserted');
+
+        const nullRows = await db.get(
+            'SELECT * FROM apis WHERE name IS NULL OR endpoint IS NULL OR name = "" OR endpoint = ""'
+        );
+        if (nullRows) {
+            await db.run(
+                'DELETE FROM apis WHERE name IS NULL OR endpoint IS NULL OR name = "" OR endpoint = ""'
+            );
+            logger.debug('Cleaned up rows with no name or endpoint values');
+        }
     } catch (err) {
         logger.error('Error writing API:', err);
     }
@@ -512,7 +588,17 @@ async function getAPIs() {
     logger.debug('Getting APIs...');
     const db = await dbPromise;
     try {
-        return await db.all('SELECT * FROM apis');
+        const rows = await db.all('SELECT * FROM apis');
+        const apis = rows.map(row => {
+            try {
+                row.modelList = JSON.parse(row.modelList);
+            } catch (err) {
+                logger.error(`Error parsing modelList for API ${row.name}:`, err);
+                row.modelList = []; // Assign an empty array as the default value
+            }
+            return row;
+        });
+        return apis;
     } catch (err) {
         logger.error('Error getting APIs:', err);
         throw err;
@@ -524,8 +610,13 @@ async function getAPI(name) {
     const db = await dbPromise;
     try {
         let gotAPI = await db.get('SELECT * FROM apis WHERE name = ?', [name]);
-        logger.debug(gotAPI);
         if (gotAPI) {
+            try {
+                gotAPI.modelList = JSON.parse(gotAPI.modelList);
+            } catch (err) {
+                logger.error(`Error parsing modelList for API ${gotAPI.name}:`, err);
+                gotAPI.modelList = []; // Assign an empty array as the default value
+            }
             return gotAPI;
         } else {
             logger.error('API not found:', name);
@@ -579,25 +670,27 @@ ensureDatabaseSchema(schemaDictionary);
 
 
 module.exports = {
-    writeUserChatMessage: writeUserChatMessage,
-    writeAIChatMessage: writeAIChatMessage,
-    newSession: newSession,
-    upsertUser: upsertUser,
-    getUser: getUser,
-    readAIChat: readAIChat,
-    readUserChat: readUserChat,
-    upsertChar: upsertChar,
-    removeLastAIChatMessage: removeLastAIChatMessage,
-    getPastChats: getPastChats,
-    deleteMessage: deleteMessage,
-    getMessage: getMessage,
-    deletePastChat: deletePastChat,
-    getUserColor: getUserColor,
-    upsertUserRole: upsertUserRole,
-    getCharacterColor: getCharacterColor,
-    upsertAPI: upsertAPI,
-    getAPIs: getAPIs,
-    getAPI: getAPI,
-    newUserChatSession: newUserChatSession,
-    getLatestCharacter: getLatestCharacter,
+    writeUserChatMessage,
+    writeAIChatMessage,
+    newSession,
+    upsertUser,
+    getUser,
+    readAIChat,
+    readUserChat,
+    upsertChar,
+    removeLastAIChatMessage,
+    getPastChats,
+    deleteMessage,
+    getMessage,
+    deletePastChat,
+    getUserColor,
+    upsertUserRole,
+    getCharacterColor,
+    upsertAPI,
+    getAPIs,
+    getAPI,
+    newUserChatSession,
+    getLatestCharacter,
+    deleteAPI,
+    editMessage
 };

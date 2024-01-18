@@ -5,7 +5,7 @@
     "top_k": 0,
     "typical_p": 1,
     "tfs": 1,
-    "repetition_penalty": 1,
+    "repetition_penalty": 1.1,
     "repetition_penalty_range": 0,
     "mirostat_mode": 0,
     "mirostat_tau": 5,

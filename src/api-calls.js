@@ -1,9 +1,11 @@
 
 const fs = require('fs');
 const $ = require('jquery');
+const util = require('util');
 const { Readable } = require('stream');
 const { EventEmitter } = require('events');
 const textEmitter = new EventEmitter();
+const iconv = require('iconv-lite');
 
 const db = require('./db.js');
 const fio = require('./file-io.js')
@@ -37,8 +39,9 @@ async function getAPIDefaults(shouldReturn = null) {
     }
 }
 
-async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage) {
+async function getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage) {
     let isCCSelected = liveAPI.type === 'CC' ? true : false
+    let isClaude = liveAPI.claude
     try {
         let APICallParams = {}
         if (engineMode === 'TC') {
@@ -50,7 +53,7 @@ async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredential
 
         //if it's not an empty trigger from host
         //if userInput is empty we can just request the AI directly
-        let charFile = liveConfig.selectedCharacter
+        let charFile = liveConfig.promptConfig.selectedCharacter
         logger.trace(`selected character: ${charFile}`)
         let cardData = await fio.charaRead(charFile, 'png')
         let cardJSON = JSON.parse(cardData)
@@ -61,31 +64,32 @@ async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredential
         //a careful observer might notice that we don't set the userInput string into the 'prompt' section of the API Params at this point.
         //this is because the userInput has already been saved into the chat session, and the next function will read 
         const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, fixedFinalCharName, parsedMessage.username, liveAPI)
-        const samplers = JSON.parse(liveConfig.samplers);
+        const samplerData = await fio.readFile(liveConfig.promptConfig.selectedSamplerPreset)
+        const samplers = JSON.parse(samplerData);
         //logger.debug(samplers)
         //apply the selected preset values to the API call
         for (const [key, value] of Object.entries(samplers)) {
             APICallParams[key] = value;
         }
         //add full prompt to API call
-        if (!isCCSelected) {
+        if (!isCCSelected || isClaude) { //TC and Claude get 'prompt' (even though Claude is CC)
             APICallParams.prompt = fullPromptforAI;
-        } else {
+        } else { //CC gets 'messages'
             APICallParams.messages = fullPromptforAI
         }
 
         //ctx and response length for Text Completion API
-        APICallParams.truncation_length = Number(liveConfig.contextSize)
-        APICallParams.max_tokens = Number(liveConfig.responseLength)
+        APICallParams.truncation_length = Number(liveConfig.promptConfig.contextSize)
+        APICallParams.max_tokens = Number(liveConfig.promptConfig.responseLength)
         //ctx and response length for Horde
-        APICallParams.max_context_length = Number(liveConfig.contextSize)
-        APICallParams.max_length = Number(liveConfig.responseLength)
+        APICallParams.max_context_length = Number(liveConfig.promptConfig.contextSize)
+        APICallParams.max_length = Number(liveConfig.promptConfig.responseLength)
 
         //add stop strings
         const [finalAPICallParams, entitiesList] = await setStopStrings(liveConfig, APICallParams, includedChatObjects, liveAPI)
 
         var AIResponse = '';
-        if (liveConfig.engineMode === 'horde') {
+        if (liveConfig.promptConfig.engineMode === 'horde') {
             const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(STBasicAuthCredentials, finalAPICallParams);
             AIResponse = hordeResponse;
         }
@@ -130,9 +134,7 @@ async function getAIResponse(isStreaming, selectedAPIName, STBasicAuthCredential
 //this array is returned and sent along with the AI response, in order to populate the AI Chat UserList.
 
 async function makeAIChatUserList(entitiesList, chatHistoryFromPrompt) {
-    //logger.trace('-----------MAKING ENTITIES LIST NOW');
     const chatHistoryEntities = entitiesList;
-    //logger.trace(chatHistoryEntities)
     const fullChatDataJSON = chatHistoryFromPrompt;
     const AIChatUserList = [];
 
@@ -184,7 +186,7 @@ function trimIncompleteSentences(input, include_newline = false) {
 async function ObjectifyChatHistory() {
     return new Promise(async (resolve, reject) => {
         await delay(100)
-        let data = await db.readAIChat();
+        let [data, sessionID] = await db.readAIChat();
         try {
             // Parse the existing contents as a JSON array
             let chatHistory = JSON.parse(data);
@@ -197,7 +199,7 @@ async function ObjectifyChatHistory() {
 }
 
 async function setStopStrings(liveConfig, APICallParams, includedChatObjects, liveAPI) {
-    logger.debug(`[setStopStrings] >> GO`)
+    //logger.debug(`[setStopStrings] >> GO`)
     //logger.debug(APICallParams)
     //an array of chat message objects which made it into the AI prompt context limit
     let chatHistory = includedChatObjects;
@@ -234,7 +236,7 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
     if (liveAPI.claude === 1) { //for claude
         logger.debug('setting Claude stop strings')
         APICallParams.stop_sequences = targetObj
-    } else if (liveConfig.engineMode === 'TC' || liveConfig.engineMode === 'CC' && liveAPI.claude !== 1) { //for TC and OAI CC
+    } else if (liveConfig.promptConfig.engineMode === 'TC' || liveConfig.promptConfig.engineMode === 'CC' && liveAPI.claude !== 1) { //for TC and OAI CC
         logger.debug('setting TC/OAI stop strings')
         APICallParams.stop = targetObj
     } else { //for horde
@@ -245,13 +247,12 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
 }
 
 function replaceMacros(string, username = null, charname = null) {
+    //logger.debug(username, charname)
     var replacedString = string
-
-    if (username !== null && !charname !== null) {
+    if (username !== null && charname !== null) {
         replacedString = replacedString.replace(/{{user}}/g, username);
         replacedString = replacedString.replace(/{{char}}/g, charname);
     }
-
     return replacedString
 }
 
@@ -276,10 +277,13 @@ function postProcessText(text) {
 }
 
 async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharName, username, liveAPI) {
-    logger.debug(`[addCharDefsToPrompt] >> GO`)
+    //logger.debug(`[addCharDefsToPrompt] >> GO`)
     //logger.debug(liveAPI)
     let isClaude = liveAPI.claude
     let isCCSelected = liveAPI.type === 'CC' ? true : false
+    let doD4CharDefs = liveConfig.promptConfig.D4CharDefs
+    console.log(doD4CharDefs)
+
 
     //logger.debug(`addCharDefsToPrompt: ${username}`)
     return new Promise(async function (resolve, reject) {
@@ -296,26 +300,34 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             let replacedString = postProcessText(replaceMacros(jsonString, username, charJSON.name))
             const replacedData = JSON.parse(replacedString);
 
+            const descToAdd = replacedData.description.length > 0 ? `\n${replacedData.description.trim()}` : ''
+            const personalityToAdd = replacedData.personality.length > 0 ? `\n${replacedData.personality.trim()}` : ''
+            const scenarioToAdd = replacedData.scenario.length > 0 ? `\n${replacedData.scenario.trim()}` : ''
+
             //replace {{user}} and {{char}} for D1JB
-            var D1JB = postProcessText(replaceMacros(liveConfig.D1JB, username, charJSON.name)) || ''
-            var D4AN = postProcessText(replaceMacros(liveConfig.D4AN, username, charJSON.name)) || ''
-            var systemMessage = postProcessText(replaceMacros(liveConfig.systemPrompt, username, charJSON.name)) || `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
-
-
-            const instructSequence = JSON.parse(liveConfig.instructSequences)
+            var D1JB = postProcessText(replaceMacros(liveConfig.promptConfig.D1JB, username, charJSON.name)) || ''
+            var D4AN = postProcessText(replaceMacros(liveConfig.promptConfig.D4AN, username, charJSON.name)) || ''
+            if (doD4CharDefs) {
+                D4AN = `${descToAdd}${personalityToAdd}${scenarioToAdd}\n${D4AN}`
+            }
+            var systemMessage = postProcessText(replaceMacros(liveConfig.promptConfig.systemPrompt, username, charJSON.name)) || `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
+            const instructData = await fio.readFile(liveConfig.promptConfig.selectedInstruct)
+            const instructSequence = JSON.parse(instructData)
             const inputSequence = replaceMacros(instructSequence.input_sequence, username, charJSON.name)
             const outputSequence = replaceMacros(instructSequence.output_sequence, username, charJSON.name)
             const systemSequence = replaceMacros(instructSequence.system_sequence, username, charJSON.name)
             const endSequence = replaceMacros(instructSequence.end_sequence, username, charJSON.name)
 
-            const descToAdd = replacedData.description.length > 0 ? `\n${replacedData.description.trim()}` : ''
-            const personalityToAdd = replacedData.personality.length > 0 ? `\n${replacedData.personality.trim()}` : ''
-            const scenarioToAdd = replacedData.scenario.length > 0 ? `\n${replacedData.scenario.trim()}` : ''
+            if (!doD4CharDefs) {
+                var systemPrompt = `${systemSequence}${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
+                var systemPromptforCC = `${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
+            } else {
+                var systemPrompt = `${systemSequence}${systemMessage}`
+                var systemPromptforCC = `${systemMessage}`
+            }
 
-            var systemPrompt = `${systemSequence}${systemMessage}${endSequence}${systemSequence}${descToAdd}${personalityToAdd}${scenarioToAdd}`
-            var systemPromptforCC = `${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
 
-            if (!isCCSelected) { //craft the TC prompt
+            if (!isCCSelected || isClaude) { //craft the TC prompt
                 //this will be what we return to TC as the prompt
                 var stringToReturn = systemPrompt
 
@@ -347,22 +359,25 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     }
 
                     let newItemTokens = countTokens(newItem);
-                    if (promptTokens + newItemTokens < liveConfig.contextSize) {
+                    if (promptTokens + newItemTokens < liveConfig.promptConfig.contextSize) {
                         promptTokens += newItemTokens;
                         ChatObjsInPrompt.push(obj)
                         logger.trace(`added new item, prompt tokens: ~${promptTokens}`);
                         insertedItems.push(newItem); // Add new item to the array
                     }
                 }
-
+                //reverse to prepare for D4AN insertion
+                insertedItems.reverse()
                 let numOfObjects = insertedItems.length
                 let positionForD4AN = numOfObjects - 4
+                logger.trace(`D4AN will be inserted at position ${positionForD4AN} of ${numOfObjects}`)
+                D4AN = D4AN.trim()
                 if (D4AN.length !== 0 && D4AN !== '' && D4AN !== undefined && D4AN !== null) {
                     if (insertedItems.length < 5) {
-                        logger.warn('adding D4AN at top of prompt because it is small')
+                        logger.trace('adding D4AN at top of prompt because it is small')
                         insertedItems.splice(1, 0, `${endSequence}${systemSequence}${D4AN}`)
                     } else {
-                        logger.warn('adding D4AN at depth 4')
+                        logger.trace('adding D4AN at depth 4')
                         insertedItems.splice(positionForD4AN, 0, `${endSequence}${systemSequence}${D4AN}`)
                     }
 
@@ -370,7 +385,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 // Reverse the array before appending to insertedChatHistory
                 //let reversedItems = insertedItems.reverse();
                 //let insertedChatHistory = reversedItems.join('');
-                let insertedChatHistory = insertedItems.reverse().join('');
+                let insertedChatHistory = insertedItems.join('');
                 stringToReturn += insertedChatHistory
                 stringToReturn += `${endSequence}`
                 //add the final mes and userInput        
@@ -384,14 +399,6 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 } else {
                     stringToReturn += lastUserMesageAndCharName.trim();
                 }
-
-                /*                 if (isCCSelected) {
-                                    logger.debug('========== DOING CC conversion =======')
-                                    const [CCMessages, CCStops] = TCtoCC(includedChatObjects, APICallParamsAndPrompt.stop)
-                                    APICallParamsAndPrompt.stop = CCStops
-                                    APICallParamsAndPrompt.messages = CCMessages
-                
-                                } */
 
                 stringToReturn = postProcessText(stringToReturn)
 
@@ -410,7 +417,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 for (let i = chatHistory.length - 1; i >= 0; i--) {
                     let obj = chatHistory[i];
                     let newItem
-                    if (i === chatHistory.length - 3) {
+                    if (i === chatHistory.length - 4) {
                         CCMessageObj.push(D4ANObj)
                     }
                     if (i === chatHistory.length - 2) {
@@ -429,11 +436,11 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     }
 
                     let newItemTokens = countTokens(newObj.content);
-                    if (promptTokens + newItemTokens < liveConfig.contextSize) {
+                    if (promptTokens + newItemTokens < liveConfig.promptConfig.contextSize) {
                         promptTokens += newItemTokens;
                         CCMessageObj.push(newObj)
+                        ChatObjsInPrompt.push(obj)
                         //logger.debug(`added new item, prompt tokens: ~${promptTokens}`);
-                        insertedItems.push(newObj); // Add new item to the array
                     }
                 }
                 CCMessageObj.push({ role: 'system', content: '[Start a New Chat]' })
@@ -452,44 +459,21 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
     })
 }
 
-function TCtoCC(messages, systemMessage, stops) {
-    //logger.debug('entered the TC to CC function. here is the incoming message array:')
-    //logger.debug(messages)
-    //convert chat history object produced by addCharDefsToPrompt into CC compliant format
-    let CCMessages = messages.map(message => {
-        const { content, entity } = message;
-        let role = '';
-
-        if (entity === 'user') {
-            role = 'user';
-        } else if (entity === 'AI') {
-            role = 'assistant';
-        }
-        return {
-            content,
-            role
-        };
-    });
-    CCMessages.reverse()
-    //reduce stop to 4 items as requried by OAI's CC API
-    let CCStops = stops.slice(0, 4);
-
-    return [CCMessages, CCStops]
-}
-
 async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     logger.info('Sending Horde request...');
     //the ST server must be running with CSRF turned off in order for this to work.
     var STHordeURL = 'http://127.0.0.1:8000/api/horde/generate-text';
-    //these headers assume there is basicAuth enabled on your ST server
-    //replace the btoa('') with your credentials in a user:pass format within the single quotes
-    //alternatively remove that line if you are not using AUTH
+
     var headers = {
         'Content-Type': 'application/json',
         'Cache': 'no-cache',
-        'Authorization': 'Basic ' + btoa(STBasicAuthCredentials),
         "Client-Agent": "SillyTavern:UNKNOWN:Cohee#1207"
     };
+
+    if (STBasicAuthCredentials && STBasicAuthCredentials !== '' && STBasicAuthCredentials !== undefined) {
+        authValue = `Basic ${btoa(STBasicAuthCredentials)}`
+        headers.Authorization = authValue
+    }
 
     var body = JSON.stringify(stringToSend);
     logger.info(`--- horde payload:`)
@@ -545,83 +529,101 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
     } else {
         logger.error('Error while requesting ST');
         logger.error(response)
+        return response
     };
 }
 
-async function testAPI(isStreaming, api, liveConfig) {
+async function testAPI(api, liveConfig) {
     logger.debug(`[testAPI] >> GO`)
-    logger.info('api:')
+    logger.info('Test Message API Info:')
     logger.info(api)
-    let testMessage
+    let testMessage = 'User: Ping? (if you can see me say "Pong!\n\nAssistant:")'
     let payload = {
-        stream: isStreaming,
-        seed: -1,
-        stop: [' ']
-    }
-    let testMessageObject = [{ entity: 'human', content: 'Test Message' }]
-    let TCTestMessage = 'User: Test Message'
-    if (api.type === 'CC') {
-        payload.model = liveConfig.selectedModel
-        testMessage = testMessageObject
-
-    } else {
-        testMessage = TCTestMessage
-        payload.prompt = TCTestMessage
-        //delete payload.stop
+        prompt: '',
+        stream: false, //no point to stream test messages
+        seed: undefined,
+        stop: ['.'],
+        stop_sequence: ['.'],
+        stop_sequences: ['.'],
+        max_tokens_to_sample: 50,
+        max_tokens: 50,
+        max_length: 50
     }
 
+    let testMessageObject = [{ role: 'user', content: 'Ping? (if you can see me say "Pong!")' }]
 
-    let result = await requestToTCorCC(isStreaming, api, payload, testMessage, true, liveConfig)
+    if (api.type === 'CC' && !api.claude) {
+        payload.model = api.model
+        payload.messages = testMessageObject
+        delete payload.prompt
+    }
 
+    if (api.type === 'TC') {
+        payload.prompt = testMessage
+    }
+
+    if (api.claude) {
+        payload.model = api.model
+        let tempPrompt = payload.prompt
+        tempPrompt = tempPrompt.replace('User', 'Human')
+    }
+
+    let result = await requestToTCorCC(false, api, payload, testMessage, true, liveConfig)
     return result
 
 }
 
 async function getModelList(api) {
     let isClaude = api.isClaude
-    let baseURL = api.endpoint
+    let modelsEndpoint = api.endpoint
 
-    headers = {
+    if (!/^https?:\/\//i.test(modelsEndpoint)) {
+        if (modelsEndpoint.includes("localhost") || modelsEndpoint.includes("127.0.0.1")) {
+            // Add "http://" at the beginning
+            modelsEndpoint = "http://" + modelsEndpoint;
+        } else {
+            // Add "https://" at the beginning
+            modelsEndpoint = "https://" + modelsEndpoint;
+        }
+    }
+
+    // Check if baseURL ends with "/"
+    if (!/\/$/.test(modelsEndpoint)) {
+        // Add "/" at the end
+        modelsEndpoint += "/";
+    }
+
+
+
+    modelsEndpoint = modelsEndpoint + 'models'
+    let key = 'Bearer ' + api.key
+
+    let headers = {
         'Content-Type': 'application/json',
         'x-api-key': api.key,
-        'Authorization': 'Bearer ' + api.key,
+        Authorization: key
     }
-    //console.log(headers)
-
-    /*     if (!isClaude) {
-            try {
-                const modelInfoUrl = baseURL + 'model/';
-                console.log(modelInfoUrl)
-                const modelInfoReply = await fetch(modelInfoUrl, headers);
-                if (modelInfoReply) {
-                    const modelInfo = await modelInfoReply.json();
-                    console.log(modelInfo)
-                    return modelInfo
-                }
-            }
-            catch (error) {
-                console.log(error)
-            }
-        } */
-
-    let modelsEndpoint = baseURL + 'models/'
-    logger.info(`Fetching model list from: ${modelsEndpoint}`)
 
     if (isClaude) {
         headers['anthropic-version'] = '2023-06-01';
     }
-
-    const response = await fetch(modelsEndpoint, {
+    let args = {
         method: 'GET',
-        headers: headers,
-    });
+        headers: headers
+    }
+    logger.info(`Fetching model list from: ${modelsEndpoint}`)
+    logger.debug(modelsEndpoint)
+    logger.debug(args)
+
+    const response = await fetch(modelsEndpoint, args);
 
     if (response.status === 200) {
         let responseJSON = await response.json();
         let modelNames = responseJSON.data.map(item => item.id);
         logger.info('Available models:');
         logger.info(modelNames);
-        return responseJSON.data;
+        return modelNames
+        //return responseJSON.data;
     } else {
         logger.error(`Error getting models. Code ${response.status}`)
     }
@@ -630,42 +632,82 @@ async function getModelList(api) {
 }
 
 async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, includedChatObjects, isTest, liveConfig) {
-    let isClaude = liveAPI.claude
-    const isCCSelected = liveAPI.type === 'CC' ? true : false
     const TCEndpoint = liveAPI.endpoint
     const TCAPIKey = liveAPI.key
     const key = TCAPIKey.trim()
+
+    const isCCSelected = liveAPI.type === 'CC' ? true : false
+    let isOpenRouter = TCEndpoint.includes('openrouter') ? true : false
+    let isOpenAI = TCEndpoint.includes('openai') ? true : false
+    let isClaude = liveAPI.claude
 
     //this is brought in from the sampler preset, but we don't use it yet.
     //better to not show it in the API gen call response, would be confusing.
     delete APICallParamsAndPrompt.system_prompt
 
     let baseURL = TCEndpoint.trim()
+
+    // Check if baseURL contains "localhost" or "127.0.0.1"
+    if (!/^https?:\/\//i.test(baseURL)) {
+        if (baseURL.includes("localhost") || baseURL.includes("127.0.0.1")) {
+            // Add "http://" at the beginning
+            baseURL = "http://" + baseURL;
+        } else {
+            // Add "https://" at the beginning
+            baseURL = "https://" + baseURL;
+        }
+    }
+
+    // Check if baseURL ends with "/"
+    if (!/\/$/.test(baseURL)) {
+        // Add "/" at the end
+        baseURL += "/";
+    }
+
+
     let chatURL
-    const headers = {
+    var headers = {
         'Content-Type': 'application/json',
-        'Cache': 'no-cache',
+        Cache: 'no-cache',
         'x-api-key': key,
-        'Authorization': `Bearer ${key}`,
+        Authorization: `Bearer ${key}`,
     };
 
-    if (isCCSelected) { //for CC, OAI and others
-        chatURL = baseURL + 'chat/completions/'
+    if (isCCSelected && !isClaude) { //for CC, OAI and others
+        chatURL = baseURL + 'chat/completions'
         APICallParamsAndPrompt.add_generation_prompt = true
         delete APICallParamsAndPrompt.prompt
     } else { //for TC (Tabby, KCPP, and OR?)
-        chatURL = baseURL + 'completions/'
+        chatURL = baseURL + 'completions'
         delete APICallParamsAndPrompt.messages
     }
     if (isClaude) {
-        chatURL = baseURL + 'complete/'
+        chatURL = baseURL + 'complete'
         headers['anthropic-version'] = '2023-06-01';
         APICallParamsAndPrompt.max_tokens_to_sample = APICallParamsAndPrompt.max_tokens
         delete APICallParamsAndPrompt.max_tokens
+        if (APICallParamsAndPrompt.temperature > 1) { APICallParamsAndPrompt.temperature = 1 }
+    }
+
+    if (isOpenRouter) {
+
+        headers = {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${key}`,
+            'HTTP-Referer': 'http://127.0.0.1:8181/'
+        }
+        APICallParamsAndPrompt.transforms = ['middle-out']
+        APICallParamsAndPrompt.route = 'fallback'
+    }
+
+    if (isOpenAI) {
+        console.warn('we are using an OpenAI API, so stop will be trimmed to 4')
+        APICallParamsAndPrompt.stop = APICallParamsAndPrompt.stop.slice(0, 4);
     }
 
     try {
-        APICallParamsAndPrompt.model = liveConfig.selectedModel
+
+        APICallParamsAndPrompt.model = liveAPI.selectedModel
         APICallParamsAndPrompt.stream = isStreaming
 
         logger.debug('HEADERS')
@@ -674,7 +716,7 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
         console.log(APICallParamsAndPrompt)
 
         const body = JSON.stringify(APICallParamsAndPrompt);
-        //const abortController = new AbortController();
+        //console.log(body)
 
         let streamingReportText = APICallParamsAndPrompt.stream ? 'streamed' : 'non-streamed'
         logger.info(`Sending ${streamingReportText} ${liveAPI.type} API request to ${chatURL}..`);
@@ -685,23 +727,41 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
             headers: headers,
             body: body,
             timeout: 0,
-            //signal: abortController.signal
         }
-        //console.log(args)
-        const response = await fetch(chatURL, args)
 
+        //console.log(args)
+        // const response = await fetch(chatURL, args)
+        const response = await fetch(chatURL, args)
+        /* console.log('FULL RESPONSE')
+        console.log('=====================')
+        console.log(util.inspect(response, { depth: null }));
+        console.log('=====================')
+    */
         if (response.status === 200) {
             logger.debug('Status 200: Ok.')
             return await processResponse(response, isCCSelected, isTest, isStreaming, liveAPI)
         } else {
-            logger.warn('API error: ' + response.status)
+            let responseStatus = response.status
+            logger.warn('API error: ' + responseStatus)
 
-            let JSONResponse = await response.json()
-            logger.warn(JSONResponse);
+            let parsedResponse, unparsedResponse
+            try {
+                parsedResponse = await response.json()
+                logger.warn(parsedResponse);
+            }
+            catch {
+                logger.warn('could not parse response, returning it as-is')
+                unparsedResponse = response
+            }
+            let errorResponse = {
+                status: response.status,
+                statusText: response.statusText
+
+            }
             //these are error message attributes from Tabby
             //logger.debug(JSONResponse.detail[0].loc) //shows the location of the error causing thing
             //logger.debug(JSONResponse.detail[0].input) //just shows the value of messages object
-            return JSONResponse;
+            return errorResponse
         }
 
     } catch (error) {
@@ -709,34 +769,24 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
         const line = error.stack.split('\n').pop().split(':').pop();
         logger.error(line);
         logger.error(error);
+        return error
     }
 }
 
 async function processResponse(response, isCCSelected, isTest, isStreaming, liveAPI) {
     let isClaude = liveAPI.claude
+
     if (!isStreaming) {
         try {
             let JSONResponse = await response.json();
             //logger.debug('Response JSON:', JSONResponse);
-            return processNonStreamedResponse(JSONResponse, isCCSelected, isTest);
+            return processNonStreamedResponse(JSONResponse, isCCSelected, isTest, isClaude);
         }
-
         catch (error) {
             console.error('Error parsing JSON:', error);
         }
     } else {
-
-        if (isTest) {
-            let status = response.status
-            let testResults = {
-                status: status,
-                value: text
-            }
-            return testResults
-        }
-        //look for streams first
         if (response.body) {
-
             let stream = response.body;
             let data = '';
             if (typeof stream.on !== 'function') {
@@ -770,7 +820,7 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
 
                     // Check if it's the final object
                     if (jsonChunk === '[DONE]') {
-                        logger.debug('End of stream. Closing the stream.');
+                        //logger.debug('End of stream. Closing the stream.');
                         stream.destroy();
                         break;
                     }
@@ -795,6 +845,8 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
                         } else {
                             text = jsonData.choices[0].text;
                         }
+                        convertToUTF8(text)
+
                         textEmitter.emit('text', text);
                         //logger.debug(text)
 
@@ -812,11 +864,10 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
                             logger.warn('did not see "choices" object, saw this:')
                             logger.warn(jsonData)
                         }
+                        convertToUTF8(text)
                         textEmitter.emit('text', text);
 
                     }
-
-
                     // Remove the processed JSON object from the data string
                     data = data.substring(jsonEndIndex + 1);
                 }
@@ -831,6 +882,31 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
         }
     }
 
+}
+
+function isNonUTF8Token(token) {
+    const utf8Buffer = iconv.encode(token, 'utf8');
+    const encodedBuffer = iconv.encode(token, 'binary');
+    return !utf8Buffer.equals(encodedBuffer);
+}
+
+function convertToUTF8(inputTokens) {
+    return inputTokens //let's attempt to handle it client side instead, but keep code incase we need to revert
+
+    const outputTokens = [];
+    for (let i = 0; i < inputTokens.length; i++) {
+        const token = inputTokens[i];
+        if (isNonUTF8Token(token)) {
+            // Convert the non-UTF-8 token to UTF-8 equivalent
+            const encodedBuffer = iconv.encode(token, 'latin1');
+            const utf8Token = iconv.decode(encodedBuffer, 'utf8');
+            outputTokens.push(utf8Token);
+            console.warn(`Fixed non-UTF8 token: "${token}", "${utf8Token}"`);
+        } else {
+            outputTokens.push(token);
+        }
+    }
+    return outputTokens;
 }
 
 async function readStreamChunks(readableStream) {
@@ -860,32 +936,36 @@ async function readStreamChunks(readableStream) {
     });
 }
 
-async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest) {
+async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest, isClaude) {
 
-    let text, status
-    logger.info('--- API RESPONSE')
-    logger.info(JSONResponse)
+    let text
+    let apistatus = 200 //if we got here it's 200.
+    /*     logger.info('--- API RESPONSE')
+        logger.info(JSONResponse) */
+    //console.log(`isCCSelected? ${isCCSelected}`)
+    //console.log(`isTest? ${isTest}`)
+    if (isCCSelected) {
+        if (isClaude) {
+            text = JSONResponse.completion;
+        }
+        else if (JSONResponse.choices && JSONResponse.choices.length > 0) {
+            text = JSONResponse.choices[0].message?.content
+        }
+        else {
+            logger.info(JSONResponse)
+            return "Unknown API type. Couldn't find response. Check console log."
+        }
+    } else { // text completions have data in 'choices'
+        text = JSONResponse.choices[0].text
+    }
+    //this assumes we got a response from the server that was not 200
     if (isTest) {
-        status = response.status
         let testResults = {
-            status: status,
+            status: apistatus,
             value: text
         }
         return testResults
     }
-    if (isCCSelected) {
-        //look for 'choices' from OAI first..
-        if (JSONResponse.choices && JSONResponse.choices.length > 0) {
-            text = JSONResponse.choices[0].message?.content || JSONResponse.completion;
-        } else { //look for Claude stream data location 'completions'
-            text = JSONResponse.completion;
-        }
-
-    } else { // text completions have data in 'choices'
-        text = JSONResponse.choices[0].text
-    }
-
-
     return text
 }
 

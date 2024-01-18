@@ -87,23 +87,39 @@ async function readConfig() {
     });
 }
 
-async function writeConfig(configObj, key, value) {
-    await acquireLock()
-    await delay(100)
-    //let newObject = await readConfig()
+async function writeConfig(configObj, key = null, value = null) {
+    await acquireLock();
+    await delay(100);
+
     if (key) {
-        configObj[key] = value;
-        logger.debug(`Config updated: ${key}`); // = ${value}`);
+        const parts = key.split(".");
+        let currentObj = configObj;
+
+        for (let i = 0; i < parts.length - 1; i++) {
+            const part = parts[i];
+
+            if (!(part in currentObj)) {
+                currentObj[part] = {};
+            }
+
+            currentObj = currentObj[part];
+        }
+
+        currentObj[parts[parts.length - 1]] = value;
+
+        logger.debug(`Config updated: ${key}`);
     }
-    const writableConfig = JSON.stringify(configObj, null, 2); // Serialize the object with indentation
-    fs.writeFile('./config.json', writableConfig, 'utf8', writeErr => {
+
+    const writableConfig = JSON.stringify(configObj, null, 2);
+    fs.writeFile("./config.json", writableConfig, "utf8", writeErr => {
         if (writeErr) {
-            logger.error('An error occurred while writing to the file:', writeErr);
-            releaseLock()
+            logger.error("An error occurred while writing to the file:", writeErr);
+            releaseLock();
             return;
         }
-        logger.debug('config.json updated.');
-        releaseLock()
+
+        logger.debug("config.json updated.");
+        releaseLock();
     });
 }
 
@@ -172,7 +188,7 @@ async function charaRead(img_url, input_format) {
 }
 
 async function getCardList() {
-    console.debug('Gathering character card list..')
+    logger.info('Gathering character card list..')
     const path = 'public/characters'
     const files = await fs.promises.readdir(path);
     var cards = []
@@ -183,10 +199,10 @@ async function getCardList() {
             let fullPath = `${path}/${file}`
             const cardData = await charaRead(fullPath);
             var jsonData = JSON.parse(cardData);
-            jsonData.filename = `${path}/${file}`
+            jsonData.filename = fullPath
             cards[i] = {
                 name: jsonData.name,
-                filename: jsonData.filename
+                value: jsonData.filename
             }
             thisCharColor = charnameColors[Math.floor(Math.random() * charnameColors.length)];
             db.upsertChar(jsonData.filename, jsonData.name, thisCharColor)
@@ -214,7 +230,7 @@ async function getInstructList() {
             jsonData.filename = `${path}/${file}`
             instructs[i] = {
                 name: jsonData.name,
-                filename: jsonData.filename
+                value: jsonData.filename
             }
         } catch (error) {
             logger.error(`Error reading file ${file}:`, error);
@@ -236,7 +252,7 @@ async function getSamplerPresetList() {
                 const fullPath = `${path}/${file}`;
                 presets.push({
                     name: file.replace('.json', ''),
-                    filename: fullPath,
+                    value: fullPath,
                 });
             }
         } catch (error) {

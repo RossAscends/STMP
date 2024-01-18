@@ -691,16 +691,6 @@ async function connectWebSocket(username) {
   });
 }
 
-function convertToUTF8(inputTokens) {
-  const utf8Encoded = new TextEncoder().encode(inputTokens);
-  const utf8String = new TextDecoder('utf-8').decode(utf8Encoded);
-
-  console.warn(`Input String: ${inputTokens}`);
-  console.warn(`Decoded String: ${utf8String}`);
-
-  return utf8String;
-}
-
 let fullRawAccumulatedContent = ""; //store the whole message
 let accumulatedContent = ""; // variable to store tokens for the currently streaming paragraph
 async function displayStreamedResponse(message) {
@@ -724,7 +714,6 @@ async function displayStreamedResponse(message) {
     if (!contentLeftover) {
       contentLeftover === "";
     } //if there was nothing else, set it to blank.
-    accumulatedContent = convertToUTF8(accumulatedContent);
     let trimmedParagraph = util.trimIncompleteSentences(accumulatedContent); //trim what we accumulated so far.
 
     let markdownParagraph = converter.makeHtml(trimmedParagraph); //make it markdown

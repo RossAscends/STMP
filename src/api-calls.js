@@ -6,6 +6,8 @@ const { Readable } = require('stream');
 const { EventEmitter } = require('events');
 const textEmitter = new EventEmitter();
 const iconv = require('iconv-lite');
+const { StringDecoder } = require('string_decoder');
+
 
 const db = require('./db.js');
 const fio = require('./file-io.js')
@@ -789,6 +791,10 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
         if (response.body) {
             let stream = response.body;
             let data = '';
+
+            // Initialize StringDecoder
+            const decoder = new StringDecoder('utf8');
+
             if (typeof stream.on !== 'function') {
                 // Create a new readable stream from response.body
                 stream = Readable.from(response.body);
@@ -796,10 +802,11 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
                 logger.debug('saw function in response body..')
                 logger.debug(stream)
             }
-            let text
+            let text;
+
             stream.on('data', async (chunk) => {
-                const dataChunk = String.fromCharCode(...chunk);
-                //logger.debug(dataChunk)
+                // Use StringDecoder to handle UTF-8 text properly
+                const dataChunk = decoder.write(chunk);
                 data += dataChunk;
                 // Process individual JSON objects
                 let separatorIndex
@@ -837,7 +844,6 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
                         console.error('Error parsing JSON:', error);
                         break;
                     }
-
                     if (jsonData.choices && jsonData.choices.length > 0) {
                         if (isCCSelected) {
                             //logger.debug(jsonData.choices)
@@ -845,7 +851,6 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
                         } else {
                             text = jsonData.choices[0].text;
                         }
-                        convertToUTF8(text)
 
                         textEmitter.emit('text', text);
                         //logger.debug(text)
@@ -864,7 +869,6 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
                             logger.warn('did not see "choices" object, saw this:')
                             logger.warn(jsonData)
                         }
-                        convertToUTF8(text)
                         textEmitter.emit('text', text);
 
                     }
@@ -890,24 +894,6 @@ function isNonUTF8Token(token) {
     return !utf8Buffer.equals(encodedBuffer);
 }
 
-function convertToUTF8(inputTokens) {
-    return inputTokens //let's attempt to handle it client side instead, but keep code incase we need to revert
-
-    const outputTokens = [];
-    for (let i = 0; i < inputTokens.length; i++) {
-        const token = inputTokens[i];
-        if (isNonUTF8Token(token)) {
-            // Convert the non-UTF-8 token to UTF-8 equivalent
-            const encodedBuffer = iconv.encode(token, 'latin1');
-            const utf8Token = iconv.decode(encodedBuffer, 'utf8');
-            outputTokens.push(utf8Token);
-            console.warn(`Fixed non-UTF8 token: "${token}", "${utf8Token}"`);
-        } else {
-            outputTokens.push(token);
-        }
-    }
-    return outputTokens;
-}
 
 async function readStreamChunks(readableStream) {
     return new Promise((resolve, reject) => {

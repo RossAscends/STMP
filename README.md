@@ -65,7 +65,7 @@ pause
 popd
 ```
 
-> **IMPORTANT:** STMP assumes you have [BasicAuthentication enabled on your ST server](https://docs.sillytavern.app/usage/remoteconnections/#http-basic-authentication).
+> **IMPORTANT:** While it is optional, STMP supports (and encourages) having [BasicAuthentication enabled on your ST server](https://docs.sillytavern.app/usage/remoteconnections/#http-basic-authentication).
 
 > Input your ST Authentication `username:pass` into `secrets.json` on the appropriate line between the quotation marks.
 
@@ -96,6 +96,7 @@ This must be done AFTER completing all installation steps above.
 - Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button (✏️), or pressing Enter.
 - `Shift+Enter` can be used to add newlines to the input.
 - [Markdown formatting](https://github.com/showdownjs/showdown/wiki/Showdown%27s-Markdown-syntax) is respected.
+- Users with the Host role can hover over any chat message in either chats to see editing and deletion buttons.
 
 ## Hosting
 
@@ -105,15 +106,22 @@ The host will see the following controls:
 
 #### AI Controls
 
+AI Config Section
+
 - `Mode` can be clicked to switch between TC/CC mode, and HordeAI mode.
-  - 📑 = Text Completions
+  - 📑 = Completions
   - 🧟 = Horde
-- `API` selector to choose which LLM API to use, and an `Edit` button to change its configuration.
 - `Context` defines how long your API prompt should be. Longer = more chat history sent, but slower processing times.
 - `Response` defines how many tokens long the AI response can be.
-- `Sampler` sets the hyperparameter preset, which affects the response style.
-- `Instruct` sets the type of instruct sequences to use when crafting the API prompt.
+- `Streaming` togles streamed responses on or off.
 - `AutoAI` Toggle to determine whether the AI should respond to every user input, or only on command from the Host.
+- `Instruct` sets the type of instruct sequences to use when crafting the API prompt.
+- `Sampler` sets the hyperparameter preset, which affects the response style.
+- `API` selector to choose which LLM API to use, and an `Edit` button to change its configuration.
+- `Models` allows selection of models served by the connected API.
+
+Insertions Section
+
 - `System Prompt` defines what will be placed at the very top of the prompt.
 - `Author Note(D4)` defines what will be inserted as a system message at Depth 4 in the prompt.
 - `Final Instruction(D1, "JB")` defines what to send as a system message at Depth 1 in the prompt. Not needed for TC APIs, but useful as a 'JB prompt' for CC APIs.
@@ -139,16 +147,27 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 - `Key` - If your API requires a key, put it in here.
 - `Endpoint Type` - select from Text Completions or Chat Completions as appropriate for the API endpoint.
 - `Claude` - select this if the API is based on Anthropic's Claude model, because it needs special prompt formatting.
-- `Models` - a list of models provided by the API, if one is available. By default the first model in the list is auto-selected, so be sure to change it if necssary.
-  - **currently model selection resets each time you change APIs.**
-- `Test` button sends a simple test message to the API to get a response. This may not work on all APIs.
 - `Close` button will cancel the API editing/creating process and return you to the main AI Config panel.
+- `Test` button sends a simple test message to the API to get a response. This may not work on all APIs.
+- `Save` confirms the API addition/edit and saves it to the database.
+- `Delete` removes the APi from the database.
 
-3. When all of the fields are filled out, press Save to return to the main Control panel display.
+3. When all of the fields are filled out, press `Save` to return to the main Control panel display.
 
 #### Past Chats
 
 - A list of past AI Chats, click one to load it.
+- Information listed with each past session item:
+  - AI characters in the chat history
+  - number of messages in AI Chat
+  - timestamp for the last message
+- the list is ordered in reverse chronological (newest chats first)
+
+### User List
+
+- The right side of the screen contains two users lists, one for each of the chats.
+- Users with the Host role will have a 🔑 next to their name.
+- The AI Characters will have a 🤖 next to their names in the AI Chat User List.
 
 #### Crowd Controls
 
@@ -156,17 +175,20 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 - (🧑⏳) does the same, but for the User-to-User chat.
 - During the delay period the (✏️) for that chat will become (🚫), and no input will be possible.
 
-#### Top Left
+### Top Bar Controls
+
+#### Left
 
 - (🎛️) toggles visibility of the Host Control Panel.
 - (🖼️) toggles the chat windows between three modes: maximize AI chat >> maximize User Chat >> return to normal dual display.
   - **this is very helpful for mobile users!**
 - (📜) toggles display of both User lists.
 
-#### Top Right
+#### Right
 
 - (▶️/⏸️) allows for manual disconnect/reconnect to the server.
 - (🛠️) opens a Profile management menu which contains:
+  - Two text fields to change your displayed username in either the User Chat or AI Chat.
   - (🔑) opens a text box for input of the Host key in order to gain the Host role.
     - Once a vlid key has been entered, the page will automatically refresh to show the host controls.
     - **The Host key can be found in the server console at startup.**
@@ -176,12 +198,13 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
     - You will be asked to register a new username next time you sign in on the same browser.
   - (🔊) (only on mobile) will cause a 10 minute silent audio to play when you minimize the browser window, preventing the websocket from being disconnected while the window is minimized. This is played each time you minimize the app.
 
-#### In the Chat Windows
+### In the Chat Windows
 
-- A selector to set the active AI character
-- (🗑️) to clear either chat.
+- AI Chat: a selector to set the active AI character
+- Both chats: (🗑️) to clear either chat.
+  - clearing the AI Chat will automatically create a new chat with the selected Character.
 
-#### AI Chat Input Bar
+#### Above the AI Chat Input Bar
 
 - (🤖) Manually triggering an AI response without user Input
 - (✂️) Deleting the last message in the AI Chat
@@ -213,8 +236,6 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 - Toggle for locking AI chat for users? (this is already kind of done with AutoResponse off)
 - Drag-sort list to set User Turn Order for AI chatting?
 - Ability to rename chats.
-- ability to remove any message in the chat, not just the last.
-- ability to edit the text of a chat
 - ability for Host to edit a User's role from the UI
 - ability to change the max length of chat inputs (currently 1000 characters)
 - make control for AI replying every X messages

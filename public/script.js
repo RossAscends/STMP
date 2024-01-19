@@ -259,12 +259,14 @@ async function processConfirmedConnection(parsedMessage) {
   updateUserChatUserList(userList);
 
   if (chatHistory) {
+    $("#chat").empty()
     const trimmedChatHistoryString = chatHistory.trim();
     const parsedChatHistory = JSON.parse(trimmedChatHistoryString);
     appendMessagesWithConverter(parsedChatHistory, "#chat", sessionID);
   }
 
   if (AIChatHistory) {
+    $("#AIChat").empty()
     const trimmedAIChatHistoryString = AIChatHistory.trim();
     const parsedAIChatHistory = JSON.parse(trimmedAIChatHistoryString);
     appendMessagesWithConverter(parsedAIChatHistory, "#AIChat", sessionID);
@@ -279,7 +281,6 @@ async function processConfirmedConnection(parsedMessage) {
 
 function appendMessagesWithConverter(messages, elementSelector, sessionID) {
   messages.forEach(({ username, userColor, content, messageID }) => {
-    //content = util.convertNonsenseTokensToUTF(content);
     const message = converter.makeHtml(content);
     const newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}"></div`).html(`
     <div class="messageHeader flexbox justifySpaceBetween">

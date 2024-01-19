@@ -279,16 +279,6 @@ function trimIncompleteSentences(input, include_newline = false) {
     return trimmedString;
 }
 
-function convertNonsenseTokensToUTF(x) {
-    x = x.replace(/â¦/g, '...')
-    x = x.replace(/Ã¢ÂÂ¦/g, '...')
-    x = x.replace(/â|â/g, '"');
-    x = x.replace(/â/g, "'");
-    x = x.replace(/ÃÂ¢ÃÂÃÂ/g, '\'')
-    x = x.replace(/â/g, '—')
-    x = x.replace(/â([^“(”)]*)â/g, '<q class="invisible-quotation">\'$1\'</q>');
-    return x;
-}
 
 function messageServer(message) {
     socket.send(JSON.stringify(message))

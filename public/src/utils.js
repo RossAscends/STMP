@@ -322,7 +322,6 @@ export default {
     debounce,
     delay,
     trimIncompleteSentences,
-    convertNonsenseTokensToUTF,
     messageServer,
     kindlyScrollDivToBottom,
     isValidURL,

@@ -6,6 +6,13 @@ const localApp = express();
 const remoteApp = express();
 const { fileLogger: logger } = require('./log.js');
 
+const writeFileAsync = util.promisify(fs.writeFile);
+
+const encode = require('png-chunks-encode');
+const extract = require('png-chunks-extract');
+const PNGtext = require('png-chunk-text');
+const jimp = require('jimp');
+
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
 
@@ -187,6 +194,56 @@ async function charaRead(img_url, input_format) {
     return characterCardParser.parse(img_url, input_format);
 }
 
+async function charaWrite(img_url, data) {
+    logger.warn(img_url)
+    logger.debug(`Writing character definitions to ${img_url}...`)
+
+    await acquireLock()
+    try {
+        // Read the image, resize, and save it as a PNG into the buffer
+        const image = await tryReadImage(img_url);
+
+        // Get the chunks
+        const chunks = extract(image);
+        const tEXtChunks = chunks.filter(chunk => chunk.name === 'tEXt');
+
+        // Remove all existing tEXt chunks
+        for (let tEXtChunk of tEXtChunks) {
+            chunks.splice(chunks.indexOf(tEXtChunk), 1);
+        }
+
+        // Add new chunks before the IEND chunk
+
+        //take the charDefsObject, stringify it, put it into a buffer, and then do base64 encoding
+        const base64EncodedData = Buffer.from(JSON.stringify(data), 'utf8').toString('base64');
+        chunks.splice(-1, 0, PNGtext.encode('chara', base64EncodedData));
+        //logger.debug(chunks)
+        await writeFileAsync(img_url, Buffer.from(encode(chunks), 'binary'));
+        releaseLock()
+        logger.debug('Done writing character defintions')
+        return true;
+    } catch (err) {
+        logger.error(`Error writing character defs ${img_url}...`)
+        logger.error(err);
+        releaseLock()
+        return false;
+    }
+}
+
+async function tryReadImage(img_url) {
+    try {
+        let rawImg = await jimp.read(img_url);
+        let final_width = rawImg.bitmap.width, final_height = rawImg.bitmap.height;
+
+        const image = await rawImg.cover(final_width, final_height).getBufferAsync(jimp.MIME_PNG);
+        return image;
+    }
+    // If it's an unsupported type of image (APNG) - just read the file as buffer
+    catch {
+        return fs.readFileSync(img_url);
+    }
+}
+
 async function getCardList() {
     logger.info('Gathering character card list..')
     const path = 'public/characters'
@@ -264,14 +321,15 @@ async function getSamplerPresetList() {
 }
 
 module.exports = {
-    readConfig: readConfig,
-    writeConfig: writeConfig,
-    readFile: readFile,
-    acquireLock: acquireLock,
-    releaseLock: releaseLock,
-    createDirectoryIfNotExist: createDirectoryIfNotExist,
-    getCardList: getCardList,
-    getInstructList: getInstructList,
-    getSamplerPresetList: getSamplerPresetList,
-    charaRead: charaRead,
+    readConfig,
+    writeConfig,
+    readFile,
+    acquireLock,
+    releaseLock,
+    createDirectoryIfNotExist,
+    getCardList,
+    getInstructList,
+    getSamplerPresetList,
+    charaRead,
+    charaWrite
 }

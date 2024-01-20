@@ -398,10 +398,15 @@ pre {
 
 #mesEditText {
     width: 100%;
-    background-color: #393a3f;
+    background-color: #393a3f !important;
     padding: 3px 7px;
-    margin-top: 5px;
     flex: 1;
+}
+
+.JQUIPopupInput {
+    width: 100%;
+    background-color: #393a3f !important;
+    padding: 3px 7px;
 }
 
 .ui-dialog .ui-dialog-titlebar {

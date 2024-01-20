@@ -303,14 +303,14 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             const replacedData = JSON.parse(replacedString);
 
             const descToAdd = replacedData.description.length > 0 ? `\n${replacedData.description.trim()}` : ''
-            const personalityToAdd = replacedData.personality.length > 0 ? `\n${replacedData.personality.trim()}` : ''
-            const scenarioToAdd = replacedData.scenario.length > 0 ? `\n${replacedData.scenario.trim()}` : ''
+            //const personalityToAdd = replacedData.personality.length > 0 ? `\n${replacedData.personality.trim()}` : ''
+            //const scenarioToAdd = replacedData.scenario.length > 0 ? `\n${replacedData.scenario.trim()}` : ''
 
             //replace {{user}} and {{char}} for D1JB
             var D1JB = postProcessText(replaceMacros(liveConfig.promptConfig.D1JB, username, charJSON.name)) || ''
             var D4AN = postProcessText(replaceMacros(liveConfig.promptConfig.D4AN, username, charJSON.name)) || ''
             if (doD4CharDefs) {
-                D4AN = `${descToAdd}${personalityToAdd}${scenarioToAdd}\n${D4AN}`
+                D4AN = `${descToAdd}\n${D4AN}`
             }
             var systemMessage = postProcessText(replaceMacros(liveConfig.promptConfig.systemPrompt, username, charJSON.name)) || `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
             const instructData = await fio.readFile(liveConfig.promptConfig.selectedInstruct)
@@ -321,8 +321,8 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             const endSequence = replaceMacros(instructSequence.end_sequence, username, charJSON.name)
 
             if (!doD4CharDefs) {
-                var systemPrompt = `${systemSequence}${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
-                var systemPromptforCC = `${systemMessage}${descToAdd}${personalityToAdd}${scenarioToAdd}`
+                var systemPrompt = `${systemSequence}${systemMessage}${descToAdd}`
+                var systemPromptforCC = `${systemMessage}${descToAdd}`
             } else {
                 var systemPrompt = `${systemSequence}${systemMessage}`
                 var systemPromptforCC = `${systemMessage}`

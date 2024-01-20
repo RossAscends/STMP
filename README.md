@@ -217,6 +217,29 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 - Characters can be selected at the top of the AI Chat panel.
 - Characters can be swapped at any time without resetting the chat, allowing you to manually simulate a group chat.
 
+#### Editing Characters
+
+- Hosts will see a (🧠) next to the Character Selector. This will open a popup with the character definitions.
+- STMP only handles three types of character definitions:
+  - `Name` - What is displayed as the character's name in the chat.
+  - `Description` - What goes into the prompt at either the top, or at D4 if 'D4 Char Defs' box is checked.
+  - `First Message` - What gets auto-inserted into a new chat with that character.
+- `Save` will update the character defintions.
+- `Close` will close the popup with no changes.
+
+>What about Personality, Scenario, and Example Messages?
+
+- Personality and Scenario are outdated distinctions without a meaningful purpose, and should be incorporated into the Description.
+- Example Message can also be incorporated into the Description. We reccomend doing so in the form of AliChat.
+
+>What about v2 Card Spec values?
+
+STMP will read from the v2 spec values if they are present, but will only write to the v1 card spec space.
+
+>What about embedded lorebooks?
+
+Incorporating embedded lorebooks is under consideration.
+
 ### Adding Presets
 
 - If you want to add more presets for Instruct formats or hyperparameter Samplers, put the JSON file into the appropriate folder:

@@ -563,7 +563,7 @@ async function handleConnections(ws, type, request) {
                 clientsObject[parsedMessage.UUID] = thisClientObj;
             }
 
-            logger.debug('Received message from client:', parsedMessage);
+            logger.trace('Received message from client:', parsedMessage);
 
             //first check if the sender is host, and if so, process possible host commands
             if (user.role === 'host') {
@@ -709,6 +709,22 @@ async function handleConnections(ws, type, request) {
                     delete changeCharMessage.char
                     changeCharMessage.type = 'changeCharacterDisplayName'
                     await broadcast(changeCharMessage, 'guest');
+                    return
+                }
+                else if (parsedMessage.type === 'displayCharDefs') {
+                    const charDefs = await fio.charaRead(parsedMessage.value)
+                    logger.warn(charDefs)
+                    const messageContentResponse = {
+                        type: 'charDefsResponse',
+                        content: charDefs
+                    }
+                    ws.send(JSON.stringify(messageContentResponse))
+                    return
+                }
+
+                else if (parsedMessage.type === 'charEditRequest') {
+                    logger.debug(parsedMessage.newCharDefs)
+                    fio.charaWrite(parsedMessage.char, parsedMessage.newCharDefs)
                     return
                 }
 

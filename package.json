@@ -11,6 +11,7 @@
     "express": "^4.18.2",
     "fs": "0.0.1-security",
     "iconv-lite": "^0.6.3",
+    "jimp": "^0.22.10",
     "jquery": "3.6.0",
     "log4js": "^6.9.0",
     "openssl-nodejs": "1.0.5",

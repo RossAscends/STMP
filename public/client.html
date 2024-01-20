@@ -237,12 +237,17 @@
         <div id="contentWrap" class="flexbox justifyContentCenter noGap paddingLR5">
             <div id="chatWrap" class="flexbox flex1 noWrap transition250 justifyContentCenter alignItemsCenter">
                 <div id="LLMChatWrapper" class="flexbox flexFlowCol transition250 flex1 noGap">
-                    <div class="chatHeader Hcentered Vcentered flexbox positionRelative">
-                        Chat with
-                        <div class="custom-select hostControls">
-                            <select id="cardList" class="flex1 dynamicSelector"></select>
+                    <div class="chatHeader Hcentered Vcentered flexbox positionRelative justifySpaceBetween width100p">
+                        <div class="hostControls"></div><!-- empty spacer div -->
+                        <div class="flexbox">
+                            AI Chat with
+                            <div class="custom-select hostControls">
+                                <select id="cardList" class="flex1 dynamicSelector"></select>
+                            </div>
+                            <button id="charDefsPopupButton" class="hostControls">🧠</button>
+                            <span id="charName"></span>
                         </div>
-                        <span id="charName"></span>
+
                         <button id="clearAIChat" class="hostControls chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear AI Chat History">🗑️</button>
                     </div>
                     <!-- <div class="chatAndTrashWrap flexbox positionRelative flex1 overflowXHidden"> -->

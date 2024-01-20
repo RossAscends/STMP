@@ -250,6 +250,7 @@ async function processConfirmedConnection(parsedMessage) {
   } else {
     //hide control panel and host controls for guests
     $("#controlPanel, .hostControls").remove();
+    $(".chatHeader").removeClass('justifySpaceBetween')
     if (isPhone) {
       $("#leftSpanner").css('display', 'block').remove()
       $("#userListsWrap").addClass('hidden').addClass('opacityZero')
@@ -305,7 +306,7 @@ function addMessageEditListeners(newDiv) {
     const mesID = $(this).data('messageid')
     const sessionID = $(this).data('sessionid')
     let currentMessageData = await getMessageContent(mesID)
-    console.log(currentMessageData.message)
+    console.debug(currentMessageData.message)
 
     await editMessage(currentMessageData.message)
 
@@ -322,7 +323,6 @@ function addMessageEditListeners(newDiv) {
           console.log(responseDataJSON)
           socket.removeEventListener('message', messageContentHandler);
           resolve(responseDataJSON.content);
-
         };
 
         socket.addEventListener('message', messageContentHandler);
@@ -824,6 +824,117 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
+async function callCharDefPopup() {
+  const whichChar = $("#cardList").val()
+  let charDefs = await getCharDefs(whichChar)
+  await showCharDefs(charDefs, whichChar)
+
+  async function getCharDefs(whichChar) {
+
+    const charDefRequestMessage = {
+      type: 'displayCharDefs',
+      UUID: myUUID,
+      value: whichChar
+    }
+
+    return new Promise((resolve, reject) => {
+      const messageContentHandler = (response) => {
+        let responseDataJSON = JSON.parse(response.data)
+        console.log(responseDataJSON)
+        socket.removeEventListener('message', messageContentHandler);
+        resolve(responseDataJSON.content);
+      };
+
+      socket.addEventListener('message', messageContentHandler);
+      socket.send(JSON.stringify(charDefRequestMessage));
+    });
+  }
+
+  async function showCharDefs(charDefs, whichChar) {
+    const widthToUse = isPhone ? ($(window).width() - 10) : $("#contentWrap").width()
+    const heightToUse = isPhone ? ($(window).height() - 10) : $("#contentWrap").height()
+    const columnOrNot = isPhone ? 'flexFlowCol' : ''
+    charDefs = JSON.parse(charDefs)
+    console.log(charDefs)
+
+    $(`<div id="charDefPopup" class="flexbox ${columnOrNot}"></div>`)
+      .html(
+        `<div class="flexbox flexFlowCol flex1">
+          Name
+          <textarea id="charDefsName" class="JQUIPopupInput" rows="1"></textarea>
+          Description
+          <textarea id="charDefsDesc" class="JQUIPopupInput flex1"></textarea>
+          <!--
+          Personality
+          <textarea id="charDefsPersonality" class="JQUIPopupInput flex1"></textarea>
+          -->
+        </div>
+
+        <div class="flexbox flexFlowCol flex1">
+          <!--  
+          Scenario
+          <textarea id="charDefsScenario" class="JQUIPopupInput flex1"></textarea>
+          -->
+          First Message
+          <textarea id="charDefsFirstMessage" class="JQUIPopupInput flex1"></textarea>
+          <!--
+          Example Messages
+          <textarea id="charDefsExampleMessages" class="JQUIPopupInput flex1"></textarea>
+          -->
+        </div>`
+      )
+      .dialog({
+        width: widthToUse,
+        height: heightToUse,
+        draggable: false,
+        resizable: false,
+        modal: true,
+        position: { my: "center", at: "center", of: window },
+        title: `Character Definitions - ${charDefs.name}`,
+        buttons: {
+          Save: function () {
+            //replace old card data with new STMP data, leaving old data otherwise untouched.
+            charDefs.name = $("#charDefsName").val()
+            charDefs.description = $("#charDefsDesc").val()
+            charDefs.first_mes = $("#charDefsFirstMessage").val()
+
+            const charEditRequest = {
+              type: 'charEditRequest',
+              UUID: myUUID,
+              char: whichChar,
+              newCharDefs: charDefs
+            }
+            $(this).dialog("close");
+            $(this).remove()
+            console.warn(charEditRequest)
+            util.messageServer(charEditRequest)
+          },
+          Cancel: function () {
+            $(this).dialog("close");
+            $(this).remove()
+          },
+        },
+        open: function () {
+          $("#charDefsName").val(charDefs?.data?.name || charDefs.name || 'no name found??')
+          $("#charDefsDesc").val(charDefs?.data?.description || charDefs.description || '')
+          //$("#charDefsPersonality").val(charDefs?.data?.personality || charDefs?.personality || '')
+          //$("#charDefsScenario").val(charDefs?.data?.scenario || charDefs?.scenario || '')
+          $("#charDefsFirstMessage").val(charDefs?.data?.first_mes || charDefs.first_mes || '')
+          //$("#charDefsExampleMessages").val(charDefs?.data?.mes_example || charDefs?.mes_example || '')
+          //$("#charDefsLoreBook").val(charDefs?.data?.character_book || 'No Embedded LoreBook')
+
+          $(".ui-button").trigger("blur");
+        },
+        close: function () { },
+      })
+
+  }
+
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Listeners
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 $(async function () {
 
@@ -925,7 +1036,8 @@ $(async function () {
     doAIRetry();
   });
 
-  //A clickable icon that toggles between Text Completions and horde mode, swaps the API parameters, and updates the UI and server to reflect the change.
+  //A clickable icon that toggles between Text Completions and horde mode, 
+  //swaps the API parameters, and updates the UI and server to reflect the change.
   $("#toggleMode").off("click").on("click", async function () {
     let newMode = $("#toggleMode").hasClass("hordeMode") ? "TC" : "horde";
     await handleconfig.setEngineMode(newMode)
@@ -1095,7 +1207,6 @@ $(async function () {
     }
   });
 
-
   $("#controlPanelToggle").on("click", async function () {
     if (!isPhone && $("#controlPanel").width() !== 0) {
       $("#controlPanelContents").css('width', $("#controlPanel").width());
@@ -1124,7 +1235,8 @@ $(async function () {
 
   var chatsToggleState = 0;
   $("#chatsToggle").off("click").on("click", async function () {
-    chatsToggleState = (chatsToggleState + 1) % 3; // Increment the state and wrap around to 0 after the third state
+    // Increment the state and wrap around to 0 after the third state
+    chatsToggleState = (chatsToggleState + 1) % 3;
 
     if (chatsToggleState === 0) { //going back to dual display
       $LLMChatWrapper.removeClass('hidden')
@@ -1353,4 +1465,7 @@ $(async function () {
   util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");
   await util.delay(1000);
 
+  $("#charDefsPopupButton").on('click', function () { callCharDefPopup() }
+
+  )
 });

@@ -224,13 +224,13 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
   - `Name` - What is displayed as the character's name in the chat.
   - `Description` - What goes into the prompt at either the top, or at D4 if 'D4 Char Defs' box is checked.
   - `First Message` - What gets auto-inserted into a new chat with that character.
-- `Save` will update the character defintions.
+- `Save` will update the character definitions.
 - `Close` will close the popup with no changes.
 
 >What about Personality, Scenario, and Example Messages?
 
 - Personality and Scenario are outdated distinctions without a meaningful purpose, and should be incorporated into the Description.
-- Example Message can also be incorporated into the Description. We reccomend doing so in the form of AliChat.
+- Example Message can also be incorporated into the Description. We recommend doing so in the form of AliChat.
 
 >What about v2 Card Spec values?
 

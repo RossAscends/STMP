@@ -230,7 +230,7 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 >What about Personality, Scenario, and Example Messages?
 
 - Personality and Scenario are outdated distinctions without a meaningful purpose, and should be incorporated into the Description.
-- Example Message can also be incorporated into the Description. We recommend doing so in the form of AliChat.
+- Example Message can also be incorporated into the Description. We recommend doing so in the form of [AliChat](https://discord.com/channels/553948136629075968/1137875580457590884/1198559176935354508).
 
 >What about v2 Card Spec values?
 

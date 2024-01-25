@@ -47,8 +47,10 @@ async function getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, us
     try {
         let APICallParams = {}
         if (engineMode === 'TC') {
+            //logger.info('using TC api template')
             APICallParams = TCAPIDefaults
         } else {
+            //logger.info('using horde api param template')
             APICallParams = HordeAPIDefaults
         }
         logger.trace(APICallParams)
@@ -90,14 +92,25 @@ async function getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, us
         //add stop strings
         const [finalAPICallParams, entitiesList] = await setStopStrings(liveConfig, APICallParams, includedChatObjects, liveAPI)
 
-        var AIResponse = '';
+        var AIChatUserList, AIResponse = '';
         if (liveConfig.promptConfig.engineMode === 'horde') {
+            AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
+            if (onlyUserList) {
+                logger.info('userlist:', AIChatUserList)
+                return AIChatUserList
+            }
             const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(STBasicAuthCredentials, finalAPICallParams);
             AIResponse = hordeResponse;
+            AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
+
+            //logger.info('response:', AIResponse)
+            //logger.info('userlist:', AIChatUserList)
+
+            return [AIResponse, AIChatUserList]
         }
         else {
 
-            let AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
+            AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
             if (onlyUserList) {
                 return AIChatUserList
             }
@@ -243,6 +256,7 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
         APICallParams.stop = targetObj
     } else { //for horde
         logger.debug('setting horde stop strings')
+        //logger.info(APICallParams)
         APICallParams.params.stop_sequence = targetObj
     }
     return [APICallParams, usernames]
@@ -499,7 +513,7 @@ async function requestToHorde(STBasicAuthCredentials, stringToSend) {
             logger.warn('no task ID, aborting')
             return 'error requesting Horde'
         }
-        logger.debug(`horde task ID ${task_id}`)
+        logger.info(`horde task ID ${task_id}`)
 
         for (var retryNumber = 0; retryNumber < MAX_RETRIES; retryNumber++) {
 

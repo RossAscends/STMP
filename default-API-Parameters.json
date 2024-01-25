@@ -64,27 +64,11 @@
             },
             "trusted_workers": true,
             "models": [
-                "koboldcpp/mistral-pygmalion-7b.Q5_K_M",
-                "koboldcpp/Toppy-M-7B",
-                "koboldcpp/LLaMA2-13B-Tiefighter",
-                "aphrodite/jebcarter/psyonic-cetacean-20B",
-                "aphrodite/DiscoResearch/DiscoLM-120b",
-                "aphrodite/KoboldAI/LLaMA2-13B-Psyfighter2",
+                "koboldcpp/llama2-13b-tiefighter.Q6_K",
                 "aphrodite/Undi95/Toppy-M-7B",
-                "koboldcpp/Noromaid-7b-v0.1.1",
-                "koboldcpp/Mistral-7B-claude-chat",
-                "aphrodite/alpindale/goliath-120b",
-                "koboldcpp/Mistral-7B-claude-chat",
-                "aphrodite/KoboldAI/LLaMA2-13B-Tiefighter",
-                "aphrodite/KoboldAI/LLaMA2-13B-TiefighterLR",
-                "aphrodite/Undi95/MLewd-ReMM-L2-Chat-20B-Inverted",
-                "aphrodite/Undi95/Xwin-MLewd-13B-V0.2",
-                "aphrodite/NeverSleep/Echidna-13b-v0.1",
-                "aphrodite/PygmalionAI/mythalion-13b",
-                "aphrodite/NeverSleep/Echidna-13b-v0.3",
-                "PygmalionAI/pygmalion-2-7b",
-                "RossAscends/Mistral7B_Dolphin2.1_LIMARP0.5_4bpw_exl2",
-                "aphrodite/Undi95/Emerhyst-20B"
+                "koboldcpp/Toppy-M-7B",
+                "koboldcpp/OpenHermes-2.5-AshhLimaRP-Mistral-7B",
+                "koboldcpp/OpenHermes-2.5-Mistral-7B"
             ]
         }
     }

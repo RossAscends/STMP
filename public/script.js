@@ -683,6 +683,7 @@ async function connectWebSocket(username) {
         if (chatID === "AIChat") {
           $("#showPastChats").trigger("click"); //autoupdate the past chat list with each AI chat message
         }
+        updateAIChatUserList(parsedMessage.AIChatUserList);
         isAIResponse = false;
         break;
       default:

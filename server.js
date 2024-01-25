@@ -1109,19 +1109,22 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user, ses
 };
 
 async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig) {
-    let AIResponse
+    var AIResponse, AIChatUserList
 
     //console.log(liveConfig)
-
+    logger.debug('Getting response via', engineMode)
+    if (engineMode === 'horde') { isStreaming = false }
     //just get the AI chat userlist with 'true' as last argument
     //this is jank..
-    //logger.warn('Dry run to get the AI UserList')
-    let AIChatUserList = await api.getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveConfig.APIConfig, true, parsedMessage);
-    //logger.warn('now for the real deal')
-    //.warn('AIChatUserList in handleResponse')
-    //logger.warn(AIChatUserList)
+    logger.debug('Dry run to get the AI UserList')
+    AIChatUserList = await api.getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveConfig.APIConfig, true, parsedMessage);
+    //logger.trace('AIChatUserList in handleResponse')
+    //logger.trace(AIChatUserList)
+
+    logger.debug('is Streaming?', isStreaming)//
 
     if (isStreaming) {
+        logger.debug('doing streamed response')
         let [activeChat, foundSessionID] = await db.readAIChat()
         var chatJSON = JSON.parse(activeChat)
         var lastItem = chatJSON[chatJSON.length - 1]
@@ -1147,8 +1150,10 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
     } else {
         //logger.info('SENDING BACK NON-STREAM RESPONSE')
         // Handle non-streamed response
-        [AIResponse, AIChatUserList] = await api.getAIResponse(
+        //logger.error('sending request to get AI non-streamed response')
+        let [AIResponse, AIChatUserList] = await api.getAIResponse(
             isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage);
+        //logger.error('got response and userlist')
 
         const AIResponseMessage = {
             chatID: parsedMessage.chatID,
@@ -1158,6 +1163,7 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
             color: user.color,
             AIChatUserList: AIChatUserList
         }
+        logger.info('Response:', AIResponseMessage)
         await broadcast(AIResponseMessage)
 
     }

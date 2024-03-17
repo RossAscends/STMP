@@ -51,26 +51,19 @@ For tech support or to contact RossAscends directly, join the [SillyTavern Disco
 
 ### Using Horde
 
-- Using Horde requires a SillyTavern server to be running on your local machine to handle the Horde requests.
+You can use Horde as an anonymous user, but that generally leads to slower queue times.
 
-> **IMPORTANT: ST must be running with CSRF turned off.**
+To use your Horde API key in STMP, add it to `secrets.json` like this (server should run at least once):
 
-- the easiest way to do this is to make a new `.bat` or `.sh` file with the following contents:
-
-```
-cd c:\_path_\_to_your_\SillyTavern
-call npm install --no-audit
-node server.js --disableCsrf
-pause
-popd
+```js
+{
+    // some content
+    "horde_key": "YourKeyHere",
+    // some other content
+}
 ```
 
-> **IMPORTANT:** While it is optional, STMP supports (and encourages) having [BasicAuthentication enabled on your ST server](https://docs.sillytavern.app/usage/remoteconnections/#http-basic-authentication).
-
-> Input your ST Authentication `username:pass` into `secrets.json` on the appropriate line between the quotation marks.
-
-- STMP assumes the default ST server URL of `http://127.0.0.1:8000/api/horde/generate-text` for Horde requests.
-- If you have a HordeID set in SillyTavern, those credentials and kudos will be used.
+Don't have one? Register [here](https://horde.koboldai.net/register) (it's free).
 
 ### Multiuser Setup
 

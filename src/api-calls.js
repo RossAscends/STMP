@@ -41,7 +41,7 @@ async function getAPIDefaults(shouldReturn = null) {
     }
 }
 
-async function getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage) {
+async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage) {
     let isCCSelected = liveAPI.type === 'CC' ? true : false
     let isClaude = liveAPI.claude
     try {
@@ -99,7 +99,7 @@ async function getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, us
                 logger.info('userlist:', AIChatUserList)
                 return AIChatUserList
             }
-            const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(STBasicAuthCredentials, finalAPICallParams);
+            const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(hordeKey, finalAPICallParams);
             AIResponse = hordeResponse;
             AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
 
@@ -475,29 +475,25 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
     })
 }
 
-async function requestToHorde(STBasicAuthCredentials, stringToSend) {
+async function requestToHorde(hordeKey, stringToSend) {
     logger.info('Sending Horde request...');
-    //the ST server must be running with CSRF turned off in order for this to work.
-    var STHordeURL = 'http://127.0.0.1:8000/api/horde/generate-text';
+    const url = 'https://horde.koboldai.net/api/v2/generate/text/async';
 
     var headers = {
         'Content-Type': 'application/json',
         'Cache': 'no-cache',
-        "Client-Agent": "SillyTavern:UNKNOWN:Cohee#1207"
+        'apikey': hordeKey,
+        "Client-Agent": "STMP:1.0.2:RossAscends"
     };
 
-    if (STBasicAuthCredentials && STBasicAuthCredentials !== '' && STBasicAuthCredentials !== undefined) {
-        authValue = `Basic ${btoa(STBasicAuthCredentials)}`
-        headers.Authorization = authValue
-    }
-
+    hordeKey = hordeKey || '0000000000';
     var body = JSON.stringify(stringToSend);
     logger.info(`--- horde payload:`)
     logger.info(stringToSend)
 
     var timeout = 30000; // Timeout value in milliseconds (30 seconds)
 
-    const response = await fetch(STHordeURL, {
+    const response = await fetch(url, {
         method: 'POST',
         headers: headers,
         body: body,

@@ -134,7 +134,7 @@ var isAutoResponse = true
 var isStreaming = true
 var responseLength = 200
 var contextSize = 4096
-var liveConfig, liveAPI, secretsObj, TCAPIkey, STBasicAuthCredentials
+var liveConfig, liveAPI, secretsObj, TCAPIkey, hordeKey
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -215,6 +215,7 @@ async function initFiles() {
         const defaultSecrets = {
             api_key: 'YourAPIKey',
             authString: 'YourAuthString',
+            horde_key: '0000000000',
         };
 
         // Check and create config.json if it doesn't exist
@@ -261,7 +262,7 @@ async function initFiles() {
 
         secretsObj = JSON.parse(fs.readFileSync('secrets.json', { encoding: 'utf8' }));
         // TCAPIkey = secretsObj.api_key
-        STBasicAuthCredentials = secretsObj?.sillytavern_basic_auth_string;
+        hordeKey = secretsObj?.horde_key;
         logger.info('File initialization complete!');
     }
 
@@ -739,7 +740,7 @@ async function handleConnections(ws, type, request) {
                             'color': user.color
                         }
                         handleResponse(
-                            parsedMessage, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig
+                            parsedMessage, selectedAPI, hordeKey, engineMode, user, liveConfig
                         );
                         return
                     } catch (parseError) {
@@ -931,7 +932,7 @@ async function handleConnections(ws, type, request) {
 
                     if (liveConfig.promptConfig.isAutoResponse || isEmptyTrigger) {
                         handleResponse(
-                            parsedMessage, selectedAPI, STBasicAuthCredentials,
+                            parsedMessage, selectedAPI, hordeKey,
                             engineMode, user, liveConfig
                         );
                     }
@@ -1108,7 +1109,7 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user, ses
     };
 };
 
-async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials, engineMode, user, liveConfig) {
+async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, user, liveConfig) {
     var AIResponse, AIChatUserList
 
     //console.log(liveConfig)
@@ -1117,7 +1118,7 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
     //just get the AI chat userlist with 'true' as last argument
     //this is jank..
     logger.debug('Dry run to get the AI UserList')
-    AIChatUserList = await api.getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveConfig.APIConfig, true, parsedMessage);
+    AIChatUserList = await api.getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, true, parsedMessage);
     //logger.trace('AIChatUserList in handleResponse')
     //logger.trace(AIChatUserList)
 
@@ -1136,7 +1137,7 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
 
         // Make the API request for streamed responses
 
-        const response = await api.getAIResponse(isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage);
+        const response = await api.getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage);
 
         if (response === null) {
             textListener('END_OF_RESPONSE');
@@ -1152,7 +1153,7 @@ async function handleResponse(parsedMessage, selectedAPI, STBasicAuthCredentials
         // Handle non-streamed response
         //logger.error('sending request to get AI non-streamed response')
         let [AIResponse, AIChatUserList] = await api.getAIResponse(
-            isStreaming, STBasicAuthCredentials, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage);
+            isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage);
         //logger.error('got response and userlist')
 
         const AIResponseMessage = {

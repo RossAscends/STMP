@@ -449,7 +449,7 @@ async function connectWebSocket(username) {
         break;
 
       case "modeChange":
-        handleconfig.setEngineMode(parsedMessage.engineMode);
+        handleconfig.setEngineMode(parsedMessage.engineMode, parsedMessage.hordeWorkerList);
         break;
 
       case "userList":

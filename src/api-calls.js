@@ -83,22 +83,24 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
         }
 
         //ctx and response length for Text Completion API
-        APICallParams.truncation_length = Number(liveConfig.promptConfig.contextSize)
-        APICallParams.max_tokens = Number(liveConfig.promptConfig.responseLength)
-        //ctx and response length for Horde
-        APICallParams.max_context_length = Number(liveConfig.promptConfig.contextSize)
-        APICallParams.max_length = Number(liveConfig.promptConfig.responseLength)
+        if (liveConfig.promptConfig.engineMode !== 'horde') {
+            APICallParams.truncation_length = Number(liveConfig.promptConfig.contextSize)
+            APICallParams.max_tokens = Number(liveConfig.promptConfig.responseLength)
+        }
 
         //add stop strings
         const [finalAPICallParams, entitiesList] = await setStopStrings(liveConfig, APICallParams, includedChatObjects, liveAPI)
 
         var AIChatUserList, AIResponse = '';
         if (liveConfig.promptConfig.engineMode === 'horde') {
+            APICallParams.params.max_context_length = Number(liveConfig.promptConfig.contextSize)
+            APICallParams.params.max_length = Number(liveConfig.promptConfig.responseLength)
             AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
             if (onlyUserList) {
                 logger.info('userlist:', AIChatUserList)
                 return AIChatUserList
             }
+            finalAPICallParams.models = [liveConfig.promptConfig.selectedHordeWorker]
             const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(hordeKey, finalAPICallParams);
             AIResponse = hordeResponse;
             AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
@@ -477,6 +479,63 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
     })
 }
 
+async function getHordeModelList(hordekey) {
+    logger.info('Getting Horde model list...');
+    //const url = 'https://horde.koboldai.net/api/v2/workers?type=text';
+    const url = 'https://stablehorde.net/api/v2/status/models?type=text&model_state=all';
+
+    var headers = {
+        'Content-Type': 'application/json',
+        'Cache': 'no-cache',
+        'apikey': hordekey,
+        "Client-Agent": "STMP:1.0.2:RossAscends"
+    };
+
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: headers
+    })
+
+    const data = await response.json()
+
+    const options = data
+        .filter(item => {
+            const { eta, count } = item;
+            return eta <= 60;
+        })
+        .map(item => {
+            const { name, count, eta, queued, performance } = item
+            const modelName = name.split('/').pop(); // Extract the value after the final forward slash
+            //const { models, uncompleted_jobs, max_length, max_context_length } = item;
+            //const modelName = models[0].split('/').pop(); // Extract the value after the final forward slash
+            //const short_ctx_string = max_context_length < 1000 ? max_context_length : Math.floor(max_context_length / 1000) + "k"
+            //const short_resp_string = max_length < 1000 ? max_length : Math.floor(max_length / 1000) + "k"
+
+            return {
+                //name: `${modelName} (Q:${uncompleted_jobs}, ${short_resp_string}/${short_ctx_string})`,
+                //value: models[0]
+                name: `${modelName} (Q:${queued}, E:${eta}, ${performance}tps, W:${count})`,
+                value: name
+
+            }
+        });
+
+    options.sort((a, b) => {
+        const etaA = parseInt(a.name.split('E:')[1]);
+        const etaB = parseInt(b.name.split('E:')[1]);
+        return etaA - etaB
+    })
+
+    /*     options.sort((a, b) => {
+            const uncompletedJobsA = parseInt(a.name.split('(Q:')[1]);
+            const uncompletedJobsB = parseInt(b.name.split('(Q:')[1]);
+            return uncompletedJobsA - uncompletedJobsB;
+        }); */
+
+    logger.info(options)
+    return options
+}
+
 async function requestToHorde(hordeKey, stringToSend) {
     logger.info('Sending Horde request...');
     const url = 'https://horde.koboldai.net/api/v2/generate/text/async';
@@ -510,8 +569,9 @@ async function requestToHorde(hordeKey, stringToSend) {
         var task_id = data.id;
         if (task_id === undefined) {
             logger.warn('no task ID, aborting')
-            return 'error requesting Horde'
+            return ['Horde Error: No taskID', null, null, null]
         }
+
         logger.info(`horde task ID ${task_id}`)
 
         for (var retryNumber = 0; retryNumber < MAX_RETRIES; retryNumber++) {
@@ -526,7 +586,12 @@ async function requestToHorde(hordeKey, stringToSend) {
             });
 
             var statusResponse = await (await fetch(horde_status_url, status_headers)).json()
-            logger.info('Horde status check ' + (retryNumber + 1) + ': ' + statusResponse.wait_time + ' secs left');
+            if (statusResponse.is_possible === false) {
+                logger.warn('Horde said this was request impossible, check context and response size.')
+                return ['[Horde Error: Request deemed not possible. Check context and response sizes.]', null, null, null]
+            }
+            logger.info('Horde status check ' + (retryNumber + 1) + ':');
+            logger.info(statusResponse)
             if (
                 statusResponse.done &&
                 Array.isArray(statusResponse.generations) &&
@@ -588,7 +653,11 @@ async function testAPI(api, liveConfig) {
 
 }
 
-async function getModelList(api) {
+async function getModelList(api, liveConfig = null) {
+    if (liveConfig.promptConfig.engineMode === 'horde') {
+        logger.info('aborting model list request because horde is active')
+        return
+    }
     let isClaude = api.isClaude
     let modelsEndpoint = api.endpoint
 
@@ -978,5 +1047,6 @@ module.exports = {
     processResponse: processResponse,
     addCharDefsToPrompt: addCharDefsToPrompt,
     setStopStrings: setStopStrings,
-    trimIncompleteSentences: trimIncompleteSentences
+    trimIncompleteSentences: trimIncompleteSentences,
+    getHordeModelList
 }

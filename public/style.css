@@ -186,6 +186,7 @@ select {
     width: fit-content;
     /* min-width: 50px; */
     display: flex;
+    max-width: 200px;
 }
 
 select:hover:not(:disabled),
@@ -211,6 +212,7 @@ select:hover:not(:disabled),
     position: relative;
     z-index: 3;
     width: fit-content;
+    max-width: 200px;
 }
 
 .chatTrash {

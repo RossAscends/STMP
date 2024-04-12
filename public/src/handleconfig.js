@@ -154,6 +154,10 @@ async function populateSelector(itemsObj, elementID, selectedValue = null) {
       selectElement.append($('<option>').val('addNewAPI').text('Add New API'));
     }
 
+    if (elementID === 'hordeWorkerList') {
+      selectElement.append($('<option>').val('NULL').text('Select a Horde model..'));
+    }
+
     itemsObj.forEach((item) => {
       const newElem = $("<option>");
       //the optional use of 'name' here is for APIs added by the local user
@@ -306,7 +310,7 @@ async function verifyValuesAreTheSame(value, elementID) {
 }
 
 // set the engine mode to either horde or Text Completions based on a value from the websocket
-async function setEngineMode(mode) {
+async function setEngineMode(mode, hordeWorkerList = null) {
   //if (initialLoad) { return }
   console.debug("API MODE:", mode);
   liveConfig.promptConfig.engineMode = mode
@@ -327,8 +331,10 @@ async function setEngineMode(mode) {
     $("#TCCCAPIBlock").hide();
     $("#isStreaming").prop('checked', false)
     $("#isStreamingChekboxBlock").hide();
-
+    populateSelector(hordeWorkerList, 'hordeWorkerList')
+    $("#hordeWorkerListBlock").show()
   } else {
+    $("#hordeWorkerListBlock").hide()
     $("#TCCCAPIBlock").show();
     $("#isStreaming").prop('checked', liveAPI.isStreaming)
     $("#isStreamingChekboxBlock").show();
@@ -389,8 +395,10 @@ async function updateConfigState(element) {
     //console.log('dynamic selector')
     arrayName = elementID.replace('List', '');
     let arrayNameForParse = arrayName.charAt(0).toUpperCase() + arrayName.slice(1);
-    arrayName = $element.closest('.isArrayType').prop('id')
+    arrayName = $element.closest('.isArrayType').prop('id') //this will resolve to either promptConfig or APIConfig, whichever the input element is inside of.
     propName = 'selected' + arrayNameForParse
+    //ex: selector element "#modelList" existing inside the #promptConfig div
+    //result: the selector's value is applied to "liveConfig.promptConfig.selectedModel"
 
   }
   else {
@@ -453,7 +461,7 @@ $("#APIList").on("change", async function () {
   util.flashElement("apiList", "good");
 });
 
-$("#promptConfig input, #promptConfig select:not(#APIList, #modelList), #cardList").on('change', function () { updateConfigState($(this)) })
+$("#promptConfig input, #promptConfig select:not(#APIList, #modelList), #cardList, #hordeWorkerList").on('change', function () { updateConfigState($(this)) })
 $("#promptConfig textarea, #crowdControl input").on('blur', function () { updateConfigState($(this)) })
 
 async function addNewAPI() {

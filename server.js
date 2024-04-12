@@ -631,35 +631,47 @@ async function handleConnections(ws, type, request) {
                     await ws.send(JSON.stringify(testAPIResult))
                     return
                 }
-                if (parsedMessage.type === 'modelListRequest') {
-                    let modelList = await api.getModelList(parsedMessage.api);
-                    let modelListResult = {};
+                else if (parsedMessage.type === 'modelListRequest') {
 
-                    if (typeof modelList === 'object') {
-                        liveConfig.APIConfig = {
-                            ...parsedMessage.api,
-                            modelList: modelList,
-                            selectedModel: modelList[0]
-                        };
+                    if (liveConfig.promptConfig.engineMode !== 'horde') {
+                        let modelList = await api.getModelList(parsedMessage.api, liveConfig);
+                        let modelListResult = {};
 
-                        await db.upsertAPI(liveConfig.APIConfig);
-                        liveConfig.promptConfig.APIList = await db.getAPIs();
-                        await fio.writeConfig(liveConfig);
+                        if (typeof modelList === 'object') {
+                            liveConfig.APIConfig = {
+                                ...parsedMessage.api,
+                                modelList: modelList,
+                                selectedModel: modelList[0]
+                            };
 
-                        modelListResult = {
-                            type: 'hostStateChange',
-                            value: liveConfig
-                        };
-                    } else {
-                        modelListResult = {
-                            type: 'modelListError',
-                            value: 'ERROR'
-                        };
+                            await db.upsertAPI(liveConfig.APIConfig);
+                            liveConfig.promptConfig.APIList = await db.getAPIs();
+                            await fio.writeConfig(liveConfig);
+
+                            modelListResult = {
+                                type: 'hostStateChange',
+                                value: liveConfig
+                            };
+                        } else {
+                            modelListResult = {
+                                type: 'modelListError',
+                                value: 'ERROR'
+                            };
+                        }
+
+                        await ws.send(JSON.stringify(modelListResult));
+                        return
+                    } else if (liveConfig.promptConfig.engineMode === 'horde') {
+                        let modeChangeMessage = {
+                            type: 'modeChange',
+                            engineMode: engineMode,
+                            hordeWorkerList: await api.getHordeModelList(hordeKey)
+                        }
+                        await broadcast(modeChangeMessage, 'host');
+                        return
                     }
-
-                    await ws.send(JSON.stringify(modelListResult));
-                    return;
                 }
+
                 else if (parsedMessage.type === 'clearAIChat') {
                     await saveAndClearChat('AIChat')
                     const clearAIChatInstruction = {
@@ -752,13 +764,17 @@ async function handleConnections(ws, type, request) {
 
                 //TODO: merge this into clientStateChange
                 else if (parsedMessage.type === 'modeChange') {
+                    let hordeWorkerList
                     engineMode = parsedMessage.newMode
-                    const modeChangeMessage = {
+                    let modeChangeMessage = {
                         type: 'modeChange',
                         engineMode: engineMode
                     }
                     liveConfig.promptConfig.engineMode = engineMode
                     await fio.writeConfig(liveConfig, 'promptConfig.engineMode', engineMode)
+                    if (engineMode === 'horde') {
+                        modeChangeMessage.hordeWorkerList = await api.getHordeModelList(hordeKey)
+                    }
                     await broadcast(modeChangeMessage, 'host');
                     return
                 }

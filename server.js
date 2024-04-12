@@ -361,7 +361,8 @@ async function removeLastAIChatMessage() {
     let jsonArray = JSON.parse(AIChatJSON)
     let chatUpdateMessage = {
         type: 'chatUpdate',
-        chatHistory: jsonArray
+        chatHistory: jsonArray,
+        sessionID
     }
     logger.debug('sending AI Chat Update instruction to clients')
     broadcast(chatUpdateMessage);
@@ -1164,6 +1165,8 @@ async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, 
             color: user.color,
             AIChatUserList: AIChatUserList
         }
+        let trimmedResponse = await api.trimIncompleteSentences(AIResponse)
+        await db.writeAIChatMessage(liveConfig.promptConfig.selectedCharacterDisplayName, 'AI', trimmedResponse, 'AI')
         logger.info('Response:', AIResponseMessage)
         await broadcast(AIResponseMessage)
 

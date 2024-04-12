@@ -307,8 +307,9 @@ async function verifyValuesAreTheSame(value, elementID) {
 
 // set the engine mode to either horde or Text Completions based on a value from the websocket
 async function setEngineMode(mode) {
-  if (initialLoad) { return }
+  //if (initialLoad) { return }
   console.debug("API MODE:", mode);
+  liveConfig.promptConfig.engineMode = mode
   const toggleModeElement = $("#toggleMode");
   const isHordeMode = mode === "horde";
   toggleModeElement
@@ -320,13 +321,17 @@ async function setEngineMode(mode) {
   console.log(
     `Switching to ${isHordeMode ? "Horde" : "Text Completions"} Mode`
   );
+
   util.flashElement("toggleMode", "good");
   if (isHordeMode) {
     $("#TCCCAPIBlock").hide();
-    $("#streamingChekboxBlock").hide();
+    $("#isStreaming").prop('checked', false)
+    $("#isStreamingChekboxBlock").hide();
+
   } else {
     $("#TCCCAPIBlock").show();
-    $("#streamingChekboxBlock").show();
+    $("#isStreaming").prop('checked', liveAPI.isStreaming)
+    $("#isStreamingChekboxBlock").show();
   }
 }
 
@@ -358,6 +363,7 @@ function deleteAPI() {
 }
 
 async function updateConfigState(element) {
+  console.log('LOCAL ENGINE MODE = ', liveConfig.promptConfig.engineMode)
   if (initialLoad) { return }
 
   let $element = element

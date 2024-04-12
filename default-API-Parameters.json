@@ -68,7 +68,10 @@
                 "aphrodite/Undi95/Toppy-M-7B",
                 "koboldcpp/Toppy-M-7B",
                 "koboldcpp/OpenHermes-2.5-AshhLimaRP-Mistral-7B",
-                "koboldcpp/OpenHermes-2.5-Mistral-7B"
+                "koboldcpp/OpenHermes-2.5-Mistral-7B",
+                "koboldcpp/TheSpice-7B-FT-v0.3.1",
+                "aphrodite/KoboldAI/LLaMA2-13B-Estopia",
+                "aphrodite/Sao10K/Fimbulvetr-11B-v2"
             ]
         }
     }

@@ -342,8 +342,9 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 var systemPromptforCC = `${systemMessage}`
             }
 
-
-            if (!isCCSelected || isClaude) { //craft the TC prompt
+            //logger.info("CC?", isCCSelected, "claude?", isClaude)
+            if (liveConfig.promptConfig.engineMode === 'horde' || !isCCSelected || isClaude) { //craft the TC prompt
+                logger.trace('adding Text Completion style message objects into prompt')
                 //this will be what we return to TC as the prompt
                 var stringToReturn = systemPrompt
 
@@ -354,7 +355,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     stringToReturn += '\n[Start a new Chat]'
                 }
                 let promptTokens = countTokens(stringToReturn)
-                logger.trace(`before adding ChatHIstory, Prompt is: ~${promptTokens}`)
+                logger.trace(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
                 let insertedItems = []
 
                 for (let i = chatHistory.length - 1; i >= 0; i--) {
@@ -420,6 +421,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
 
                 resolve([stringToReturn, ChatObjsInPrompt]);
             } else { //craft the CC prompt
+                logger.trace('adding Chat Completion style message objects into prompt')
                 var CCMessageObj = []
                 var D1JBObj = { role: 'system', content: D1JB }
                 var D4ANObj = { role: 'system', content: D4AN }
@@ -489,6 +491,7 @@ async function requestToHorde(hordeKey, stringToSend) {
     hordeKey = hordeKey || '0000000000';
     var body = JSON.stringify(stringToSend);
     logger.info(`--- horde payload:`)
+    logger.info(headers)
     logger.info(stringToSend)
 
     var timeout = 30000; // Timeout value in milliseconds (30 seconds)
@@ -539,7 +542,7 @@ async function requestToHorde(hordeKey, stringToSend) {
             }
         }
     } else {
-        logger.error('Error while requesting ST');
+        logger.error('Error while requesting Horde');
         logger.error(response)
         return response
     };

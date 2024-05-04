@@ -53,7 +53,6 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
             //logger.info('using horde api param template')
             APICallParams = HordeAPIDefaults
         }
-        logger.trace(APICallParams)
 
         //if it's not an empty trigger from host
         //if userInput is empty we can just request the AI directly
@@ -72,6 +71,7 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
         const samplers = JSON.parse(samplerData);
         //logger.debug(samplers)
         //apply the selected preset values to the API call
+        APICallParams = {} //first clear the params to remove old sampler preset data in case of preset change
         for (const [key, value] of Object.entries(samplers)) {
             APICallParams[key] = value;
         }
@@ -280,9 +280,9 @@ function collapseNewlines(x) {
 
 function postProcessText(text) {
     // Collapse multiple newlines into one
-    text = collapseNewlines(text);
+    //text = collapseNewlines(text);
     // Trim leading and trailing whitespace, and remove empty lines
-    text = text.split('\n').map(l => l.trim()).filter(Boolean).join('\n');
+    //text = text.split('\n').map(l => l.trim()).filter(Boolean).join('\n');
     // Remove carriage returns
     text = text.replace(/\r/g, '');
     // Normalize unicode spaces
@@ -328,7 +328,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             if (doD4CharDefs) {
                 D4AN = `${descToAdd}\n${D4AN}`
             }
-            var systemMessage = postProcessText(replaceMacros(liveConfig.promptConfig.systemPrompt, username, charJSON.name)) || `You are ${charName}. Write ${charName}'s next response in this roleplay chat with ${username}.`
+            var systemMessage = postProcessText(replaceMacros(liveConfig.promptConfig.systemPrompt, username, charJSON.name)) || `You are ${charName}. Write ${charName}'s next response to interact with ${username}.`
             const instructData = await fio.readFile(liveConfig.promptConfig.selectedInstruct)
             const instructSequence = JSON.parse(instructData)
             const inputSequence = replaceMacros(instructSequence.input_sequence, username, charJSON.name)
@@ -917,8 +917,16 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
                     // Remove the "data: " prefix
                     const trimmedJsonChunk = jsonChunk.trim().replace(/^data:\s+/, '');
                     //logger.debug('trimmedJsonChunk:')
-                    //logger.debug(trimmedJsonChunk)
+                    //logger.info(trimmedJsonChunk)
                     // Parse and process the JSON object
+
+                    // Check if it's the final object (again)
+                    if (trimmedJsonChunk === '[DONE]') {
+                        //logger.debug('End of stream. Closing the stream.');
+                        stream.destroy();
+                        break;
+                    }
+
                     let jsonData = null;
                     try {
                         jsonData = JSON.parse(trimmedJsonChunk);

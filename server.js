@@ -1087,7 +1087,7 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user, ses
             username: liveConfig.promptConfig.selectedCharacterDisplayName,
             type: 'streamedAIResponseEnd',
         };
-        logger.warn('sending stream end')
+        //logger.warn('sending stream end')
         broadcast(streamEndToken); // Emit the event to clients
         //}
     };

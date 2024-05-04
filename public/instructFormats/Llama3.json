@@ -1,0 +1,10 @@
+{
+    "name": "Llama3",
+    "system_sequence": "<|start_header_id|>system<|end_header_id|>\n\n",
+    "input_sequence": "<|start_header_id|>user<|end_header_id|>\n\n",
+    "output_sequence": "<|start_header_id|>assistant<|end_header_id|>\n\n",
+    "end_sequence": "<|eot_id|>",
+    "first_output_sequence": "<|start_header_id|>assistant<|end_header_id|>\n\n",
+    "last_output_sequence": "<|start_header_id|>assistant<|end_header_id|>\n\n",
+    "system_sequence_suffix": "<|eot_id|>"
+}

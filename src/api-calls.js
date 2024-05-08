@@ -76,15 +76,15 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
             APICallParams[key] = value;
         }
         //add full prompt to API call
-        if (!isCCSelected || isClaude) { //TC and Claude get 'prompt' (even though Claude is CC)
+        if (!isCCSelected) { //TC and Claude get 'prompt' (even though Claude is CC)
             APICallParams.prompt = fullPromptforAI;
         } else { //CC gets 'messages'
             APICallParams.messages = fullPromptforAI
         }
 
         //ctx and response length for Text Completion API
-        if (liveConfig.promptConfig.engineMode !== 'horde') {
-            APICallParams.truncation_length = Number(liveConfig.promptConfig.contextSize)
+        if (liveConfig.promptConfig.engineMode !== 'horde' && !isCCSelected) {
+            //APICallParams.truncation_length = Number(liveConfig.promptConfig.contextSize)
             APICallParams.max_tokens = Number(liveConfig.promptConfig.responseLength)
         }
 
@@ -119,7 +119,7 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
             //finalAPICallParams includes formatted TC prompt
             //includedChatObjects is an array of chat history objects that got included in the prompt
             //we send these along in case we are using chat completion, and need to convert before pinging the API.
-            let rawResponse = await requestToTCorCC(isStreaming, liveAPI, finalAPICallParams, includedChatObjects, false, liveConfig)
+            let rawResponse = await requestToTCorCC(isStreaming, liveAPI, finalAPICallParams, includedChatObjects, false, liveConfig, parsedMessage, fixedFinalCharName)
 
 
             //finalize non-streamed responses
@@ -216,8 +216,8 @@ async function ObjectifyChatHistory() {
 }
 
 async function setStopStrings(liveConfig, APICallParams, includedChatObjects, liveAPI) {
-    //logger.debug(`[setStopStrings] >> GO`)
-    //logger.debug(APICallParams)
+    //logger.info(`[setStopStrings] >> GO`)
+    //logger.info(APICallParams)
     //an array of chat message objects which made it into the AI prompt context limit
     let chatHistory = includedChatObjects;
     //create a array of usernames and entity types to pass back for processing for AIChat UserList
@@ -251,13 +251,13 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
         logger.debug(liveAPI)
         logger.debug(liveConfig) */
     if (liveAPI.claude === 1) { //for claude
-        logger.debug('setting Claude stop strings')
+        //logger.info('setting Claude stop strings')
         APICallParams.stop_sequences = targetObj
     } else if (liveConfig.promptConfig.engineMode === 'TC' || liveConfig.promptConfig.engineMode === 'CC' && liveAPI.claude !== 1) { //for TC and OAI CC
-        logger.debug('setting TC/OAI stop strings')
+        //logger.info('setting TC/OAI stop strings')
         APICallParams.stop = targetObj
     } else { //for horde
-        logger.debug('setting horde stop strings')
+        //logger.info('setting horde stop strings')
         //logger.info(APICallParams)
         APICallParams.params.stop_sequence = targetObj
     }
@@ -300,7 +300,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
     let isClaude = liveAPI.claude
     let isCCSelected = liveAPI.type === 'CC' ? true : false
     let doD4CharDefs = liveConfig.promptConfig.D4CharDefs
-    console.log(doD4CharDefs)
+    //console.log(doD4CharDefs)
 
 
     //logger.debug(`addCharDefsToPrompt: ${username}`)
@@ -345,7 +345,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             }
 
             //logger.info("CC?", isCCSelected, "claude?", isClaude)
-            if (liveConfig.promptConfig.engineMode === 'horde' || !isCCSelected || isClaude) { //craft the TC prompt
+            if (liveConfig.promptConfig.engineMode === 'horde' || !isCCSelected) { //craft the TC prompt
                 logger.trace('adding Text Completion style message objects into prompt')
                 //this will be what we return to TC as the prompt
                 var stringToReturn = systemPrompt
@@ -353,9 +353,6 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 //add the chat history
                 stringToReturn = stringToReturn.trim()
 
-                if (isClaude) {
-                    stringToReturn += '\n[Start a new Chat]'
-                }
                 let promptTokens = countTokens(stringToReturn)
                 logger.trace(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
                 let insertedItems = []
@@ -389,7 +386,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 insertedItems.reverse()
                 let numOfObjects = insertedItems.length
                 let positionForD4AN = numOfObjects - 4
-                logger.trace(`D4AN will be inserted at position ${positionForD4AN} of ${numOfObjects}`)
+                //logger.trace(`D4AN will be inserted at position ${positionForD4AN} of ${numOfObjects}`)
                 D4AN = D4AN.trim()
                 if (D4AN.length !== 0 && D4AN !== '' && D4AN !== undefined && D4AN !== null) {
                     if (insertedItems.length < 5) {
@@ -423,49 +420,135 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
 
                 resolve([stringToReturn, ChatObjsInPrompt]);
             } else { //craft the CC prompt
-                logger.trace('adding Chat Completion style message objects into prompt')
+                // logger.info('adding Chat Completion style message objects into prompt')
                 var CCMessageObj = []
-                var D1JBObj = { role: 'system', content: D1JB }
-                var D4ANObj = { role: 'system', content: D4AN }
-                var systemPromptObject = { role: 'system', content: systemPromptforCC }
 
-                let promptTokens = countTokens(systemPromptObject['content'])
-                //logger.debug(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
+                var D4ANObj, D1JBObj, systemPromptObject, promptTokens = 0
 
-                let insertedItems = []
+                if (!isClaude) { // OAI can get a system role message, but Claude can't. It goes to a top-level param.
+                    systemPromptObject = { role: 'system', content: systemPromptforCC }
+                    D1JBObj = { role: 'system', content: D1JB }
+                    D4ANObj = { role: 'system', content: D4AN }
+                    promptTokens = countTokens(systemPromptObject['content'])
+                } else {
+                    D1JBObj = { role: 'user', content: D1JB }
+                    D4ANObj = { role: 'user', content: D4AN }
+                }
+
+                // logger.info(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
+
+                let D4Added = false,
+                    D1Added = false
+                let shouldAddD4 = false
+                let shouldAddD1 = false
+                let D4Loc, D1Loc
+                if (isClaude) {
+                    D4Loc = 3
+                    D1Loc = 1
+                } else {
+                    D4Loc = 4
+                    D1Loc = 2
+                }
 
                 for (let i = chatHistory.length - 1; i >= 0; i--) {
                     let obj = chatHistory[i];
-                    let newItem
-                    if (i === chatHistory.length - 4) {
-                        CCMessageObj.push(D4ANObj)
+
+                    if (chatHistory.length < 4) { //if chat history is only one turn, add D4 and D1 into first user obj
+                        if (obj.entity === 'user' && D4ANObj.content.length > 0 && D4Added === false) {
+                            obj.content = `${D4ANObj.content} \n` + obj.content
+                            D4Added = true
+                        }
+                        if (obj.entity === 'user' && D1JBObj.content.length > 0 && D1Added === false) {
+                            obj.content = `${D1JBObj.content}\n` + obj.content
+                            D1Added = true
+                        }
                     }
-                    if (i === chatHistory.length - 2) {
-                        CCMessageObj.push(D1JBObj)
+
+                    let newItem, newObj, newItemTokens
+
+                    if (i === chatHistory.length - D4Loc && D4ANObj.content.length > 0 && D4Added === false) {
+                        logger.warn('saw D4 incoming')
+                        shouldAddD4 = true
+                        if (!isClaude) {
+                            logger.warn('adding D4')
+                            CCMessageObj.push(D4ANObj)
+                            D4Added = true
+                            shouldAddD4 = false
+                            let D4Tokens = countTokens(D4ANObj?.content);
+                            promptTokens = + D4Tokens
+                        }
                     }
+                    if (i === chatHistory.length - D1Loc && D1JBObj.content.length > 0 && D1Added === false) {
+                        logger.warn('saw D1 incoming')
+                        shouldAddD1 = true
+                        if (!isClaude) {
+                            logger.warn('adding D1')
+                            CCMessageObj.push(D1JBObj)
+                            D1Added = true
+                            shouldAddD1 = false
+                            let D1Tokens = countTokens(D1JBObj?.content);
+                            promptTokens = + D1Tokens
+                        }
+                    }
+
                     if (obj.username === charName) {
                         newObj = {
                             role: 'assistant',
                             content: postProcessText(obj.content)
                         }
-                    } else {
-                        newObj = {
-                            role: 'user',
-                            content: postProcessText(obj.content)
+                        newItemTokens = countTokens(newObj?.content);
+                    } else { //for user objects
+
+                        if (!isClaude) { //for OAI
+                            newObj = {
+                                role: 'user',
+                                content: postProcessText(obj.content)
+                            }
+                            newItemTokens = countTokens(newObj?.content);
+                        } else { //for Claude
+
+                            if (shouldAddD4 === true) {
+                                logger.info('added d4')
+                                obj.content = D4ANObj.content + `\n` + obj.content
+                                D4Added = true
+                                shouldAddD4 = false
+                            }
+                            if (shouldAddD1 === true) {
+                                logger.info('added d1')
+                                obj.content = D1JBObj.content + `\n` + obj.content
+                                D1Added = true
+                                shouldAddD1 = false
+                            }
+                            if (chatHistory[i - 1].role === obj.entity) { // if prev and current are both 'user'
+                                chatHistory[i - 1].content = chatHistory[i - 1].content + `\n` + obj.content //just combine the content
+                            }
+                            else {
+                                newObj = {
+                                    role: 'user',
+                                    content: postProcessText(obj.content)
+                                }
+                                newItemTokens = countTokens(newObj?.content);
+                            }
                         }
                     }
 
-                    let newItemTokens = countTokens(newObj.content);
                     if (promptTokens + newItemTokens < liveConfig.promptConfig.contextSize) {
                         promptTokens += newItemTokens;
                         CCMessageObj.push(newObj)
                         ChatObjsInPrompt.push(obj)
-                        //logger.debug(`added new item, prompt tokens: ~${promptTokens}`);
+                        // logger.info(`added new item, prompt tokens: ~${promptTokens}`);
+                    } else {
+                        logger.debug('ran out of context space', promptTokens, newItemTokens, liveConfig.promptConfig.contextSize)
                     }
                 }
-                CCMessageObj.push({ role: 'system', content: '[Start a New Chat]' })
-
-                CCMessageObj.push(systemPromptObject)
+                if (!isClaude) {
+                    //CCMessageObj.push({ role: 'system', content: '[Start a New Chat]' })
+                    if (systemPromptObject.content.length > 0) {
+                        CCMessageObj.push(systemPromptObject)
+                    }
+                } else {
+                    CCMessageObj.push({ role: 'user', content: '[Start a New Chat]' })
+                }
                 CCMessageObj = CCMessageObj.reverse();
                 resolve([CCMessageObj, ChatObjsInPrompt]);
             }
@@ -645,7 +728,6 @@ async function testAPI(api, liveConfig) {
     if (api.claude) {
         payload.model = api.model
         let tempPrompt = payload.prompt
-        tempPrompt = tempPrompt.replace('User', 'Human')
     }
 
     let result = await requestToTCorCC(false, api, payload, testMessage, true, liveConfig)
@@ -715,7 +797,7 @@ async function getModelList(api, liveConfig = null) {
 
 }
 
-async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, includedChatObjects, isTest, liveConfig) {
+async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, includedChatObjects, isTest, liveConfig, parsedMessage, charName) {
     const TCEndpoint = liveAPI.endpoint
     const TCAPIKey = liveAPI.key
     const key = TCAPIKey.trim()
@@ -757,20 +839,23 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
         Authorization: `Bearer ${key}`,
     };
 
-    if (isCCSelected && !isClaude) { //for CC, OAI and others
+    if (isCCSelected && !isClaude) { //for OAI CC
         chatURL = baseURL + 'chat/completions'
-        APICallParamsAndPrompt.add_generation_prompt = true
         delete APICallParamsAndPrompt.prompt
-    } else { //for TC (Tabby, KCPP, and OR?)
+    } else if (!isCCSelected) { //for TC (Tabby, KCPP, and OR?)
         chatURL = baseURL + 'completions'
         delete APICallParamsAndPrompt.messages
     }
+
     if (isClaude) {
-        chatURL = baseURL + 'complete'
+        chatURL = baseURL + 'messages'
         headers['anthropic-version'] = '2023-06-01';
-        APICallParamsAndPrompt.max_tokens_to_sample = APICallParamsAndPrompt.max_tokens
-        delete APICallParamsAndPrompt.max_tokens
+        //APICallParamsAndPrompt.max_tokens_to_sample = APICallParamsAndPrompt.max_tokens
+        //delete APICallParamsAndPrompt.max_tokens
         if (APICallParamsAndPrompt.temperature > 1) { APICallParamsAndPrompt.temperature = 1 }
+        if (liveConfig.promptConfig.systemPrompt.length > 0) {
+            APICallParamsAndPrompt.system = postProcessText(replaceMacros(liveConfig.promptConfig.systemPrompt, parsedMessage.username, charName))
+        }
     }
 
     if (isOpenRouter) {
@@ -832,6 +917,7 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
             try {
                 parsedResponse = await response.json()
                 logger.warn(parsedResponse);
+                return (parsedResponse)
             }
             catch {
                 logger.warn('could not parse response, returning it as-is')
@@ -948,9 +1034,17 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
                         //return text
                     } else {
                         if (isClaude) {
-                            if (jsonData.completion || jsonData.completion === '') {
-                                text = jsonData.completion;
-                                //logger.debug(text)
+                            if (jsonData.type === 'message_stop') {
+                                stream.destroy();
+                                break;
+                            } else if (jsonData.type === 'content_block_start' ||
+                                jsonData.type === 'message_start' ||
+                                jsonData.type === 'content_block_stop' ||
+                                jsonData?.delta?.stop_reason
+                            ) {
+                                //do nothing
+                            } else if (jsonData?.delta?.text) {
+                                text = jsonData.delta.text;
                             } else {
                                 logger.warn('did not see completion:')
                                 logger.warn(jsonData)

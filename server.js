@@ -727,7 +727,7 @@ async function handleConnections(ws, type, request) {
                 }
                 else if (parsedMessage.type === 'displayCharDefs') {
                     const charDefs = await fio.charaRead(parsedMessage.value)
-                    logger.warn(charDefs)
+                    //logger.warn(charDefs)
                     const messageContentResponse = {
                         type: 'charDefsResponse',
                         content: charDefs
@@ -832,7 +832,7 @@ async function handleConnections(ws, type, request) {
                 }
                 else if (parsedMessage.type === 'messageContentRequest') {
                     const messageContent = await db.getMessage(parsedMessage.mesID)
-                    logger.warn(messageContent)
+                    //logger.warn(messageContent)
                     const messageContentResponse = {
                         type: 'messageContentResponse',
                         content: messageContent
@@ -1071,7 +1071,7 @@ let accumulatedStreamOutput = ''
 
 const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user, sessionID, messageID) => {
     let currentlyStreaming
-    logger.warn(parsedMessage)
+    //logger.warn(parsedMessage)
 
     const endResponse = async () => {
         //logger.warn('AIChatUserList in text Listener EndResponse')

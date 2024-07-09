@@ -597,7 +597,7 @@ async function connectWebSocket(username) {
         break;
       case "streamedAIResponseEnd":
         console.debug("saw stream end");
-        accumulatedContent = util.trimIncompleteSentences(accumulatedContent);
+        //accumulatedContent = util.trimIncompleteSentences(accumulatedContent);
         const HTMLizedContent = converter.makeHtml(accumulatedContent);
         const newDivElement = $("<p>").html(HTMLizedContent);
         const elementsToRemove = $(".incomingStreamDiv .messageContent").children("span");
@@ -706,7 +706,7 @@ async function displayStreamedResponse(message) {
   //content = DOMPurify.sanitize(content);
 
   let spanElement, contentLeftover;
-  if (content.includes("\n")) {
+  if (content.includes("\nabcxyz1234567890zyxabc")) { //that oddly lone and specific string is simply to disable this check for now, since parsing \n is broken
     //preprocess individual paragraphs.
     //sometimes AI produces new lines with the start of the next sentence together.
     //we want to remove the newlines, but keep the first word of the next paragraph.

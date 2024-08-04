@@ -121,10 +121,27 @@ async function processLiveConfig(configArray) {
   if (!APIConfig.modelList) {
     console.warn('Did not see a modelList for this API, clicking modelListButton to get one.')
     $("#modelLoadButton").trigger("click");
-  } else {
-    await populateSelector(APIConfig.modelList, "modelList", APIConfig.selectedModel);
-    //await selectFromPopulatedSelector(APIConfig.selectedModel, 'modelList', true)
+  } else { //problem: APIConfig.modeList will save the modelList from non-horde APIs, even if horde is the active engine mode
+    //this is because EngineMode is part of promptConfig, not APIConfig
+    //however APIConfig.SelectedModel DOES save the last selected horde model...so we can use that..
+
+    //so here we prime the horde model list if it's selected, hoping that selectedModel exists within it still..
+    if (engineMode === 'horde' && $("#hordeWorkerList option").length === 0) {
+      console.warn('populating empty horde model list')
+      await control.getModelList()
+      console.warn(`selecting ${APIConfig.selectedModel} from horde model list which is no longer empty`)
+      await util.delay(250)
+      await selectFromPopulatedSelector(APIConfig.selectedModel, "hordeWorkerList")
+      //console.log('clicking horde model button load')
+      //$("#modelLoadButton").trigger("click");
+    } else {
+
+      await populateSelector(APIConfig.modelList, "modelList", APIConfig.selectedModel);
+    }
   }
+
+
+
   initialLoad = false
 }
 

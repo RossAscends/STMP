@@ -665,7 +665,7 @@ async function handleConnections(ws, type, request) {
                         let modeChangeMessage = {
                             type: 'modeChange',
                             engineMode: engineMode,
-                            hordeWorkerList: await api.getHordeModelList(hordeKey)
+                            hordeWorkerList: await api.getHordeModelList(hordeKey),
                         }
                         await broadcast(modeChangeMessage, 'host');
                         return

@@ -45,7 +45,6 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
     let isCCSelected = liveAPI.type === 'CC' ? true : false
     let isClaude = liveAPI.claude
     try {
-        let APICallParams = {}
         if (engineMode === 'TC') {
             //logger.info('using TC api template')
             APICallParams = TCAPIDefaults
@@ -71,9 +70,21 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
         const samplers = JSON.parse(samplerData);
         //logger.debug(samplers)
         //apply the selected preset values to the API call
-        APICallParams = {} //first clear the params to remove old sampler preset data in case of preset change
+
+        if (liveConfig.promptConfig.engineMode === 'horde') {
+            APICallParams = HordeAPIDefaults
+        } else {
+            APICallParams = TCAPIDefaults
+        }
+
+        logger.info(APICallParams)
+
         for (const [key, value] of Object.entries(samplers)) {
-            APICallParams[key] = value;
+            if (liveConfig.promptConfig.engineMode === 'horde') {
+                APICallParams['params'][key] = value;
+            } else {
+                APICallParams[key] = value;
+            }
         }
         //add full prompt to API call
         if (!isCCSelected) { //TC and Claude get 'prompt' (even though Claude is CC)
@@ -246,10 +257,10 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
             `\n ${entity.username}:`
         );
     }
-    /*     logger.debug(APICallParams)
-        logger.debug(targetObj)
-        logger.debug(liveAPI)
-        logger.debug(liveConfig) */
+    //logger.info(APICallParams)
+    //logger.info(targetObj)
+    //   logger.debug(liveAPI)
+    //  logger.debug(liveConfig) 
     if (liveAPI.claude === 1) { //for claude
         //logger.info('setting Claude stop strings')
         APICallParams.stop_sequences = targetObj
@@ -257,9 +268,13 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
         //logger.info('setting TC/OAI stop strings')
         APICallParams.stop = targetObj
     } else { //for horde
-        //logger.info('setting horde stop strings')
-        //logger.info(APICallParams)
+        logger.info('setting horde stop strings')
+        //        logger.info(APICallParams)
+        //       logger.info(APICallParams.params)
+        //      logger.info(targetObj)
+
         APICallParams.params.stop_sequence = targetObj
+
     }
     return [APICallParams, usernames]
 }
@@ -565,7 +580,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
 async function getHordeModelList(hordekey) {
     logger.info('Getting Horde model list...');
     //const url = 'https://horde.koboldai.net/api/v2/workers?type=text';
-    const url = 'https://stablehorde.net/api/v2/status/models?type=text&model_state=all';
+    const url = 'https://aihorde.net/api/v2/status/models?type=text&model_state=all';
 
     var headers = {
         'Content-Type': 'application/json',
@@ -621,7 +636,7 @@ async function getHordeModelList(hordekey) {
 
 async function requestToHorde(hordeKey, stringToSend) {
     logger.info('Sending Horde request...');
-    const url = 'https://horde.koboldai.net/api/v2/generate/text/async';
+    const url = 'https://aihorde.net/api/v2/generate/text/async';
 
     var headers = {
         'Content-Type': 'application/json',
@@ -659,7 +674,7 @@ async function requestToHorde(hordeKey, stringToSend) {
 
         for (var retryNumber = 0; retryNumber < MAX_RETRIES; retryNumber++) {
 
-            var horde_status_url = "https://horde.koboldai.net/api/v2/generate/text/status/" + task_id;
+            var horde_status_url = "https://aihorde.net/api/v2/generate/text/status/" + task_id;
             var status_headers = {
                 "Client-Agent": 'SillyTavern:UNKNOWN:Cohee#1207',
             };

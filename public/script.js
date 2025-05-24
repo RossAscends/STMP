@@ -296,17 +296,22 @@ function appendMessagesWithConverter(messages, elementSelector, sessionID) {
     </div>
     `);
     $(elementSelector).append(newDiv);
+    console.warn('calling function to add listeners')
+    console.warn(newDiv)
     addMessageEditListeners(newDiv);
   });
 
 }
 
 function addMessageEditListeners(newDiv) {
+
+  console.warn('adding edit listener')
+
   $(".messageEdit").off('click').on('click', async function () {
     const mesID = $(this).data('messageid')
     const sessionID = $(this).data('sessionid')
     let currentMessageData = await getMessageContent(mesID)
-    console.debug(currentMessageData.message)
+    console.warn(currentMessageData.message)
 
     await editMessage(currentMessageData.message)
 
@@ -329,6 +334,7 @@ function addMessageEditListeners(newDiv) {
         socket.send(JSON.stringify(messageContentRequest));
       });
     }
+
 
     async function editMessage(message) {
       const widthToUse = isPhone ? ($(window).width() - 10) : $("#AIChat").width()
@@ -376,22 +382,25 @@ function addMessageEditListeners(newDiv) {
         })
 
     }
+  });
 
-    $(".messageDelete").off('click').on('click', async function () {
-      if ($(this).parent().parent().parent().parent().children().length === 1) { //check how many messages are inside the chat/AIChat container
-        alert('Can not delete the only message in this chat. If you want to delete this chat, use the Past Chats list.')
-        return
-      }
-      const mesID = $(this).data('messageid')
-      const sessionID = $(this).data('sessionid')
-      const mesDelRequest = {
-        type: 'messageDelete',
-        UUID: myUUID,
-        mesID: mesID,
-        sessionID: sessionID
-      }
-      util.messageServer(mesDelRequest)
-    })
+  console.warn('adding delete listeners')
+
+  $(`.messageDelete`).off('click').on('click', async function () {
+    console.warn('saw message delete click')
+    if ($(this).parent().parent().parent().parent().children().length === 1) { //check how many messages are inside the chat/AIChat container
+      alert('Can not delete the only message in this chat. If you want to delete this chat, use the Past Chats list.')
+      return
+    }
+    const mesID = $(this).data('messageid')
+    const sessionID = $(this).data('sessionid')
+    const mesDelRequest = {
+      type: 'messageDelete',
+      UUID: myUUID,
+      mesID: mesID,
+      sessionID: sessionID
+    }
+    util.messageServer(mesDelRequest)
   })
 }
 

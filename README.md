@@ -245,7 +245,7 @@ Incorporating embedded lorebooks is under consideration.
 
 ### Core Functionality
 
-- Smarter retry logic (add entity metadata to each chat message; only remove the last AI response)
+- ~~Smarter retry logic (add entity metadata to each chat message; only remove the last AI response)~~
 
 ### Host Controls
 
@@ -256,8 +256,8 @@ Incorporating embedded lorebooks is under consideration.
 - ability to change the max length of chat inputs (currently 1000 characters)
 - make control for AI replying every X messages
 - make control for host, to autoclear chat every X messages
-- disallow names that are only spaces, punctuations, or non ASCII (non-Latin?) characters
-  - require at least 3? A-Za-z characters
+- ~~disallow names that are only spaces, punctuations, or non ASCII (non-Latin?) characters~~
+  - ~~require at least 3? A-Za-z characters~~
 - disallow registering of names that are already in the DB
 
 ### Quality of Life

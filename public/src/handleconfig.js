@@ -162,7 +162,7 @@ async function populateSelector(itemsObj, elementID, selectedValue = null) {
       return;
     }
 
-    console.debug(`Populating selector ${elementID}`);
+    //console.debug(`Populating selector ${elementID}`);
     const selectElement = $(`#${elementID}`);
 
     // Capture current value to preserve selection
@@ -216,7 +216,7 @@ async function selectFromPopulatedSelector(value, elementID) {
     const selectElement = $(`#${elementID}`);
     selectElement.val(value); // Set the value directly
     util.flashElement(elementID, "good");
-    console.debug(`Set ${elementID} to ${value}, current value is ${selectElement.val()}`);
+    //console.debug(`Set ${elementID} to ${value}, current value is ${selectElement.val()}`);
     resolve();
   });
 }
@@ -231,7 +231,7 @@ async function populateInput(value, elementID) {
 
     $(`#${elementID}`).val(value);
     util.flashElement(elementID, "good");
-    console.debug(`confirming ${elementID} value is now ${$(`#${elementID}`).val()}`);
+    //console.debug(`confirming ${elementID} value is now ${$(`#${elementID}`).val()}`);
     resolve();
   })
 }
@@ -289,7 +289,7 @@ async function checkArguments(functionName, args, isSelectorCheck = false) {
 
   const areValuesTheSame = await verifyValuesAreTheSame(value, elementID);
   if (areValuesTheSame) {
-    console.debug(`No update needed for ${elementID}: values are the same`);
+    //console.debug(`No update needed for ${elementID}: values are the same`);
     return false;
   }
 
@@ -335,7 +335,7 @@ async function verifyValuesAreTheSame(value, elementID) {
     elementValue = Boolean($element.prop('checked'));
     value = value === 'true' || value === true || value === 1; // Normalize to boolean
   } else if ($element.is('select')) {
-    console.debug('saw selector comparison for:', elementID);
+    //console.debug('saw selector comparison for:', elementID);
     elementValue = String($element.val() || ''); // Use .val() for select, normalize to string
     value = String(value || '');
   } else {
@@ -343,14 +343,14 @@ async function verifyValuesAreTheSame(value, elementID) {
     value = String(value || '');
   }
 
-  console.debug(`verifyValuesAreTheSame: ${elementID} | new: ${value} (${typeof value}) | current: ${elementValue} (${typeof elementValue})`);
+  //console.debug(`verifyValuesAreTheSame: ${elementID} | new: ${value} (${typeof value}) | current: ${elementValue} (${typeof elementValue})`);
 
   const result = elementValue === value;
   if (!result) {
-    console.debug(`Compared values for ${elementID}:
-    New ${value}
-    Current ${elementValue}
-    Needs update!`);
+    /*     console.debug(`Compared values for ${elementID}:
+        New ${value}
+        Current ${elementValue}
+        Needs update!`); */
   }
   return result;
 }
@@ -359,11 +359,11 @@ async function verifyValuesAreTheSame(value, elementID) {
 async function setEngineMode(mode, hordeWorkerList = null) {
   // Check if the mode has changed
   if (liveConfig.promptConfig.engineMode === mode) {
-    console.debug(`No change in engineMode: ${mode}, skipping update`);
+    //console.debug(`No change in engineMode: ${mode}, skipping update`);
     return;
   }
 
-  console.debug("API MODE:", mode);
+  //console.debug("API MODE:", mode);
   liveConfig.promptConfig.engineMode = mode;
   const toggleModeElement = $("#toggleMode");
   const isHordeMode = mode === "horde";
@@ -458,7 +458,7 @@ async function updateConfigState(element) {
     arrayName = $element.closest('.isArrayType').prop('id')
   }
 
-  console.debug(`${arrayName}.${propName}: "${value}"`)
+  //console.debug(`${arrayName}.${propName}: "${value}"`)
 
   liveConfig[arrayName][propName] = value
 
@@ -478,9 +478,9 @@ $("#APIList").on("change", async function () {
     return;
   }
 
-  console.debug("[#apilist] changed");
+  //console.debug("[#apilist] changed");
   if ($(this).val() === "addNewAPI") {
-    console.debug('[#apilist]...to "addNewApi"');
+    //console.debug('[#apilist]...to "addNewApi"');
     //clear all inputs for API editing
     $("#APIConfig input").val("");
     control.enableAPIEdit();
@@ -489,7 +489,7 @@ $("#APIList").on("change", async function () {
     util.betterSlideToggle($("#APIConfig"), 250, "height");
     return;
   } else {
-    console.debug(`[#apilist]...to "${$(this).val()}"`);
+    //console.debug(`[#apilist]...to "${$(this).val()}"`);
     if ($("#APIConfig").css("display") !== "none") {
       util.betterSlideToggle($("#APIConfig"), 250, "height");
       control.hideAddNewAPIDiv();
@@ -571,7 +571,7 @@ async function addNewAPI() {
 
   console.debug(APIConfig)
   console.debug(liveAPI)
-  console.debug(liveConfig.promptConfig.APIList)
+  //console.debug(liveConfig.promptConfig.APIList)
 
   console.log('added new API to local liveConfig. Sending to server.')
   let newAPIMessage = {

@@ -377,7 +377,8 @@ pre {
     background-color: #2f3035
 }
 
-#AIChat>div:hover .messageControls {
+#AIChat>div:hover .messageControls,
+#chat>div:hover .messageControls {
     display: flex;
 
     opacity: 1;

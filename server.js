@@ -368,6 +368,38 @@ async function removeLastAIChatMessage() {
     broadcast(chatUpdateMessage);
 }
 
+async function removeAnyAIChatMessage(parsedMessage) {
+    const result = await db.deleteAIChatMessage(parsedMessage.mesID)
+    if (result === 'ok') {
+        logger.debug(`Message ${parsedMessage.mesID} was deleted`);
+        let [AIChatJSON, sessionID] = await db.readAIChat();
+        let jsonArray = JSON.parse(AIChatJSON)
+        let chatUpdateMessage = {
+            type: 'chatUpdate',
+            chatHistory: jsonArray,
+            sessionID
+        }
+        logger.debug('sending AI Chat Update instruction to clients')
+        broadcast(chatUpdateMessage);
+    }
+}
+
+async function removeAnyUserChatMessage(parsedMessage) {
+    const result = await db.deleteUserChatMessage(parsedMessage.mesID)
+    if (result === 'ok') {
+        logger.debug(`Message ${parsedMessage.mesID} was deleted`);
+        let [chatJSON, sessionID] = await db.readUserChat();
+        let jsonArray = JSON.parse(chatJSON)
+        let chatUpdateMessage = {
+            type: 'userChatUpdate',
+            chatHistory: jsonArray,
+            sessionID
+        }
+        logger.debug('sending AI Chat Update instruction to clients')
+        broadcast(chatUpdateMessage);
+    }
+}
+
 async function saveAndClearChat(type) {
     if (type === 'AIChat') {
         await db.newSession();
@@ -448,8 +480,9 @@ async function handleConnections(ws, type, request) {
 
     const instructList = await fio.getInstructList()
     const samplerPresetList = await fio.getSamplerPresetList()
-    var [AIChatJSON, sessionID] = await db.readAIChat();
-    var userChatJSON = await db.readUserChat()
+    var [AIChatJSON, AISessionID] = await db.readAIChat();
+    var [userChatJSON, sessionID] = await db.readUserChat()
+    //logger.info(userChatJSON)
 
     //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
     let connectionConfirmedMessage = {
@@ -458,6 +491,7 @@ async function handleConnections(ws, type, request) {
         chatHistory: userChatJSON,
         sessionID: sessionID,
         AIChatHistory: AIChatJSON,
+        AIChatSessionID: AISessionID,
         color: thisUserColor,
         role: thisUserRole,
         selectedCharacterDisplayName: liveConfig.selectedCharacterDisplayName || liveConfig.promptConfig.selectedCharacterDisplayName,
@@ -542,6 +576,7 @@ async function handleConnections(ws, type, request) {
         connectedUsers = userList;
     }
 
+    //MARK: Inc handling
     // Handle incoming messages from clients
     ws.on('message', async function (message) {
 
@@ -743,6 +778,7 @@ async function handleConnections(ws, type, request) {
                 }
 
                 else if (parsedMessage.type === 'AIRetry') {
+                    //MARK: AIRetry
                     // Read the AIChat file
                     try {
                         await removeLastAIChatMessage()
@@ -813,22 +849,20 @@ async function handleConnections(ws, type, request) {
                         return
                     }
                 }
+                //MARK: message Delete
                 else if (parsedMessage.type === 'messageDelete') {
-                    const result = await db.deleteMessage(parsedMessage.mesID)
-                    if (result === 'ok') {
-                        const [pastChat, sessionID] = await db.readAIChat(parsedMessage.sessionID)
-                        let jsonArray = JSON.parse(pastChat)
-                        const pastChatsLoadMessage = {
-                            type: 'pastChatToLoad',
-                            pastChatHistory: jsonArray,
-                            sessionID: sessionID
-                        }
-                        await broadcast(pastChatsLoadMessage)
-                        return
-                    } else {
+                    let result
+
+                    if (parsedMessage.deleteType == 'user') {
+                        await removeAnyUserChatMessage(parsedMessage);
                         return
                     }
 
+
+                    if (parsedMessage.deleteType == 'AI') {
+                        await removeAnyAIChatMessage(parsedMessage);
+                        return
+                    }
                 }
                 else if (parsedMessage.type === 'messageContentRequest') {
                     const messageContent = await db.getMessage(parsedMessage.mesID)
@@ -913,6 +947,7 @@ async function handleConnections(ws, type, request) {
                     await ws.send(JSON.stringify(keyRejectedMessage))
                 }
             }
+            //MARK: new chat Mes Handling
             else if (parsedMessage.type === 'chatMessage') { //handle normal chat messages
                 //having this enable sends the user's colors along with the response message if it uses parsedMessage as the base..
                 parsedMessage.userColor = thisUserColor
@@ -957,20 +992,32 @@ async function handleConnections(ws, type, request) {
                 }
                 //read the current userChat file
                 if (chatID === 'UserChat') {
-                    let data = await db.readUserChat()
-                    let jsonArray = JSON.parse(data);
+                    //let [data, sessionID] = await db.readUserChat()
+                    //let jsonArray = JSON.parse(data);
                     // Add the new object to the array
-                    jsonArray.push(parsedMessage);
-                    const updatedData = JSON.stringify(jsonArray, null, 2);
+                    //jsonArray.push(parsedMessage);
+                    //const updatedData = JSON.stringify(jsonArray, null, 2);
                     // Write the updated array back to the file
+                    let incomingSessionID = parsedMessage.sessionID
                     await db.writeUserChatMessage(uuid, parsedMessage.content)
+                    let [newdata, sessionID] = await db.readUserChat()
+                    let newJsonArray = JSON.parse(newdata);
+                    let lastItem = newJsonArray[newJsonArray.length - 1]
+                    logger.info(lastItem)
+                    let newContent = lastItem?.content
+                    let newMessageID = lastItem?.messageID
+                    let newSessionID = lastItem?.sessionID
+
                     const newUserChatMessage = {
                         type: 'chatMessage',
                         chatID: chatID,
                         username: username,
                         userColor: userColor,
-                        content: parsedMessage.content
+                        content: newContent,
+                        messageID: newMessageID,
+                        sessionID: newSessionID
                     }
+                    logger.info(newUserChatMessage)
                     await broadcast(newUserChatMessage)
                 }
             } else {

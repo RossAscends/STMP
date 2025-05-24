@@ -45,17 +45,23 @@ const schemaDictionary = {
     },
     userchats: {
         message_id: "INTEGER PRIMARY KEY",
+        session_id: "INTEGER",
         user_id: "TEXT",
         message: "TEXT",
         timestamp: "DATETIME DEFAULT CURRENT_TIMESTAMP",
         active: "BOOLEAN DEFAULT TRUE",
-        session_id: "INTEGER",
         foreignKeys: {
-            session_id: "sessions(session_id)",
+            session_id: "userSessions(session_id)",
             user_id: "users(user_id)"
         }
     },
     sessions: {
+        session_id: "INTEGER PRIMARY KEY",
+        started_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
+        ended_at: "DATETIME",
+        is_active: "BOOLEAN DEFAULT TRUE"
+    },
+    userSessions: {
         session_id: "INTEGER PRIMARY KEY",
         started_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
         ended_at: "DATETIME",
@@ -115,27 +121,52 @@ async function ensureDatabaseSchema(schemaDictionary) {
 async function writeUserChatMessage(userId, message) {
     logger.debug('Writing user chat message to database...');
     const db = await dbPromise;
+    let insertQuery = '';
+    let params = [];
 
     try {
-        // Retrieve the active session ID, if it exists
-        const activeSession = await db.get('SELECT session_id FROM sessions WHERE is_active = TRUE');
-        let insertQuery, params;
+        await db.run('BEGIN TRANSACTION');
+
+        // Retrieve the active user session
+        const activeSession = await db.get('SELECT session_id FROM userSessions WHERE is_active = TRUE');
+        let session_id;
 
         if (activeSession) {
-            // If there is an active session, include the session_id in the insert statement
-            insertQuery = 'INSERT INTO userchats (user_id, message, session_id) VALUES (?, ?, ?)';
-            params = [userId, message, activeSession.session_id];
+            // Use existing active session
+            session_id = activeSession.session_id;
+            logger.debug(`Using existing user session_id: ${session_id}`);
         } else {
-            // If there is no active session, omit the session_id
-            insertQuery = 'INSERT INTO userchats (user_id, message) VALUES (?, ?)';
-            params = [userId, message];
+            // Create new user session
+            const maxSession = await db.get('SELECT MAX(session_id) AS max_session_id FROM userSessions');
+            session_id = maxSession.max_session_id ? maxSession.max_session_id + 1 : 1; // Integer
+            await db.run(
+                'INSERT INTO userSessions (session_id, is_active, started_at) VALUES (?, ?, ?)',
+                [session_id, 1, new Date().toISOString()]
+            );
+            logger.debug(`Created new user session_id: ${session_id}`);
         }
 
-        // Execute the insert query with the appropriate parameters
-        await db.run(insertQuery, params);
-        logger.debug('A side chat message was inserted');
+        // Generate timestamp
+        const timestamp = new Date().toISOString();
+
+        // Insert new message (omit message_id to auto-increment)
+        insertQuery = `
+            INSERT INTO userchats (user_id, message, timestamp, active, session_id)
+            VALUES (?, ?, ?, ?, ?)
+        `;
+        params = [userId, message, timestamp, 1, session_id];
+        const result = await db.run(insertQuery, params);
+
+        // Get the auto-incremented message_id
+        const message_id = result.lastID;
+
+        await db.run('COMMIT');
+        logger.debug(`Inserted user chat message ${message_id} with session_id ${session_id}`);
+        return { message_id, session_id, user_id: userId, message, timestamp };
     } catch (err) {
-        logger.error('Error writing side chat message:', err);
+        await db.run('ROLLBACK');
+        logger.error('Error writing user chat message:', err, { query: insertQuery, params });
+        throw err;
     }
 }
 
@@ -216,13 +247,29 @@ async function deletePastChat(sessionID) {
     }
 }
 
-async function deleteMessage(mesID) {
+async function deleteAIChatMessage(mesID) {
     const db = await dbPromise;
     try {
         const row = await db.get('SELECT * FROM aichats WHERE message_id = ?', [mesID]);
         if (row) {
             await db.run('DELETE FROM aichats WHERE message_id = ?', [mesID]);
             logger.debug(`Message ${mesID} was deleted`);
+            return 'ok';
+        }
+
+    } catch (err) {
+        logger.error('Error deleting message:', err);
+        return 'error';
+    }
+}
+
+async function deleteUserChatMessage(mesID) {
+    const db = await dbPromise;
+    try {
+        const row = await db.get('SELECT * FROM userchats WHERE message_id = ?', [mesID]);
+        if (row) {
+            await db.run('DELETE FROM userchats WHERE message_id = ?', [mesID]);
+            logger.debug(`User chat message ${mesID} was deleted`);
             return 'ok';
         }
 
@@ -251,19 +298,38 @@ async function deleteAPI(APIName) {
 async function readUserChat() {
     logger.debug('Reading user chat...');
     const db = await dbPromise;
+    let foundSessionID
+
     try {
         const rows = await db.all(`
-            SELECT u.username, u.username_color AS userColor, uc.message 
+            SELECT u.username, u.username_color, uc.message, uc.message_id, uc.session_id
             FROM userchats uc 
-            JOIN users u ON uc.user_id = u.user_id
+            LEFT JOIN users u ON uc.user_id = u.user_id
             WHERE uc.active = TRUE
             ORDER BY uc.timestamp ASC 
         `);
-        return JSON.stringify(rows.map(row => ({
-            username: row.username,
+        if (rows.length === 0) {
+            logger.debug('No active user chats found.');
+        }
+        let result = JSON.stringify(rows.map(row => ({
+            username: row.username || 'Unknown',
             content: row.message,
-            userColor: row.userColor
+            userColor: row.username_color || '#FFFFFF',
+            messageID: row.message_id,
+            sessionID: row.session_id
         })));
+
+        logger.info(result)
+
+        if (rows.length > 0) {
+            foundSessionID = rows[0].session_id;
+            logger.info(`Found ${rows.length} active user chats in session ${foundSessionID}`);
+
+
+        }
+
+        return [result, foundSessionID];
+
     } catch (err) {
         logger.error('An error occurred while reading from the database:', err);
         throw err;
@@ -334,12 +400,28 @@ async function newUserChatSession() {
     logger.debug('Creating a new user chat session...');
     const db = await dbPromise;
     try {
-        await db.run('UPDATE userchats SET active = FALSE WHERE active = TRUE');
+        await db.run('BEGIN TRANSACTION');
+
+        // Deactivate userchats
+        const userChatResult = await db.run('UPDATE userchats SET active = FALSE WHERE active = TRUE');
+        logger.debug(`Deactivated ${userChatResult.changes} user chat rows.`);
+
+        // Deactivate userSessions
+        const sessionResult = await db.run('UPDATE userSessions SET is_active = FALSE WHERE is_active = TRUE');
+        logger.debug(`Deactivated ${sessionResult.changes} user session rows.`);
+
+        await db.run('COMMIT');
+        return {
+            success: true,
+            userChatChanges: userChatResult.changes,
+            userSessionChanges: sessionResult.changes
+        };
     } catch (error) {
+        await db.run('ROLLBACK');
         logger.error('Error creating a new user chat session:', error);
+        throw error;
     }
 }
-
 // Create or update the user in the database
 async function upsertUser(uuid, username, color) {
     logger.debug('Adding/updating user...' + uuid);
@@ -680,7 +762,8 @@ module.exports = {
     upsertChar,
     removeLastAIChatMessage,
     getPastChats,
-    deleteMessage,
+    deleteAIChatMessage,
+    deleteUserChatMessage,
     getMessage,
     deletePastChat,
     getUserColor,

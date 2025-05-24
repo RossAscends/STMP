@@ -61,7 +61,7 @@ function hideAddNewAPIDiv() {
 }
 
 function enableAPIEdit() {
-    console.debug('[enableAPIEdit()] >> GO')
+    console.warn('[enableAPIEdit()] >> GO')
     $("#selectedAPI").prop('readonly', false)
     $("#endpoint").prop('readonly', false)
     $("#key").prop('readonly', false)
@@ -72,7 +72,7 @@ function enableAPIEdit() {
 }
 
 function disableAPIEdit() {
-    console.debug('[disableAPIEdit()] >> GO')
+    console.warn('[disableAPIEdit()] >> GO')
     $("#selectedAPI").prop('readonly', true)
     $("#endpoint").prop('readonly', true)
     $("#key").prop('readonly', true)
@@ -195,7 +195,6 @@ function showPastChats(chatList) {
 export default {
     submitKey,
     updateUserName,
-    updateAIChatUserName,
     showAddNewAPIDiv,
     hideAddNewAPIDiv,
     testNewAPI,

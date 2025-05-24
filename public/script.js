@@ -262,11 +262,15 @@ async function processConfirmedConnection(parsedMessage) {
     if (isPhone) {
       //handle initial loads for phones, hide the control panel
       $("#leftSpanner").css('display', 'block').remove()
+      $("#universalControls").css('height', 'unset');
       $("#roleKeyInputDiv").removeClass("positionAbsolute");
       if ($("#controlPanel").hasClass("initialState")) {
         $("#controlPanel").removeClass("initialState").addClass('opacityZero').addClass('hidden');
       }
       $("#userListsWrap").addClass('hidden').addClass('opacityZero')
+      $("#roleKeyInputDiv")
+        .css('width', '95%')
+        .css('height', 'unset');
     } else if ($("#controlPanel").hasClass("initialState")) {
       //handle first load for PC, shows the panel
       $("#controlPanel").addClass('opacityZero').show()
@@ -284,13 +288,17 @@ async function processConfirmedConnection(parsedMessage) {
     control.disableAPIEdit();
 
     $("#showPastChats").trigger("click");
-  } else {
+  } else { // is Guest
     //hide control panel and host controls for guests
     $("#controlPanel, .hostControls").remove();
     $(".chatHeader").removeClass('justifySpaceBetween')
     if (isPhone) {
+      $("#universalControls").css('height', 'unset');
       $("#leftSpanner").css('display', 'block').remove()
       $("#userListsWrap").addClass('hidden').addClass('opacityZero')
+      $("#roleKeyInputDiv")
+        .removeClass("positionAbsolute")
+        .css('width', '95%')
     }
   }
 
@@ -1068,6 +1076,10 @@ function disableButtons() {
 
 $(async function () {
 
+
+  isPhone = /Mobile/.test(navigator.userAgent);
+  console.debug(`Is this a phone? ${isPhone}`);
+
   const $controlPanel = $("#controlPanel");
   const $chatWrap = $(("#chatWrap"))
   const $innerChatWrap = $("#innerChatWrap")
@@ -1086,9 +1098,6 @@ $(async function () {
   }
 
   connectWebSocket(username);
-
-  isPhone = /Mobile/.test(navigator.userAgent);
-  console.debug(`Is this a phone? ${isPhone}`);
 
   $("#reconnectButton")
     .off("click")

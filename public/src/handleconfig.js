@@ -92,12 +92,11 @@ async function processLiveConfig(configArray) {
   setEngineMode(engineMode);
 
   await populateSelector(cardList, "cardList", selectedCharacter);
-
   await populateSelector(APIList, "APIList", selectedAPI);
-  await populateInput(selectedAPI, "selectedAPI");
-
   await populateSelector(samplerPresetList, "samplerPresetList", selectedSamplerPreset);
   await populateSelector(instructList, "instructList", selectedInstruct);
+
+  await populateInput(selectedAPI, "selectedAPI");
 
   await selectFromPopulatedSelector(responseLength, "responseLength");
   await selectFromPopulatedSelector(contextSize, "contextSize");
@@ -149,70 +148,82 @@ async function processLiveConfig(configArray) {
  * Populates a selector element with options based on a list of items.
  *
  * @param {Array} itemsObj - an array of items with 'value' and 'name' properties.
- * @param {string} elementId - The ID of the selector element.
+ * @param {string} elementID - The ID of the selector element.
  * @param {string} selectedValue - Optional. The value to select after the population is finished.
  * @returns {Promise} - A Promise that resolves once the selector element is populated and optionally selected.
  */
 async function populateSelector(itemsObj, elementID, selectedValue = null) {
   return new Promise(async (resolve) => {
-    let shouldContinue = await checkArguments("selectFromPopulatedSelector", arguments) === true ? true : false
-    if (!shouldContinue) {
-      console.log('early stop')
+    // Skip validation for itemsObj since it's an array, not a single value
+    if (!itemsObj || !Array.isArray(itemsObj)) {
+      console.warn(`Error: Invalid itemsObj for ${elementID}`, itemsObj);
+      await util.flashElement(elementID, 'bad');
       resolve();
-      return
+      return;
     }
 
-    console.debug(itemsObj);
-    console.debug(`is this an array for ${elementID}? ${Array.isArray(itemsObj)}`);
-
+    console.debug(`Populating selector ${elementID}`);
     const selectElement = $(`#${elementID}`);
+
+    // Capture current value to preserve selection
+    const currentValue = selectElement.val();
+
+    // Clear and repopulate selector
     selectElement.empty();
     if (elementID === 'APIList') {
       selectElement.append($('<option>').val('addNewAPI').text('Add New API'));
     }
-
     if (elementID === 'hordeWorkerList') {
       selectElement.append($('<option>').val('NULL').text('Select a Horde model..'));
     }
 
     itemsObj.forEach((item) => {
       const newElem = $("<option>");
-      //the optional use of 'name' here is for APIs added by the local user
-      //when the server sends the API list it duplicates the 'name' to 'value' for the selector population
-      //console.log(item)
       newElem.val(item.value || item.name || item);
       newElem.text(item.name || item);
-      //console.log(newElem.html())
       selectElement.append(newElem);
     });
 
+    // Restore previous selection if it exists in the new options
+    if (currentValue && selectElement.find(`option[value="${currentValue}"]`).length) {
+      selectElement.val(currentValue);
+    }
+
+    // Set the selected value if provided
     if (selectedValue) {
       await selectFromPopulatedSelector(selectedValue, elementID);
-      util.flashElement(elementID, "good");
     }
 
     resolve();
   });
 }
 
+/**
+ * Selects a value in a populated selector element.
+ *
+ * @param {string} value - The value to select.
+ * @param {string} elementID - The ID of the selector element.
+ * @returns {Promise} - A Promise that resolves once the value is selected.
+ */
 async function selectFromPopulatedSelector(value, elementID) {
   return new Promise(async (resolve) => {
-    let shouldContinue = await checkArguments("selectFromPopulatedSelector", arguments, true) === true ? true : false
+    const shouldContinue = await checkArguments("selectFromPopulatedSelector", [value, elementID], true);
     if (!shouldContinue) {
       resolve();
-      return
+      return;
     }
 
     const selectElement = $(`#${elementID}`);
-    selectElement.val(value)//.trigger("input");
-    console.debug(`confirming ${elementID} value is now ${selectElement.val()}`);
+    selectElement.val(value); // Set the value directly
+    util.flashElement(elementID, "good");
+    console.debug(`Set ${elementID} to ${value}, current value is ${selectElement.val()}`);
     resolve();
   });
 }
 
 async function populateInput(value, elementID) {
   return new Promise(async (resolve) => {
-    let shouldContinue = await checkArguments("selectFromPopulatedSelector", arguments) === true ? true : false
+    let shouldContinue = await checkArguments("populateInput", arguments)
     if (!shouldContinue) {
       resolve();
       return
@@ -227,7 +238,7 @@ async function populateInput(value, elementID) {
 
 async function toggleCheckbox(value, elementID) {
   return new Promise(async (resolve) => {
-    let shouldContinue = await checkArguments("selectFromPopulatedSelector", arguments) === true ? true : false
+    let shouldContinue = await checkArguments("toggleCheckbox", arguments)
     if (!shouldContinue) {
       resolve();
       return
@@ -239,20 +250,25 @@ async function toggleCheckbox(value, elementID) {
   });
 }
 
+/**
+ * Validates arguments for DOM manipulation functions.
+ *
+ * @param {string} functionName - The name of the calling function.
+ * @param {Array} args - The arguments passed to the function.
+ * @param {boolean} isSelectorCheck - Whether to verify option existence for select elements.
+ * @returns {Promise<boolean>} - True if arguments are valid and update is needed, false otherwise.
+ */
 async function checkArguments(functionName, args, isSelectorCheck = false) {
-  //return true //comment this line if we need to lint the DOM or args being passed
-
-
   const [value, elementID, selectedValue] = args;
 
   if (value === null || value === undefined) {
-    console.warn(`Error: Invalid arguments for function ${functionName}!`, value, elementID, selectedValue);
+    console.warn(`Error: Invalid value for ${functionName}!`, value, elementID, selectedValue);
     await util.flashElement(elementID, 'bad');
     return false;
   }
 
   if (elementID === null || elementID === undefined) {
-    console.warn(`Error: Invalid arguments for function ${functionName}!`, value, elementID, selectedValue);
+    console.warn(`Error: Invalid elementID for ${functionName}!`, value, elementID, selectedValue);
     await util.flashElement('AIConfigWrap', 'bad');
     return false;
   }
@@ -273,7 +289,8 @@ async function checkArguments(functionName, args, isSelectorCheck = false) {
 
   const areValuesTheSame = await verifyValuesAreTheSame(value, elementID);
   if (areValuesTheSame) {
-    return false
+    console.debug(`No update needed for ${elementID}: values are the same`);
+    return false;
   }
 
   return true;
@@ -303,24 +320,36 @@ async function verifyOptionExists(optionValue, elementID) {
   return true;
 }
 
+/**
+ * Verifies if the current value of an element matches the provided value.
+ *
+ * @param {any} value - The value to compare.
+ * @param {string} elementID - The ID of the element.
+ * @returns {Promise<boolean>} - True if values are the same, false otherwise.
+ */
 async function verifyValuesAreTheSame(value, elementID) {
   const $element = $(`#${elementID}`);
   let elementValue;
 
   if ($element.is(':checkbox')) {
     elementValue = Boolean($element.prop('checked'));
+    value = value === 'true' || value === true || value === 1; // Normalize to boolean
+  } else if ($element.is('select')) {
+    console.debug('saw selector comparison for:', elementID);
+    elementValue = String($element.val() || ''); // Use .val() for select, normalize to string
+    value = String(value || '');
   } else {
-    elementValue = $element.val();
+    elementValue = String($element.val() || '');
+    value = String(value || '');
   }
 
-  //console.log('elementValue:', elementValue);
-  //console.log('value:', value);
-  let result = elementValue === value
-  //console.log('result:', result);
-  if (result === false) {
+  console.debug(`verifyValuesAreTheSame: ${elementID} | new: ${value} (${typeof value}) | current: ${elementValue} (${typeof elementValue})`);
+
+  const result = elementValue === value;
+  if (!result) {
     console.debug(`Compared values for ${elementID}:
     New ${value}
-    Old ${elementValue}
+    Current ${elementValue}
     Needs update!`);
   }
   return result;
@@ -328,9 +357,14 @@ async function verifyValuesAreTheSame(value, elementID) {
 
 // set the engine mode to either horde or Text Completions based on a value from the websocket
 async function setEngineMode(mode, hordeWorkerList = null) {
-  //if (initialLoad) { return }
+  // Check if the mode has changed
+  if (liveConfig.promptConfig.engineMode === mode) {
+    console.debug(`No change in engineMode: ${mode}, skipping update`);
+    return;
+  }
+
   console.debug("API MODE:", mode);
-  liveConfig.promptConfig.engineMode = mode
+  liveConfig.promptConfig.engineMode = mode;
   const toggleModeElement = $("#toggleMode");
   const isHordeMode = mode === "horde";
   toggleModeElement
@@ -339,21 +373,20 @@ async function setEngineMode(mode, hordeWorkerList = null) {
     .text(isHordeMode ? "🧟" : "📑")
     .attr("title", isHordeMode ? "Click to switch to Text Completions Mode" : "Click to switch to Horde Mode");
 
-  console.log(
-    `Switching to ${isHordeMode ? "Horde" : "Text Completions"} Mode`
-  );
+  console.log(`Switching to ${isHordeMode ? "Horde" : "Text Completions"} Mode`);
 
   util.flashElement("toggleMode", "good");
+
   if (isHordeMode) {
     $("#TCCCAPIBlock").hide();
-    $("#isStreaming").prop('checked', false)
+    $("#isStreaming").prop('checked', false);
     $("#isStreamingChekboxBlock").hide();
-    populateSelector(hordeWorkerList, 'hordeWorkerList')
-    $("#hordeWorkerListBlock").show()
+    populateSelector(hordeWorkerList, 'hordeWorkerList');
+    $("#hordeWorkerListBlock").show();
   } else {
-    $("#hordeWorkerListBlock").hide()
+    $("#hordeWorkerListBlock").hide();
     $("#TCCCAPIBlock").show();
-    $("#isStreaming").prop('checked', liveAPI.isStreaming)
+    $("#isStreaming").prop('checked', liveAPI.isStreaming);
     $("#isStreamingChekboxBlock").show();
   }
 }
@@ -386,7 +419,8 @@ function deleteAPI() {
 }
 
 async function updateConfigState(element) {
-  console.log('LOCAL ENGINE MODE = ', liveConfig.promptConfig.engineMode)
+  console.warn(liveConfig)
+  //console.debug('LOCAL ENGINE MODE = ', liveConfig.promptConfig.engineMode)
   if (initialLoad) { return }
 
   let $element = element
@@ -433,6 +467,7 @@ async function updateConfigState(element) {
     type: 'clientStateChange',
     value: liveConfig
   }
+
   await util.flashElement(elementID, 'good')
   util.messageServer(stateChangeMessage)
 }
@@ -479,7 +514,10 @@ $("#APIList").on("change", async function () {
 });
 
 $("#promptConfig input, #promptConfig select:not(#APIList, #modelList), #cardList, #hordeWorkerList").on('change', function () { updateConfigState($(this)) })
-$("#promptConfig textarea, #crowdControl input").on('blur', function () { updateConfigState($(this)) })
+
+$("#promptConfig textarea, #crowdControl input").on('change', function () {
+  updateConfigState($(this))
+})
 
 async function addNewAPI() {
   //check each field for validity, flashElement if invalid
@@ -531,9 +569,9 @@ async function addNewAPI() {
   liveAPI = newAPI
   APIConfig = newAPI
 
-  console.log(APIConfig)
-  console.log(liveAPI)
-  console.log(liveConfig.promptConfig.APIList)
+  console.debug(APIConfig)
+  console.debug(liveAPI)
+  console.debug(liveConfig.promptConfig.APIList)
 
   console.log('added new API to local liveConfig. Sending to server.')
   let newAPIMessage = {

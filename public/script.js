@@ -780,10 +780,11 @@ function disconnectWebSocket() {
 
 function doAIRetry() {
   const isLastMesFromAI = $("#AIChat").children("div").last().attr("data-entityType") === "AI";
-  console.warn($("#AIChat").children().last());
-  console.warn(isLastMesFromAI);
+  console.debug($("#AIChat").children().last());
+  console.debug("isLastMesFromAI: ", isLastMesFromAI);
   if (!isLastMesFromAI) {
     console.warn("last message not from AI, canceling retry attempt.");
+    alert("Last message not from AI, canceling retry attempt.");
     return
   }
 

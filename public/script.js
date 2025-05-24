@@ -296,16 +296,13 @@ function appendMessagesWithConverter(messages, elementSelector, sessionID) {
     </div>
     `);
     $(elementSelector).append(newDiv);
-    console.warn('calling function to add listeners')
-    console.warn(newDiv)
+
     addMessageEditListeners(newDiv);
   });
 
 }
 
 function addMessageEditListeners(newDiv) {
-
-  console.warn('adding edit listener')
 
   $(".messageEdit").off('click').on('click', async function () {
     const mesID = $(this).data('messageid')
@@ -384,10 +381,7 @@ function addMessageEditListeners(newDiv) {
     }
   });
 
-  console.warn('adding delete listeners')
-
   $(`.messageDelete`).off('click').on('click', async function () {
-    console.warn('saw message delete click')
     if ($(this).parent().parent().parent().parent().children().length === 1) { //check how many messages are inside the chat/AIChat container
       alert('Can not delete the only message in this chat. If you want to delete this chat, use the Past Chats list.')
       return

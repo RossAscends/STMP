@@ -281,9 +281,9 @@ async function processConfirmedConnection(parsedMessage) {
 }
 
 function appendMessagesWithConverter(messages, elementSelector, sessionID) {
-  messages.forEach(({ username, userColor, content, messageID }) => {
+  messages.forEach(({ username, userColor, content, messageID, entity }) => {
     const message = converter.makeHtml(content);
-    const newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}"></div`).html(`
+    const newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}" data-entityType="${entity}"></div`).html(`
     <div class="messageHeader flexbox justifySpaceBetween">
       <span style="color:${userColor}" class="chatUserName">${username}</span>
       <div class="messageControls transition250">
@@ -571,7 +571,7 @@ async function connectWebSocket(username) {
         currentlyStreaming = true;
         let newStreamDivSpan;
         if (!$("#AIChat .incomingStreamDiv").length) {
-          newStreamDivSpan = $(`<div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}"></div`).html(`
+          newStreamDivSpan = $(`<div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}" data-entityType="AI"></div`).html(`
           <div class="messageHeader flexbox justifySpaceBetween">
             <span style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}🤖</span>
             <div class="messageControls transition250">
@@ -638,9 +638,10 @@ async function connectWebSocket(username) {
         const HTMLizedMessage = converter.makeHtml(content);
         const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
         let usernameToShow = isAIResponse ? `${username} 🤖` : username;
+        let entityTypeString = isAIResponse ? "AI" : "user";
         var newChatItem
         if (chatID === "AIChat") {
-          let sessionAndMessageIDString = `data-sessionid="${sessionID}" data-messageid="${messageID}"`
+          let sessionAndMessageIDString = `data-sessionid="${sessionID}" data-messageid="${messageID}" data-entityType="${entityTypeString}"`;
 
           newChatItem = $(`<div class="transition250" ${sessionAndMessageIDString}></div`).html(`
           <div class="messageHeader flexbox justifySpaceBetween">
@@ -778,6 +779,14 @@ function disconnectWebSocket() {
 }
 
 function doAIRetry() {
+  const isLastMesFromAI = $("#AIChat").children("div").last().attr("data-entityType") === "AI";
+  console.warn($("#AIChat").children().last());
+  console.warn(isLastMesFromAI);
+  if (!isLastMesFromAI) {
+    console.warn("last message not from AI, canceling retry attempt.");
+    return
+  }
+
   let char = $("#cardList").val();
   let username = $("#AIUsernameInput").val()
   let retryMessage = {
@@ -992,8 +1001,6 @@ $(async function () {
       control.submitKey();
     }
   });
-
-
 
   // Send a message to the user chat
   $("#sendButton").off("click").on("click", function () {

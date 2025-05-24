@@ -4,13 +4,13 @@ import handleconfig from './src/handleconfig.js'
 
 export var username,
   isAutoResponse,
-  isStreaming,
+  isStreaming, //defined by the 'streaming' toggle
   isClaude,
   contextSize,
   responseLength,
   isPhone,
   isLandscape,
-  currentlyStreaming;
+  currentlyStreaming; //set true when streamed response is incomine, and false when not.
 export var myUUID, myUsername;
 export var socket = null;
 export var isUserScrollingAIChat = false;
@@ -305,10 +305,16 @@ function appendMessagesWithConverter(messages, elementSelector, sessionID) {
 function addMessageEditListeners(newDiv) {
 
   $(".messageEdit").off('click').on('click', async function () {
+    console.warn(currentlyStreaming)
+    if (currentlyStreaming) {
+      alert('Can not Edit messages while streaming.');
+      console.warn('Can not Edit messages while streaming.');
+      return;
+    }
     const mesID = $(this).data('messageid')
     const sessionID = $(this).data('sessionid')
     let currentMessageData = await getMessageContent(mesID)
-    console.warn(currentMessageData.message)
+    console.debug(currentMessageData.message)
 
     await editMessage(currentMessageData.message)
 
@@ -386,6 +392,13 @@ function addMessageEditListeners(newDiv) {
       alert('Can not delete the only message in this chat. If you want to delete this chat, use the Past Chats list.')
       return
     }
+
+    if (currentlyStreaming) {
+      alert('Can not delete messages while streaming.');
+      console.warn('Can not delete messages while streaming.');
+      return;
+    }
+
     const mesID = $(this).data('messageid')
     const sessionID = $(this).data('sessionid')
     const mesDelRequest = {
@@ -567,11 +580,10 @@ async function connectWebSocket(username) {
         break;
       case "streamedAIResponse":
         $("body").addClass("currentlyStreaming");
-
         currentlyStreaming = true;
         let newStreamDivSpan;
         if (!$("#AIChat .incomingStreamDiv").length) {
-          newStreamDivSpan = $(`<div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}" data-entityType="AI"></div`).html(`
+          newStreamDivSpan = $(`<div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}" data-entityType="AI"></div>`).html(`
           <div class="messageHeader flexbox justifySpaceBetween">
             <span style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}🤖</span>
             <div class="messageControls transition250">
@@ -580,45 +592,90 @@ async function connectWebSocket(username) {
             </div>
           </div>
           <div class="messageContent">
-          <span></span>
-          </div>
-          `);
-
+            <span></span>
+          </div>`);
           $("#AIChat").append(newStreamDivSpan);
           util.kindlyScrollDivToBottom($("#AIChat"));
         }
         await displayStreamedResponse(message);
-
-        $("#AISendButton").prop("disabled", true);
-        $("#deleteLastMessageButton").prop("disabled", true);
-        $("#triggerAIResponse").prop("disabled", true);
-        $("#AIRetry").prop("disabled", true);
-        $("#characters").prop("disabled", true);
-        $("#characters").prop("disabled", true);
-        $("#apiList").prop("disabled", true);
-        $("#toggleMode").prop("disabled", true);
         break;
+
       case "streamedAIResponseEnd":
         console.debug("saw stream end");
-        //accumulatedContent = util.trimIncompleteSentences(accumulatedContent);
         const HTMLizedContent = converter.makeHtml(accumulatedContent);
         const newDivElement = $("<p>").html(HTMLizedContent);
         const elementsToRemove = $(".incomingStreamDiv .messageContent").children("span");
         elementsToRemove.remove();
-        addMessageEditListeners('.incomingStreamDiv')
+        addMessageEditListeners('.incomingStreamDiv');
         $(".incomingStreamDiv").append(newDivElement.html());
         accumulatedContent = "";
         fullRawAccumulatedContent = "";
         $(".incomingStreamDiv").removeClass("incomingStreamDiv");
         currentlyStreaming = false;
+        console.debug('currentlyStreaming: ', currentlyStreaming);
+
+        console.debug('Re-enabling buttons');
         $("body").removeClass("currentlyStreaming");
-        $("#AISendButton").prop("disabled", false);
-        $("#deleteLastMessageButton").prop("disabled", false);
-        $("#triggerAIResponse").prop("disabled", false);
-        $("#AIRetry").prop("disabled", false);
-        $("#characters").prop("disabled", false);
-        $("#apiList").prop("disabled", false);
-        $("#toggleMode").prop("disabled", false);
+
+        const buttonsToEnable = [
+          "#AISendButton",
+          "#deleteLastMessageButton",
+          "#triggerAIResponse",
+          "#AIRetry",
+          "#cardList", // Corrected from #characters
+          "#APIList",
+          "#toggleMode"
+        ];
+
+        setTimeout(() => {
+          buttonsToEnable.forEach(selector => {
+            const $element = $(selector);
+            if ($element.length) {
+              $element.prop("disabled", false).removeAttr("disabled").removeClass("disabled");
+              console.debug(`Enabled ${selector}: prop=${$element.prop("disabled")} | attr=${$element.attr("disabled")}`);
+            } else {
+              console.warn(`Element ${selector} not found in DOM`);
+            }
+          });
+
+          console.debug('Re-enabled buttons');
+
+          // Check button states after another delay
+          setTimeout(() => {
+            console.debug('Checking button states after delay:', {
+              AIRetry: {
+                disabledProp: $("#AIRetry").prop("disabled"),
+                disabledAttr: $("#AIRetry").attr("disabled"),
+                html: $("#AIRetry")[0]?.outerHTML || "Not found"
+              },
+              cardList: {
+                disabledProp: $("#cardList").prop("disabled"),
+                disabledAttr: $("#cardList").attr("disabled"),
+                html: $("#cardList")[0]?.outerHTML || "Not found"
+              }
+            });
+          }, 100);
+        }, 1000);
+
+        // Check button states after a delay to detect re-disabling
+        setTimeout(() => {
+          console.debug('Checking button states after delay:', {
+            AIRetry: {
+              disabledProp: $("#AIRetry").prop("disabled"),
+              disabledAttr: $("#AIRetry").attr("disabled"),
+              html: $("#AIRetry")[0]?.outerHTML || "Not found"
+            },
+            cardList: {
+              disabledProp: $("#cardList").prop("disabled"),
+              disabledAttr: $("#cardList").attr("disabled"),
+              html: $("#cardList")[0]?.outerHTML || "Not found"
+            }
+          });
+        }, 100);
+
+        // Verify AIRetry click handler
+        console.debug('AIRetry click handler:', $("#AIRetry").data("events")?.click || $("#AIRetry")[0]?.onclick || "No handler");
+
         updateAIChatUserList(parsedMessage.AIChatUserList);
         break;
       case "AIResponse":
@@ -941,9 +998,31 @@ async function callCharDefPopup() {
         },
         close: function () { },
       })
-
   }
+}
 
+function disableButtons() {
+  const buttonsToDisable = [
+    "#AISendButton",
+    "#deleteLastMessageButton",
+    "#triggerAIResponse",
+    "#AIRetry",
+    "#cardList",
+    "#APIList",
+    "#toggleMode",
+    ".messageEdit",
+    ".messageDelete"
+  ];
+
+  buttonsToDisable.forEach(selector => {
+    const $element = $(selector);
+    if ($element.length) {
+      $element.prop("disabled", true).addClass("disabled");
+      console.debug(`Disabled ${selector}: ${$element.prop("disabled")}`);
+    } else {
+      console.warn(`Element ${selector} not found in DOM`);
+    }
+  });
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1005,10 +1084,14 @@ $(async function () {
 
   // Send a message to the user chat
   $("#sendButton").off("click").on("click", function () {
+    console.debug("sendButton clicked");
+
 
     if ($(this).hasClass("disabledButton")) {
+      console.debug("sendButton is disabled");
       return;
     }
+
     if ($("#usernameInput").val().trim() === "") {
       alert("Can't send chat message with no username!");
       return;
@@ -1041,10 +1124,15 @@ $(async function () {
   });
 
   $("#triggerAIResponse").off("click").on("click", function () {
+    console.debug('saw force trigger for AI response click')
+    disableButtons()
     sendMessageToAIChat("forced");
+
   });
 
   $("#AIRetry").off("click").on("click", function () {
+    console.debug('saw AI retry click')
+    disableButtons()
     doAIRetry();
   });
 
@@ -1078,11 +1166,14 @@ $(async function () {
   });
 
   $("#AISendButton").off("click").on("click", function () {
-    if ($(this).hasClass("disabledButton")) {
+    if ($(this).hasClass("disabledButton") || currentlyStreaming) {
+      alert("AI is currently generating a response, please wait.");
+      console.warn('Cannot send message while AI is generating response.');
       return;
     }
     sendMessageToAIChat();
     $("#AIMessageInput").trigger("input");
+    disableButtons()
     $(this).addClass("disabledButton").text("🚫");
     setTimeout(() => {
       $(this).removeClass("disabledButton").text("✏️");

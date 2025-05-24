@@ -823,9 +823,9 @@ hr {
     filter: opacity(1)
 }
 
-.greyscale:hover,
-.mutedColor:hover {
-    filter: saturate(0.7)
+.greyscale:not(:disabled):hover,
+.mutedColor:not(:disabled):hover {
+    filter: saturate(0.7);
 }
 
 .transition125 {
@@ -975,11 +975,13 @@ hr {
     displaY: none;
 }
 
-/* input:disabled,
+input:disabled,
 select:disabled,
-input:read-only {
+input:read-only,
+button:disabled,
+.disabled {
     cursor: not-allowed;
-} */
+}
 
 .alignItemsEnd {
     align-items: end;

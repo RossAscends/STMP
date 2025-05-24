@@ -1,5 +1,5 @@
 import util from './utils.js'
-import { isUserScrollingAIChat, isUserScrollingUserChat, myUUID } from '../script.js'
+import { isUserScrollingAIChat, isUserScrollingUserChat, myUUID, validateUserName } from '../script.js'
 
 
 function updateSelectedModel(model) {
@@ -8,30 +8,21 @@ function updateSelectedModel(model) {
     util.flashElement('modelList', 'good')
 }
 
-function updateUserName(myUUID, username) {
+function updateUserName(myUUID, currentUsername, oldUsername, AIChatUsername, oldAIChatUsername) {
+    console.debug('entered updateUserName()')
     let nameChangeMessage = {
         type: 'usernameChange',
         UUID: myUUID,
-        newName: $("#usernameInput").val(),
-        oldName: username
+        newName: currentUsername,
+        oldName: oldUsername,
+        AIChatUsername: AIChatUsername
     }
-    //let setUsername = $("#usernameInput").val()
-    localStorage.setItem('username', username)
-    console.debug(`Set localstorage "username" key to ${username}`)
+    localStorage.setItem('username', currentUsername)
+    localStorage.setItem('AIChatUsername', AIChatUsername)
+    console.debug(`Set localstorage "username" key to ${currentUsername}`)
+    console.debug(`Set localstorage "AIChatUsername" key to ${AIChatUsername}`)
     util.messageServer(nameChangeMessage)
     util.flashElement('usernameInput', 'good')
-}
-
-//Just update Localstorage, no need to send anything to server for this.
-//but possibly add it in the future if we want to let users track which user is speaking as which entity in AI Chat.
-function updateAIChatUserName() {
-    let oldUsername = localStorage.getItem('AIChatUsername');
-    let currentUsername = $("#usernameInput").val()
-    if (oldUsername !== currentUsername) {
-        localStorage.setItem('AIChatUsername', currentUsername)
-        console.debug(`Set localstorage "AIChatUsername" to ${currentUsername}`)
-        util.flashElement('AIUsernameInput', 'good')
-    }
 }
 
 function submitKey(myUUID) {
@@ -213,4 +204,5 @@ export default {
     disableAPIEdit,
     updateSelectedModel,
     showPastChats,
+    validateUserName
 }

@@ -29,13 +29,16 @@ var initialLoad = true;
 
 function startupUsernames() {
   async function initializeUsername() {
-    const userInput = prompt("Enter your username:");
-    if (userInput !== null && userInput !== "") {
-      localStorage.setItem("username", userInput);
-      console.debug(`Set localStorage 'username' to ${userInput}`);
-      return String(userInput);
-    } else {
-      return await initializeUsername();
+    while (true) {
+      const userInput = prompt(`Enter your username \n 3 alphabetical letters required, max 20 characters.\nNumbers (0-9), underscores, and hyphens are also allowed.`);
+
+      const trimmedInput = userInput.trim();
+      let validatedUserName = validateUserName(trimmedInput);
+      if (validatedUserName !== null) {
+        return trimmedInput;
+      } else {
+        return await initializeUsername();
+      }
     }
   }
 
@@ -59,6 +62,40 @@ function startupUsernames() {
     resolve({ username, AIChatUsername });
   });
 }
+
+export function validateUserName(username) {
+  if (username === null) {
+    // User clicked Cancel
+    alert("A username is required to continue.");
+    return null;
+  }
+  if (username.length < 1) {
+    alert("Username cannot be empty.");
+    return null;
+  }
+  if (username.length > 20) {
+    alert("Username cannot exceed 20 characters.");
+    return null;;
+  }
+
+  // Check allowed characters (letters, numbers, underscore, hyphen)
+  if (!/^[A-Za-z0-9_-]+$/.test(username)) {
+    alert("Username can only contain letters (A-Z, a-z), numbers (0-9), underscores, and hyphens.");
+    return null;;
+  }
+
+  // Count letters (A-Za-z)
+  const letterCount = (username.match(/[A-Za-z]/g) || []).length;
+  if (letterCount < 3) {
+    alert("Username must contain at least 3 letters (A-Z, a-z).");
+    return null;;
+  }
+
+  localStorage.setItem("username", username);
+  console.debug(`Set localStorage 'username' to ${username}`);
+  return username;
+}
+
 
 var sanitizeExtension = {
   type: "output",
@@ -1150,19 +1187,19 @@ $(async function () {
     util.messageServer(modeChangeMessage);
   });
 
-  $("#usernameInput").on("blur", function () {
-    console.debug("saw username input blur");
+  $("#usernameInput, #AIUsernameInput").on("blur", function () {
+    console.warn("saw username input blur");
     let oldUsername = localStorage.getItem("username");
-    let currentUsername = $("#usernameInput").val();
-    if (oldUsername !== currentUsername) {
-      console.debug("notifying server of UserChat username change...");
-      control.updateUserName(myUUID, currentUsername);
+    let oldAIChatUsername = localStorage.getItem("AIChatUsername");
+    let currentUsername = validateUserName($("#usernameInput").val());
+    let AIChatUsername = validateUserName($("#AIUsernameInput").val());
+
+    //only proceed if at least one is different and both are not null (rejected by validation)
+    if ((oldUsername !== currentUsername || oldAIChatUsername !== AIChatUsername) && currentUsername !== null && AIChatUsername !== null) {
+      console.warn("notifying server of UserChat username change...");
+      control.updateUserName(myUUID, currentUsername, oldUsername, AIChatUsername, oldAIChatUsername);
       util.flashElement("usernameInput", "good");
     }
-  });
-
-  $("#AIUsernameInput").on("blur", function () {
-    control.updateAIChatUserName();
   });
 
   $("#AISendButton").off("click").on("click", function () {

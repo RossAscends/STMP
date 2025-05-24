@@ -867,12 +867,13 @@ async function handleConnections(ws, type, request) {
             //process universal message types
 
             if (parsedMessage.type === 'usernameChange') {
+                //logger.info(parsedMessage)
                 clientsObject[uuid].username = parsedMessage.newName;
                 updateConnectedUsers()
                 await db.upsertUser(parsedMessage.UUID, parsedMessage.newName, user.color ? user.color : thisClientObj.color)
                 const nameChangeNotification = {
                     type: 'userChangedName',
-                    content: `[System]: ${parsedMessage.oldName} >>> ${parsedMessage.newName}`
+                    content: `[System]: ${parsedMessage.oldName} >>> ${parsedMessage.newName} (@AI: ${parsedMessage.AIChatUsername})`
                 }
                 logger.debug('sending notification of username change')
                 await broadcast(nameChangeNotification);

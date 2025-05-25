@@ -215,42 +215,106 @@ function correctSizeBody() {
     correctSizeChats()
 };
 
-//args passed as JQUery DOM Objects //e.g. $("#myDiv")
+/*
 function calculatePromptsBlockheight() {
-    let controlPanel = parseFloat($("#controlPanel > div").outerHeight());
-    //let crowdControlBlock = parseFloat($("#crowdControlBlock").outerHeight());
-    let pastChatsBlock = parseFloat($("#pastChatsBlock").outerHeight())
-    let configSelectorsBlock = parseFloat($("#configSelectorsBlock").outerHeight())
-    let promptsToggle = parseFloat($("#promptsToggle").outerHeight())
-    let AIConfigToggle = parseFloat($("#AIConfigToggle").outerHeight())
-    let hrSize = ($("#controlPanel > div > hr").length) * 11
+    // Get the outer height of #controlPanelContents
+    let controlPanel = Math.floor(parseFloat($("#controlPanelContents").outerHeight()));
 
-    let controlPanelGaps = ($("#promptConfig").children().length - 1) * 5;
+    // Define specific <div>s to include
+    const divIdsToInclude = [
+        'AIConfigToggle',
+        'configSelectorsBlock',
+        'promptsToggle',
+        'pastChatsBlock'
+    ];
 
+    // Sum the outer heights of specified visible <div> elements
+    let totalChildrenHeight = 0;
+    let visibleDivCount = 0;
+    let childHeights = [];
+    let childMargins = [];
+    let h4MarginTotal = 0;
+
+    divIdsToInclude.forEach(id => {
+        let $element = $(`#${id}`);
+        if ($element.is(":visible")) {
+            let height = Math.floor(parseFloat($element.outerHeight()));
+            let marginTop = Math.floor(parseFloat($element.css("margin-top")));
+            let marginBottom = Math.floor(parseFloat($element.css("margin-bottom")));
+            // Check for <h4> margins inside the <div>
+            let h4Margin = $element.find("h4").length > 0 ? 10 : 0; // 5px top + 5px bottom
+            childHeights.push(`${id}: ${height}px`);
+            childMargins.push(`${id}: margin-top ${marginTop}px, margin-bottom ${marginBottom}px, h4-margin ${h4Margin}px`);
+            totalChildrenHeight += height;
+            h4MarginTotal += h4Margin;
+            visibleDivCount++;
+        }
+    });
+
+    // Calculate hrSize (11px per visible <hr> element)
+    let hrSize = 0;
+    let hrCount = 0;
+    $("#controlPanelContents hr").each(function () {
+        if ($(this).is(":visible")) {
+            hrSize += 11;
+            hrCount++;
+        }
+    });
+
+    // Calculate gaps (3 gaps for 4 <div>s)
+    let controlPanelGaps = (visibleDivCount - 1) * 5; // Revert to 3 gaps (15px)
+
+    // Subtract <h4> margins to account for layout impact
     let promptsBlockHeight =
         controlPanel
-        //- crowdControlBlock
-        - pastChatsBlock
-        - configSelectorsBlock
-        - promptsToggle
-        - AIConfigToggle
+        - totalChildrenHeight
         - controlPanelGaps
         - hrSize
-        - 6 //no idea what this 6px is from..
+        - h4MarginTotal // Subtract 30px for <h4> margins (10px per <h4> in 3 <div>s)
         + 'px';
 
-    console.debug(` calculatePromptBlockHeight():
-    ${controlPanel} controlPanel 
-    ${pastChatsBlock} pastChatsblock 
-    ${configSelectorsBlock}  configSelectorsBlock 
-    ${promptsToggle} promptsToggle 
-    ${AIConfigToggle} AIConfigToggle 
-    ${controlPanelGaps} controlPanelGaps 
-    ${hrSize} hrSize 
+    // Log for debugging
+    console.warn(`calculatePromptBlockHeight():
+    controlPanel: ${controlPanel}px
+    totalChildrenHeight: ${totalChildrenHeight}px
+    visibleDivCount: ${visibleDivCount}
+    childHeights: [${childHeights.join(', ')}]
+    childMargins: [${childMargins.join(', ')}]
+    h4MarginTotal: ${h4MarginTotal}px
+    controlPanelGaps: ${controlPanelGaps}px
+    hrSize: ${hrSize}px (from ${hrCount} visible <hr> elements)
     ---
-    ${promptsBlockHeight}`);
+    promptsBlockHeight: ${promptsBlockHeight}`);
+
     return promptsBlockHeight;
+}*/
+
+function calculatePromptsBlockheight() {
+    const $contents = $("#controlPanelContents");
+    const controlPanelHeight = Math.floor($contents.outerHeight());
+
+    const divsToSubtract = [
+        '#AIConfigToggle',
+        '#configSelectorsBlock',
+        '#promptsToggle',
+        '#pastChatsBlock'
+    ];
+
+    let usedHeight = 0;
+    divsToSubtract.forEach(selector => {
+        const $el = $(selector);
+        if ($el.is(":visible")) {
+            usedHeight += $el.outerHeight(true); // includes margin
+        }
+    });
+
+    const hrHeight = $contents.find("hr:visible").length * 11;
+    const remainingHeight = controlPanelHeight - usedHeight - hrHeight;
+
+    console.warn(`Remaining prompts block height: ${remainingHeight}px`);
+    return `${remainingHeight}px`;
 }
+
 
 function trimIncompleteSentences(input, include_newline = false) {
     if (input === undefined) { return 'Error processing response (could not trim sentences).' }

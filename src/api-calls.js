@@ -612,7 +612,7 @@ async function getHordeModelList(hordekey) {
             return {
                 //name: `${modelName} (Q:${uncompleted_jobs}, ${short_resp_string}/${short_ctx_string})`,
                 //value: models[0]
-                name: `${modelName} (Q:${queued}, E:${eta}, ${performance}tps, W:${count})`,
+                name: `${modelName} (🧑‍🤝‍🧑:${queued}, ⏳:${eta}, ${performance}tps, 🤖:${count})`,
                 value: name
 
             }

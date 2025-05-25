@@ -333,7 +333,7 @@ async function processConfirmedConnection(parsedMessage) {
     }
 
     if (!$("#promptConfigTextFields").hasClass('heightHasbeenSet') && $("#controlPanel").css('display') !== 'none') {
-      $("#promptConfigTextFields").css("height", util.calculatePromptsBlockheight())
+      // $("#promptConfigTextFields").css("height", util.calculatePromptsBlockheight())
       $("#promptConfigTextFields").addClass('heightHasbeenSet')
     }
 
@@ -1554,7 +1554,7 @@ $(async function () {
       console.log('toggline CP to be visible before fade in')
       $("#controlPanel").toggleClass('hidden')
       if (!$("#promptConfigTextFields").hasClass('heightHasbeenSet') && $("#controlPanel").css('display') !== 'none') {
-        $("#promptConfigTextFields").css("height", util.calculatePromptsBlockheight())
+        //  $("#promptConfigTextFields").css("height", util.calculatePromptsBlockheight())
         $("#promptConfigTextFields").addClass('heightHasbeenSet')
       }
       await util.delay(1)
@@ -1705,11 +1705,14 @@ $(async function () {
     util.flashElement("modelList", "good");
   });
 
-  $("#controlPanel > div > div > .isControlPanelToggle").on("click", function () {
-    util.toggleControlPanelBlocks($(this), "all");
-  });
+  /*   $("#controlPanel > div > div > .isControlPanelToggle").on("click", function () {
+      util.toggleControlPanelBlocks($(this), "all");
+    }); */
 
-  $("#promptConfig > .isControlPanelToggle, #userListsWrap  .isControlPanelToggle").on("click", function () {
+  $(`#AIConfigBlock > .isControlPanelToggle, 
+    #insertionsBlock > .isControlPanelToggle,
+    #pastChatsBlock > .isControlPanelToggle,
+    #crowdControlToggle`).on("click", function () {
     util.toggleControlPanelBlocks($(this), "single");
   });
 
@@ -1799,7 +1802,7 @@ $(async function () {
 
   util.correctSizeBody();
   util.correctSizeChats();
-  //close the past chats and crowd controls on page load
+  //close the past chats on page load
   util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");
 
   $("#charDefsPopupButton").on('click', function () { callCharDefPopup() }

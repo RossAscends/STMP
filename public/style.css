@@ -161,6 +161,13 @@ select,
     height: 100%
 }
 
+#promptConfigTextFields {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+
 button,
 select,
 .nonButtonButton,

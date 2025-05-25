@@ -89,7 +89,7 @@ async function processLiveConfig(configArray) {
   const { userChatDelay, AIChatDelay } = liveConfig.crowdControl;
 
 
-  setEngineMode(engineMode);
+  await setEngineMode(engineMode);
 
   await populateSelector(cardList, "cardList", selectedCharacter);
   await populateSelector(APIList, "APIList", selectedAPI);
@@ -358,25 +358,29 @@ async function verifyValuesAreTheSame(value, elementID) {
 // set the engine mode to either horde or Text Completions based on a value from the websocket
 async function setEngineMode(mode, hordeWorkerList = null) {
   // Check if the mode has changed
-  if (liveConfig.promptConfig.engineMode === mode) {
-    //console.debug(`No change in engineMode: ${mode}, skipping update`);
-    return;
-  }
-
-  //console.debug("API MODE:", mode);
-  liveConfig.promptConfig.engineMode = mode;
+  let shouldModify = true
   const toggleModeElement = $("#toggleMode");
   const isHordeMode = mode === "horde";
-  toggleModeElement
-    .toggleClass("TCMode", !isHordeMode)
-    .toggleClass("hordeMode", isHordeMode)
-    .text(isHordeMode ? "🧟" : "📑")
-    .attr("title", isHordeMode ? "Click to switch to Text Completions Mode" : "Click to switch to Horde Mode");
 
-  console.log(`Switching to ${isHordeMode ? "Horde" : "Text Completions"} Mode`);
+  /*   if (liveConfig.promptConfig.engineMode === mode) {
+      shouldModify = false
+      console.debug(`No change in engineMode: ${mode}, skipping update`);
+    } */
 
-  util.flashElement("toggleMode", "good");
+  if (shouldModify) {
+    console.warn("API MODE:", mode);
+    liveConfig.promptConfig.engineMode = mode;
 
+    toggleModeElement
+      .toggleClass("TCMode", !isHordeMode)
+      .toggleClass("hordeMode", isHordeMode)
+      .text(isHordeMode ? "🧟" : "📑")
+      .attr("title", isHordeMode ? "Click to switch to Text Completions Mode" : "Click to switch to Horde Mode");
+
+    console.log(`Switching to ${isHordeMode ? "Horde" : "Text Completions"} Mode`);
+
+    util.flashElement("toggleMode", "good");
+  }
   if (isHordeMode) {
     $("#TCCCAPIBlock").hide();
     $("#isStreaming").prop('checked', false);
@@ -386,7 +390,8 @@ async function setEngineMode(mode, hordeWorkerList = null) {
   } else {
     $("#hordeWorkerListBlock").hide();
     $("#TCCCAPIBlock").show();
-    $("#isStreaming").prop('checked', liveAPI.isStreaming);
+    $("#isStreaming").prop('checked', isStreaming);
+    console.warn('hiding horde model list');
     $("#isStreamingChekboxBlock").show();
   }
 }

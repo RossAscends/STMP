@@ -130,59 +130,14 @@ async function toggleControlPanelBlocks(toggle, type = null) {
         // Toggle the target panel
         console.debug(`Toggling panel view ${target.attr('id')}`);
         toggle.children('i').toggleClass('fa-toggle-on fa-toggle-off');
+
+        if (toggle.children('i').hasClass('fa-toggle-off')) target.addClass('minimized')
         await betterSlideToggle(target, 100, 'height');
-        target.parent().css(
-            "height", 'unset'
-        );
+        if (toggle.children('i').hasClass('fa-toggle-on')) target.removeClass('minimized')
+
         return;
     }
-
-    // Close all panels
-    $(".isControlPanelToggle:not(.subToggle)").each(async function () {
-        let panelToggle = $(this);
-
-        let panelTarget = panelToggle.next();
-        console.debug(`toggling: ${panelTarget.prop('id')}`)
-        if (panelTarget.css('display') == 'none') {
-            return;
-        }
-        if (panelTarget.hasClass('isAnimating')) { return; }
-        panelToggle.children('i').removeClass('fa-toggle-on').addClass('fa-toggle-off');
-        await betterSlideToggle(panelTarget, 100, 'height')
-    });
-
-    // Open the clicked panel
-    toggle.children('i').toggleClass('fa-toggle-on fa-toggle-off');
-    await betterSlideToggle(target, 100, 'height')
-
 }
-
-/*
-function sendKeepAlive() {
-    // Set the interval for sending messages (e.g., every 1 second)
-    const interval = 1000;
-    const keepAliveMessage = {
-        type: "keepAlive",
-        UUID: myUUID,
-        value: "Ping?"
-    }
-    //messageServer(keepAliveMessage);
-
-    // Start the interval timer for sending periodic messages
-    const timerId = setInterval(function () {
-        console.log('sending KeepAlive Message')
-        messageServer(keepAliveMessage)
-    }, interval);
-
-    // Stop the interval when the app becomes visible again
-    document.addEventListener("visibilitychange", function () {
-        if (document.visibilityState === "visible") {
-            console.log('Clearing Keep Alive loop')
-            clearInterval(timerId);
-        }
-    });
-} 
-*/
 
 function correctSizeChats() {
     let universalControlsHeight = $("#universalControls").outerHeight()

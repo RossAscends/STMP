@@ -27,11 +27,11 @@
 <body class="Hcentered">
     <div id="controlPanel" class="hostControls initialState padding5 flexbox flexFlowCol overflowYHidden transition250">
         <div id="controlPanelContents" class=" flexbox flexFlowCol noGap height100p">
+            <div id="AIConfigToggle" class="isControlPanelToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
+                <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
+                <h4>AI Config</h4>
+            </div>
             <div id="AIConfigBlock" class="flexbox flexFlowCol">
-                <div id="AIConfigToggle" class="isControlPanelToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
-                    <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
-                    <h4>AI Config</h4>
-                </div>
                 <div id="AIConfigWrap" class="flexbox flexFlowCol heightFitContent">
                     <div id="promptConfig" class="isArrayType flexbox flexFlowCol">
                         <div id="configSelectorsBlock" class="flexbox justifySpaceAround">
@@ -169,15 +169,15 @@
                 </div>
             </div>
             <hr>
-            <div id="insertionsBlock" class="flexbox flexFlowCol">
-                <div id="promptsToggle" class="isControlPanelToggle subToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
-                    <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
-                    <h4>Insertions</h4>
-                </div>
+            <div id="promptsToggle" class="isControlPanelToggle subToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
+                <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
+                <h4>Insertions</h4>
+            </div>
+            <div id="insertionsBlock" class="flexbox flexFlowCol ">
                 <div id="promptConfigTextFields" class="transition250 flexbox flexFlowCol">
                     <div id="systemPromptBlock" class="flexbox flexFlowCol Hcentered dummyBG">
                         <span class="widthFitContent alignSelfCenter">System Prompt</span>
-                        <textarea class="bgBrightUp" rows=6 id="systemPrompt" placeholder="Text in this box will be inserted at the top of the prompt before anything else."></textarea>
+                        <textarea class="bgBrightUp" id="systemPrompt" placeholder="Text in this box will be inserted at the top of the prompt before anything else."></textarea>
                     </div>
                     <div id="authorsNoteBlock" class="flexbox flexFlowCol Hcentered dummyBG ">
                         <div class="flexbox Hcentered">
@@ -188,25 +188,24 @@
                             </label>
                         </div>
 
-                        <textarea class="bgBrightUp" rows=6 id="D4AN" placeholder="Useful place to put character definitions, World Info, or other constantly relevant information."></textarea>
+                        <textarea class="bgBrightUp" id="D4AN" placeholder="Useful place to put character definitions, World Info, or other constantly relevant information."></textarea>
                     </div>
                     <div id="finalInstructionBlock" class="flexbox flexFlowCol Hcentered dummyBG ">
                         <span class="widthFitContent alignSelfCenter">D1 Insertion "JB"</span>
-                        <textarea class="bgBrightUp" rows=6 id="D1JB" placeholder="A very powerful override instruction. Mostly useful as a jailbreak for CC APIs. For TC, it is usually too strong and will override the D4 insertion"></textarea>
+                        <textarea class="bgBrightUp" id="D1JB" placeholder="A very powerful override instruction. Mostly useful as a jailbreak for CC APIs. For TC, it is usually too strong and will override the D4 insertion"></textarea>
                     </div>
                 </div>
             </div>
             <hr>
+            <div id="pastChatsToggle" class="isControlPanelToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
+                <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
+                <h4>Past Chats</h4>
+            </div>
             <div id="pastChatsBlock" class="flexbox flexFlowCol">
-                <div id="pastChatsToggle" class="isControlPanelToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
-                    <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
-                    <h4>Past Chats</h4>
-                </div>
-                <div id="pastChatsWrap" class="flexbox flexFlowCol heightFitContent">
+                <div id="pastChatsWrap" class="flexbox flexFlowCol ">
                     <!-- hidden button that is auto-clicked on each mesage received to update chat list -->
                     <button id="showPastChats" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Refresh Past Chats List" hidden>🔄</button>
                     <div id="pastChatsList" class="flexbox Hcentered alignContentStart"></div>
-                    <hr>
                 </div>
             </div>
         </div>

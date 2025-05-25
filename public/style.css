@@ -29,9 +29,6 @@ button {
     font-family: "Noto Sans", "Noto Color Emoji", sans-serif;
 }
 
-textarea {
-    resize: vertical;
-}
 
 ::-webkit-scrollbar {
     width: 12px;
@@ -135,6 +132,23 @@ textarea {
     font-size: 0.8em;
 }
 
+
+#AIConfigBlock,
+#pastChatsBlock {
+    flex-shrink: 0;
+}
+
+#insertionsBlock:not(.minimized) {
+    flex-grow: 1;
+    min-height: 0;
+    flex-shrink: 0;
+}
+
+#insertionsBlock.minimized {
+    flex-grow: 0;
+    min-height: 0;
+}
+
 input,
 textarea,
 button,
@@ -152,13 +166,21 @@ select,
 #finalInstructionBlock,
 #systemPromptBlock,
 #authorsNoteBlock {
-    height: 33%;
-    max-height: 33%;
-    min-height: 33%;
+    flex-grow: 1;
+    min-height: 0;
 }
 
 #controlPanel textarea {
-    height: 100%
+    /* height: 100% */
+    flex-grow: 1;
+    min-height: 0;
+    /* allows it to shrink below content size */
+    resize: none;
+    /* optional: disables manual resizing */
+    width: 100%;
+    /* ensures full width */
+    box-sizing: border-box;
+    /* padding won't expand width/height */
 }
 
 #promptConfigTextFields {
@@ -546,12 +568,20 @@ input::placeholder {
     font-size: 0.8em;
 }
 
-/* #pastChatsBlock {
-    height: 33svh;
-} */
+#pastChatsBlock {
+    height: 50svh;
+    flex-shrink: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
 
 #pastChatsWrap {
-    height: 75vh;
+    position: relative;
+    overflow-y: hidden;
+}
+
+#controlPanelContents {
+    overflow-y: hidden;
 }
 
 #pastChatsList {

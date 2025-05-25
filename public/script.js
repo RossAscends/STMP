@@ -1709,9 +1709,7 @@ $(async function () {
       util.toggleControlPanelBlocks($(this), "all");
     }); */
 
-  $(`#AIConfigBlock > .isControlPanelToggle, 
-    #insertionsBlock > .isControlPanelToggle,
-    #pastChatsBlock > .isControlPanelToggle,
+  $(`.isControlPanelToggle,
     #crowdControlToggle`).on("click", function () {
     util.toggleControlPanelBlocks($(this), "single");
   });

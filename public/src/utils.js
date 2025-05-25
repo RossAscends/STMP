@@ -106,7 +106,7 @@ function heartbeat(socket) {
 
 function checkIsLandscape() {
     console.debug('checking landscape or not..')
-    console.debug($(window).height(), $(window).width())
+    console.debug("window H, W: ", $(window).height(), $(window).width())
     if ($(window).height() > $(window).width()) { return false }
     else { return true }
 }
@@ -239,7 +239,7 @@ function calculatePromptsBlockheight() {
         - 6 //no idea what this 6px is from..
         + 'px';
 
-    console.log(`
+    console.debug(` calculatePromptBlockHeight():
     ${controlPanel} controlPanel 
     ${pastChatsBlock} pastChatsblock 
     ${configSelectorsBlock}  configSelectorsBlock 

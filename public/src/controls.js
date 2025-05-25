@@ -1,5 +1,5 @@
 import util from './utils.js'
-import { isUserScrollingAIChat, isUserScrollingUserChat, myUUID, validateUserName } from '../script.js'
+import { isUserScrollingAIChat, isUserScrollingUserChat, myUUID, validateUserName, isHost } from '../script.js'
 
 
 function updateSelectedModel(model) {
@@ -72,7 +72,7 @@ function enableAPIEdit() {
 }
 
 function disableAPIEdit() {
-    console.warn('[disableAPIEdit()] >> GO')
+    if (isHost) console.warn('[disableAPIEdit()] >> GO');
     $("#selectedAPI").prop('readonly', true)
     $("#endpoint").prop('readonly', true)
     $("#key").prop('readonly', true)

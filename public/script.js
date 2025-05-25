@@ -21,14 +21,14 @@ var doKeepAliveAudio = false;
 var isKeepAliveAudioPlaying = false;
 var keepAliveAudio = new Audio("silence.mp3");
 
-var isHost;
+export var isHost;
 var AIChatDelay, userChatDelay;
 
 //this prevents selectors from firing off when being initially populated
 var initialLoad = true;
 //MARK: startupUserName
 async function startupUsernames() {
-  console.warn(`[startupUsernames]>> GO`);
+  console.debug(`[startupUsernames]>> GO`);
 
   async function initializeUsername() {
     console.debug(`[initializeUsername]>> GO`);
@@ -379,7 +379,7 @@ async function processConfirmedConnection(parsedMessage) {
 }
 //MARK:appendMessages
 function appendMessagesWithConverter(messages, elementSelector, sessionID) {
-  console.warn(`[appendMessagesWithConverter(${elementSelector})]>> GO`);
+  console.debug(`[appendMessagesWithConverter(${elementSelector})]>> GO`);
   //console.warn(messages, elementSelector, sessionID)
   messages.forEach(({ username, userColor, content, messageID, entity }) => {
     const message = converter.makeHtml(content);
@@ -1123,7 +1123,7 @@ function disableButtons() {
     const $element = $(selector);
     if ($element.length) {
       $element.prop("disabled", true).addClass("disabled");
-      console.warn(`Disabled ${selector}: ${$element.prop("disabled")}`);
+      console.debug(`Disabled ${selector}: ${$element.prop("disabled")}`);
     } else {
       console.warn(`Element ${selector} not found in DOM`);
     }
@@ -1131,7 +1131,7 @@ function disableButtons() {
 }
 
 function enableButtons() {
-  console.warn('Re-enabling buttons');
+  console.debug('Re-enabling buttons');
   const buttonsToEnable = [
     "#AISendButton", "#deleteLastMessageButton", "#triggerAIResponse", "#AIRetry",
     "#cardList", "#APIList", "#D4CharDefs", "#isStreaming", "#isAutoResponse", "#toggleMode",
@@ -1247,7 +1247,7 @@ $(async function () {
   const $UserChatInputButtons = $("#UserChatInputButtons");
 
   let { username, AIChatUsername } = await startupUsernames();
-  console.warn("Startup Usernames:", username, AIChatUsername);
+  console.log("Startup Usernames:", username, AIChatUsername);
   $("#usernameInput").val(username);
   $("#AIUsernameInput").val(AIChatUsername);
 

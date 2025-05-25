@@ -77,7 +77,7 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
             APICallParams = TCAPIDefaults
         }
 
-        logger.info(APICallParams)
+        //logger.info(APICallParams)
 
         for (const [key, value] of Object.entries(samplers)) {
             if (liveConfig.promptConfig.engineMode === 'horde') {
@@ -269,9 +269,9 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
         APICallParams.stop = targetObj
     } else { //for horde
         logger.info('setting horde stop strings')
-        //        logger.info(APICallParams)
-        //       logger.info(APICallParams.params)
-        //      logger.info(targetObj)
+        //logger.info(APICallParams)
+        //logger.info(APICallParams.params)
+        //logger.info(targetObj)
 
         APICallParams.params.stop_sequence = targetObj
 
@@ -1125,8 +1125,8 @@ async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest, is
 
     let text
     let apistatus = 200 //if we got here it's 200.
-    /*     logger.info('--- API RESPONSE')
-        logger.info(JSONResponse) */
+    //logger.info('--- API RESPONSE')
+    //logger.info(JSONResponse) 
     //console.log(`isCCSelected? ${isCCSelected}`)
     //console.log(`isTest? ${isTest}`)
     if (isCCSelected) {

@@ -407,7 +407,9 @@ pre {
     flex: 1;
 }
 
-.ui-dialog #usernameInput {
+.ui-dialog #modalUsernameInput,
+#usernameInput,
+#AIUsernameInput {
     transition: background-color 0.3s ease;
     /* Smooth color change */
 }

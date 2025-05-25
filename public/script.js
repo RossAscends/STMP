@@ -1344,18 +1344,47 @@ $(async function () {
     util.messageServer(modeChangeMessage);
   });
 
-  $("#usernameInput, #AIUsernameInput").on("blur", function () {
-    console.warn("saw username input blur");
-    let oldUsername = localStorage.getItem("username");
-    let oldAIChatUsername = localStorage.getItem("AIChatUsername");
-    let currentUsername = validateUserName($("#usernameInput").val());
-    let AIChatUsername = validateUserName($("#AIUsernameInput").val());
+  $("#usernameInput, #AIUsernameInput").on("keyup", function () {
+    const $input = $(this);
+    const input = $input.val().trim();
+    const result = validateUserName(input);
+    $input.css('background-color', result.success ? '#2f7334' : '#781e2d');
+  });
 
-    //only proceed if at least one is different and both are not null (rejected by validation)
-    if ((oldUsername !== currentUsername || oldAIChatUsername !== AIChatUsername) && currentUsername !== null && AIChatUsername !== null) {
-      console.warn("notifying server of UserChat username change...");
-      control.updateUserName(myUUID, currentUsername, oldUsername, AIChatUsername, oldAIChatUsername);
+  $("#usernameInput, #AIUsernameInput").on("blur", function () {
+    console.warn("Saw username input blur:", this.id);
+    const oldUsername = localStorage.getItem("username") || "";
+    const oldAIChatUsername = localStorage.getItem("AIChatUsername") || "";
+    const currentUsernameResult = validateUserName($("#usernameInput").val().trim());
+    const AIChatUsernameResult = validateUserName($("#AIUsernameInput").val().trim());
+
+    // Save and notify server if both are valid and at least one has changed
+    if (
+      currentUsernameResult.success &&
+      AIChatUsernameResult.success &&
+      (oldUsername !== currentUsernameResult.username || oldAIChatUsername !== AIChatUsernameResult.username)
+    ) {
+      console.debug("Notifying server of username change...");
+      localStorage.setItem("username", currentUsernameResult.username);
+      localStorage.setItem("AIChatUsername", AIChatUsernameResult.username);
+      control.updateUserName(
+        myUUID,
+        currentUsernameResult.username,
+        oldUsername,
+        AIChatUsernameResult.username,
+        oldAIChatUsername
+      );
       util.flashElement("usernameInput", "good");
+      // Reset both inputs' backgrounds to default after successful update
+      $("#usernameInput, #AIUsernameInput").css('background-color', '');
+    } else {
+      console.warn("Username update skipped:", {
+        currentUsernameValid: currentUsernameResult.success,
+        AIChatUsernameValid: AIChatUsernameResult.success,
+        usernameChanged: oldUsername !== currentUsernameResult.username,
+        AIChatUsernameChanged: oldAIChatUsername !== AIChatUsernameResult.username
+      });
+      // Keep current colors (no reset)
     }
   });
 

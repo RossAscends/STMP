@@ -399,22 +399,17 @@ pre {
     padding: 5px;
 }
 
-#mesEditText {
+#mesEditText,
+#modalUsernameInput {
     width: 100%;
-    background-color: #393a3f !important;
+    background-color: #393a3f;
     padding: 3px 7px;
     flex: 1;
 }
 
-.JQUIPopupInput {
-    width: 100%;
-    background-color: #393a3f !important;
-    padding: 3px 7px;
-}
-
-.ui-dialog .ui-dialog-titlebar {
-    padding-inline-start: 5px;
-    border-radius: 0;
+.ui-dialog #usernameInput {
+    transition: background-color 0.3s ease;
+    /* Smooth color change */
 }
 
 .hidden {
@@ -473,10 +468,6 @@ input::placeholder {
 
 .disconnected::placeholder {
     color: red;
-}
-
-.chatHeader {
-    /* height: 2.5em */
 }
 
 #controlPanelToggle {
@@ -936,6 +927,24 @@ hr {
     overflow-x: hidden
 }
 
+.JQUIPopupInput {
+    width: 100%;
+    background-color: #393a3f !important;
+    padding: 3px 7px;
+}
+
+.ui-dialog .ui-dialog-titlebar {
+    padding-inline-start: 5px;
+    border-radius: 0;
+}
+
+.ui-dialog #errorMessage {
+    min-height: 20px;
+    margin: 10px 0 0;
+    color: #cd334d;
+    /* Match clearLocalStorage’s warning color */
+}
+
 .ui-widget-overlay {
     background: rgba(0, 0, 0, 1);
     opacity: 0.5;
@@ -959,7 +968,8 @@ hr {
     box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
 }
 
-.ui-button {
+.ui-button,
+.ui-dialog input {
     border-radius: 5px;
     border: 0;
     background-color: #393a3f;
@@ -978,7 +988,7 @@ hr {
 
 input:disabled,
 select:disabled,
-input:read-only,
+input[readonly]:not([type="checkbox"]),
 button:disabled,
 .disabled {
     cursor: not-allowed;
@@ -986,6 +996,44 @@ button:disabled,
 
 .alignItemsEnd {
     align-items: end;
+}
+
+.modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 20px;
+    border: 1px solid black;
+    z-index: 1000;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.modal form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.modal input,
+.modal button {
+    margin: 10px 0;
+    padding: 5px;
+    width: 100%;
+    max-width: 200px;
+}
+
+.modal p {
+    margin: 0 0 10px;
+}
+
+.modal #errorMessage {
+    min-height: 20px;
+    /* Ensure space for error messages */
 }
 
 @media (max-width: 800px) {

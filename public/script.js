@@ -26,74 +26,124 @@ var AIChatDelay, userChatDelay;
 
 //this prevents selectors from firing off when being initially populated
 var initialLoad = true;
+//MARK: startupUserName
+async function startupUsernames() {
+  console.warn(`[startupUsernames]>> GO`);
 
-function startupUsernames() {
   async function initializeUsername() {
-    while (true) {
-      const userInput = prompt(`Enter your username \n 3 alphabetical letters required, max 20 characters.\nNumbers (0-9), underscores, and hyphens are also allowed.`);
-
-      const trimmedInput = userInput.trim();
-      let validatedUserName = validateUserName(trimmedInput);
-      if (validatedUserName !== null) {
-        return trimmedInput;
-      } else {
-        return await initializeUsername();
-      }
+    console.debug(`[initializeUsername]>> GO`);
+    // Prevent duplicate dialogs
+    if ($(".ui-dialog").length) {
+      console.debug('Dialog already exists, removing');
+      $(".ui-dialog").dialog("destroy").remove();
     }
+
+    return new Promise(resolve => {
+      const $dialogContent = $(`
+        <div>
+          <form id="usernameForm">
+            <p>Enter your username (3+ letters, max 20 chars, A-Z, 0-9, _, -):</p>
+            <input type="text" id="modalUsernameInput" required minlength="1">
+          </form>
+        </div>
+      `);
+
+      $dialogContent.dialog({
+        draggable: false,
+        resizable: false,
+        modal: true,
+        position: { my: "center", at: "center top+25%", of: window },
+        title: "Enter Username",
+        buttons: {
+          Submit: function () {
+            const $input = $dialogContent.find('#modalUsernameInput');
+            const input = $input.val().trim();
+            console.debug('modal username Dialog input:', input, 'Length:', input.length, 'Raw val:', $input.val());
+            const result = validateUserName(input);
+            console.debug('modal username Validation result:', result);
+            if (result.success) {
+              // Save to localStorage only on Submit
+              if (typeof window !== 'undefined' && window.localStorage) {
+                localStorage.setItem("username", result.username);
+                console.debug(`Set localStorage 'username' to ${result.username}`);
+              }
+              $dialogContent.dialog("destroy").remove();
+              resolve(result.username);
+            }
+            // Invalid input: Do nothing, user sees red background
+          },
+          Cancel: function () {
+            $dialogContent.dialog("destroy").remove();
+            resolve('Guest');
+          }
+        },
+        open: function () {
+          $(".ui-button").trigger("blur");
+          $dialogContent.find('#modalUsernameInput').focus();
+        },
+        close: function () {
+          $dialogContent.dialog("destroy").remove();
+        }
+      });
+
+      const $input = $dialogContent.find('#modalUsernameInput');
+      // Real-time validation on keyup
+      $input.on('keyup', () => {
+        const input = $input.val().trim();
+        const result = validateUserName(input);
+        $input.css('background-color', result.success ? '#2f7334' : '#781e2d');
+      });
+
+      // Form submission triggers Submit button
+      $dialogContent.find('#usernameForm').on('submit', (e) => {
+        e.preventDefault();
+        $dialogContent.dialog("widget").find(".ui-dialog-buttonpane button:contains('Submit')").trigger('click');
+      });
+    });
   }
 
-  return new Promise(async (resolve) => {
-    const storedUsername = localStorage.getItem("username");
-    const storedAIChatUsername = localStorage.getItem("AIChatUsername");
-    let username =
-      storedUsername !== null && storedUsername !== ""
-        ? storedUsername
-        : await initializeUsername();
-    const myUUID =
-      localStorage.getItem("UUID") !== null ? localStorage.getItem("UUID") : "";
-    let AIChatUsername =
-      storedAIChatUsername !== null && storedAIChatUsername !== ""
-        ? storedAIChatUsername
-        : username;
-    console.debug(
-      `[localStorage] username:${username}, AIChatUsername:${AIChatUsername}`
-    );
+  const storedUsername = localStorage.getItem("username");
+  const storedAIChatUsername = localStorage.getItem("AIChatUsername");
+  const username =
+    storedUsername && storedUsername !== ""
+      ? storedUsername
+      : await initializeUsername();
+  const myUUID = localStorage.getItem("UUID") || "";
+  const AIChatUsername =
+    storedAIChatUsername && storedAIChatUsername !== ""
+      ? storedAIChatUsername
+      : username;
 
-    resolve({ username, AIChatUsername });
-  });
+  console.debug(
+    `[localStorage] username:${username}, AIChatUsername:${AIChatUsername}`
+  );
+
+  return { username, AIChatUsername };
 }
 
+//MARK:validateUserName
 export function validateUserName(username) {
-  if (username === null) {
-    // User clicked Cancel
-    alert("A username is required to continue.");
-    return null;
-  }
-  if (username.length < 1) {
-    alert("Username cannot be empty.");
-    return null;
+  console.debug('validateUserName input:', username, 'Type:', typeof username);
+  if (!username || username.trim().length === 0) {
+    return { success: false, error: 'Username cannot be empty.' };
   }
   if (username.length > 20) {
-    alert("Username cannot exceed 20 characters.");
-    return null;;
+    return { success: false, error: 'Username cannot exceed 20 characters.' };
   }
-
-  // Check allowed characters (letters, numbers, underscore, hyphen)
   if (!/^[A-Za-z0-9_-]+$/.test(username)) {
-    alert("Username can only contain letters (A-Z, a-z), numbers (0-9), underscores, and hyphens.");
-    return null;;
+    return {
+      success: false,
+      error: 'Username can only contain letters (A-Z, a-z), numbers (0-9), underscores, and hyphens.'
+    };
   }
-
-  // Count letters (A-Za-z)
   const letterCount = (username.match(/[A-Za-z]/g) || []).length;
   if (letterCount < 3) {
-    alert("Username must contain at least 3 letters (A-Z, a-z).");
-    return null;;
+    return {
+      success: false,
+      error: 'Username must contain at least 3 letters (A-Z, a-z).'
+    };
   }
-
-  localStorage.setItem("username", username);
-  console.debug(`Set localStorage 'username' to ${username}`);
-  return username;
+  return { success: true, username };
 }
 
 
@@ -231,7 +281,7 @@ function updateAIChatUserList(message) {
     userListElement.append(listItem);
   });
 }
-
+//MARK: processConnection
 async function processConfirmedConnection(parsedMessage) {
   console.debug("[processConfirmedConnection()]>> GO");
 
@@ -287,13 +337,12 @@ async function processConfirmedConnection(parsedMessage) {
       $("#promptConfigTextFields").addClass('heightHasbeenSet')
     }
 
-    control.disableAPIEdit();
-
     $("#showPastChats").trigger("click");
   } else { // is Guest
     //hide control panel and host controls for guests
     $("#controlPanel, .hostControls").remove();
     $(".chatHeader").removeClass('justifySpaceBetween')
+    control.disableAPIEdit();
     if (isPhone) {
       $("#universalControls").css('height', 'unset');
       $("#leftSpanner").css('display', 'block').remove()
@@ -307,7 +356,7 @@ async function processConfirmedConnection(parsedMessage) {
   updateUserChatUserList(userList);
 
   if (chatHistory) {
-    console.debug("[updateChatHistory()]>> GO");
+    console.debug(`[updateChatHistory(#chat)]>> GO`);
     $("#chat").empty()
     const trimmedChatHistoryString = chatHistory.trim();
     const parsedChatHistory = JSON.parse(trimmedChatHistoryString);
@@ -315,7 +364,7 @@ async function processConfirmedConnection(parsedMessage) {
   }
 
   if (AIChatHistory) {
-    console.debug("[updateAIChatHistory()]>> GO");
+    console.debug("[updateAIChatHistory(#AIChat)]>> GO");
     $("#AIChat").empty()
     const trimmedAIChatHistoryString = AIChatHistory.trim();
     const parsedAIChatHistory = JSON.parse(trimmedAIChatHistoryString);
@@ -328,8 +377,9 @@ async function processConfirmedConnection(parsedMessage) {
 
   initialLoad = false;
 }
-
+//MARK:appendMessages
 function appendMessagesWithConverter(messages, elementSelector, sessionID) {
+  console.warn(`[appendMessagesWithConverter(${elementSelector})]>> GO`);
   //console.warn(messages, elementSelector, sessionID)
   messages.forEach(({ username, userColor, content, messageID, entity }) => {
     const message = converter.makeHtml(content);
@@ -349,7 +399,7 @@ function appendMessagesWithConverter(messages, elementSelector, sessionID) {
       AIChatMessageMetedata = `data-entityType="${entity}"`;
     }
 
-    const newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}" ${AIChatMessageMetedata}></div`).html(`
+    let newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}" ${AIChatMessageMetedata}></div`).html(`
     <div class="messageHeader flexbox justifySpaceBetween">
       <span style="color:${userColor}" class="chatUserName">${username}</span>
       ${messageEditDeleteHTML}
@@ -358,17 +408,21 @@ function appendMessagesWithConverter(messages, elementSelector, sessionID) {
     ${message}
     </div>
     `);
-    $(elementSelector).append(newDiv);
 
+    $(elementSelector).append(newDiv);
     addMessageEditListeners(newDiv);
+
+    if (currentlyStreaming) disableButtons();
+
   });
 
 }
 
 function addMessageEditListeners(newDiv) {
-
-  $(".messageEdit").off('click').on('click', async function () {
-    console.warn(currentlyStreaming)
+  //console.warn('newDiv type:', typeof newDiv, newDiv);
+  const $newdiv = $(newDiv);
+  $newdiv.find(`.messageEdit`).off('click').on('click', async function () {
+    //console.warn(currentlyStreaming)
     if (currentlyStreaming) {
       alert('Can not Edit messages while streaming.');
       console.warn('Can not Edit messages while streaming.');
@@ -450,7 +504,7 @@ function addMessageEditListeners(newDiv) {
     }
   });
 
-  $(`.messageDelete`).off('click').on('click', async function () {
+  $newdiv.find(`.messageDelete`).off('click').on('click', async function () {
     if ($(this).parent().parent().parent().parent().children().length === 1) { //check how many messages are inside the chat/AIChat container
       alert('Can not delete the only message in this chat. If you want to delete this chat, use the Past Chats list.')
       return
@@ -516,6 +570,7 @@ async function connectWebSocket(username) {
 
      */
 
+    //MARK: parsedMessage switch
     switch (parsedMessage?.type) {
       case 'heartbeatResponse':
         break
@@ -655,9 +710,9 @@ async function connectWebSocket(username) {
           alert(alertMessage);
         }
         break;
+      //MARK: streamedAIResponse
       case "streamedAIResponse":
         $("body").addClass("currentlyStreaming");
-        disableButtons()
         currentlyStreaming = true;
         let newStreamDivSpan;
         let messageEditDeleteHTML = "";
@@ -865,6 +920,7 @@ function disconnectWebSocket() {
   }
 }
 
+//MARK:doAIRetry
 function doAIRetry() {
   if (currentlyStreaming) {
     return;
@@ -888,6 +944,7 @@ function doAIRetry() {
     username: username,
     char: char,
   };
+  disableButtons()
   util.messageServer(retryMessage);
 }
 
@@ -955,6 +1012,7 @@ async function callCharDefPopup() {
     });
   }
 
+  //MARK: chardefPopup
   async function showCharDefs(charDefs, whichChar) {
     const widthToUse = isPhone ? ($(window).width() - 10) : $("#contentWrap").width()
     const heightToUse = isPhone ? ($(window).height() - 10) : $("#contentWrap").height()
@@ -1035,6 +1093,7 @@ async function callCharDefPopup() {
   }
 }
 
+//MARK: disableButtons
 function disableButtons() {
   const buttonsToDisable = [
     "#AISendButton",
@@ -1043,6 +1102,7 @@ function disableButtons() {
     "#AIRetry",
     "#cardList",
     "#APIList",
+    "#D4CharDefs",
     "#toggleMode",
     ".messageEdit",
     ".messageDelete"
@@ -1062,79 +1122,113 @@ function disableButtons() {
 function enableButtons() {
   console.warn('Re-enabling buttons');
   const buttonsToEnable = [
-    "#AISendButton",
-    "#deleteLastMessageButton",
-    "#triggerAIResponse",
-    "#AIRetry",
-    "#cardList",
-    "#APIList",
-    "#toggleMode",
-    ".messageEdit",
-    ".messageDelete"
+    "#AISendButton", "#deleteLastMessageButton", "#triggerAIResponse", "#AIRetry",
+    "#cardList", "#APIList", "#D4CharDefs", "#isStreaming", "#isAutoResponse", "#toggleMode",
+    ".messageEdit", ".messageDelete"
   ];
 
-  //setTimeout(() => {
   buttonsToEnable.forEach(selector => {
     const $element = $(selector);
     if ($element.length) {
-      $element.prop("disabled", false).removeAttr("disabled").removeClass("disabled");
-      console.warn(`Enabled ${selector}: prop=${$element.prop("disabled")} | attr=${$element.attr("disabled")}`);
+      $element
+        .prop('disabled', false)
+        .removeAttr('disabled')
+        .removeClass('disabled')
+        .prop('readonly', false)
+        .removeAttr('readonly');
+      console.debug(`Enabled ${selector}:`, {
+        disabledProp: $element.prop('disabled'),
+        disabledAttr: $element.attr('disabled'),
+        hasDisabledClass: $element.hasClass('disabled'),
+        readonlyProp: $element.prop('readonly'),
+        readonlyAttr: $element.attr('readonly'),
+        isCheckbox: $element.is('input[type="checkbox"]'),
+        html: $element[0]?.outerHTML || 'Not found'
+      });
     } else {
       console.warn(`Element ${selector} not found in DOM`);
     }
   });
 
+  // Explicitly clear readonly for all checkboxes
+  $('input[type="checkbox"]').prop('readonly', false).removeAttr('readonly');
+  console.debug('Cleared readonly for all checkboxes');
+
   console.debug('Re-enabled buttons');
 
-  // Check button states after another delay
-  /*   setTimeout(() => {
-      console.debug('Checking button states after delay:', {
-        AIRetry: {
-          disabledProp: $("#AIRetry").prop("disabled"),
-          disabledAttr: $("#AIRetry").attr("disabled"),
-          html: $("#AIRetry")[0]?.outerHTML || "Not found"
-        },
-        cardList: {
-          disabledProp: $("#cardList").prop("disabled"),
-          disabledAttr: $("#cardList").attr("disabled"),
-          html: $("#cardList")[0]?.outerHTML || "Not found"
-        }
-      });
-    }, 100);
-  }, 1000); */
-
-  // Check button states after a delay to detect re-disabling
   setTimeout(() => {
     console.debug('Checking button states after delay:', {
-      AIRetry: {
-        disabledProp: $("#AIRetry").prop("disabled"),
-        disabledAttr: $("#AIRetry").attr("disabled"),
-        html: $("#AIRetry")[0]?.outerHTML || "Not found"
+      isStreaming: {
+        disabledProp: $("#isStreaming").prop('disabled'),
+        disabledAttr: $("#isStreaming").attr('disabled'),
+        readonlyProp: $("#isStreaming").prop('readonly'),
+        readonlyAttr: $("#isStreaming").attr('readonly'),
+        html: $("#isStreaming")[0]?.outerHTML || 'Not found'
       },
-      cardList: {
-        disabledProp: $("#cardList").prop("disabled"),
-        disabledAttr: $("#cardList").attr("disabled"),
-        html: $("#cardList")[0]?.outerHTML || "Not found"
+      isAutoResponse: {
+        disabledProp: $("#isAutoResponse").prop('disabled'),
+        disabledAttr: $("#isAutoResponse").attr('disabled'),
+        readonlyProp: $("#isAutoResponse").prop('readonly'),
+        readonlyAttr: $("#isAutoResponse").attr('readonly'),
+        html: $("#isAutoResponse")[0]?.outerHTML || 'Not found'
+      },
+      D4CharDefs: {
+        disabledProp: $("#D4CharDefs").prop('disabled'),
+        disabledAttr: $("#D4CharDefs").attr('disabled'),
+        readonlyProp: $("#D4CharDefs").prop('readonly'),
+        readonlyAttr: $("#D4CharDefs").attr('readonly'),
+        html: $("#D4CharDefs")[0]?.outerHTML || 'Not found'
       }
     });
   }, 100);
+}
 
-  // Verify AIRetry click handler
-  console.debug('AIRetry click handler:', $("#AIRetry").data("events")?.click || $("#AIRetry")[0]?.onclick || "No handler");
+function verifyCheckboxStates() {
+  const checkboxes = ['#isStreaming', '#isAutoResponse', '#D4CharDefs'];
+  console.debug('Checking checkbox states at page load:');
+  checkboxes.forEach(selector => {
+    const $element = $(selector);
+    if ($element.length) {
+      console.debug(`State for ${selector}:`, {
+        readonlyProp: $element.prop('readonly'),
+        readonlyAttr: $element.attr('readonly'),
+        disabledProp: $element.prop('disabled'),
+        disabledAttr: $element.attr('disabled'),
+        classes: $element.attr('class'),
+        html: $element[0]?.outerHTML || 'Not found'
+      });
+    } else {
+      console.warn(`Checkbox ${selector} not found in DOM at page load`);
+    }
+  });
+
+  // Monitor changes to readonly
+  checkboxes.forEach(selector => {
+    $(selector).on('change readonlyModified', function () {
+      console.debug(`Checkbox ${selector} modified:`, {
+        readonlyProp: $(this).prop('readonly'),
+        readonlyAttr: $(this).attr('readonly'),
+        disabledProp: $(this).prop('disabled'),
+        when: new Date().toISOString()
+      });
+    });
+  });
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Listeners
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+//MARK:listeners
 $(async function () {
 
+  console.debug('Document ready');
+  verifyCheckboxStates();
 
   isPhone = /Mobile/.test(navigator.userAgent);
   console.debug(`Is this a phone? ${isPhone}`);
 
   const $controlPanel = $("#controlPanel");
-  const $chatWrap = $(("#chatWrap"))
+  const $chatWrap = $("#chatWrap")
   const $innerChatWrap = $("#innerChatWrap")
   const $LLMChatWrapper = $("#LLMChatWrapper");
   const $OOCChatWrapper = $("#OOCChatWrapper");
@@ -1142,6 +1236,7 @@ $(async function () {
   const $UserChatInputButtons = $("#UserChatInputButtons");
 
   let { username, AIChatUsername } = await startupUsernames();
+  console.warn("Startup Usernames:", username, AIChatUsername);
   $("#usernameInput").val(username);
   $("#AIUsernameInput").val(AIChatUsername);
 
@@ -1665,7 +1760,6 @@ $(async function () {
   util.correctSizeChats();
   //close the past chats and crowd controls on page load
   util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");
-  await util.delay(1000);
 
   $("#charDefsPopupButton").on('click', function () { callCharDefPopup() }
 

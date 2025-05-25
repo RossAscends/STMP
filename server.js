@@ -866,7 +866,7 @@ async function handleConnections(ws, type, request) {
                 }
                 else if (parsedMessage.type === 'messageContentRequest') {
                     const messageContent = await db.getMessage(parsedMessage.mesID)
-                    //logger.warn(messageContent)
+                    //logger.info('saw messageContentRequest for: sessionID', parsedMessage.sessionID, 'and mesID', parsedMessage.mesID)
                     const messageContentResponse = {
                         type: 'messageContentResponse',
                         content: messageContent
@@ -875,6 +875,7 @@ async function handleConnections(ws, type, request) {
                     return
                 }
                 else if (parsedMessage.type === 'messageEdit') {
+                    //logger.info('saw messageEditRequest for: sessionID', parsedMessage.sessionID, 'and mesID', parsedMessage.mesID)
                     const mesID = parsedMessage.mesID
                     const sessionID = parsedMessage.sessionID
                     const newMessage = parsedMessage.newMessageContent

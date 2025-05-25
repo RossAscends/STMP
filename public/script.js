@@ -419,10 +419,10 @@ function appendMessagesWithConverter(messages, elementSelector, sessionID) {
 }
 
 function addMessageEditListeners(newDiv) {
-  //console.warn('newDiv type:', typeof newDiv, newDiv);
+
   const $newdiv = $(newDiv);
   $newdiv.find(`.messageEdit`).off('click').on('click', async function () {
-    //console.warn(currentlyStreaming)
+
     if (currentlyStreaming) {
       alert('Can not Edit messages while streaming.');
       console.warn('Can not Edit messages while streaming.');
@@ -430,26 +430,35 @@ function addMessageEditListeners(newDiv) {
     }
     const mesID = $(this).data('messageid')
     const sessionID = $(this).data('sessionid')
+
+    //first we get the message content from server as it's saved in the database
     let currentMessageData = await getMessageContent(mesID)
     console.debug(currentMessageData.message)
 
     await editMessage(currentMessageData.message)
 
     async function getMessageContent(mesID) {
+      //this outgoing message type receives a response
+      //from server under type 'messageContentResponse', 
+      // which our main switch does not handle
       const messageContentRequest = {
         type: 'messageContentRequest',
         UUID: myUUID,
-        mesID: mesID
+        mesID: mesID,
+        sessionID: sessionID
       };
 
       return new Promise((resolve, reject) => {
+
         const messageContentHandler = (response) => {
+          //parse the response, extract the mesage contents
           let responseDataJSON = JSON.parse(response.data)
-          console.log(responseDataJSON)
+          //console.log(responseDataJSON)
+          //and remove listener once we have it
           socket.removeEventListener('message', messageContentHandler);
           resolve(responseDataJSON.content);
         };
-
+        //we create a one-time listener to handle the next response that will go past our main switch
         socket.addEventListener('message', messageContentHandler);
         socket.send(JSON.stringify(messageContentRequest));
       });
@@ -457,6 +466,7 @@ function addMessageEditListeners(newDiv) {
 
 
     async function editMessage(message) {
+      //create a popup window to handle editing of hte content
       const widthToUse = isPhone ? ($(window).width() - 10) : $("#AIChat").width()
 
       $(`<div id="mesEditPopup"></div>`)
@@ -485,7 +495,8 @@ function addMessageEditListeners(newDiv) {
                 sessionID: sessionID,
                 newMessageContent: newMessageContent
               }
-
+              //send a 'mesasgeEdit' outgoing message to server
+              //this resolves with a 'pastChatToLoad' response, which the main switch will handle.
               util.messageServer(mesEditRequest)
             },
             Cancel: function () {
@@ -503,7 +514,7 @@ function addMessageEditListeners(newDiv) {
 
     }
   });
-
+  //MARK: Line 500
   $newdiv.find(`.messageDelete`).off('click').on('click', async function () {
     if ($(this).parent().parent().parent().parent().children().length === 1) { //check how many messages are inside the chat/AIChat container
       alert('Can not delete the only message in this chat. If you want to delete this chat, use the Past Chats list.')
@@ -715,9 +726,9 @@ async function connectWebSocket(username) {
         $("body").addClass("currentlyStreaming");
         currentlyStreaming = true;
         let newStreamDivSpan;
-        let messageEditDeleteHTML = "";
+        let streamedMessageEditDeleteHTML = "";
         if (isHost) {
-          messageEditDeleteHTML = `
+          streamedMessageEditDeleteHTML = `
             <div class="messageControls transition250">
               <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
               <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
@@ -727,7 +738,7 @@ async function connectWebSocket(username) {
           newStreamDivSpan = $(`<div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}" data-entityType="AI"></div>`).html(`
           <div class="messageHeader flexbox justifySpaceBetween">
             <span style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}🤖</span>
-            ${messageEditDeleteHTML}
+            ${streamedMessageEditDeleteHTML}
           </div>
           <div class="messageContent">
             <span></span>
@@ -775,35 +786,34 @@ async function connectWebSocket(username) {
         let usernameToShow = isAIResponse ? `${username} 🤖` : username;
         let entityTypeString = isAIResponse ? "AI" : "user";
         var newChatItem
+
         let sessionAndMessageIDString = `data-sessionid="${sessionID}" data-messageid="${messageID}" data-entityType="${entityTypeString}"`;
-        if (chatID === "AIChat") {
+        let singleMessageEditDeleteHTML
+        let messageEditHTML = `<i ${sessionAndMessageIDString} class="fromChatMsgCase messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>`
+        let messageDeleteHTML = `<i ${sessionAndMessageIDString} class="fromChatMsgCase messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>`
+        let appropriateButtonsHTML = chatID === "AIChat" ? messageEditHTML + messageDeleteHTML : messageDeleteHTML;
+        //console.warn(singleMessageEditDeleteHTML)
+        //console.warn(appropriateButtonsHTML)
 
-
-          let messageEditDeleteHTML = "";
-          if (isHost) {
-            messageEditDeleteHTML = `
+        singleMessageEditDeleteHTML = `
             <div class="messageControls transition250">
-              <i ${sessionAndMessageIDString} class="fromChatMsgCase messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
-              <i ${sessionAndMessageIDString} class="fromChatMsgCase messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+              ${appropriateButtonsHTML}
             </div>`
-          }
 
+        if (isHost) { //show them the edit/del buttons
           newChatItem = $(`<div class="transition250" ${sessionAndMessageIDString}></div`).html(`
           <div class="messageHeader flexbox justifySpaceBetween">
             <span style="color:${userColor}" class="chatUserName">${usernameToShow}</span>
-            ${messageEditDeleteHTML}
+            ${singleMessageEditDeleteHTML}
           </div>
           <div class="messageContent">
           ${sanitizedMessage}
           </div>
           `);
-        } else {
+        } else { //is Guest, no buttons
           newChatItem = $(`<div class="transition250" ${sessionAndMessageIDString}></div`).html(`
         <div class="messageHeader flexbox justifySpaceBetween">
           <span style="color:${userColor}" class="chatUserName">${usernameToShow}</span>
-          <div class="messageControls transition250">
-            <i class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
-          </div>
         </div>
         <div class="messageContent">
         ${sanitizedMessage}
@@ -833,7 +843,8 @@ async function connectWebSocket(username) {
         isAIResponse = false;
         break;
       default:
-        console.log(`UNKNOWN MESSAGE TYPE ${parsedMessage.type}: IGNORING`);
+        console.warn(`UNKNOWN MESSAGE TYPE "${parsedMessage.type}": Main Switch ignoring, perhaps it's a special response for a different function`);
+        console.warn(parsedMessage);
         break;
     }
   });
@@ -1012,7 +1023,7 @@ async function callCharDefPopup() {
     });
   }
 
-  //MARK: chardefPopup
+  //MARK: chardefPopup (LN:1k)
   async function showCharDefs(charDefs, whichChar) {
     const widthToUse = isPhone ? ($(window).width() - 10) : $("#contentWrap").width()
     const heightToUse = isPhone ? ($(window).height() - 10) : $("#contentWrap").height()
@@ -1501,6 +1512,7 @@ $(async function () {
     });
   }
 
+  //MARK: Line 1500
   $("#messageInput").on("keypress", function (event) {
     util.enterToSendChat(event, "#sendButton");
   });

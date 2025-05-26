@@ -328,6 +328,7 @@ async function processConfirmedConnection(parsedMessage) {
   var userRole = isHost ? "Host" : "Guest";
   $("#userRole").text(userRole);
   $("#charName").text(selectedCharacterDisplayName);
+  $("#charName").parent().prop('title', `Powered by  ${parsedMessage.selectedModelForGuestDisplay}`);
 
   if (isHost) {
     //process all control and selector values for hosts
@@ -661,6 +662,10 @@ async function connectWebSocket(username) {
         userChatDelay = userChatDelay * 1000
         AIChatDelay = AIChatDelay * 1000
         $("#charName").text(selectedCharacter);
+        break
+      case "modelChangeForGuests":
+        let selectedModel = parsedMessage.selectedModelForGuestDisplay;
+        $("#charName").parent().prop('title', `Powered by  ${selectedModel}`);
         break
       case "userChangedName":
         console.debug("saw notification of user name change");

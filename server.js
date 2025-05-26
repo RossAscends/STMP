@@ -318,9 +318,10 @@ async function broadcast(message, role = 'all') {
     try {
         const clientUUIDs = Object.keys(clientsObject);
         const shouldReport = message.type !== 'streamedAIResponse';
+        //TODO more to filter later in an array check: pastChatsList
 
         if (shouldReport) {
-            logger.info(`Broadcasting "${message.type}" to ${clientUUIDs.length} client(s)${role !== 'all' ? ` with role "${role}"` : ''}.`);
+            logger.info(`Broadcasting "${message.type}" to ${role !== 'all' ? ` users with role "${role}".` : `all ${clientUUIDs.length}  users.`}`);
         }
 
         const sentTo = [];
@@ -466,10 +467,19 @@ const purifier = converter.createConverter(liveConfig.crowdControl.allowImages);
 
 //MARK: handleConnections()
 async function handleConnections(ws, type, request) {
+
     const urlParams = new URLSearchParams(request.url.split('?')[1]);
-    let uuid = urlParams.get('uuid');
     const encodedUsername = urlParams.get('username');
     const decodedUsername = decodeURIComponent(encodedUsername || '').trim();
+
+
+
+    //USE THESE WHEN REFERRING TO THE USER
+    let uuid = urlParams.get('uuid');
+    let thisUserColor, thisUserUsername, thisUserRole;
+    //USE THESE WHEN REFERRING TO THE USER
+
+
 
     if (!uuid) {
         uuid = uuidv4();
@@ -484,20 +494,20 @@ async function handleConnections(ws, type, request) {
         return;
     }
 
-    let user = await db.getUser(uuid);
-    let thisUserColor, thisUserUsername, thisUserRole;
+    let user = await db.getUser(uuid); //this will not populate for new users
 
     if (user) {
         thisUserColor = user.username_color;
         thisUserUsername = user.username;
         thisUserRole = user.role;
-    } else {
+    } else { //make new values for new users
         thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
         thisUserUsername = decodedUsername;
         thisUserRole = type;
 
-        await db.upsertUser(uuid, thisUserUsername, thisUserColor);
-        await db.upsertUserRole(uuid, thisUserRole);
+        await db.upsertUser(uuid, thisUserUsername, thisUserColor); //register them
+        await db.upsertUserRole(uuid, thisUserRole); //register their role
+        logger.info(`New user registered: ${thisUserUsername} (${uuid}), color: ${thisUserColor}, role: ${thisUserRole}`);
     }
 
     clientsObject[uuid] = {
@@ -518,10 +528,10 @@ async function handleConnections(ws, type, request) {
 
     // Load required data
     const [instructList, samplerPresetList, [AIChatJSON, AISessionID], [userChatJSON, sessionID]] = await Promise.all([
-        fio.getInstructList(),
-        fio.getSamplerPresetList(),
-        db.readAIChat(),
-        db.readUserChat()
+        await fio.getInstructList(),
+        await fio.getSamplerPresetList(),
+        await db.readAIChat(),
+        await db.readUserChat()
     ]);
 
     const baseMessage = {
@@ -542,7 +552,8 @@ async function handleConnections(ws, type, request) {
                 allowImages: liveConfig?.crowdControl?.allowImages || false
             }
         },
-        crowdControl: liveConfig.crowdControl
+        crowdControl: liveConfig.crowdControl,
+        selectedModelForGuestDisplay: liveConfig.APIConfig.selectedModel
     };
 
     if (thisUserRole === 'host') {
@@ -567,7 +578,7 @@ async function handleConnections(ws, type, request) {
     }
 
     await broadcastUserList();
-    logger.warn('Sending initial message to client:', user);
+    logger.warn('Sending initial message to client:', thisUserUsername);
     ws.send(JSON.stringify(baseMessage));
 
     function updateConnectedUsers() {
@@ -606,7 +617,7 @@ async function handleConnections(ws, type, request) {
             logger.trace('Received message from client:', parsedMessage);
 
             //first check if the sender is host, and if so, process possible host commands
-            if (user.role === 'host') {
+            if (thisUserRole === 'host') {
                 if (parsedMessage.type === 'clientStateChange') {
                     logger.info('Received updated liveConfig from Host client...')
 
@@ -629,7 +640,8 @@ async function handleConnections(ws, type, request) {
                             selectedCharacter: liveConfig.promptConfig.selectedCharacterDisplayName,
                             userChatDelay: liveConfig.crowdControl.userChatDelay,
                             AIChatDelay: liveConfig.crowdControl.AIChatDelay,
-                            allowImages: liveConfig.crowdControl.allowImages
+                            allowImages: liveConfig.crowdControl.allowImages,
+                            selectedModelForGuestDisplay: liveConfig.APIConfig.selectedModel
                         }
 
                     }
@@ -656,6 +668,12 @@ async function handleConnections(ws, type, request) {
                         type: 'hostStateChange',
                         value: liveConfig
                     };
+                    const selectedModelForGuestDisplay = {
+                        type: 'modelChangeForGuests',
+                        selectedModelForGuestDisplay: selectedModel
+
+                    }
+                    await broadcast(selectedModelForGuestDisplay, 'guest');
                     await broadcast(settingChangeMessage, 'host');
                     return;
                 }

@@ -55,7 +55,7 @@ import util from "./utils.js";
 import control from "./controls.js";
 import { myUUID } from "../script.js";
 
-var liveConfig, APIConfig, liveAPI, promptConfig, crowdControl
+var liveConfig, APIConfig, liveAPI, promptConfig, crowdControl, selectedModelForGuestDisplay
 var initialLoad = true
 
 async function processLiveConfig(configArray) {
@@ -87,6 +87,7 @@ async function processLiveConfig(configArray) {
   //console.log(crowdControl)
 
   const { userChatDelay, AIChatDelay, allowImages } = liveConfig.crowdControl;
+  selectedModelForGuestDisplay = liveConfig.APIConfig.selectedModel || liveConfig.selectedModelForGuestDisplay
 
 
   await setEngineMode(engineMode);
@@ -132,6 +133,7 @@ async function processLiveConfig(configArray) {
       console.warn(`selecting ${APIConfig.selectedModel} from horde model list which is no longer empty`)
       await util.delay(250)
       await selectFromPopulatedSelector(APIConfig.selectedModel, "hordeWorkerList")
+      $("#charName").parent().prop('title', `Powered by  ${APIConfig.selectedModel}`);
       //console.log('clicking horde model button load')
       //$("#modelLoadButton").trigger("click");
     } else {

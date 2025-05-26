@@ -252,15 +252,17 @@ console.debug(`We will connect to "${wsType}" server..`);
 var serverUrl = `${wsType}://${hostname}:${port}`;
 
 
-function updateUserChatUserList(userList) {
-  console.debug("updating user chat user list");
-  console.debug(userList);
+function updateUserList(listType, userList) {
+  //console.warn(`updating ${listType} list`);
+  //console.warn(userList);
+
   if (!userList || userList.length === 0) {
+    console.warn('saw no userlist for ', listType, '..returning!');
     return;
   }
 
-  const userListElement = $("#userList ul");
-  userListElement.empty(); // Clear the existing user list
+  const listElement = $(`#${listType} ul`);
+  listElement.empty(); // Clear the existing user list
 
   userList.sort((a, b) => {
     const usernameA = a.username.toLowerCase();
@@ -270,40 +272,19 @@ function updateUserChatUserList(userList) {
     return 0;
   });
 
-  userList.forEach(({ username, role, color }) => {
-    const usernameText = role === "host" ? `${username} 🔑` : username;
-    const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${usernameText}</li>`;
-    userListElement.append(listItem);
-  });
-}
-
-function updateAIChatUserList(message) {
-  console.debug(message);
-
-  if (!message || message.length === 0) {
-    return;
-  }
-
-  message.sort((a, b) => {
-    const usernameA = a.username.toLowerCase();
-    const usernameB = b.username.toLowerCase();
-    if (usernameA < usernameB) { return -1; }
-    if (usernameA > usernameB) { return 1; }
-    return 0;
-  });
-
-  const userListElement = $("#AIChatUserList ul");
-  userListElement.empty(); // Clear the existing user list
-
-  message.forEach(({ username, color, entity }) => {
+  console.warn(userList)
+  userList.forEach(({ username, role, color, entity }) => {
     let isAI = entity === "AI" ? true : false;
-    const usernameText = isAI ? `${username} 🤖` : username;
-    const usernameColor = isAI ? "white" : color;
+    const usernameText = listType === "AIChatUserList" && isAI ? `${username} 🤖` : role === "host" ? `${username} 🔑` : username;
+    const usernameColor = listType === "AIChatUserList" && isAI ? "white" : color;
     console.warn(usernameText);
     const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${usernameColor};">${usernameText}</li>`;
-    userListElement.append(listItem);
+    console.log(listItem);
+    listElement.append(listItem);
   });
 }
+
+
 //MARK: processConnection
 async function processConfirmedConnection(parsedMessage) {
   console.debug("[processConfirmedConnection()]>> GO");
@@ -378,7 +359,7 @@ async function processConfirmedConnection(parsedMessage) {
     }
   }
 
-  updateUserChatUserList(userList);
+  updateUserList("userList", userList);
 
   if (chatHistory) {
     console.debug(`[updateChatHistory(#chat)]>> GO`);
@@ -403,30 +384,38 @@ async function processConfirmedConnection(parsedMessage) {
   initialLoad = false;
 }
 //MARK:appendMessages
+
+//elementSelector (string): is #AIChat" or "#chat" for 
+//messages (array of objs): [{username:"user", userColor:"#color", content:"message text", messageID:"id", entity:"user or AI"}]
 function appendMessagesWithConverter(messages, elementSelector, sessionID) {
-  console.debug(`[appendMessagesWithConverter(${elementSelector})]>> GO`);
   //console.warn(messages, elementSelector, sessionID)
   messages.forEach(({ username, userColor, content, messageID, entity }) => {
     //const message = converter.makeHtml(content);
 
+    //console.warn('appendMessagesWithConverter', elementSelector, username, userColor, messageID, entity)
     let messageEditDeleteHTML = "";
+    let dataEntityTypeString = "";
     //console.warn(elementSelector)
 
     if (isHost) {
       messageEditDeleteHTML = `
             <div class="messageControls transition250">
-              <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="fromAppendMsg messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+              <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="fromAppendMsg messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
               <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="fromAppendMsg messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
             </div>`
     }
-    let AIChatMessageMetedata = "";
+    let isAI = entity === "AI" ? true : false;
+    let usernameToShow = isAI ? `${username} 🤖` : username;
+    userColor = isAI ? "white" : userColor;
+
     if (elementSelector === "#AIChat") {
-      AIChatMessageMetedata = `data-entityType="${entity}"`;
+      //console.warn('will add data-entityType', entity)
+      dataEntityTypeString = `data-entityType="${entity}"`;
     }
 
-    let newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}" ${AIChatMessageMetedata}></div`).html(`
+    let newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}" ${dataEntityTypeString}></div`).html(`
     <div class="messageHeader flexbox justifySpaceBetween">
-      <span style="color:${userColor}" class="chatUserName">${username}</span>
+      <span style="color:${userColor}" class="chatUserName">${usernameToShow}</span>
       ${messageEditDeleteHTML}
     </div>
     <div class="messageContent">
@@ -623,13 +612,13 @@ async function connectWebSocket(username) {
         console.debug("saw AI chat update instruction");
         $("#AIChat").empty();
         let resetChatHistory = parsedMessage.chatHistory;
-        appendMessagesWithConverter(resetChatHistory, $("#AIChat"), resetChatHistory[0].sessionID,)
+        appendMessagesWithConverter(resetChatHistory, "#AIChat", resetChatHistory[0].sessionID,)
         break;
       case "userChatUpdate": //when last message in user char is deleted
         console.debug("saw user chat update instruction");
         $("#chat").empty();
         let resetUserChatHistory = parsedMessage.chatHistory;
-        appendMessagesWithConverter(resetUserChatHistory, $("#chat"), resetUserChatHistory[0].sessionID,)
+        appendMessagesWithConverter(resetUserChatHistory, "#chat", resetUserChatHistory[0].sessionID,)
         break;
 
       case "modeChange":
@@ -640,7 +629,7 @@ async function connectWebSocket(username) {
       case "userConnect":
       case "userDisconnect":
         const userList = parsedMessage.userList;
-        updateUserChatUserList(userList);
+        updateUserList('userList', userList);
         break;
       case "forceDisconnect":
         disconnectWebSocket();
@@ -754,6 +743,7 @@ async function connectWebSocket(username) {
         break;
       //MARK: streamedAIResponse
       case "streamedAIResponse":
+        //TODO: merge this into appendWithConverter (and add a flag to it to indicate it's a streamed response?)
         //console.warn(parsedMessage.color)
         $("body").addClass("currentlyStreaming");
         currentlyStreaming = true;
@@ -769,7 +759,7 @@ async function connectWebSocket(username) {
         if (!$("#AIChat .incomingStreamDiv").length) {
           newStreamDivSpan = $(`<div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}" data-entityType="AI"></div>`).html(`
           <div class="messageHeader flexbox justifySpaceBetween">
-            <span style="color:white" class="chatUserName">${parsedMessage.username}🤖</span>
+            <span style="color:white" class="chatUserName">${parsedMessage.username} 🤖</span>
             ${streamedMessageEditDeleteHTML}
           </div>
           <div class="messageContent">
@@ -797,7 +787,7 @@ async function connectWebSocket(username) {
         console.debug('Re-enabling buttons');
         $("body").removeClass("currentlyStreaming");
         enableButtons();
-        updateAIChatUserList(parsedMessage.AIChatUserList);
+        updateUserList("AIChatUserList", parsedMessage.AIChatUserList);
         break;
       case "AIResponse":
       case "chatMessage":
@@ -811,69 +801,26 @@ async function connectWebSocket(username) {
           hordeModel, kudosCost, AIChatUserList, messageID
         } = JSON.parse(message);
         let sessionID = parsedMessage.sessionID
-
-        console.warn(`message: [${chatID}] ${username}: "${content}" sID(${sessionID}) mID(${messageID})`);
-        //const HTMLizedMessage = converter.makeHtml(content);
-        //console.warn(HTMLizedMessage)
-        //const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
-        //console.warn(sanitizedMessage)
-        let usernameToShow = isAIResponse ? `${username} 🤖` : username;
         let entityTypeString = isAIResponse ? "AI" : "user";
-        var newChatItem
-
-        let sessionAndMessageIDString = `data-sessionid="${sessionID}" data-messageid="${messageID}" data-entityType="${entityTypeString}"`;
-        let singleMessageEditDeleteHTML
-        let messageEditHTML = `<i ${sessionAndMessageIDString} class="fromChatMsgCase messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>`
-        let messageDeleteHTML = `<i ${sessionAndMessageIDString} class="fromChatMsgCase messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>`
-        let appropriateButtonsHTML = chatID === "AIChat" ? messageEditHTML + messageDeleteHTML : messageDeleteHTML;
-        //console.warn(singleMessageEditDeleteHTML)
-        //console.warn(appropriateButtonsHTML)
-
-        singleMessageEditDeleteHTML = `
-            <div class="messageControls transition250">
-              ${appropriateButtonsHTML}
-            </div>`
-
-        if (isHost) { //show them the edit/del buttons
-          newChatItem = $(`<div class="transition250" ${sessionAndMessageIDString}></div`).html(`
-          <div class="messageHeader flexbox justifySpaceBetween">
-            <span style="color:${userColor}" class="chatUserName">${usernameToShow}</span>
-            ${singleMessageEditDeleteHTML}
-          </div>
-          <div class="messageContent">
-          ${content}
-          </div>
-          `);
-        } else { //is Guest, no buttons
-          newChatItem = $(`<div class="transition250" ${sessionAndMessageIDString}></div`).html(`
-        <div class="messageHeader flexbox justifySpaceBetween">
-          <span style="color:${userColor}" class="chatUserName">${usernameToShow}</span>
-        </div>
-        <div class="messageContent">
-        ${content}
-        </div>
-        `);
+        let chatMessageObj =
+        {
+          username: username,
+          userColor: userColor,
+          content: content,
+          messageID: messageID,
+          entity: entityTypeString
         }
-
-        if (
-          workerName !== undefined &&
-          hordeModel !== undefined &&
-          kudosCost !== undefined
-        ) {
-          $(newChatItem).prop(
-            "title",
-            `${workerName} - ${hordeModel} (Kudos: ${kudosCost})`
-          );
-        }
-        console.debug("appending new message to chat");
-        $(`div[data-chat-id="${chatID}"]`).append(newChatItem);
-        addMessageEditListeners(newChatItem)
+        let chatElementSelector = isAIResponse ? "#AIChat" : "#chat";
+        appendMessagesWithConverter([chatMessageObj], chatElementSelector, sessionID)
+        //$(`div[data-chat-id="${chatID}"]`).append(newChatItem);
+        //addMessageEditListeners(newChatItem)
         util.kindlyScrollDivToBottom($(`div[data-chat-id="${chatID}"]`));
 
         if (chatID === "AIChat") {
           $("#showPastChats").trigger("click"); //autoupdate the past chat list with each AI chat message
         }
-        updateAIChatUserList(parsedMessage.AIChatUserList);
+        let targetList = isAIResponse ? "AIChatUserList" : "userList";
+        updateUserList(targetList, parsedMessage.AIChatUserList);
         isAIResponse = false;
         break;
       default:
@@ -888,11 +835,9 @@ let fullRawAccumulatedContent = ""; //store the whole message
 let accumulatedContent = ""; // variable to store tokens for the currently streaming paragraph
 async function displayStreamedResponse(message) {
   await util.delay(0);
-  var { chatID, username, content, userColor, AIChatUserList } =
-    JSON.parse(message);
+  var content = JSON.parse(message).content;
   let newStreamDivSpan = $("#AIChat .incomingStreamDiv .messageContent span:last");
   let newStreamDiv = $("#AIChat .incomingStreamDiv .messageContent");
-
 
   //content = DOMPurify.sanitize(content);
 

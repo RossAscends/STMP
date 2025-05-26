@@ -192,13 +192,14 @@ async function initFiles() {
             endpoint: "localhost:5000",
             key: "",
             type: "TC",
-            claude: 0,
+            claude: false,
             created_at: "",
             last_used_at: ""
         },
         crowdControl: {
             AIChatDelay: "2",
             userChatDelay: "2",
+            allowImages: true,
         }
     };
 
@@ -499,6 +500,7 @@ async function handleConnections(ws, type, request) {
         crowdControl: {
             userChatDelay: liveConfig?.crowdControl.userChatDelay || "2",
             AIChatDelay: liveConfig?.crowdControl.AIChatDelay || "2",
+            allowImages: liveConfig?.crowdControl.allowImages || true
         },
 
     }
@@ -625,7 +627,8 @@ async function handleConnections(ws, type, request) {
                         state: {
                             selectedCharacter: liveConfig.promptConfig.selectedCharacterDisplayName,
                             userChatDelay: liveConfig.crowdControl.userChatDelay,
-                            AIChatDelay: liveConfig.crowdControl.AIChatDelay
+                            AIChatDelay: liveConfig.crowdControl.AIChatDelay,
+                            allowImages: liveConfig.crowdControl.allowImages
                         }
 
                     }

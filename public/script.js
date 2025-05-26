@@ -150,17 +150,34 @@ export function validateUserName(username) {
 var sanitizeExtension = {
   type: "output",
   filter: function (text) {
-    var sanitizedHTML = DOMPurify.sanitize(text, {
-      FORBID_TAGS: [
-        "style", "audio", "script", "iframe", "object", "embed", "form", "input", "select",
-        "button", "marquee", "blink", "font", "style",], // Exclude the specified tags      
-      FORBID_ATTR: ["onload", "onclick", "onmouseover", "srcdoc", "data-*",
-        "style", "color", "bgcolor",
-      ], // Exclude the specified attributes
+
+    let forbiddenTags = ["style", "audio", "script", "iframe", "object", "embed", "form", "input", "select",
+      "button", "marquee", "blink", "font"];
+    console.warn('allowImages: ', handleconfig.allowImages())
+    if (!handleconfig.allowImages()) {
+      console.warn('checking for images...')
+      const imageRegex = /<img\b[^>]*>/gi;
+      const hasImage = imageRegex.test(text);
+      console.warn('text: ', text)
+      console.warn('hasImage: ', hasImage)
+
+      if (hasImage) text = text.replace(imageRegex, '>>haha embed fail, laugh at this user<<');
+      console.warn('After text: ', text)
+      forbiddenTags.push("img");
+    } else {
+      forbiddenTags = forbiddenTags.filter(tag => tag !== "img");
+
+    }
+
+    const sanitizedHTML = DOMPurify.sanitize(text, {
+      FORBID_TAGS: forbiddenTags,
+      FORBID_ATTR: ["onload", "onclick", "onmouseover", "srcdoc", "data-*", "style", "color", "bgcolor"]
     });
+
     return sanitizedHTML;
   },
 };
+
 
 var quotesExtension = function () {
   var regexes = [
@@ -786,7 +803,9 @@ async function connectWebSocket(username) {
 
         console.warn(`message: [${chatID}] ${username}: "${content}" sID(${sessionID}) mID(${messageID})`);
         const HTMLizedMessage = converter.makeHtml(content);
+        //console.warn(HTMLizedMessage)
         const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
+        //console.warn(sanitizedMessage)
         let usernameToShow = isAIResponse ? `${username} 🤖` : username;
         let entityTypeString = isAIResponse ? "AI" : "user";
         var newChatItem

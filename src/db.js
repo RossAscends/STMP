@@ -72,7 +72,7 @@ const schemaDictionary = {
         endpoint: "TEXT",
         key: "TEXT",
         type: "TEXT",
-        claude: "BOOLEAN DEFAULT FALSE",
+        claude: "BOOLEAN DEFAULT FALSE", //saves as INTEGER 0 or 1
         created_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
         last_used_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
         modelList: "TEXT",
@@ -678,6 +678,7 @@ async function getAPIs() {
                 logger.error(`Error parsing modelList for API ${row.name}:`, err);
                 row.modelList = []; // Assign an empty array as the default value
             }
+            row.claude == 1 ? row.claude = true : row.claude = false
             return row;
         });
         return apis;
@@ -699,6 +700,7 @@ async function getAPI(name) {
                 logger.error(`Error parsing modelList for API ${gotAPI.name}:`, err);
                 gotAPI.modelList = []; // Assign an empty array as the default value
             }
+            gotAPI.claude == 1 ? gotAPI.claude = true : gotAPI.claude = false
             return gotAPI;
         } else {
             logger.error('API not found:', name);

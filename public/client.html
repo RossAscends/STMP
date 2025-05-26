@@ -327,28 +327,32 @@
             </div>
              -->
 
-                <label for="AIChatDelay" class="flexbox noWrap fontSize1p25em mutedColor textshadow ">
-                    🤖🖼️⏳
-                    <input type="number" id="AIChatDelay" class=" flexbox Vcentered width50px" min="0" max="600" value="2" title="AI Chat Delay">sec
+                <label for="AIChatDelay" class="flexbox noWrap fontSize1p25em mutedColor textshadow" title="AI Chat Cooldown Timer">
+                    🤖⏳
+                    <input type="number" id="AIChatDelay" class=" flexbox Vcentered width50px" min="0" max="600" value="2" title="AI Chat Cooldown Timer">sec
                 </label>
-                <!--                 <label for="AIChatClearCadence" class="flexbox noWrap fontSize1p25em mutedColor textshadow ">
-                    🤖🖼️🗑️ @
-                    <input type="number" id="AIChatAutoclearCadence" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="AI Chat AutoClear Cadence">msgs
+                <label for="AIChatClearCadence" class="flexbox noWrap fontSize1p25em mutedColor textshadow " title="Auto clear AI Chat after X messages">
+                    🤖🗑️
+                    <input type="number" id="AIChatAutoclearCadence" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="Auto clear AI Chat after X messages">📨
                 </label>
-                <label for="AIResponseCadence" class="flexbox noWrap fontSize1p25em mutedColor textshadow ">
-                    🤖📨 @
-                    <input type="number" id="AIResponseCadence" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="AI Reply Cadence">
+                <label for="AIResponseCadence" class="flexbox noWrap fontSize1p25em mutedColor textshadow" title="Trigger AI Response every X User messages">
+                    🤖📨
+                    <input type="number" id="AIResponseCadence" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="Trigger AI Response every X User messages">
                     🧑📨
-                </label> -->
-                <label for="userChatDelay" class="flexbox noWrap fontSize1p25em mutedColor textshadow ">
-                    🧑🖼️⏳
-                    <input type="number" id="userChatDelay" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="User Chat Delay">sec
                 </label>
-                <!--                 <label for="userChatAutoclearCadence" class="flexbox noWrap fontSize1p25em mutedColor textshadow ">
-                    🧑🖼️🗑️ @
-                    <input type="number" id="userChatAutoclearCadence" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="User Chat AutoClear Cadence">
+                <label for="userChatDelay" class="flexbox noWrap fontSize1p25em mutedColor textshadow " title="User Chat Cooldown Timer">
+                    🧑⏳
+                    <input type="number" id="userChatDelay" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="User Chat Cooldown Timer">sec
+                </label>
+                <label for="userChatAutoclearCadence" class="flexbox noWrap fontSize1p25em mutedColor textshadow" title="Clear User Chat Every X Messages">
+                    🧑🗑️
+                    <input type="number" id="userChatAutoclearCadence" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="Clear User Chat Every X Messages">
                     📨
-                </label> -->
+                </label>
+                <label for="allowImageEmbeds" class="flexbox noWrap fontSize1p25em mutedColor textshadow" title="Allow Image Embeds in Chat Messages">
+                    🖌️❓
+                    <input type="checkbox" id="allowImages" class="flexbox Vcentered width50px" title="Allow Image Embeds in Chat Messages">
+                </label>
             </div>
         </div>
     </div>

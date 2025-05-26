@@ -46,6 +46,7 @@ Based on the following array sent from server:
       crowdControl: {
           userChatDelay,      //number input value
           AIChatDelay,           //number input value
+          allowImages,        //checkbox
       },
   ]
 */
@@ -86,7 +87,7 @@ async function processLiveConfig(configArray) {
   //console.log(promptConfig)
   //console.log(crowdControl)
 
-  const { userChatDelay, AIChatDelay } = liveConfig.crowdControl;
+  const { userChatDelay, AIChatDelay, allowImages } = liveConfig.crowdControl;
 
 
   await setEngineMode(engineMode);
@@ -115,6 +116,7 @@ async function processLiveConfig(configArray) {
 
   await populateInput(userChatDelay, "userChatDelay");
   await populateInput(AIChatDelay, "AIChatDelay");
+  await toggleCheckbox(allowImages, "allowImages");
 
 
   if (!APIConfig.modelList) {
@@ -237,6 +239,10 @@ async function populateInput(value, elementID) {
 }
 
 async function toggleCheckbox(value, elementID) {
+  if (Number.isInteger(value)) {
+    console.warn('saw integer for checkbox value for', elementID, value);
+  }
+  //console.warn(value, elementID)
   return new Promise(async (resolve) => {
     let shouldContinue = await checkArguments("toggleCheckbox", arguments)
     if (!shouldContinue) {
@@ -425,7 +431,7 @@ function deleteAPI() {
 
 //MARK: updateConfigState
 async function updateConfigState(element) {
-  console.debug('updateConfigState', element.prop('id'))
+  console.warn('updateConfigState', element.prop('id'))
   //console.debug('LOCAL ENGINE MODE = ', liveConfig.promptConfig.engineMode)
   if (initialLoad) { return }
 
@@ -436,8 +442,14 @@ async function updateConfigState(element) {
 
   if ($element.is('input[type=checkbox]')) {
     value = $element.prop('checked')
-    if (value === 0) { value = false }
-    if (value === 1) { value = true }
+    if (value === 0) {
+      console.warn('saw integer for checkbox value for', elementID, value)
+      value = false
+    }
+    if (value === 1) {
+      console.warn('saw integer for checkbox value for', elementID, value)
+      value = true
+    }
   }
   else { // selectors and text inputs
     value = $element.val()
@@ -604,4 +616,5 @@ export default {
   setEngineMode,
   addNewAPI,
   deleteAPI,
+  allowImages: () => liveConfig.crowdControl.allowImages
 };

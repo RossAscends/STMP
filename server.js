@@ -1022,26 +1022,23 @@ async function handleConnections(ws, type, request) {
                     let isEmptyTrigger = parsedMessage.userInput.length == 0 ? true : false
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     if (!isEmptyTrigger) {
-
-                        await db.writeAIChatMessage(username, senderUUID, userInput, 'user');
-
+                        await db.writeAIChatMessage(username, senderUUID, purifier.makeHtml(userInput), 'user');
                         let [activeChat, foundSessionID] = await db.readAIChat()
                         var chatJSON = JSON.parse(activeChat)
                         var lastItem = chatJSON[chatJSON.length - 1]
                         var newMessageID = lastItem?.messageID
                         var content = purifier.makeHtml(parsedMessage.userInput)
+                        console.info('content: ', content)
 
                         userPrompt = {
-                            'type': 'chatMessage',
-                            'chatID': chatID,
-                            'username': username,
-                            //send the HTML-ized message into the AI chat
-                            'content': content,
-                            'userColor': userColor,
-                            'sessionID': foundSessionID,
-                            'messageID': newMessageID
+                            type: 'chatMessage',
+                            chatID: chatID,
+                            username: username,
+                            content: content,
+                            userColor: userColor,
+                            sessionID: foundSessionID,
+                            messageID: newMessageID
                         }
-                        logger.info('converted message: ', content)
                         await broadcast(userPrompt)
                     }
 
@@ -1054,21 +1051,12 @@ async function handleConnections(ws, type, request) {
                 }
                 //read the current userChat file
                 if (chatID === 'UserChat') {
-                    //let [data, sessionID] = await db.readUserChat()
-                    //let jsonArray = JSON.parse(data);
-                    // Add the new object to the array
-                    //jsonArray.push(parsedMessage);
-                    //const updatedData = JSON.stringify(jsonArray, null, 2);
-                    // Write the updated array back to the file
-                    let incomingSessionID = parsedMessage.sessionID
                     await db.writeUserChatMessage(uuid, purifier.makeHtml(parsedMessage.content))
                     let [newdata, sessionID] = await db.readUserChat()
                     let newJsonArray = JSON.parse(newdata);
                     let lastItem = newJsonArray[newJsonArray.length - 1]
-                    logger.info(lastItem)
-                    let newContent = lastItem?.content
                     let newMessageID = lastItem?.messageID
-                    let newSessionID = lastItem?.sessionID
+                    let newContent = lastItem?.content
 
                     const newUserChatMessage = {
                         type: 'chatMessage',
@@ -1077,7 +1065,7 @@ async function handleConnections(ws, type, request) {
                         userColor: userColor,
                         content: newContent,
                         messageID: newMessageID,
-                        sessionID: newSessionID
+                        sessionID: sessionID
                     }
                     //logger.info(newUserChatMessage)
                     await broadcast(newUserChatMessage)

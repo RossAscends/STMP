@@ -792,7 +792,6 @@ async function connectWebSocket(username) {
       case "AIResponse":
       case "chatMessage":
         let isAIResponse = false;
-        console.debug("saw chat message");
         if (parsedMessage.type === "AIResponse") { isAIResponse = true; }
 
         var {
@@ -810,8 +809,7 @@ async function connectWebSocket(username) {
           messageID: messageID,
           entity: entityTypeString
         }
-        let chatElementSelector = isAIResponse ? "#AIChat" : "#chat";
-        appendMessagesWithConverter([chatMessageObj], chatElementSelector, sessionID)
+        appendMessagesWithConverter([chatMessageObj], "#" + chatID, sessionID)
         //$(`div[data-chat-id="${chatID}"]`).append(newChatItem);
         //addMessageEditListeners(newChatItem)
         util.kindlyScrollDivToBottom($(`div[data-chat-id="${chatID}"]`));

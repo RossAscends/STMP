@@ -226,6 +226,14 @@ async function ObjectifyChatHistory() {
 async function setStopStrings(liveConfig, APICallParams, includedChatObjects, liveAPI) {
     //logger.info(`[setStopStrings] >> GO`)
     //logger.info(APICallParams)
+    const instructData = await fio.readFile(liveConfig.promptConfig.selectedInstruct)
+    const instructSequence = JSON.parse(instructData)
+    const inputSequence = instructSequence.input_sequence
+    const outputSequence = instructSequence.output_sequence
+    const systemSequence = instructSequence.system_sequence
+    const endSequence = instructSequence.end_sequence
+    const extraStops = instructSequence?.extras_for_stops || [];
+
     //an array of chat message objects which made it into the AI prompt context limit
     let chatHistory = includedChatObjects;
     //create a array of usernames and entity types to pass back for processing for AIChat UserList
@@ -244,6 +252,8 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
     }
     let targetObj = []
 
+    targetObj.push(inputSequence, outputSequence, systemSequence, endSequence, ...extraStops)
+
     // Generate permutations for each unique username
     //TODO: find a sensible way to optimize this. 4 strings per entity is a lot..
     for (const entity of usernames) {
@@ -258,7 +268,7 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
     //logger.info(targetObj)
     //   logger.debug(liveAPI)
     //  logger.debug(liveConfig) 
-    if (liveAPI.claude === 1) { //for claude
+    if (liveAPI.claude === (1 || true)) { //for claude
         //logger.info('setting Claude stop strings')
         APICallParams.stop_sequences = targetObj
     } else if (liveConfig.promptConfig.engineMode === 'TC' || liveConfig.promptConfig.engineMode === 'CC' && liveAPI.claude !== 1) { //for TC and OAI CC
@@ -276,6 +286,7 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
     return [APICallParams, usernames]
 }
 
+//MARK: replaceMacros
 function replaceMacros(string, username = null, charname = null) {
     //logger.debug(username, charname)
     var replacedString = string

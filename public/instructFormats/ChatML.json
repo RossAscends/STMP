@@ -6,5 +6,10 @@
     "end_sequence": "<|im_end|>\n",
     "first_output_sequence": "<|im_start|>assistant\n",
     "last_output_sequence": "",
-    "system_sequence_suffix": ""
+    "system_sequence_suffix": "",
+    "extras_for_stops": [
+        "<|im_start|>",
+        "<|im_end|>"
+    ],
+    "skip_examples": false
 }

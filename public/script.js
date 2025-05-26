@@ -22,7 +22,7 @@ var isKeepAliveAudioPlaying = false;
 var keepAliveAudio = new Audio("silence.mp3");
 
 export var isHost;
-var AIChatDelay, userChatDelay;
+var AIChatDelay, userChatDelay, allowImages;
 
 //this prevents selectors from firing off when being initially populated
 var initialLoad = true;
@@ -147,21 +147,24 @@ export function validateUserName(username) {
 }
 
 
-var sanitizeExtension = {
+/* var sanitizeExtension = {
   type: "output",
   filter: function (text) {
 
     let forbiddenTags = ["style", "audio", "script", "iframe", "object", "embed", "form", "input", "select",
       "button", "marquee", "blink", "font"];
-    console.warn('allowImages: ', handleconfig.allowImages())
-    if (!handleconfig.allowImages()) {
+    console.warn('allowImages sanitize init: ', allowImages)
+    if (allowImages === false) {
       console.warn('checking for images...')
       const imageRegex = /<img\b[^>]*>/gi;
       const hasImage = imageRegex.test(text);
       console.warn('text: ', text)
       console.warn('hasImage: ', hasImage)
 
-      if (hasImage) text = text.replace(imageRegex, '>>haha embed fail, laugh at this user<<');
+      if (hasImage) {
+        console.warn('removing images..')
+        text = text.replace(imageRegex, '>>haha embed fail, laugh at this user<<');
+      }
       console.warn('After text: ', text)
       forbiddenTags.push("img");
     } else {
@@ -228,7 +231,7 @@ var converter = new showdown.Converter({
   literalMidWordUnderscores: true,
   strikethrough: true,
   extensions: [sanitizeExtension, quotesExtension, BRTagsToParagraphTags],
-});
+}); */
 
 //routine to check if we are on an iOS device or not
 var dummyElement = $("<div>").css("-webkit-touch-callout", "none");
@@ -314,8 +317,9 @@ async function processConfirmedConnection(parsedMessage) {
   //console.warn(chatHistory)
 
   //these two need to be set as globals here in script.js
-  AIChatDelay = parsedMessage.crowdControl.AIChatDelay * 1000;
-  userChatDelay = parsedMessage.crowdControl.userChatDelay * 1000;
+  AIChatDelay = parsedMessage.liveConfig.crowdControl.AIChatDelay * 1000;
+  userChatDelay = parsedMessage.liveConfig.crowdControl.userChatDelay * 1000;
+  //allowImages = parsedMessage.liveConfig.crowdControl.allowImages
 
   myUUID = myUUID === "" ? clientUUID : myUUID;
   localStorage.setItem("UUID", myUUID);
@@ -402,7 +406,7 @@ function appendMessagesWithConverter(messages, elementSelector, sessionID) {
   console.debug(`[appendMessagesWithConverter(${elementSelector})]>> GO`);
   //console.warn(messages, elementSelector, sessionID)
   messages.forEach(({ username, userColor, content, messageID, entity }) => {
-    const message = converter.makeHtml(content);
+    //const message = converter.makeHtml(content);
 
     let messageEditDeleteHTML = "";
     //console.warn(elementSelector)
@@ -425,7 +429,7 @@ function appendMessagesWithConverter(messages, elementSelector, sessionID) {
       ${messageEditDeleteHTML}
     </div>
     <div class="messageContent">
-    ${message}
+    ${content}
     </div>
     `);
 
@@ -641,8 +645,10 @@ async function connectWebSocket(username) {
         disconnectWebSocket();
         break;
       case "guestConnectionConfirmed":
-
       case "connectionConfirmed":
+        console.debug(parsedMessage)
+        allowImages = handleconfig.allowImages() || parsedMessage.liveConfig.crowdControl.allowImages
+        //console.warn('allowImages upon connection: ', allowImages)
         processConfirmedConnection(parsedMessage);
         break;
       case "hostStateChange":
@@ -659,12 +665,12 @@ async function connectWebSocket(username) {
       case "userChangedName":
         console.debug("saw notification of user name change");
         var { type, content } = JSON.parse(message);
-        const HTMLizedUsernameChangeMessage = converter.makeHtml(content);
-        const sanitizedUsernameChangeMessage = DOMPurify.sanitize(
-          HTMLizedUsernameChangeMessage
-        );
+        /*         const HTMLizedUsernameChangeMessage = converter.makeHtml(content);
+                const sanitizedUsernameChangeMessage = DOMPurify.sanitize(
+                  HTMLizedUsernameChangeMessage
+                ); */
         let newUsernameChatItem = $("<div>");
-        newUsernameChatItem.html(`<i>${sanitizedUsernameChangeMessage}</i>`);
+        newUsernameChatItem.html(`<i>${content}</i>`);
         $("#chat").append(newUsernameChatItem);
         util.kindlyScrollDivToBottom($("#chat"));
         break;
@@ -743,7 +749,7 @@ async function connectWebSocket(username) {
         break;
       //MARK: streamedAIResponse
       case "streamedAIResponse":
-        console.warn(parsedMessage.color)
+        //console.warn(parsedMessage.color)
         $("body").addClass("currentlyStreaming");
         currentlyStreaming = true;
         let newStreamDivSpan;
@@ -772,8 +778,8 @@ async function connectWebSocket(username) {
 
       case "streamedAIResponseEnd":
         console.debug("saw stream end");
-        const HTMLizedContent = converter.makeHtml(accumulatedContent);
-        const newDivElement = $("<p>").html(HTMLizedContent);
+        //const HTMLizedContent = converter.makeHtml(accumulatedContent);
+        const newDivElement = $("<p>").html(accumulatedContent);
         const elementsToRemove = $(".incomingStreamDiv .messageContent").children("span");
         elementsToRemove.remove();
         if (isHost) addMessageEditListeners('.incomingStreamDiv');
@@ -802,9 +808,9 @@ async function connectWebSocket(username) {
         let sessionID = parsedMessage.sessionID
 
         console.warn(`message: [${chatID}] ${username}: "${content}" sID(${sessionID}) mID(${messageID})`);
-        const HTMLizedMessage = converter.makeHtml(content);
+        //const HTMLizedMessage = converter.makeHtml(content);
         //console.warn(HTMLizedMessage)
-        const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
+        //const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
         //console.warn(sanitizedMessage)
         let usernameToShow = isAIResponse ? `${username} 🤖` : username;
         let entityTypeString = isAIResponse ? "AI" : "user";
@@ -830,7 +836,7 @@ async function connectWebSocket(username) {
             ${singleMessageEditDeleteHTML}
           </div>
           <div class="messageContent">
-          ${sanitizedMessage}
+          ${content}
           </div>
           `);
         } else { //is Guest, no buttons
@@ -839,7 +845,7 @@ async function connectWebSocket(username) {
           <span style="color:${userColor}" class="chatUserName">${usernameToShow}</span>
         </div>
         <div class="messageContent">
-        ${sanitizedMessage}
+        ${content}
         </div>
         `);
         }
@@ -898,9 +904,9 @@ async function displayStreamedResponse(message) {
     } //if there was nothing else, set it to blank.
     let trimmedParagraph = util.trimIncompleteSentences(accumulatedContent); //trim what we accumulated so far.
 
-    let markdownParagraph = converter.makeHtml(trimmedParagraph); //make it markdown
+    //let markdownParagraph = converter.makeHtml(trimmedParagraph); //make it markdown
     $(newStreamDiv).children("span").remove(); //remove all the token spans that went into producing it.
-    $(newStreamDiv).append(markdownParagraph); //add the markdown paragraph inplace of the token spans.
+    $(newStreamDiv).append(trimmedParagraph); //add the markdown paragraph inplace of the token spans.
     accumulatedContent = contentLeftover; //set accumulated content the leftovers after the newline cut (first character/word of next sentence)
     newStreamDiv.append($("<span>")); //add a new span for the new paragraph's tokens to come into.
   } else {

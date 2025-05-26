@@ -1,4 +1,4 @@
-var log4js = require("log4js");
+import log4js from "log4js";
 
 var logLevel = process.env.LOG_LEVEL || "INFO";
 
@@ -16,10 +16,10 @@ log4js.configure({
     },
 });
 
-module.exports = {
-    logger: log4js.getLogger("server"),
-    dbLogger: log4js.getLogger("db"),
-    apiLogger: log4js.getLogger("api"),
-    fileLogger: log4js.getLogger("file"),
-    charLogger: log4js.getLogger("char"),
-};
+const logger = log4js.getLogger("server");
+const dbLogger = log4js.getLogger("db");
+const apiLogger = log4js.getLogger("api");
+const fileLogger = log4js.getLogger("file");
+const charLogger = log4js.getLogger("char");
+
+export { logger, dbLogger, apiLogger, fileLogger, charLogger };

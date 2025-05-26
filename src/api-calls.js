@@ -1,20 +1,16 @@
 
-const fs = require('fs');
-const $ = require('jquery');
-const util = require('util');
-const { Readable } = require('stream');
-const { EventEmitter } = require('events');
+import fs from 'fs';
+import $ from 'jquery';
+import util from 'util';
+import { Readable } from 'stream';
+import { EventEmitter } from 'events';
+import iconv from 'iconv-lite';
+import { StringDecoder } from 'string_decoder';
+import db from './db.js';
+import fio from './file-io.js';
+import { apiLogger as logger } from './log.js';
+
 const textEmitter = new EventEmitter();
-const iconv = require('iconv-lite');
-const { StringDecoder } = require('string_decoder');
-
-
-const db = require('./db.js');
-const fio = require('./file-io.js')
-
-//const streaming = require('./stream.js')
-
-const { apiLogger: logger } = require('./log.js');
 
 
 function delay(ms) {
@@ -22,6 +18,7 @@ function delay(ms) {
 }
 
 var TCAPIDefaults, HordeAPIDefaults
+
 
 async function getAPIDefaults(shouldReturn = null) {
     try {
@@ -35,7 +32,6 @@ async function getAPIDefaults(shouldReturn = null) {
             return defaults
         }
 
-
     } catch (error) {
         logger.error('Error reading or parsing the default API Param JSON file:', error);
     }
@@ -44,6 +40,7 @@ async function getAPIDefaults(shouldReturn = null) {
 async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage) {
     let isCCSelected = liveAPI.type === 'CC' ? true : false
     let isClaude = liveAPI.claude
+    let APICallParams
     try {
         if (engineMode === 'TC') {
             //logger.info('using TC api template')
@@ -1154,16 +1151,16 @@ async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest, is
     return text
 }
 
-module.exports = {
-    getAIResponse: getAIResponse,
-    getAPIDefaults: getAPIDefaults,
-    replaceMacros: replaceMacros,
-    testAPI: testAPI,
-    getModelList: getModelList,
-    textEmitter: textEmitter,
-    processResponse: processResponse,
-    addCharDefsToPrompt: addCharDefsToPrompt,
-    setStopStrings: setStopStrings,
-    trimIncompleteSentences: trimIncompleteSentences,
+export default {
+    getAIResponse,
+    getAPIDefaults,
+    replaceMacros,
+    testAPI,
+    getModelList,
+    textEmitter,
+    processResponse,
+    addCharDefsToPrompt,
+    setStopStrings,
+    trimIncompleteSentences,
     getHordeModelList
 }

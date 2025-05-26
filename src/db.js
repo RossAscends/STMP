@@ -1,9 +1,9 @@
-const sqlite3 = require('sqlite3');
-const sqlite = require('sqlite');
-const { dbLogger: logger } = require('./log.js');
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
+import { dbLogger as logger } from './log.js';
 
 // Connect to the SQLite database
-const dbPromise = sqlite.open({
+const dbPromise = open({
     filename: './stmp.db',
     driver: sqlite3.Database
 });
@@ -319,7 +319,7 @@ async function readUserChat() {
             sessionID: row.session_id
         })));
 
-        logger.info(result)
+        //logger.info(result)
 
         if (rows.length > 0) {
             foundSessionID = rows[0].session_id;
@@ -753,7 +753,7 @@ async function exportSession(sessionID) {
 ensureDatabaseSchema(schemaDictionary);
 
 
-module.exports = {
+export default {
     writeUserChatMessage,
     writeAIChatMessage,
     newSession,

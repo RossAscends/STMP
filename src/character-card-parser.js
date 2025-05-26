@@ -1,10 +1,9 @@
-const fs = require('fs');
+import fs from 'fs';
+import extract from 'png-chunks-extract';
+import PNGtext from 'png-chunk-text';
+import { charLogger as logger } from './log.js';
 
-const extract = require('png-chunks-extract');
-const PNGtext = require('png-chunk-text');
-const { charLogger: logger } = require('./log.js');
-
-const parse = async (cardUrl, format) => {
+const characterCardParser = async (cardUrl, format) => {
     let fileFormat = format === undefined ? 'png' : format;
 
     switch (fileFormat) {
@@ -31,6 +30,4 @@ const parse = async (cardUrl, format) => {
     }
 };
 
-module.exports = {
-    parse: parse,
-};
+export default characterCardParser;

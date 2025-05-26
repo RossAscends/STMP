@@ -1,22 +1,22 @@
-const fs = require('fs');
-const util = require('util');
-const $ = require('jquery');
-const express = require('express');
+import fs from 'fs';
+import { promisify } from 'util';
+import $ from 'jquery';
+import express from 'express';
+import { fileLogger as logger } from './log.js';
+
+const writeFileAsync = promisify(fs.writeFile);
+import encode from 'png-chunks-encode';
+import extract from 'png-chunks-extract';
+import PNGtext from 'png-chunk-text';
+import jimp from 'jimp';
+
 const localApp = express();
 const remoteApp = express();
-const { fileLogger: logger } = require('./log.js');
-
-const writeFileAsync = util.promisify(fs.writeFile);
-
-const encode = require('png-chunks-encode');
-const extract = require('png-chunks-extract');
-const PNGtext = require('png-chunk-text');
-const jimp = require('jimp');
 
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
 
-const characterCardParser = require('./character-card-parser.js');
+import characterCardParser from './character-card-parser.js';
 
 const charnameColors = [
     '#FF8A8A',  // Light Red
@@ -38,7 +38,7 @@ const charnameColors = [
 ];
 
 //Import db handler from /db.js
-const db = require('./db.js');
+import db from './db.js';
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -192,7 +192,7 @@ async function releaseLock() {
 }
 
 async function charaRead(img_url, input_format) {
-    return characterCardParser.parse(img_url, input_format);
+    return characterCardParser(img_url, input_format);
 }
 
 async function charaWrite(img_url, data) {
@@ -262,7 +262,7 @@ async function getCardList() {
                 name: jsonData.name,
                 value: jsonData.filename
             }
-            thisCharColor = charnameColors[Math.floor(Math.random() * charnameColors.length)];
+            let thisCharColor = charnameColors[Math.floor(Math.random() * charnameColors.length)];
             db.upsertChar(jsonData.filename, jsonData.name, thisCharColor)
         } catch (error) {
             logger.error(`Error reading file ${file}:`, error);
@@ -321,7 +321,7 @@ async function getSamplerPresetList() {
     return presets;
 }
 
-module.exports = {
+export default {
     readConfig,
     writeConfig,
     readFile,

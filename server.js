@@ -1,29 +1,29 @@
-const http = require('http');
-const fs = require('fs');
-const util = require('util');
-const WebSocket = require('ws');
-const crypto = require('crypto');
-const writeFileAsync = util.promisify(fs.writeFile);
-const existsAsync = util.promisify(fs.exists);
-const { v4: uuidv4 } = require('uuid');
-const path = require('path');
-const $ = require('jquery');
-const express = require('express');
+import http from 'http';
+import fs from 'fs';
+import { readFile } from 'fs/promises';
+import { promisify } from 'util';
+import WebSocket from 'ws';
+import crypto from 'crypto';
+import { v4 as uuidv4 } from 'uuid';
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import db from './src/db.js';
+import fio from './src/file-io.js';
+import api from './src/api-calls.js';
+import converter from './src/purify.js';
+import { logger } from './src/log.js';
+//import $ from 'jquery';
 
-const { logger } = require('./src/log.js');
+const writeFileAsync = promisify(fs.writeFile);
+const existsAsync = promisify(fs.exists);
+
 const localApp = express();
 const remoteApp = express();
 localApp.use(express.static('public'));
 remoteApp.use(express.static('public'));
 
-//SQL DB
-const db = require('./src/db.js');
-//flat file manipulation
-const fio = require('./src/file-io.js')
-const api = require('./src/api-calls.js');
-
 let selectedAPI = 'Default'
-
 
 //for console coloring
 const color = {
@@ -77,32 +77,36 @@ api.getAPIDefaults()
 
 let cardList
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Configuration
 const apiKey = "_YOUR_API_KEY_HERE_";
 const authString = "_STUsername_:_STPassword_";
 const secretsPath = path.join(__dirname, 'secrets.json');
 let engineMode = 'TC'
 
-localApp.get('/', (req, res) => {
-    const filePath = path.join(__dirname, '/public/client.html');
-    fs.readFile(filePath, 'utf8', (err, data) => {
-        if (err) {
-            res.status(500).send('Error loading the client HTML file');
-        } else {
-            res.status(200).send(data);
-        }
-    });
+// Routes
+localApp.get('/', async (req, res) => {
+    const filePath = path.join(__dirname, 'public/client.html');
+    try {
+        const data = await readFile(filePath, 'utf8');
+        res.status(200).send(data);
+    } catch (err) {
+        logger.error('Error loading client HTML:', err);
+        res.status(500).send('Error loading the client HTML file');
+    }
 });
 
-remoteApp.get('/', (req, res) => {
-    const filePath = path.join(__dirname, '/public/client.html');
-    fs.readFile(filePath, 'utf8', (err, data) => {
-        if (err) {
-            res.status(500).send('Error loading the client HTML file');
-        } else {
-            res.status(200).send(data);
-        }
-    });
+remoteApp.get('/', async (req, res) => {
+    const filePath = path.join(__dirname, 'public/client.html');
+    try {
+        const data = await readFile(filePath, 'utf8');
+        res.status(200).send(data);
+    } catch (err) {
+        logger.error('Error loading client HTML:', err);
+        res.status(500).send('Error loading the client HTML file');
+    }
 });
 
 // Handle 404 Not Found
@@ -161,6 +165,7 @@ function generateServerKeys() {
     return [hostKey, modKey]
 }
 
+//MARK:initFiles
 async function initFiles() {
     const configPath = 'config.json';
     const secretsPath = 'secrets.json';
@@ -238,7 +243,7 @@ async function initFiles() {
         }
 
         cardList = await fio.getCardList();
-        //logger.debug(cardList);
+        logger.debug(cardList);
 
         if (!liveConfig?.promptConfig?.selectedCharacter || liveConfig?.promptConfig?.selectedCharacter === '') {
             logger.warn('No selected character found in config.json, getting the latest...');
@@ -249,7 +254,7 @@ async function initFiles() {
                 logger.warn('Database had no character in it! Adding Coding Sensei..');
                 await db.upsertChar('Coding Sensei', 'Coding Sensei', 'green');
                 latestCharacter = await db.getLatestCharacter();
-                logger.warn(latestCharacter);
+                logger.warn('Latest Character is now ', latestCharacter);
             }
 
             liveConfig.promptConfig.selectedCharacter = latestCharacter.char_id;
@@ -296,7 +301,8 @@ async function initFiles() {
 fio.createDirectoryIfNotExist("./public/api-presets");
 
 // Call the function to initialize the files
-initFiles();
+
+await initFiles();
 
 // Handle incoming WebSocket connections for wsServer
 wsServer.on('connection', (ws, request) => {
@@ -309,37 +315,75 @@ wssServer.on('connection', (ws, request) => {
 });
 
 async function broadcast(message, role = 'all') {
-    return new Promise(async (resolve, reject) => {
-        try {
+    try {
+        const clientUUIDs = Object.keys(clientsObject);
+        const shouldReport = message.type !== 'streamedAIResponse';
 
-            Object.keys(clientsObject).forEach(async clientUUID => {
-                const client = clientsObject[clientUUID];
-                const socket = client.socket;
-                if (socket?.readyState !== WebSocket.OPEN) {
-                    return;
-                }
-                if (role === 'all') {
-                    socket.send(JSON.stringify(message));
-                } else {
-                    const user = await db.getUser(clientUUID);
-                    console.log(user)
-                    const clientRole = user.role
-                    if (clientRole === role) {
-                        socket.send(JSON.stringify(message));
-                    }
-                }
-                //change this to any valid type for logging
-                //or change the logic to !== to log all
-                if (message.type === "BuggyTypeHere") {
-                    logger.debug(`Sent "${message.type}" message to ${client.username}(${role})`);
-                    logger.debug(message);
-                }
-            })
-            resolve();
-        } catch (error) {
-            reject(error);
+        if (shouldReport) {
+            logger.info(`Broadcasting "${message.type}" to ${clientUUIDs.length} client(s)${role !== 'all' ? ` with role "${role}"` : ''}.`);
         }
-    });
+
+        const sentTo = [];
+        const failedTo = [];
+        const missingUsers = [];
+        for (const clientUUID of clientUUIDs) {
+            const client = clientsObject[clientUUID];
+            const socket = client.socket;
+
+            // Skip closed or invalid sockets
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                continue;
+            }
+
+            // Check role if not broadcasting to all
+            if (role !== 'all') {
+                try {
+                    const user = await db.getUser(clientUUID);
+                    if (user.role !== role) {
+                        continue;
+                    }
+                } catch (dbError) {
+                    missingUsers.push(client.username || clientUUID);
+                    logger.error(`Failed to get user ${clientUUID} for role check:`, dbError);
+                    continue;
+                }
+            }
+
+            // Send message
+            try {
+                socket.send(JSON.stringify(message));
+                sentTo.push(client.username || clientUUID);
+            } catch (sendError) {
+                failedTo.push(client.username || clientUUID);
+                logger.error(`Failed to send message to ${client.username || clientUUID}:`, sendError);
+            }
+        }
+
+        // Log successful sends (configurable)
+        if (sentTo.length > 0 && shouldReport) {
+            logger.info(`Sent "${message.type}" message to: ${sentTo.join(', ')}`);
+        }
+
+        // Log failed sends (configurable)
+        if (failedTo.length > 0) {
+            logger.info(`Failed to send "${message.type}" message to: ${failedTo.join(', ')}`);
+        }
+
+        // Log missing users (configurable)
+        if (missingUsers.length > 0) {
+            logger.info(`Missing user info for: ${missingUsers.join(', ')}`);
+        }
+
+        if (shouldReport) {
+            logger.info('Message details:', message);
+        }
+
+
+        return { sentTo, totalClients: clientUUIDs.length };
+    } catch (error) {
+        logger.error('Broadcast error:', error);
+        throw error;
+    }
 }
 
 // Broadcast the updated array of connected usernames to all clients
@@ -416,6 +460,10 @@ function duplicateNameToValue(array) {
     return array.map((obj) => ({ ...obj, value: obj.name }));
 }
 
+logger.debug(liveConfig)
+
+const purifier = converter.createConverter(liveConfig.crowdControl.allowImages);
+
 //MARK: handleConnections()
 async function handleConnections(ws, type, request) {
     const urlParams = new URLSearchParams(request.url.split('?')[1]);
@@ -487,10 +535,14 @@ async function handleConnections(ws, type, request) {
         role: thisUserRole,
         selectedCharacterDisplayName: liveConfig.promptConfig?.selectedCharacterDisplayName,
         userList: connectedUsers,
-        crowdControl: {
-            userChatDelay: liveConfig?.crowdControl?.userChatDelay || "2",
-            AIChatDelay: liveConfig?.crowdControl?.AIChatDelay || "2",
+        liveConfig: {
+            crowdControl: {
+                userChatDelay: liveConfig?.crowdControl?.userChatDelay || "2",
+                AIChatDelay: liveConfig?.crowdControl?.AIChatDelay || "2",
+                allowImages: liveConfig?.crowdControl?.allowImages || false
+            }
         },
+        crowdControl: liveConfig.crowdControl
     };
 
     if (thisUserRole === 'host') {
@@ -515,6 +567,7 @@ async function handleConnections(ws, type, request) {
     }
 
     await broadcastUserList();
+    logger.warn('Sending initial message to client:', user);
     ws.send(JSON.stringify(baseMessage));
 
     function updateConnectedUsers() {
@@ -526,7 +579,7 @@ async function handleConnections(ws, type, request) {
         connectedUsers = userList;
     }
 
-    //MARK: Inc handling
+    //MARK: Inc. Msg handling
     // Handle incoming messages from clients
     ws.on('message', async function (message) {
 
@@ -854,6 +907,7 @@ async function handleConnections(ws, type, request) {
 
             if (parsedMessage.type === 'usernameChange') {
                 //logger.info(parsedMessage)
+                converter.makeHtml(parsedMessage.oldName);
                 clientsObject[uuid].username = parsedMessage.newName;
                 updateConnectedUsers()
                 await db.upsertUser(parsedMessage.UUID, parsedMessage.newName, user.color ? user.color : thisClientObj.color)
@@ -866,7 +920,7 @@ async function handleConnections(ws, type, request) {
                 await broadcastUserList()
             }
             else if (parsedMessage.type === 'heartbeat') {
-                heartbeatResponse = {
+                let heartbeatResponse = {
                     type: 'heartbeatResponse',
                     value: 'pong!'
                 }
@@ -922,16 +976,19 @@ async function handleConnections(ws, type, request) {
                         var chatJSON = JSON.parse(activeChat)
                         var lastItem = chatJSON[chatJSON.length - 1]
                         var newMessageID = lastItem?.messageID
+                        var content = purifier.makeHtml(parsedMessage.userInput)
+
                         userPrompt = {
                             'type': 'chatMessage',
                             'chatID': chatID,
                             'username': username,
                             //send the HTML-ized message into the AI chat
-                            'content': parsedMessage.userInput,
+                            'content': content,
                             'userColor': userColor,
                             'sessionID': foundSessionID,
                             'messageID': newMessageID
                         }
+                        logger.info('converted message: ', content)
                         await broadcast(userPrompt)
                     }
 
@@ -1065,8 +1122,6 @@ async function checkAPIListChanges(liveConfig, parsedMessage) {
     }
 }
 
-
-
 let accumulatedStreamOutput = ''
 
 const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user, sessionID, messageID) => {
@@ -1115,7 +1170,7 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user, ses
             content: text,
             username: liveConfig.promptConfig.selectedCharacterDisplayName,
             type: 'streamedAIResponse',
-            color: user.color ? user.color : 'red',
+            color: user.color || 'red', //if red, then we have a problem somewhere. AI dont have colors atm, defaulting to white in frontend.
             sessionID: sessionID,
             messageID: messageID,
         };
@@ -1212,6 +1267,6 @@ process.on('SIGINT', async () => {
     process.exit(0);
 })
 
-module.exports = {
-    broadcast: broadcast
+export default {
+    broadcast
 }

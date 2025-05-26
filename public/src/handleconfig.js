@@ -65,7 +65,6 @@ async function processLiveConfig(configArray) {
   } else {
     liveConfig = configArray.value //for everytime after that.
   }
-
   // Process promptConfig
   const {
     selectedCharacter, cardList,
@@ -624,5 +623,5 @@ export default {
   setEngineMode,
   addNewAPI,
   deleteAPI,
-  allowImages: () => liveConfig.crowdControl.allowImages
+  allowImages: () => liveConfig?.crowdControl?.allowImages || null
 };

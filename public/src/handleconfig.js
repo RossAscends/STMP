@@ -51,6 +51,35 @@ Based on the following array sent from server:
   ]
 */
 
+//possible unique mesage types per setting
+/*
+const messageTypes = {
+  // promptConfig
+  UPDATE_SELECTED_CHARACTER: 'updateSelectedCharacter',
+  UPDATE_CARD_LIST: 'updateCardList',
+  UPDATE_SELECTED_PRESET: 'updateSelectedPreset',
+  UPDATE_PRESET_LIST: 'updatePresetList',
+  UPDATE_INSTRUCT_FORMAT: 'updateInstructFormat',
+  UPDATE_INSTRUCT_LIST: 'updateInstructList',
+  UPDATE_RESPONSE_LENGTH: 'updateResponseLength',
+  UPDATE_CONTEXT_SIZE: 'updateContextSize',
+  UPDATE_IS_STREAMING: 'updateIsStreaming',
+  UPDATE_SYSTEM_PROMPT: 'updateSystemPrompt',
+  UPDATE_D4AN: 'updateD4AN',
+  UPDATE_D4_CHAR_DEFS: 'updateD4CharDefs',
+  UPDATE_D1JB: 'updateD1JB',
+  UPDATE_API: 'updateAPI', // Single API update/addition
+  DELETE_API: 'deleteAPI', // API deletion
+  UPDATE_SELECTED_API: 'updateSelectedAPI',
+  UPDATE_IS_AUTO_RESPONSE: 'updateIsAutoResponse',
+  // APIConfig
+  UPDATE_API_CONFIG: 'updateAPIConfig',
+  // crowdControl
+  UPDATE_USER_CHAT_DELAY: 'updateUserChatDelay',
+  UPDATE_AI_CHAT_DELAY: 'updateAIChatDelay',
+  UPDATE_ALLOW_IMAGES: 'updateAllowImages'
+};*/
+
 import util from "./utils.js";
 import control from "./controls.js";
 import { myUUID } from "../script.js";

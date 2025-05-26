@@ -1,6 +1,7 @@
 import http from 'http';
 import fs from 'fs';
 import { readFile } from 'fs/promises';
+import { watch } from 'fs';
 import { promisify } from 'util';
 import WebSocket from 'ws';
 import crypto from 'crypto';
@@ -314,11 +315,12 @@ wssServer.on('connection', (ws, request) => {
     handleConnections(ws, 'guest', request);
 });
 
+//MARK: broadcast
 async function broadcast(message, role = 'all') {
     try {
         const clientUUIDs = Object.keys(clientsObject);
-        const shouldReport = message.type !== 'streamedAIResponse';
-        //TODO more to filter later in an array check: pastChatsList
+        const unloggedMessageTypes = ['streamedAIResponse', 'pastChatsList', 'hostStateChange', 'guestStateChange']; // Add more types as needed
+        const shouldReport = !unloggedMessageTypes.includes(message.type);
 
         if (shouldReport) {
             logger.info(`Broadcasting "${message.type}" to ${role !== 'all' ? ` users with role "${role}".` : `all ${clientUUIDs.length}  users.`}`);
@@ -461,9 +463,42 @@ function duplicateNameToValue(array) {
     return array.map((obj) => ({ ...obj, value: obj.name }));
 }
 
-logger.debug(liveConfig)
+//logger.debug(liveConfig)
 
-const purifier = converter.createConverter(liveConfig.crowdControl.allowImages);
+async function getValueFromConfigFile(key) {
+    try {
+        //console.warn('configdata: ', configdata);
+
+        let configdata = await fio.readConfig()
+        //console.warn('configdata parsed: ', configdata.crowdControl);
+        const soughtData = key.split('.').reduce((obj, k) => {
+            if (obj && typeof obj === 'object') {
+                return obj[k];
+            }
+            return undefined;
+        }, configdata);
+        //logger.info('[getValueFromConfigFile] key:', key, 'soughtData:', soughtData);
+        return soughtData;
+    } catch (err) {
+        logger.error('Error reading config.json:', err);
+        return null;
+    }
+}
+
+let purifier = converter.createConverter((await getValueFromConfigFile('crowdControl.allowImages')));
+
+watch('config.json', async (eventType, filename) => {
+    if (eventType === 'change') {
+        //logger.info('config.json changed, updating purifier');
+        try {
+            const allowImages = await getValueFromConfigFile('crowdControl.allowImages');
+            //logger.debug('allowImages for purifier:', allowImages);
+            purifier = converter.createConverter(allowImages ?? true); // Fallback to true if null
+        } catch (err) {
+            logger.error('Error updating purifier:', err);
+        }
+    }
+});
 
 //MARK: handleConnections()
 async function handleConnections(ws, type, request) {
@@ -1026,7 +1061,7 @@ async function handleConnections(ws, type, request) {
                     //const updatedData = JSON.stringify(jsonArray, null, 2);
                     // Write the updated array back to the file
                     let incomingSessionID = parsedMessage.sessionID
-                    await db.writeUserChatMessage(uuid, parsedMessage.content)
+                    await db.writeUserChatMessage(uuid, purifier.makeHtml(parsedMessage.content))
                     let [newdata, sessionID] = await db.readUserChat()
                     let newJsonArray = JSON.parse(newdata);
                     let lastItem = newJsonArray[newJsonArray.length - 1]
@@ -1068,76 +1103,86 @@ async function handleConnections(ws, type, request) {
 
 //checks an incoming liveConfig from client for changes to the APIList, and adjust server's list and db-registered APIs to match it.
 async function checkAPIListChanges(liveConfig, parsedMessage) {
-    if (JSON.stringify(liveConfig.promptConfig.APIList) !== JSON.stringify(parsedMessage.value.promptConfig.APIList)) { //if the lists are different
-        logger.warn('something is different about the API lists')
-        if (parsedMessage.value.promptConfig.APIList.length < liveConfig.promptConfig.APIList.length) { //if server has more than client, the client deleted something
-            logger.warn(`the client's API list was smaller than server's list...`)
-            let APIToDelete = '';
+    const serverAPIs = liveConfig.promptConfig.APIList;
+    const clientAPIs = parsedMessage.value.promptConfig.APIList;
 
-            for (const serverListAPI of liveConfig.promptConfig.APIList) {
-                logger.info('checking client list for', serverListAPI.name);
-                const found = parsedMessage.value.promptConfig.APIList.some((clientListAPI) => {
-                    if (serverListAPI.name === clientListAPI.name) {
-                        logger.info(`found ${serverListAPI.name} in both`);
-                        return true;
+    // Quick check for identical lists
+    if (serverAPIs.length === clientAPIs.length &&
+        serverAPIs.every((sAPI, i) => isAPIEqual(sAPI, clientAPIs[i]))) {
+        return; // No changes
+    }
+
+    logger.info('Detected changes in API lists');
+
+    try {
+        // Map APIs by name for efficient lookup
+        const serverAPIMap = new Map(serverAPIs.map(api => [api.name, api]));
+        const clientAPIMap = new Map(clientAPIs.map(api => [api.name, api]));
+
+        // 1. Handle deletions
+        const deletedAPIs = serverAPIs.filter(sAPI => !clientAPIMap.has(sAPI.name));
+        if (deletedAPIs.length > 0) {
+            logger.warn(`Deleting ${deletedAPIs.length} APIs no longer in client list: ${deletedAPIs.map(a => a.name).join(', ')}`);
+            for (const api of deletedAPIs) {
+                try {
+                    await db.deleteAPI(api.name);
+                    if (parsedMessage.value.promptConfig.selectedAPI === api.name) {
+                        parsedMessage.value.promptConfig.selectedAPI = 'Default';
                     }
-                    return false;
-                });
-
-                if (!found) {
-                    APIToDelete = serverListAPI.name;
-                    break;
+                } catch (err) {
+                    logger.error(`Failed to delete API ${api.name}:`, err);
                 }
             }
+            liveConfig.promptConfig.APIList = serverAPIs.filter(sAPI => !deletedAPIs.includes(sAPI));
+        }
 
-            if (APIToDelete) {
-                logger.warn(`Client API list no longer contains "${APIToDelete}"... removing it from the server list.`);
-                liveConfig.promptConfig.APIList = liveConfig.promptConfig.APIList.filter(
-                    (api) => api.name !== APIToDelete
-                );
-                await db.deleteAPI(APIToDelete);
-                parsedMessage.value.promptConfig.selectedAPI = 'Default'; // Update parsedMessage as needed
+        // 2. Handle additions and updates
+        const changedAPIs = [];
+        for (const clientAPI of clientAPIs) {
+            const serverAPI = serverAPIMap.get(clientAPI.name);
+            if (!serverAPI) {
+                // New API
+                logger.info(`Adding new API: ${clientAPI.name}`);
+                changedAPIs.push(clientAPI);
+            } else if (!isAPIEqual(serverAPI, clientAPI)) {
+                // Updated API
+                logger.info(`Updating API: ${clientAPI.name}`);
+                changedAPIs.push(clientAPI);
             }
+        }
 
-        } else if (parsedMessage.value.promptConfig.APIList.length > liveConfig.promptConfig.APIList.length) { //if user added an API
-            logger.warn(`there is new API in client's API list..adding to server's API DB table..`)
-            const newAPIs = parsedMessage.value.promptConfig.APIList.filter((api) =>
-                !liveConfig.promptConfig.APIList.some((existingAPI) => existingAPI.name === api.name)
-            );
-            for (const api of newAPIs) {
-                await db.upsertAPI(api);
-            };
-        } else if (parsedMessage.value.promptConfig.APIList.length === liveConfig.promptConfig.APIList.length) {
-            logger.warn(`API list lengths are the same, but content is different...`);
-            for (const clientAPI of parsedMessage.value.promptConfig.APIList) {
-                logger.warn('checking', clientAPI.name);
-                const serverAPI = liveConfig.promptConfig.APIList.find((api) => api.name === clientAPI.name);
-                if (serverAPI) {
-                    for (const key of Object.keys(clientAPI)) {
-                        if (key === 'modelList') {
-                            if (JSON.stringify(clientAPI[key]) !== JSON.stringify(serverAPI[key])) {
-                                // Handle the modelList comparison difference
-                                logger.warn(`Detected change in API called '${clientAPI.name}', key: '${key}'`);
-                                logger.warn(`Previous value: '${JSON.stringify(serverAPI[key])}'`);
-                                logger.warn(`New value: '${JSON.stringify(clientAPI[key])}'`);
-
-                                // Update that API in the db with the new value
-                                await db.upsertAPI(clientAPI);
-                            }
-                        } else if (clientAPI[key] !== serverAPI[key]) {
-                            // Handle the comparison for other keys
-                            logger.warn(`Detected change in API called '${clientAPI.name}', key: '${key}'`);
-                            logger.warn(`Previous value: '${serverAPI[key]}'`);
-                            logger.warn(`New value: '${clientAPI[key]}'`);
-
-                            // Update that API in the db with the new value
-                            await db.upsertAPI(clientAPI);
-                        }
-                    };
+        // Batch upsert for additions and updates
+        if (changedAPIs.length > 0) {
+            logger.info(`Upserting ${changedAPIs.length} APIs: ${changedAPIs.map(a => a.name).join(', ')}`);
+            for (const api of changedAPIs) {
+                try {
+                    await db.upsertAPI({
+                        ...api,
+                        created_at: serverAPIMap.has(api.name) ? serverAPIMap.get(api.name).created_at : new Date().toISOString()
+                    });
+                } catch (err) {
+                    logger.error(`Failed to upsert API ${api.name}:`, err);
                 }
-            };
+            }
+            liveConfig.promptConfig.APIList = [...clientAPIs]; // Update server list
+        }
+    } catch (err) {
+        logger.error('Error processing API list changes:', err);
+    }
+}
+
+// Helper function to compare APIs
+function isAPIEqual(api1, api2) {
+    if (api1.name !== api2.name) return false;
+    for (const key of Object.keys(api1)) {
+        if (key === 'created_at' || key === 'last_used') continue; // Skip timestamps
+        if (key === 'modelList') {
+            if (JSON.stringify(api1[key]) !== JSON.stringify(api2[key])) return false;
+        } else if (api1[key] !== api2[key]) {
+            return false;
         }
     }
+    return true;
 }
 
 let accumulatedStreamOutput = ''

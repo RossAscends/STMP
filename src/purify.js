@@ -15,7 +15,7 @@ const sanitizeExtension = (allowImages) => ({
             "style", "audio", "script", "iframe", "object", "embed", "form",
             "input", "select", "button", "marquee", "blink", "font"
         ];
-        console.warn('allowImages sanitize init: ', allowImages);
+        //console.warn('sanitize init - allowImages: ', allowImages);
         if (allowImages === false) {
             console.warn('checking for images...');
             const imageRegex = /<img\b[^>]*>/gi;
@@ -80,7 +80,7 @@ const BRTagsToParagraphTags = () => {
 
 // Create the Showdown converter
 const createConverter = (allowImages = true) => {
-    logger.warn('converting with allowImages: ', allowImages);
+    logger.warn('Purifier initialized - allowImages: ', allowImages);
     return new showdown.Converter({
         simpleLineBreaks: true,
         openLinksInNewWindow: true,

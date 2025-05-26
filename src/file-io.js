@@ -64,7 +64,7 @@ async function readConfig() {
         fs.readFile('config.json', 'utf8', async (err, data) => {
             if (err) {
                 if (err.code === 'ENOENT') {
-                    logger.debug('config.json not found, initializing with default values.');
+                    logger.warn('config.json not found, initializing with default values.');
                     try {
                         releaseLock()
                         resolve(liveConfig); // Assuming liveconfig is accessible here
@@ -82,7 +82,6 @@ async function readConfig() {
                 try {
                     //await delay(100)
                     const configData = JSON.parse(data); // Parse the content as JSON
-                    logger.warn('READ configData', configData.crowdControl)
                     releaseLock()
                     resolve(configData);
                 } catch (parseErr) {
@@ -115,9 +114,9 @@ async function writeConfig(configObj, key = null, value = null) {
 
         currentObj[parts[parts.length - 1]] = value;
 
-        logger.debug(`Config updated: ${key}`);
+        logger.info(`Config updated: ${key}, ${value}`);
     }
-    logger.warn('WRITE configObj: ', configObj.crowdControl)
+    //logger.warn('WRITE configObj: ', configObj.crowdControl)
     const writableConfig = JSON.stringify(configObj, null, 2);
     fs.writeFile("./config.json", writableConfig, "utf8", writeErr => {
         if (writeErr) {

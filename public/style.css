@@ -549,6 +549,22 @@ input::placeholder {
 #userList,
 #AIChatUserList {
     width: 7vw;
+    overflow-y: auto;
+    max-height: 100%;
+    overflow-x: hidden;
+    line-break: anywhere;
+    margin-top: 10px;
+}
+
+#userList>small,
+#AIChatUserList>small {
+    display: block;
+    position: absolute;
+    top: 5px;
+}
+
+#lists {
+    min-height: 0
 }
 
 #userList {

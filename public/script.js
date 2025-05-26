@@ -42,7 +42,7 @@ async function startupUsernames() {
       const $dialogContent = $(`
         <div>
           <form id="usernameForm">
-            <p>Enter your username (3+ letters, max 20 chars, A-Z, 0-9, _, -):</p>
+            <p>Enter your username (3+ letters, max 12 chars, A-Z, 0-9, _, -):</p>
             <input type="text" id="modalUsernameInput" required minlength="1">
           </form>
         </div>
@@ -127,8 +127,8 @@ export function validateUserName(username) {
   if (!username || username.trim().length === 0) {
     return { success: false, error: 'Username cannot be empty.' };
   }
-  if (username.length > 20) {
-    return { success: false, error: 'Username cannot exceed 20 characters.' };
+  if (username.length > 12) {
+    return { success: false, error: 'Username cannot exceed 12 characters.' };
   }
   if (!/^[A-Za-z0-9_-]+$/.test(username)) {
     return {

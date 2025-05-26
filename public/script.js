@@ -276,8 +276,11 @@ function updateAIChatUserList(message) {
   userListElement.empty(); // Clear the existing user list
 
   message.forEach(({ username, color, entity }) => {
-    const usernameText = entity === "AI" ? `${username} 🤖` : username;
-    const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${color};">${usernameText}</li>`;
+    let isAI = entity === "AI" ? true : false;
+    const usernameText = isAI ? `${username} 🤖` : username;
+    const usernameColor = isAI ? "white" : color;
+    console.warn(usernameText);
+    const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${usernameColor};">${usernameText}</li>`;
     userListElement.append(listItem);
   });
 }
@@ -723,6 +726,7 @@ async function connectWebSocket(username) {
         break;
       //MARK: streamedAIResponse
       case "streamedAIResponse":
+        console.warn(parsedMessage.color)
         $("body").addClass("currentlyStreaming");
         currentlyStreaming = true;
         let newStreamDivSpan;
@@ -737,7 +741,7 @@ async function connectWebSocket(username) {
         if (!$("#AIChat .incomingStreamDiv").length) {
           newStreamDivSpan = $(`<div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}" data-entityType="AI"></div>`).html(`
           <div class="messageHeader flexbox justifySpaceBetween">
-            <span style="color:${parsedMessage.color}" class="chatUserName">${parsedMessage.username}🤖</span>
+            <span style="color:white" class="chatUserName">${parsedMessage.username}🤖</span>
             ${streamedMessageEditDeleteHTML}
           </div>
           <div class="messageContent">
@@ -772,7 +776,7 @@ async function connectWebSocket(username) {
         let isAIResponse = false;
         console.debug("saw chat message");
         if (parsedMessage.type === "AIResponse") { isAIResponse = true; }
-        console.warn(parsedMessage);
+
         var {
           chatID, username, content,
           userColor, color, workerName,
@@ -780,7 +784,7 @@ async function connectWebSocket(username) {
         } = JSON.parse(message);
         let sessionID = parsedMessage.sessionID
 
-        console.warn(`message: [${chatID}]${username}:${content} ${sessionID} ${messageID}`);
+        console.warn(`message: [${chatID}] ${username}: "${content}" sID(${sessionID}) mID(${messageID})`);
         const HTMLizedMessage = converter.makeHtml(content);
         const sanitizedMessage = DOMPurify.sanitize(HTMLizedMessage);
         let usernameToShow = isAIResponse ? `${username} 🤖` : username;

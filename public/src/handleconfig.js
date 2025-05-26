@@ -423,8 +423,9 @@ function deleteAPI() {
   util.betterSlideToggle($("#APIConfig"), 250, "height");
 }
 
+//MARK: updateConfigState
 async function updateConfigState(element) {
-  console.warn(liveConfig)
+  console.debug('updateConfigState', element.prop('id'))
   //console.debug('LOCAL ENGINE MODE = ', liveConfig.promptConfig.engineMode)
   if (initialLoad) { return }
 
@@ -461,9 +462,12 @@ async function updateConfigState(element) {
     //console.log('static selector, text field, or checkbox')
     propName = elementID
     arrayName = $element.closest('.isArrayType').prop('id')
+    if (arrayName == undefined) {
+      arrayName = 'promptConfig'
+    }
   }
 
-  //console.debug(`${arrayName}.${propName}: "${value}"`)
+  console.debug(`${arrayName}.${propName}: "${value}"`)
 
   liveConfig[arrayName][propName] = value
 
@@ -520,7 +524,7 @@ $("#APIList").on("change", async function () {
 
 $("#promptConfig input, #promptConfig select:not(#APIList, #modelList), #cardList, #hordeWorkerList").on('change', function () { updateConfigState($(this)) })
 
-$("#promptConfig textarea, #crowdControl input").on('change', function () {
+$("#systemPrompt, #D4AN, #D4CharDefs, #D1JB, #crowdControl input").on('change', function () {
   updateConfigState($(this))
 })
 

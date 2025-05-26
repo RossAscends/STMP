@@ -301,6 +301,7 @@ function trimIncompleteSentences(input, include_newline = false) {
 
 function messageServer(message) {
     socket.send(JSON.stringify(message))
+
 }
 
 //gets args as JQuery objects: $("#ElementID")
@@ -317,7 +318,8 @@ function kindlyScrollDivToBottom(divElement) {
         relevantScrollStatus = isUserScrollingUserChat
     }
 
-    const isScrolledToBottom = divElement.scrollTop() + divElement.outerHeight() >= divElement[0].scrollHeight - 100;
+    //200 is arbitrary and perhaps too aggressive, but it works reliable where 100 did not.
+    const isScrolledToBottom = divElement.scrollTop() + divElement.outerHeight() >= divElement[0].scrollHeight - 200;
 
     //console.log(divElement.attr('id'), isScrolledToBottom, relevantScrollStatus, isUserScrollingAIChat, isUserScrollingUserChat)
     //console.log(`scrolling? ${isScrolledToBottom && !relevantScrollStatus}`)

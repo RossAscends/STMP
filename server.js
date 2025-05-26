@@ -223,10 +223,10 @@ async function initFiles() {
         if (!(await existsAsync(configPath))) {
             logger.warn('Creating config.json with default values...');
             await writeFileAsync(configPath, JSON.stringify(defaultConfig, null, 2));
-            logger.debug('config.json created.');
+            logger.info('config.json created.');
             liveConfig = await fio.readConfig();
         } else {
-            logger.debug('Loading config.json...');
+            logger.info('Loading liveConfig from config.json...');
             liveConfig = await fio.readConfig();
         }
 
@@ -241,15 +241,15 @@ async function initFiles() {
         //logger.debug(cardList);
 
         if (!liveConfig?.promptConfig?.selectedCharacter || liveConfig?.promptConfig?.selectedCharacter === '') {
-            logger.warn('No selected character found, getting the latest...');
+            logger.warn('No selected character found in config.json, getting the latest...');
             let latestCharacter = await db.getLatestCharacter();
             logger.debug(latestCharacter);
             if (!latestCharacter) {
                 // For first runs they will have no character in the DB yet
-                logger.info('Database had no character in it! Adding Coding Sensei..');
+                logger.warn('Database had no character in it! Adding Coding Sensei..');
                 await db.upsertChar('Coding Sensei', 'Coding Sensei', 'green');
                 latestCharacter = await db.getLatestCharacter();
-                logger.debug(latestCharacter);
+                logger.warn(latestCharacter);
             }
 
             liveConfig.promptConfig.selectedCharacter = latestCharacter.char_id;
@@ -291,7 +291,6 @@ async function initFiles() {
     logger.info(`${color.yellow(`Host Key: ${hostKey}`)}`);
     logger.info(`${color.yellow(`Mod Key: ${modKey}`)}`);
 }
-
 
 // Create directories
 fio.createDirectoryIfNotExist("./public/api-presets");
@@ -417,47 +416,40 @@ function duplicateNameToValue(array) {
     return array.map((obj) => ({ ...obj, value: obj.name }));
 }
 
+//MARK: handleConnections()
 async function handleConnections(ws, type, request) {
-    // Parse the URL to get the query parameters
     const urlParams = new URLSearchParams(request.url.split('?')[1]);
-
-    //get the username from the encodedURI parameters
-    const encodedUsername = urlParams.get('username');
-
-    let thisUserColor, thisUserUsername, thisUserRole, user
-    // Retrieve the UUID from the query parameters
     let uuid = urlParams.get('uuid');
+    const encodedUsername = urlParams.get('username');
+    const decodedUsername = decodeURIComponent(encodedUsername || '').trim();
 
-    if (uuid === null || uuid === undefined || uuid === '') {
-        logger.info('Client connected without UUID...assigning a new one..');
-        //assign them a UUID
-        uuid = uuidv4()
-        logger.debug(`uuid assigned as ${uuid}`)
+    if (!uuid) {
+        uuid = uuidv4();
+        logger.info(`Client connected without UUID. Assigned new UUID: ${uuid}`);
     } else {
-        logger.info('Client connected with UUID:', uuid);
+        logger.info(`Client connected with UUID: ${uuid}`);
     }
-    //check if we have them in the DB
-    user = await db.getUser(uuid);
-    logger.trace('initial user check:')
-    logger.trace(user)
-    if (user !== undefined && user !== null) {
-        //if we know them, use DB values
+
+    if (!decodedUsername) {
+        logger.warn('No valid username provided. Connection rejected.');
+        ws.close();
+        return;
+    }
+
+    let user = await db.getUser(uuid);
+    let thisUserColor, thisUserUsername, thisUserRole;
+
+    if (user) {
         thisUserColor = user.username_color;
-        thisUserUsername = user.username
-        thisUserRole = user.role
+        thisUserUsername = user.username;
+        thisUserRole = user.role;
     } else {
-        //if we don't know them code a random color
         thisUserColor = usernameColors[Math.floor(Math.random() * usernameColors.length)];
+        thisUserUsername = decodedUsername;
         thisUserRole = type;
+
+        await db.upsertUser(uuid, thisUserUsername, thisUserColor);
         await db.upsertUserRole(uuid, thisUserRole);
-        //attempt to decode the username
-        thisUserUsername = decodeURIComponent(encodedUsername);
-        if (thisUserUsername === null || thisUserUsername === undefined) {
-            logger.warn('COULD NOT FIND USERNAME FOR CLIENT')
-            logger.warn('CONNECTION REJECTED')
-            ws.close()
-            return
-        }
     }
 
     clientsObject[uuid] = {
@@ -467,107 +459,63 @@ async function handleConnections(ws, type, request) {
         username: thisUserUsername
     };
 
-    user = clientsObject[uuid]
+    updateConnectedUsers();
 
-    await db.upsertUser(uuid, thisUserUsername, thisUserColor);
-    logger.debug(`Adding ${thisUserUsername} to connected user list..`)
-    updateConnectedUsers()
-    logger.trace('CONNECTED USERS')
-    logger.trace(connectedUsers)
-    logger.trace('CLIENTS OBJECT')
-    logger.trace(clientsObject)
-    logger.trace("USER =======")
-    logger.trace(user)
+    logger.info(`User connected: ${thisUserUsername} (${uuid})`);
+    logger.trace({
+        user: clientsObject[uuid],
+        connectedUsers,
+        clientsObject
+    });
 
-    const instructList = await fio.getInstructList()
-    const samplerPresetList = await fio.getSamplerPresetList()
-    var [AIChatJSON, AISessionID] = await db.readAIChat();
-    var [userChatJSON, sessionID] = await db.readUserChat()
-    //logger.info(userChatJSON)
+    // Load required data
+    const [instructList, samplerPresetList, [AIChatJSON, AISessionID], [userChatJSON, sessionID]] = await Promise.all([
+        fio.getInstructList(),
+        fio.getSamplerPresetList(),
+        db.readAIChat(),
+        db.readUserChat()
+    ]);
 
-    //send connection confirmation along with both chat history, card list, selected char, and assigned user color.
-    let connectionConfirmedMessage = {
+    const baseMessage = {
         clientUUID: uuid,
-        type: 'guestConnectionConfirmed',
+        type: thisUserRole === 'host' ? 'connectionConfirmed' : 'guestConnectionConfirmed',
         chatHistory: userChatJSON,
-        sessionID: sessionID,
+        sessionID,
         AIChatHistory: AIChatJSON,
         AIChatSessionID: AISessionID,
         color: thisUserColor,
         role: thisUserRole,
-        selectedCharacterDisplayName: liveConfig.selectedCharacterDisplayName || liveConfig.promptConfig.selectedCharacterDisplayName,
+        selectedCharacterDisplayName: liveConfig.promptConfig?.selectedCharacterDisplayName,
         userList: connectedUsers,
         crowdControl: {
-            userChatDelay: liveConfig?.crowdControl.userChatDelay || "2",
-            AIChatDelay: liveConfig?.crowdControl.AIChatDelay || "2",
-            allowImages: liveConfig?.crowdControl.allowImages || true
+            userChatDelay: liveConfig?.crowdControl?.userChatDelay || "2",
+            AIChatDelay: liveConfig?.crowdControl?.AIChatDelay || "2",
         },
+    };
 
-    }
-
-    //send control-related metadata to the Host user
     if (thisUserRole === 'host') {
-        connectionConfirmedMessage.type = 'connectionConfirmed'
-        let apis = await db.getAPIs();
-        apis = duplicateNameToValue(apis) //duplicate the name property as value property for each object in array. this is for selector population purposes.
-        let APIConfig = await db.getAPI(liveConfig.promptConfig.selectedAPI);
-        hostUUID = uuid
+        hostUUID = uuid;
 
-        //we need it to be inside liveConfig object for hosts
-        logger.trace(connectionConfirmedMessage)
+        const [apis, APIConfig] = await Promise.all([
+            db.getAPIs().then(duplicateNameToValue),
+            db.getAPI(liveConfig.promptConfig.selectedAPI)
+        ]);
 
-
-        let promptConfig = {
-            cardList: cardList,
-            selectedCharacter: liveConfig.promptConfig.selectedCharacter,
-            selectedCharacterDisplayName: liveConfig.promptConfig.selectedCharacterDisplayName,
-            contextSize: liveConfig.promptConfig.contextSize,
-            responseLength: liveConfig.promptConfig.responseLength,
-            instructList: instructList,
-            selectedInstruct: liveConfig.promptConfig.selectedInstruct,
-            samplerPresetList: samplerPresetList,
-            selectedSamplerPreset: liveConfig.promptConfig.selectedSamplerPreset,
-            engineMode: liveConfig.promptConfig.engineMode,
-            isAutoResponse: liveConfig.promptConfig.isAutoResponse,
-            isStreaming: liveConfig.promptConfig.isStreaming,
-            D4CharDefs: liveConfig.promptConfig.D4CharDefs,
-            D1JB: liveConfig.promptConfig.D1JB,
-            D4AN: liveConfig.promptConfig.D4AN,
-            systemPrompt: liveConfig.promptConfig.systemPrompt,
-            APIList: apis, //the array of every API and its properties
-            selectedAPI: liveConfig.promptConfig.selectedAPI,
-        }
-        connectionConfirmedMessage.liveConfig = {}
-
-        connectionConfirmedMessage.liveConfig.crowdControl = connectionConfirmedMessage.crowdControl
-
-        connectionConfirmedMessage.liveConfig.promptConfig = promptConfig
-        connectionConfirmedMessage.liveConfig.APIConfig = APIConfig
-
-        liveConfig = {}
-
-        liveConfig.promptConfig = connectionConfirmedMessage.liveConfig.promptConfig
-        liveConfig.APIConfig = connectionConfirmedMessage.liveConfig.APIConfig
-        liveConfig.crowdControl = connectionConfirmedMessage.liveConfig.crowdControl
-
-        await fio.writeConfig(liveConfig)
-        liveConfig = await fio.readConfig()
-        /*         console.log(`---------------------------LIVE CONFIG-----------------------------------------`)
-                console.log(liveConfig)
-                console.log(`---------------------------CONNECTION CONFIRM MESSAGE--------------------------`)
-                console.log(connectionConfirmedMessage)
-                console.log(`--------------------------------------------------------------------`) */
-        await broadcastUserList()
-        //logger.info(`the connection messsage to new client`,connectionConfirmedMessage)
-        ws.send(JSON.stringify(connectionConfirmedMessage))
-
-    } else {
-        await broadcastUserList()
-        //logger.info(`the connection messsage to new client`,connectionConfirmedMessage)
-        ws.send(JSON.stringify(connectionConfirmedMessage))
+        baseMessage.liveConfig = {
+            promptConfig: {
+                ...liveConfig.promptConfig,
+                cardList,
+                instructList,
+                samplerPresetList,
+                APIList: apis
+            },
+            APIConfig,
+            crowdControl: liveConfig.crowdControl
+        };
     }
 
-
+    await broadcastUserList();
+    ws.send(JSON.stringify(baseMessage));
 
     function updateConnectedUsers() {
         const userList = Object.values(clientsObject).map(client => ({
@@ -1021,7 +969,7 @@ async function handleConnections(ws, type, request) {
                         messageID: newMessageID,
                         sessionID: newSessionID
                     }
-                    logger.info(newUserChatMessage)
+                    //logger.info(newUserChatMessage)
                     await broadcast(newUserChatMessage)
                 }
             } else {

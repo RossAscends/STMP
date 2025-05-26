@@ -82,6 +82,7 @@ async function readConfig() {
                 try {
                     //await delay(100)
                     const configData = JSON.parse(data); // Parse the content as JSON
+                    logger.warn('READ configData', configData.crowdControl)
                     releaseLock()
                     resolve(configData);
                 } catch (parseErr) {
@@ -116,7 +117,7 @@ async function writeConfig(configObj, key = null, value = null) {
 
         logger.debug(`Config updated: ${key}`);
     }
-
+    logger.warn('WRITE configObj: ', configObj.crowdControl)
     const writableConfig = JSON.stringify(configObj, null, 2);
     fs.writeFile("./config.json", writableConfig, "utf8", writeErr => {
         if (writeErr) {

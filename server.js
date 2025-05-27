@@ -991,7 +991,7 @@ async function handleConnections(ws, type, request) {
                     //logger.info('saw messageEditRequest for: sessionID', parsedMessage.sessionID, 'and mesID', parsedMessage.mesID)
                     const mesID = parsedMessage.mesID
                     const sessionID = parsedMessage.sessionID
-                    const newMessage = parsedMessage.newMessageContent
+                    const newMessage = parsedMessage.newMessageContent.slice(0, 1000)
 
                     const result = await db.editMessage(sessionID, mesID, newMessage)
                     if (result === 'ok') {
@@ -1069,7 +1069,7 @@ async function handleConnections(ws, type, request) {
                 const chatID = parsedMessage.chatID;
                 const username = parsedMessage.username
                 const userColor = thisUserColor
-                const userInput = parsedMessage?.userInput
+                let userInput = parsedMessage?.userInput
                 const hordePrompt = parsedMessage?.userInput
                 var userPrompt
 
@@ -1078,6 +1078,7 @@ async function handleConnections(ws, type, request) {
                     let isEmptyTrigger = parsedMessage.userInput.length == 0 ? true : false
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     if (!isEmptyTrigger) {
+                        userInput = userInput.slice(0, 1000); //force respect the message size limit
                         await db.writeAIChatMessage(username, senderUUID, purifier.makeHtml(userInput), 'user');
                         let [activeChat, foundSessionID] = await db.readAIChat()
                         var chatJSON = JSON.parse(activeChat)
@@ -1107,6 +1108,7 @@ async function handleConnections(ws, type, request) {
                 }
                 //read the current userChat file
                 if (chatID === 'userChat') {
+                    parsedMessage.content = parsedMessage.content.slice(0, 1000); //force respect the message size limit
                     await db.writeUserChatMessage(uuid, purifier.makeHtml(parsedMessage.content))
                     let [newdata, sessionID] = await db.readUserChat()
                     let newJsonArray = JSON.parse(newdata);

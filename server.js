@@ -451,7 +451,7 @@ async function saveAndClearChat(type) {
     if (type === 'AIChat') {
         await db.newSession();
     }
-    else if (type === 'UserChat') {
+    else if (type === 'userChat') {
         await db.newUserChatSession();
     }
     else {
@@ -685,7 +685,7 @@ async function handleConnections(ws, type, request) {
                 }
                 if (parsedMessage.type === 'clearChat') {
                     //clear the UserChat.json file
-                    await saveAndClearChat('UserChat')
+                    await saveAndClearChat('userChat')
                     const clearUserChatInstruction = {
                         type: 'clearChat'
                     }
@@ -1050,7 +1050,7 @@ async function handleConnections(ws, type, request) {
                     }
                 }
                 //read the current userChat file
-                if (chatID === 'UserChat') {
+                if (chatID === 'userChat') {
                     await db.writeUserChatMessage(uuid, purifier.makeHtml(parsedMessage.content))
                     let [newdata, sessionID] = await db.readUserChat()
                     let newJsonArray = JSON.parse(newdata);

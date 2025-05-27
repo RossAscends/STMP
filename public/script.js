@@ -362,11 +362,11 @@ async function processConfirmedConnection(parsedMessage) {
   updateUserList("userList", userList);
 
   if (chatHistory) {
-    console.debug(`[updateChatHistory(#chat)]>> GO`);
-    $("#chat").empty()
+    console.debug(`[updateChatHistory(#userChat)]>> GO`);
+    $("#userChat").empty()
     const trimmedChatHistoryString = chatHistory.trim();
     const parsedChatHistory = JSON.parse(trimmedChatHistoryString);
-    appendMessagesWithConverter(parsedChatHistory, "#chat", sessionID);
+    appendMessagesWithConverter(parsedChatHistory, "#userChat", sessionID);
   }
 
   if (AIChatHistory) {
@@ -378,51 +378,47 @@ async function processConfirmedConnection(parsedMessage) {
   }
 
   //we always want to auto scroll the chats on first load
-  $("#chat").scrollTop($("#chat").prop("scrollHeight"));
+  $("#userChat").scrollTop($("#userChat").prop("scrollHeight"));
   $("#AIChat").scrollTop($("#AIChat").prop("scrollHeight"));
 
   initialLoad = false;
 }
 //MARK:appendMessages
 
-//elementSelector (string): is #AIChat" or "#chat" for 
+//elementSelector (string): is #AIChat" or "#userChat" for 
 //messages (array of objs): [{username:"user", userColor:"#color", content:"message text", messageID:"id", entity:"user or AI"}]
 function appendMessagesWithConverter(messages, elementSelector, sessionID) {
-  //console.warn(messages, elementSelector, sessionID)
+
   messages.forEach(({ username, userColor, content, messageID, entity }) => {
-    //const message = converter.makeHtml(content);
 
-    //console.warn('appendMessagesWithConverter', elementSelector, username, userColor, messageID, entity)
-    let messageEditDeleteHTML = "";
     let dataEntityTypeString = "";
-    //console.warn(elementSelector)
-
-    if (isHost) {
-      messageEditDeleteHTML = `
-            <div class="messageControls transition250">
-              <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="fromAppendMsg messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
-              <i data-messageid="${messageID}" data-sessionid="${sessionID}" class="fromAppendMsg messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
-            </div>`
-    }
     let isAI = entity === "AI" ? true : false;
     let usernameToShow = isAI ? `${username} 🤖` : username;
     userColor = isAI ? "white" : userColor;
+    elementSelector === "#AIChat" ? dataEntityTypeString = `data-entityType="${entity}"` : dataEntityTypeString = "";
 
-    if (elementSelector === "#AIChat") {
-      //console.warn('will add data-entityType', entity)
-      dataEntityTypeString = `data-entityType="${entity}"`;
-    }
+    let timestamp = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + " " + new Date().toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' });
 
-    let newDiv = $(`<div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}" ${dataEntityTypeString}></div`).html(`
-    <div class="messageHeader flexbox justifySpaceBetween">
-      <span style="color:${userColor}" class="chatUserName">${usernameToShow}</span>
-      ${messageEditDeleteHTML}
-    </div>
-    <div class="messageContent">
-    ${content}
+    let newDiv = $(`
+    <div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}" ${dataEntityTypeString}>
+      <div class="messageHeader flexbox justifySpaceBetween">
+        <span style="color:${userColor}" class="flexbox alignItemsCenter chatUserName">${usernameToShow}
+        <small class="messageTime">${timestamp}</small>
+        </span>
+        <div class="messageControls transition250">
+            <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+            <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+        </div>
+      </div>
+      <div class="messageContent">
+      ${content}
+      </div>
     </div>
     `);
 
+    if (!isHost) newDiv.find('.messageControls').remove();
+    if (elementSelector == "#userChat") newDiv.find('.messageEdit').remove();
+    console.warn('newDiv: ', newDiv, 'elementSelector: ', elementSelector);
     $(elementSelector).append(newDiv);
     addMessageEditListeners(newDiv);
 
@@ -530,7 +526,7 @@ function addMessageEditListeners(newDiv) {
   });
   //MARK: Line 500
   $newdiv.find(`.messageDelete`).off('click').on('click', async function () {
-    if ($(this).parent().parent().parent().parent().children().length === 1) { //check how many messages are inside the chat/AIChat container
+    if ($(this).parent().parent().parent().parent().children().length === 1) { //check how many messages are inside the userChat/AIChat container
       alert('Can not delete the only message in this chat. If you want to delete this chat, use the Past Chats list.')
       return
     }
@@ -544,7 +540,7 @@ function addMessageEditListeners(newDiv) {
     let chatContainer = $(this).parent().parent().parent().parent().prop('id');
     let deletionType;
     if (chatContainer === "AIChat") { deletionType = "AI" }
-    if (chatContainer === "chat") { deletionType = "user" }
+    if (chatContainer === "userChat") { deletionType = "user" }
 
 
 
@@ -601,7 +597,7 @@ async function connectWebSocket(username) {
         break
       case "clearChat":
         console.debug("Clearing User Chat");
-        $("#chat").empty();
+        $("#userChat").empty();
         break;
       case "clearAIChat":
         console.debug("Clearing AI Chat");
@@ -616,9 +612,9 @@ async function connectWebSocket(username) {
         break;
       case "userChatUpdate": //when last message in user char is deleted
         console.debug("saw user chat update instruction");
-        $("#chat").empty();
+        $("#userChat").empty();
         let resetUserChatHistory = parsedMessage.chatHistory;
-        appendMessagesWithConverter(resetUserChatHistory, "#chat", resetUserChatHistory[0].sessionID,)
+        appendMessagesWithConverter(resetUserChatHistory, "#userChat", resetUserChatHistory[0].sessionID,)
         break;
 
       case "modeChange":
@@ -665,8 +661,8 @@ async function connectWebSocket(username) {
                 ); */
         let newUsernameChatItem = $("<div>");
         newUsernameChatItem.html(`<i>${content}</i>`);
-        $("#chat").append(newUsernameChatItem);
-        util.kindlyScrollDivToBottom($("#chat"));
+        $("#userChat").append(newUsernameChatItem);
+        util.kindlyScrollDivToBottom($("#userChat"));
         break;
       case "changeCharacter":
         let currentChar = $("#characters").val();
@@ -810,8 +806,6 @@ async function connectWebSocket(username) {
           entity: entityTypeString
         }
         appendMessagesWithConverter([chatMessageObj], "#" + chatID, sessionID)
-        //$(`div[data-chat-id="${chatID}"]`).append(newChatItem);
-        //addMessageEditListeners(newChatItem)
         util.kindlyScrollDivToBottom($(`div[data-chat-id="${chatID}"]`));
 
         if (chatID === "AIChat") {
@@ -1221,7 +1215,7 @@ $(async function () {
   const $LLMChatWrapper = $("#LLMChatWrapper");
   const $OOCChatWrapper = $("#OOCChatWrapper");
   const $AIChatInputButtons = $("#AIChatInputButtons");
-  const $UserChatInputButtons = $("#UserChatInputButtons");
+  const $userChatInputButtons = $("#userChatInputButtons");
 
   let { username, AIChatUsername } = await startupUsernames();
   console.log("Startup Usernames:", username, AIChatUsername);
@@ -1229,7 +1223,7 @@ $(async function () {
   $("#AIUsernameInput").val(AIChatUsername);
 
   if (!isPhone) {
-    $("#chat").css('min-width', ($("#OOCChatWrapper").width() / 2) - 10);
+    $("#userChat").css('min-width', ($("#OOCChatWrapper").width() / 2) - 10);
     $("#AIChat").css('min-width', ($("#LLMChatWrapper").width() / 2) - 10);
   }
 
@@ -1294,7 +1288,7 @@ $(async function () {
     //var htmlContent = converter.makeHtml(markdownContent);
     var messageObj = {
       type: "chatMessage",
-      chatID: "UserChat",
+      chatID: "userChat",
       UUID: myUUID,
       username: username,
       content: markdownContent,
@@ -1607,7 +1601,7 @@ $(async function () {
     const chatBlock = isAIMessageInput ? $LLMChatWrapper : $OOCChatWrapper;
     const inputButtons = isAIMessageInput
       ? $AIChatInputButtons
-      : $UserChatInputButtons;
+      : $userChatInputButtons;
 
     const paddingRight = inputButtons.outerWidth() + 5 + "px";
     const maxHeight = chatBlock.outerHeight() / 2 + "px";
@@ -1634,7 +1628,7 @@ $(async function () {
   });
 
   AIChatDelay = $("#AIChatInputDelay").val() * 1000;
-  userChatDelay = $("#UserChatInputDelay").val() * 1000;
+  userChatDelay = $("#userChatInputDelay").val() * 1000;
 
   $("#editAPIButton").on("click", function () {
     control.enableAPIEdit();
@@ -1706,16 +1700,16 @@ $(async function () {
     }, 100)
   );
 
-  $("#chat").on(
+  $("#userChat").on(
     "scroll",
     util.debounce(function () {
-      if (!$("#chat").not(":focus")) {
+      if (!$("#userChat").not(":focus")) {
         return;
       }
       isUserScrollingUserChat = true;
-      clearTimeout(UserChatScrollTimeout);
+      clearTimeout(userChatScrollTimeout);
       //timer to reset the scrolling variable, effectively detecting the scroll is done.
-      UserChatScrollTimeout = setTimeout(function () {
+      userChatScrollTimeout = setTimeout(function () {
         isUserScrollingUserChat = false;
       }, 250);
     }, 100)

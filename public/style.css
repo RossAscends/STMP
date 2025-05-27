@@ -844,7 +844,6 @@ hr {
     padding: 0;
 }
 
-
 .greyscale {
     filter: saturate(0)
 }
@@ -1096,6 +1095,82 @@ button:disabled,
     min-height: 20px;
     /* Ensure space for error messages */
 }
+
+.chatOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2em;
+    font-weight: bold;
+    pointer-events: all;
+    transition: background-color 1s linear;
+    z-index: 10;
+}
+
+.clearChatCancelButton {
+    margin-top: 10px;
+    padding: 6px 12px;
+    background: red;
+    border: none;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.3s ease;
+}
+
+.clearChatCancelButton:hover {
+    background: darkred;
+}
+
+/* Shake with rotation and offset movement */
+@keyframes intenseShake {
+    0% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+
+    20% {
+        transform: translate(var(--shake-intensity), calc(var(--shake-intensity) * -1)) rotate(-0deg);
+        /* filter: blur(1px) drop-shadow(0 0 1px rgba(255, 0, 0, .5)); */
+    }
+
+    40% {
+        transform: translate(calc(var(--shake-intensity) * -1), var(--shake-intensity)) rotate(0deg);
+        /* filter: blur(1px) drop-shadow(0 0 1px rgba(255, 0, 0, .5)); */
+    }
+
+    60% {
+        transform: translate(var(--shake-intensity), var(--shake-intensity)) rotate(-0deg);
+        /* filter: blur(1px) drop-shadow(0 0 1px rgba(255, 0, 0, .5)); */
+    }
+
+    80% {
+        transform: translate(calc(var(--shake-intensity) * -1), calc(var(--shake-intensity) * -1)) rotate(0deg);
+        /* filter: blur(1px) drop-shadow(0 0 1px rgba(255, 0, 0, .5)); */
+    }
+
+    100% {
+        transform: translate(0, 0) rotate(0deg);
+        /* filter: blur(1px) drop-shadow(0 0 1px red); */
+    }
+}
+
+/* Shake class using the intenseShake animation */
+.nervousShake {
+    display: inline-block;
+    animation: intenseShake .1s infinite;
+    will-change: transform;
+    --shake-intensity: 1px;
+}
+
 
 @media (max-width: 800px) {
 

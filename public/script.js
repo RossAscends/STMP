@@ -603,7 +603,13 @@ async function connectWebSocket(username) {
         console.debug("Clearing AI Chat");
         $("#AIChat").empty();
         break;
+      case "startClearTimerResponse":
+        util.clearChatWithCountdown('induced', 'start', parsedMessage.target, isHost);
+        break;
 
+      case "cancelClearTimerResponse":
+        util.clearChatWithCountdown('induced', 'cancel', parsedMessage.target, isHost);
+        break;
       case "chatUpdate": //when last message in AI char is deleted
         console.debug("saw AI chat update instruction");
         $("#AIChat").empty();
@@ -715,7 +721,9 @@ async function connectWebSocket(username) {
       case "pastChatDeleted":
         let wasActive = parsedMessage?.wasActive;
         if (wasActive) {
-          $("#clearAIChat").trigger("click");
+          //$("#clearAIChat").trigger("click");
+          $("#AIChat").empty();
+          $("#AIChatUserList ul").empty();
         }
         $("#showPastChats").trigger("click");
         break;
@@ -1387,22 +1395,16 @@ $(async function () {
 
 
   $("#clearUserChat").off("click").on("click", function () {
-
-    console.debug("Requesting OOC Chat clear");
-    const clearMessage = {
-      type: "clearChat",
-      UUID: myUUID,
-    };
-    util.messageServer(clearMessage);
+    console.warn('saw clear chat click');
+    util.clearChatWithCountdown('manual', 'start', "#userChat", isHost, () => {
+      //console.warn("userChat Clear Timer Completed");
+    });
   });
 
   $("#clearAIChat").off("click").on("click", function () {
-    console.debug("Requesting AI Chat clear");
-    const clearMessage = {
-      type: "clearAIChat",
-      UUID: myUUID,
-    };
-    util.messageServer(clearMessage);
+    util.clearChatWithCountdown('manual', 'start', "#AIChat", isHost, () => {
+      //console.warn("AI Clear Chat Timer Completed");
+    });
   });
 
   $("#deleteLastMessageButton").off("click").on("click", function () {

@@ -500,6 +500,8 @@ watch('config.json', async (eventType, filename) => {
     }
 });
 
+const activeClearChatTimers = {}; // key = target, value = timeout ID
+
 //MARK: handleConnections()
 async function handleConnections(ws, type, request) {
 
@@ -764,33 +766,87 @@ async function handleConnections(ws, type, request) {
                     }
                 }
 
-                else if (parsedMessage.type === 'clearAIChat') {
-                    await saveAndClearChat('AIChat')
-                    const clearAIChatInstruction = {
-                        type: 'clearAIChat'
+                else if (parsedMessage.type === 'startClearChatTimer') {
+                    console.warn('recognized startClearChatTimer message');
+
+                    const { target, secondsLeft } = parsedMessage;
+
+                    // If there's already a timer for this target, ignore the new request
+                    if (activeClearChatTimers[target]) {
+                        console.warn(`Timer already active for ${target}, ignoring new request.`);
+                        return;
                     }
-                    await broadcast(clearAIChatInstruction);
-                    let charFile = liveConfig.promptConfig.selectedCharacter
-                    logger.debug(`selected character: ${charFile}`)
-                    let cardData = await fio.charaRead(charFile, 'png')
-                    let cardJSON = JSON.parse(cardData)
-                    let firstMes = cardJSON.first_mes
-                    let charName = cardJSON.name
-                    let charColor = await db.getCharacterColor(charName)
-                    firstMes = api.replaceMacros(firstMes, thisUserUsername, charName)
-                    const newAIChatFirstMessage = {
-                        type: 'chatMessage',
-                        chatID: 'AIChat',
-                        content: firstMes,
-                        username: charName,
-                        AIChatUserList: [{ username: charName, color: charColor }]
-                    }
-                    logger.trace('adding the first mesage to the chat file')
-                    await db.writeAIChatMessage(charName, charName, firstMes, 'AI');
-                    logger.trace(`Sending ${charName}'s first message to AI Chat..`)
-                    await broadcast(newAIChatFirstMessage)
-                    return
+
+                    const responseMessage = {
+                        type: 'startClearTimerResponse',
+                        target,
+                    };
+                    await broadcast(responseMessage);
+                    console.warn(`Broadcasted startClearTimerResponse for ${target}. Waiting ${secondsLeft}s...`);
+
+                    // Start and store the timer
+                    activeClearChatTimers[target] = setTimeout(async () => {
+                        console.warn(`Time is up! Clearing chat for ${target}`);
+                        delete activeClearChatTimers[target]; // Clear the reference
+
+                        if (target === '#AIChat') {
+                            console.warn('Saving and clearing AIChat...');
+                            await saveAndClearChat('AIChat');
+
+                            await broadcast({ type: 'clearAIChat' });
+
+                            const charFile = liveConfig.promptConfig.selectedCharacter;
+                            logger.warn(`selected character: ${charFile}`);
+                            const cardData = await fio.charaRead(charFile, 'png');
+                            const cardJSON = JSON.parse(cardData);
+                            const firstMes = api.replaceMacros(cardJSON.first_mes, thisUserUsername, cardJSON.name);
+                            const charName = cardJSON.name;
+
+                            const newAIChatFirstMessage = {
+                                type: 'chatMessage',
+                                chatID: 'AIChat',
+                                content: firstMes,
+                                username: charName,
+                                AIChatUserList: [{ username: charName, color: 'white' }]
+                            };
+
+                            logger.warn('Adding the first message to the chat file');
+                            await db.writeAIChatMessage(charName, charName, firstMes, 'AI');
+                            logger.warn(`Sending ${charName}'s first message to AI Chat`);
+                            await broadcast(newAIChatFirstMessage);
+                        }
+
+                        if (target === '#userChat') {
+                            console.warn('Saving and clearing userChat...');
+                            await saveAndClearChat('userChat');
+                            await broadcast({ type: 'clearChat' });
+                        }
+
+                    }, secondsLeft * 1000);
+
+                    return;
                 }
+
+                else if (parsedMessage.type === 'cancelClearChatTimer') {
+                    const { target } = parsedMessage;
+
+                    // Cancel and remove the active timer if it exists
+                    if (activeClearChatTimers[target]) {
+                        clearTimeout(activeClearChatTimers[target]);
+                        delete activeClearChatTimers[target];
+                        console.warn(`Canceled timer for ${target}`);
+                    } else {
+                        console.warn(`No active timer found for ${target}`);
+                    }
+
+                    const responseMessage = {
+                        type: 'cancelClearTimerResponse',
+                        target,
+                    };
+                    await broadcast(responseMessage);
+                    return;
+                }
+
                 else if (parsedMessage.type === 'deleteLast') {
                     await removeLastAIChatMessage()
                     return
@@ -1070,6 +1126,7 @@ async function handleConnections(ws, type, request) {
                     //logger.info(newUserChatMessage)
                     await broadcast(newUserChatMessage)
                 }
+
             } else {
                 logger.warn(`unknown message type received (${parsedMessage.type})...ignoring...`)
             }

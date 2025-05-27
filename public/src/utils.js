@@ -170,79 +170,6 @@ function correctSizeBody() {
     correctSizeChats()
 };
 
-/*
-function calculatePromptsBlockheight() {
-    // Get the outer height of #controlPanelContents
-    let controlPanel = Math.floor(parseFloat($("#controlPanelContents").outerHeight()));
-
-    // Define specific <div>s to include
-    const divIdsToInclude = [
-        'AIConfigToggle',
-        'configSelectorsBlock',
-        'promptsToggle',
-        'pastChatsBlock'
-    ];
-
-    // Sum the outer heights of specified visible <div> elements
-    let totalChildrenHeight = 0;
-    let visibleDivCount = 0;
-    let childHeights = [];
-    let childMargins = [];
-    let h4MarginTotal = 0;
-
-    divIdsToInclude.forEach(id => {
-        let $element = $(`#${id}`);
-        if ($element.is(":visible")) {
-            let height = Math.floor(parseFloat($element.outerHeight()));
-            let marginTop = Math.floor(parseFloat($element.css("margin-top")));
-            let marginBottom = Math.floor(parseFloat($element.css("margin-bottom")));
-            // Check for <h4> margins inside the <div>
-            let h4Margin = $element.find("h4").length > 0 ? 10 : 0; // 5px top + 5px bottom
-            childHeights.push(`${id}: ${height}px`);
-            childMargins.push(`${id}: margin-top ${marginTop}px, margin-bottom ${marginBottom}px, h4-margin ${h4Margin}px`);
-            totalChildrenHeight += height;
-            h4MarginTotal += h4Margin;
-            visibleDivCount++;
-        }
-    });
-
-    // Calculate hrSize (11px per visible <hr> element)
-    let hrSize = 0;
-    let hrCount = 0;
-    $("#controlPanelContents hr").each(function () {
-        if ($(this).is(":visible")) {
-            hrSize += 11;
-            hrCount++;
-        }
-    });
-
-    // Calculate gaps (3 gaps for 4 <div>s)
-    let controlPanelGaps = (visibleDivCount - 1) * 5; // Revert to 3 gaps (15px)
-
-    // Subtract <h4> margins to account for layout impact
-    let promptsBlockHeight =
-        controlPanel
-        - totalChildrenHeight
-        - controlPanelGaps
-        - hrSize
-        - h4MarginTotal // Subtract 30px for <h4> margins (10px per <h4> in 3 <div>s)
-        + 'px';
-
-    // Log for debugging
-    console.warn(`calculatePromptBlockHeight():
-    controlPanel: ${controlPanel}px
-    totalChildrenHeight: ${totalChildrenHeight}px
-    visibleDivCount: ${visibleDivCount}
-    childHeights: [${childHeights.join(', ')}]
-    childMargins: [${childMargins.join(', ')}]
-    h4MarginTotal: ${h4MarginTotal}px
-    controlPanelGaps: ${controlPanelGaps}px
-    hrSize: ${hrSize}px (from ${hrCount} visible <hr> elements)
-    ---
-    promptsBlockHeight: ${promptsBlockHeight}`);
-
-    return promptsBlockHeight;
-}*/
 
 function calculatePromptsBlockheight() {
     const $contents = $("#controlPanelContents");
@@ -329,6 +256,122 @@ function kindlyScrollDivToBottom(divElement) {
     }
 }
 
+
+const activeChatClearTimers = {
+    '#userChat': { intervalID: null, timeoutID: null },
+    '#AIChat': { intervalID: null, timeoutID: null },
+};
+
+export function clearChatWithCountdown(trigger, type, targetSelector, isHost, onComplete) {
+    const $chatDiv = $(targetSelector);
+    const $wrapper = $chatDiv.parent();
+    let $overlay = $wrapper.find('.chatOverlay');
+
+    if ($overlay.length === 0) {
+        $overlay = $('<div class="chatOverlay"></div>');
+        $wrapper.append($overlay);
+    }
+
+    const secondsTotal = 5;
+    const msTotal = secondsTotal * 1000;
+
+    // Cancel request
+    if (type === 'cancel') {
+        const { intervalID, timeoutID } = activeChatClearTimers[targetSelector] || {};
+        if (intervalID) clearInterval(intervalID);
+        if (timeoutID) clearTimeout(timeoutID);
+        activeChatClearTimers[targetSelector] = { intervalID: null, timeoutID: null };
+
+        $overlay.hide().removeData('intervalID timeoutID');
+        $overlay.empty();
+        return;
+    }
+
+    // Avoid duplicates
+    const existing = activeChatClearTimers[targetSelector];
+    if (existing?.intervalID || existing?.timeoutID) return;
+
+    // Host manually triggers it → notify server
+    if (trigger === 'manual' && isHost) {
+        messageServer({
+            type: "startClearChatTimer",
+            target: targetSelector,
+            secondsLeft: secondsTotal,
+            UUID: myUUID,
+        });
+    }
+
+    // Setup overlay UI
+    const $text = $('<div class="overlayText"></div>');
+    const $cancel = $('<button class="clearChatCancelButton">Cancel</button>');
+    $overlay.empty().append($text);
+    if (isHost) $overlay.append($cancel);
+    $overlay.css({ backgroundColor: 'rgba(0,0,0,0)', display: 'flex' });
+
+    // Immediate display
+    let secondsLeft = secondsTotal;
+    $text.text(`This chat will clear in ${secondsLeft} seconds`); //this only displays once on load
+
+    // Set up animation from frame 0
+    let elapsed = 0;
+    const updateVisuals = () => {
+
+        const remaining = Math.round(msTotal - elapsed * 1000) / 1000
+        $text.text(`This chat will clear in ${remaining} seconds`); //this is updated every frame afterwards
+
+        const progressrate = (elapsed / msTotal) * 1000; //very granular from 0 to 1, used to calc all anim intensity
+        $overlay.css('background-color', `rgba(0,0,0,${progressrate * 1.3})`)
+        $overlay.css('backdrop-filter', `blur(${progressrate * 4}px)`)
+        $text.css('opacity', 1 - (progressrate) * .9);
+        $cancel.css('opacity', 1 - (progressrate) * .9);
+
+        // Increase shake intensity: 1px → 8px
+        const intensityPx = 1 + (progressrate) * 10;
+        const intensity = `${intensityPx}px`;
+
+        $text.addClass("nervousShake").css('--shake-intensity', intensity);
+        $cancel.addClass("nervousShake").css('--shake-intensity', intensity);
+
+    };
+
+    updateVisuals(); // Immediately apply first frame visuals
+    let framecounter = 0
+    const intervalID = setInterval(() => {
+        elapsed = elapsed + .016; //16ms added per interval, for a total of 313ish frames in 5 seconds. 
+        framecounter += 1
+        if (elapsed > msTotal) {
+            clearInterval(intervalID);
+            $overlay.remove();
+
+            $text.removeClass("nervousShake panicMode").css('--shake-intensity', '1px');
+            $cancel.removeClass("nervousShake panicMode").css('--shake-intensity', '1px');
+            return;
+        }
+        //console.warn(framecounter, " frames over ", elapsed, " sec = ", framecounter / elapsed, " fps?")
+        updateVisuals();
+    }, 16); //16ms = 60fps (1000/60...)
+    //but we are aiming for a total of 5 seconds = 5000 ms = 5000/16 = 312.5 frames
+
+    const timeoutID = setTimeout(() => {
+        clearInterval(intervalID);
+        $overlay.css('background-color', 'rgba(0,0,0,1)').hide();
+        $overlay.removeData('intervalID timeoutID');
+        activeChatClearTimers[targetSelector] = { intervalID: null, timeoutID: null };
+        if (typeof onComplete === "function") onComplete();
+    }, msTotal);
+
+    activeChatClearTimers[targetSelector] = { intervalID, timeoutID };
+
+    $cancel.on('click', () => {
+        messageServer({
+            type: "cancelClearChatTimer",
+            target: targetSelector,
+            UUID: myUUID,
+        });
+    });
+}
+
+
 export default {
     correctSizeBody,
     correctSizeChats,
@@ -346,5 +389,6 @@ export default {
     messageServer,
     kindlyScrollDivToBottom,
     isValidURL,
-    calculatePromptsBlockheight
+    calculatePromptsBlockheight,
+    clearChatWithCountdown
 }    

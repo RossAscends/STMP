@@ -1111,7 +1111,6 @@ async function handleConnections(ws, type, request) {
                             sessionID: foundSessionID,
                             messageID: newMessageID
                         }
-                        logger.error('prompt', userPrompt.content)
                         await broadcast(userPrompt)
                     }
 

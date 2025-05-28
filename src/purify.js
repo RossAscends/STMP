@@ -15,19 +15,19 @@ const sanitizeExtension = (allowImages) => ({
             "style", "audio", "script", "iframe", "object", "embed", "form",
             "input", "select", "button", "marquee", "blink", "font"
         ];
-        //console.warn('sanitize init - allowImages: ', allowImages);
+        //logger.warn('sanitize init - allowImages: ', allowImages);
         if (allowImages === false) {
-            console.warn('checking for images...');
+            logger.debug('checking for images...');
             const imageRegex = /<img\b[^>]*>/gi;
             const hasImage = imageRegex.test(text);
-            console.warn('text: ', text);
-            console.warn('hasImage: ', hasImage);
+            logger.trace('text before: ', text);
+            logger.debug('hasImage: ', hasImage);
 
             if (hasImage) {
-                console.warn('removing images..');
+                logger.warn('removing images..');
                 text = text.replace(imageRegex, '>>haha embed fail, laugh at this user<<');
             }
-            console.warn('After text: ', text);
+            logger.trace('After text: ', text);
             forbiddenTags.push("img");
         } else {
             forbiddenTags = forbiddenTags.filter(tag => tag !== "img");
@@ -93,5 +93,81 @@ const createConverter = (allowImages = true) => {
     });
 };
 
+function partialMarkdownToHTML(html) {
+    const blockTagMatch = html.match(/^<(\w+)[^>]*>([\s\S]*?)<\/\1>$/);
+
+    if (!blockTagMatch) {
+        // Fallback: no wrapping tag found
+        return applyInlineMarkdown(html);
+    }
+
+    const tag = blockTagMatch[1];      // e.g., "p"
+    const innerContent = blockTagMatch[2];  // content between tags
+
+    const processedInner = applyInlineMarkdown(innerContent);
+    let result = `<${tag}>${processedInner}</${tag}>`
+
+    /*
+        logger.info(`partial markdown comparison:
+    ${html}
+    vs
+    ${result}`)
+    */
+
+    return `<${tag}>${processedInner}</${tag}>`;
+}
+
+function applyInlineMarkdown(text) {
+    const result = handleMarkdownPatterns(text);
+    return result;
+
+    function handleMarkdownPatterns(text) {
+        const rules = [
+            { pattern: /\*\*\*[^*]*$/, token: '***', open: '<strong><em>', close: '</em></strong>' },
+            { pattern: /\*\*[^*]*$/, token: '**', open: '<strong>', close: '</strong>' },
+            { pattern: /\*[^*]*$/, token: '*', open: '<em>', close: '</em>' },
+
+            { pattern: /___[^_]*$/, token: '___', open: '<strong><em>', close: '</em></strong>' },
+            { pattern: /__[^_]*$/, token: '__', open: '<strong>', close: '</strong>' },
+            { pattern: /_[^_]*$/, token: '_', open: '<em>', close: '</em>' },
+
+            { pattern: /\"[^"]*$/, token: '"', open: '<q>', close: '</q>' },
+            { pattern: /`[^`]*$/, token: '`', open: '<code>', close: '</code>' }
+        ];
+
+        for (const { pattern, token, open, close } of rules) {
+            if (pattern.test(text)) {
+                const match = text.match(pattern);
+                if (!match) continue;
+
+                const tail = match[0];              // e.g. '**bold'
+                const content = tail.slice(token.length);  // e.g. 'bold'
+                const wrapped = `${open}${content}${close}`;
+
+                return text.replace(tail, wrapped);
+            }
+        }
+
+        // Multiline code block (```...)
+        if (/^```[\s\S]*$/.test(text)) {
+            const codeContent = text.replace(/^```/, '');
+            return `<pre><code>${escapeHtml(codeContent)}</code></pre>`;
+        }
+
+        return text;
+    }
+
+    function escapeHtml(str) {
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+}
+
+
+
+
 // Export the converter factory
-export default { createConverter };
+export default { createConverter, partialMarkdownToHTML };

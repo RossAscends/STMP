@@ -15,5 +15,5 @@ echo To abort, press Ctrl+C or close this window now!
 echo.
 echo Otherwise...
 pause
-if not exist cloudflared.exe curl -Lo cloudflared.exe https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe
+if not exist cloudflared.exe curl --ssl-revoke-best-effort -Lo cloudflared.exe https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe
 cloudflared.exe tunnel --url localhost:8182

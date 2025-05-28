@@ -9,10 +9,12 @@ import { v4 as uuidv4 } from 'uuid';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
 import db from './src/db.js';
 import fio from './src/file-io.js';
 import api from './src/api-calls.js';
 import converter from './src/purify.js';
+import stream from './src/stream.js';
 import { logger } from './src/log.js';
 //import $ from 'jquery';
 
@@ -134,11 +136,7 @@ var connectedUsers = [];
 var hostUUID
 
 //default values
-var selectedCharacter
-var isAutoResponse = true
-var isStreaming = true
-var responseLength = 200
-var contextSize = 4096
+
 var liveConfig, liveAPI, secretsObj, TCAPIkey, hordeKey
 
 function delay(ms) {
@@ -316,10 +314,21 @@ wssServer.on('connection', (ws, request) => {
 });
 
 //MARK: broadcast
-async function broadcast(message, role = 'all') {
+const unloggedMessageTypes = [ // These message types will not be logged. Add more types as needed
+    'streamedAIResponse',
+    'pastChatsList',
+    'hostStateChange',
+    'guestStateChange', //uncomment any of these to see them in the console
+    'chatUpdate',
+    'userChatUpdate',
+    'heartbeat',
+    'pastChatToLoad'
+];
+
+export async function broadcast(message, role = 'all') {
     try {
         const clientUUIDs = Object.keys(clientsObject);
-        const unloggedMessageTypes = ['streamedAIResponse', 'pastChatsList', 'hostStateChange', 'guestStateChange']; // Add more types as needed
+
         const shouldReport = !unloggedMessageTypes.includes(message.type);
 
         if (shouldReport) {
@@ -403,30 +412,31 @@ async function broadcastUserList() {
 }
 
 async function removeLastAIChatMessage() {
-    await db.removeLastAIChatMessage()
+    let activeSessionID = await db.removeLastAIChatMessage()
     let [AIChatJSON, sessionID] = await db.readAIChat();
     let jsonArray = JSON.parse(AIChatJSON)
     let chatUpdateMessage = {
         type: 'chatUpdate',
-        chatHistory: jsonArray,
-        sessionID
+        chatHistory: markdownifyChatHistoriesArray(jsonArray),
+        sessionID: sessionID
     }
-    logger.debug('sending AI Chat Update instruction to clients')
+    logger.info('sending AI Chat Update instruction to clients')
     broadcast(chatUpdateMessage);
+    return activeSessionID
 }
 
 async function removeAnyAIChatMessage(parsedMessage) {
     const result = await db.deleteAIChatMessage(parsedMessage.mesID)
     if (result === 'ok') {
-        logger.debug(`Message ${parsedMessage.mesID} was deleted`);
+        logger.info(`Message ${parsedMessage.mesID} was deleted`);
         let [AIChatJSON, sessionID] = await db.readAIChat();
         let jsonArray = JSON.parse(AIChatJSON)
         let chatUpdateMessage = {
             type: 'chatUpdate',
-            chatHistory: jsonArray,
+            chatHistory: markdownifyChatHistoriesArray(jsonArray),
             sessionID
         }
-        logger.debug('sending AI Chat Update instruction to clients')
+        logger.info('sending AI Chat Update instruction to clients')
         broadcast(chatUpdateMessage);
     }
 }
@@ -434,15 +444,15 @@ async function removeAnyAIChatMessage(parsedMessage) {
 async function removeAnyUserChatMessage(parsedMessage) {
     const result = await db.deleteUserChatMessage(parsedMessage.mesID)
     if (result === 'ok') {
-        logger.debug(`Message ${parsedMessage.mesID} was deleted`);
+        logger.info(`Message ${parsedMessage.mesID} was deleted`);
         let [chatJSON, sessionID] = await db.readUserChat();
         let jsonArray = JSON.parse(chatJSON)
         let chatUpdateMessage = {
             type: 'userChatUpdate',
-            chatHistory: jsonArray,
+            chatHistory: markdownifyChatHistoriesArray(jsonArray),
             sessionID
         }
-        logger.debug('sending AI Chat Update instruction to clients')
+        logger.info('sending AI Chat Update instruction to clients')
         broadcast(chatUpdateMessage);
     }
 }
@@ -467,10 +477,10 @@ function duplicateNameToValue(array) {
 
 async function getValueFromConfigFile(key) {
     try {
-        //console.warn('configdata: ', configdata);
+        //logger.warn('configdata: ', configdata);
 
         let configdata = await fio.readConfig()
-        //console.warn('configdata parsed: ', configdata.crowdControl);
+        //logger.warn('configdata parsed: ', configdata.crowdControl);
         const soughtData = key.split('.').reduce((obj, k) => {
             if (obj && typeof obj === 'object') {
                 return obj[k];
@@ -485,7 +495,7 @@ async function getValueFromConfigFile(key) {
     }
 }
 
-let purifier = converter.createConverter((await getValueFromConfigFile('crowdControl.allowImages')));
+export let purifier = converter.createConverter((await getValueFromConfigFile('crowdControl.allowImages')));
 
 watch('config.json', async (eventType, filename) => {
     if (eventType === 'change') {
@@ -574,9 +584,9 @@ async function handleConnections(ws, type, request) {
     const baseMessage = {
         clientUUID: uuid,
         type: thisUserRole === 'host' ? 'connectionConfirmed' : 'guestConnectionConfirmed',
-        chatHistory: userChatJSON,
+        chatHistory: markdownifyChatHistoriesArray(userChatJSON),
         sessionID,
-        AIChatHistory: AIChatJSON,
+        AIChatHistory: markdownifyChatHistoriesArray(AIChatJSON),
         AIChatSessionID: AISessionID,
         color: thisUserColor,
         role: thisUserRole,
@@ -637,6 +647,12 @@ async function handleConnections(ws, type, request) {
 
         try {
             parsedMessage = JSON.parse(message);
+
+            let shouldReport = !unloggedMessageTypes.includes(parsedMessage.type);
+            if (shouldReport) {
+                logger.info(`Received ${parsedMessage.type} message from ${thisUserUsername}`);
+            }
+
             const senderUUID = parsedMessage.UUID
             let userColor = await db.getUserColor(senderUUID)
             let thisClientObj = clientsObject[parsedMessage.UUID];
@@ -716,7 +732,7 @@ async function handleConnections(ws, type, request) {
                 }
                 else if (parsedMessage.type === 'testNewAPI') {
                     let result = await api.testAPI(parsedMessage.api, liveConfig)
-                    console.log(result)
+                    logger.info(result)
                     testAPIResult = {
                         type: 'testAPIResult',
                         result: result
@@ -767,13 +783,13 @@ async function handleConnections(ws, type, request) {
                 }
 
                 else if (parsedMessage.type === 'startClearChatTimer') {
-                    console.warn('recognized startClearChatTimer message');
+                    logger.warn('recognized startClearChatTimer message');
 
                     const { target, secondsLeft } = parsedMessage;
 
                     // If there's already a timer for this target, ignore the new request
                     if (activeClearChatTimers[target]) {
-                        console.warn(`Timer already active for ${target}, ignoring new request.`);
+                        logger.warn(`Timer already active for ${target}, ignoring new request.`);
                         return;
                     }
 
@@ -782,15 +798,15 @@ async function handleConnections(ws, type, request) {
                         target,
                     };
                     await broadcast(responseMessage);
-                    console.warn(`Broadcasted startClearTimerResponse for ${target}. Waiting ${secondsLeft}s...`);
+                    logger.warn(`Broadcasted startClearTimerResponse for ${target}. Waiting ${secondsLeft}s...`);
 
                     // Start and store the timer
                     activeClearChatTimers[target] = setTimeout(async () => {
-                        console.warn(`Time is up! Clearing chat for ${target}`);
+                        logger.warn(`Time is up! Clearing chat for ${target}`);
                         delete activeClearChatTimers[target]; // Clear the reference
 
                         if (target === '#AIChat') {
-                            console.warn('Saving and clearing AIChat...');
+                            logger.warn('Saving and clearing AIChat...');
                             await saveAndClearChat('AIChat');
 
                             await broadcast({ type: 'clearAIChat' });
@@ -805,7 +821,7 @@ async function handleConnections(ws, type, request) {
                             const newAIChatFirstMessage = {
                                 type: 'chatMessage',
                                 chatID: 'AIChat',
-                                content: firstMes,
+                                content: purifier.makeHtml(firstMes), //firstMes,
                                 username: charName,
                                 AIChatUserList: [{ username: charName, color: 'white' }]
                             };
@@ -817,7 +833,7 @@ async function handleConnections(ws, type, request) {
                         }
 
                         if (target === '#userChat') {
-                            console.warn('Saving and clearing userChat...');
+                            logger.warn('Saving and clearing userChat...');
                             await saveAndClearChat('userChat');
                             await broadcast({ type: 'clearChat' });
                         }
@@ -834,9 +850,9 @@ async function handleConnections(ws, type, request) {
                     if (activeClearChatTimers[target]) {
                         clearTimeout(activeClearChatTimers[target]);
                         delete activeClearChatTimers[target];
-                        console.warn(`Canceled timer for ${target}`);
+                        logger.warn(`Canceled timer for ${target}`);
                     } else {
-                        console.warn(`No active timer found for ${target}`);
+                        logger.warn(`No active timer found for ${target}`);
                     }
 
                     const responseMessage = {
@@ -876,11 +892,11 @@ async function handleConnections(ws, type, request) {
                 else if (parsedMessage.type === 'displayCharDefs') {
                     const charDefs = await fio.charaRead(parsedMessage.value)
                     //logger.warn(charDefs)
-                    const messageContentResponse = {
+                    const charDefResponse = {
                         type: 'charDefsResponse',
                         content: charDefs
                     }
-                    ws.send(JSON.stringify(messageContentResponse))
+                    ws.send(JSON.stringify(charDefResponse))
                     return
                 }
 
@@ -894,15 +910,10 @@ async function handleConnections(ws, type, request) {
                     //MARK: AIRetry
                     // Read the AIChat file
                     try {
-                        await removeLastAIChatMessage()
-                        userPrompt = {
-                            'chatID': parsedMessage.chatID,
-                            'username': parsedMessage.username,
-                            'content': '',
-                            'color': user.color
-                        }
-                        handleResponse(
-                            parsedMessage, selectedAPI, hordeKey, engineMode, user, liveConfig
+                        let activeSessionID = await removeLastAIChatMessage()
+                        await stream.handleResponse(
+                            parsedMessage, selectedAPI, hordeKey,
+                            engineMode, user, liveConfig, activeSessionID
                         );
                         return
                     } catch (parseError) {
@@ -941,7 +952,7 @@ async function handleConnections(ws, type, request) {
                     let jsonArray = JSON.parse(pastChat)
                     const pastChatsLoadMessage = {
                         type: 'pastChatToLoad',
-                        pastChatHistory: jsonArray,
+                        pastChatHistory: markdownifyChatHistoriesArray(jsonArray),
                         sessionID: sessionID
                     }
                     await broadcast(pastChatsLoadMessage)
@@ -978,11 +989,16 @@ async function handleConnections(ws, type, request) {
                     }
                 }
                 else if (parsedMessage.type === 'messageContentRequest') {
-                    const messageContent = await db.getMessage(parsedMessage.mesID)
+                    const messageContent = await db.getMessage(parsedMessage.mesID, parsedMessage.sessionID)
+                    if (!messageContent) {
+                        logger.error('No message found for message ID:', parsedMessage.mesID);
+                    }
                     //logger.info('saw messageContentRequest for: sessionID', parsedMessage.sessionID, 'and mesID', parsedMessage.mesID)
                     const messageContentResponse = {
                         type: 'messageContentResponse',
-                        content: messageContent
+                        content: messageContent,
+                        sessionID: parsedMessage.sessionID,
+                        mesID: parsedMessage.mesID
                     }
                     ws.send(JSON.stringify(messageContentResponse))
                     return
@@ -991,7 +1007,7 @@ async function handleConnections(ws, type, request) {
                     //logger.info('saw messageEditRequest for: sessionID', parsedMessage.sessionID, 'and mesID', parsedMessage.mesID)
                     const mesID = parsedMessage.mesID
                     const sessionID = parsedMessage.sessionID
-                    const newMessage = parsedMessage.newMessageContent.slice(0, 1000)
+                    const newMessage = parsedMessage.newMessageContent
 
                     const result = await db.editMessage(sessionID, mesID, newMessage)
                     if (result === 'ok') {
@@ -999,7 +1015,7 @@ async function handleConnections(ws, type, request) {
                         let jsonArray = JSON.parse(pastChat)
                         const pastChatsLoadMessage = {
                             type: 'pastChatToLoad',
-                            pastChatHistory: jsonArray,
+                            pastChatHistory: markdownifyChatHistoriesArray(jsonArray),
                             sessionID: sessionID
                         }
                         await broadcast(pastChatsLoadMessage)
@@ -1008,15 +1024,12 @@ async function handleConnections(ws, type, request) {
                         logger.error('could not update message with new edits')
                         return
                     }
-
-
                 }
             }
             //process universal message types
 
             if (parsedMessage.type === 'usernameChange') {
                 //logger.info(parsedMessage)
-                converter.makeHtml(parsedMessage.oldName);
                 clientsObject[uuid].username = parsedMessage.newName;
                 updateConnectedUsers()
                 await db.upsertUser(parsedMessage.UUID, parsedMessage.newName, user.color ? user.color : thisClientObj.color)
@@ -1077,21 +1090,23 @@ async function handleConnections(ws, type, request) {
                 if (chatID === 'AIChat') {
                     let isEmptyTrigger = parsedMessage.userInput.length == 0 ? true : false
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
+                    //this can be the case when a previous chat is wiped, and we need to force send
+                    //the character's firstMessage into the new chat session.
                     if (!isEmptyTrigger) {
                         userInput = userInput.slice(0, 1000); //force respect the message size limit
-                        await db.writeAIChatMessage(username, senderUUID, purifier.makeHtml(userInput), 'user');
+                        await db.writeAIChatMessage(username, senderUUID, userInput, 'user');
                         let [activeChat, foundSessionID] = await db.readAIChat()
                         var chatJSON = JSON.parse(activeChat)
                         var lastItem = chatJSON[chatJSON.length - 1]
                         var newMessageID = lastItem?.messageID
                         var content = purifier.makeHtml(parsedMessage.userInput)
-                        console.info('content: ', content)
+                        logger.info('content: ', content)
 
                         userPrompt = {
                             type: 'chatMessage',
                             chatID: chatID,
                             username: username,
-                            content: content,
+                            content: markdownifyChatHistoriesArray(chatJSON), //content,
                             userColor: userColor,
                             sessionID: foundSessionID,
                             messageID: newMessageID
@@ -1100,7 +1115,8 @@ async function handleConnections(ws, type, request) {
                     }
 
                     if (liveConfig.promptConfig.isAutoResponse || isEmptyTrigger) {
-                        handleResponse(
+                        //normal user typing into AIChart, or forced trigger
+                        await stream.handleResponse(
                             parsedMessage, selectedAPI, hordeKey,
                             engineMode, user, liveConfig
                         );
@@ -1109,7 +1125,7 @@ async function handleConnections(ws, type, request) {
                 //read the current userChat file
                 if (chatID === 'userChat') {
                     parsedMessage.content = parsedMessage.content.slice(0, 1000); //force respect the message size limit
-                    await db.writeUserChatMessage(uuid, purifier.makeHtml(parsedMessage.content))
+                    await db.writeUserChatMessage(uuid, parsedMessage.content)
                     let [newdata, sessionID] = await db.readUserChat()
                     let newJsonArray = JSON.parse(newdata);
                     let lastItem = newJsonArray[newJsonArray.length - 1]
@@ -1121,7 +1137,7 @@ async function handleConnections(ws, type, request) {
                         chatID: chatID,
                         username: username,
                         userColor: userColor,
-                        content: newContent,
+                        content: purifier.makeHtml(newContent),
                         messageID: newMessageID,
                         sessionID: sessionID
                     }
@@ -1147,6 +1163,50 @@ async function handleConnections(ws, type, request) {
     });
 
 };
+
+function markdownifyChatHistoriesArray(chatMessagesArray) {
+    let parsedArray;
+
+    // 1. Handle full array passed as JSON string
+    if (typeof chatMessagesArray === 'string') {
+        try {
+            parsedArray = JSON.parse(chatMessagesArray);
+        } catch (e) {
+            console.error('Failed to parse full JSON string:', e);
+            return [];
+        }
+    } else if (Array.isArray(chatMessagesArray)) {
+        // 2. Handle array of strings or objects
+        parsedArray = chatMessagesArray.map(entry => {
+            if (typeof entry === 'string') {
+                try {
+                    return JSON.parse(entry);
+                } catch (e) {
+                    console.warn('Skipping invalid JSON string in array:', entry);
+                    return null;
+                }
+            } else if (typeof entry === 'object' && entry !== null) {
+                return entry; // Already an object
+            } else {
+                console.warn('Skipping invalid item in array:', entry);
+                return null;
+            }
+        }).filter(Boolean); // remove nulls
+    } else {
+        console.error('Input is not a valid string or array.');
+        return [];
+    }
+
+    // 3. Now convert the `content` field using markdown
+    for (let msg of parsedArray) {
+        if (msg && typeof msg.content === 'string') {
+            msg.content = purifier.makeHtml(msg.content);
+        }
+    }
+
+    return parsedArray;
+}
+
 
 //checks an incoming liveConfig from client for changes to the APIList, and adjust server's list and db-registered APIs to match it.
 async function checkAPIListChanges(liveConfig, parsedMessage) {
@@ -1230,128 +1290,6 @@ function isAPIEqual(api1, api2) {
         }
     }
     return true;
-}
-
-let accumulatedStreamOutput = ''
-
-const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user, sessionID, messageID) => {
-    let currentlyStreaming
-    //logger.warn(parsedMessage)
-
-    const endResponse = async () => {
-        //logger.warn('AIChatUserList in text Listener EndResponse')
-        //logger.warn(AIChatUserList)
-        currentlyStreaming = false
-        //if (!responseEnded) {
-        //    responseEnded = true;
-        api.textEmitter.removeAllListeners('text');
-        const streamEndToken = {
-            chatID: parsedMessage.chatID,
-            AIChatUserList: AIChatUserList,
-            userColor: parsedMessage.userColor,
-            username: liveConfig.promptConfig.selectedCharacterDisplayName,
-            type: 'streamedAIResponseEnd',
-        };
-        //logger.warn('sending stream end')
-        broadcast(streamEndToken); // Emit the event to clients
-        //}
-    };
-
-    return async (text) => {
-
-        //add the newest token to the accumulated variable for later chat saving. 
-        //console.log(text);
-        // Check if the response stream has ended
-        if (currentlyStreaming) {
-            if (text === 'END_OF_RESPONSE' || text === null || text === undefined) {
-                endResponse();
-                return
-            }
-            //logger.debug('saw end of stream or invalid token')
-        } else if (text === 'END_OF_RESPONSE' || text === null || text === undefined) {
-            return
-        }
-
-        accumulatedStreamOutput += text
-        //logger.debug(accumulatedStreamOutput)
-
-        const streamedTokenMessage = {
-            chatID: parsedMessage.chatID,
-            content: text,
-            username: liveConfig.promptConfig.selectedCharacterDisplayName,
-            type: 'streamedAIResponse',
-            color: user.color || 'red', //if red, then we have a problem somewhere. AI dont have colors atm, defaulting to white in frontend.
-            sessionID: sessionID,
-            messageID: messageID,
-        };
-        await broadcast(streamedTokenMessage);
-        currentlyStreaming = true
-
-
-    };
-};
-
-async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, user, liveConfig) {
-    var AIResponse, AIChatUserList
-
-    //console.log(liveConfig)
-    logger.debug('Getting response via', engineMode)
-    if (engineMode === 'horde') { isStreaming = false }
-    //just get the AI chat userlist with 'true' as last argument
-    //this is jank..
-    logger.debug('Dry run to get the AI UserList')
-    AIChatUserList = await api.getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, true, parsedMessage);
-    //logger.trace('AIChatUserList in handleResponse')
-    //logger.trace(AIChatUserList)
-
-    logger.debug('is Streaming?', isStreaming)//
-
-    if (isStreaming) {
-        logger.debug('doing streamed response')
-        let [activeChat, foundSessionID] = await db.readAIChat()
-        var chatJSON = JSON.parse(activeChat)
-        var lastItem = chatJSON[chatJSON.length - 1]
-        var newMessageID = lastItem?.messageID + 1 || 1;
-        api.textEmitter.removeAllListeners('text');
-        const textListener = createTextListener(parsedMessage, liveConfig, AIChatUserList, user, foundSessionID, newMessageID);
-        // Handle streamed response
-        api.textEmitter.off('text', textListener).on('text', textListener)
-
-        // Make the API request for streamed responses
-
-        const response = await api.getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage);
-
-        if (response === null) {
-            textListener('END_OF_RESPONSE');
-            let trimmedStreamedResponse = await api.trimIncompleteSentences(accumulatedStreamOutput)
-            await db.writeAIChatMessage(liveConfig.promptConfig.selectedCharacterDisplayName, 'AI', trimmedStreamedResponse, 'AI')
-            //console.log('message was:')
-            //console.log(liveConfig.promptConfig.selectedCharacterDisplayName + ':' + accumulatedStreamOutput)
-            accumulatedStreamOutput = ''
-        }
-
-    } else {
-        //logger.info('SENDING BACK NON-STREAM RESPONSE')
-        // Handle non-streamed response
-        //logger.error('sending request to get AI non-streamed response')
-        let [AIResponse, AIChatUserList] = await api.getAIResponse(
-            isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage);
-        //logger.error('got response and userlist')
-
-        const AIResponseMessage = {
-            chatID: parsedMessage.chatID,
-            content: AIResponse,
-            username: liveConfig.promptConfig.selectedCharacterDisplayName,
-            type: 'AIResponse',
-            color: user.color,
-            AIChatUserList: AIChatUserList
-        }
-        let trimmedResponse = await api.trimIncompleteSentences(AIResponse)
-        await db.writeAIChatMessage(liveConfig.promptConfig.selectedCharacterDisplayName, 'AI', trimmedResponse, 'AI')
-        logger.info('Response:', AIResponseMessage)
-        await broadcast(AIResponseMessage)
-
-    }
 }
 
 // Handle server shutdown via ctrl+c

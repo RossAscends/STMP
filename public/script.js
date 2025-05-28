@@ -292,7 +292,7 @@ async function processConfirmedConnection(parsedMessage) {
   //process universal stuff for guests
   const {
     clientUUID, role, selectedCharacterDisplayName,
-    chatHistory, AIChatHistory, userList, sessionID
+    chatHistory, AIChatHistory, userList, sessionID, AIChatSessionID
   } = parsedMessage;
 
   //console.warn(chatHistory)
@@ -364,17 +364,13 @@ async function processConfirmedConnection(parsedMessage) {
   if (chatHistory) {
     console.debug(`[updateChatHistory(#userChat)]>> GO`);
     $("#userChat").empty()
-    const trimmedChatHistoryString = chatHistory.trim();
-    const parsedChatHistory = JSON.parse(trimmedChatHistoryString);
-    appendMessagesWithConverter(parsedChatHistory, "#userChat", sessionID);
+    appendMessages(chatHistory, "#userChat", sessionID);
   }
 
   if (AIChatHistory) {
     console.debug("[updateAIChatHistory(#AIChat)]>> GO");
     $("#AIChat").empty()
-    const trimmedAIChatHistoryString = AIChatHistory.trim();
-    const parsedAIChatHistory = JSON.parse(trimmedAIChatHistoryString);
-    appendMessagesWithConverter(parsedAIChatHistory, "#AIChat", sessionID);
+    appendMessages(AIChatHistory, "#AIChat", AIChatSessionID);
   }
 
   //we always want to auto scroll the chats on first load
@@ -387,7 +383,7 @@ async function processConfirmedConnection(parsedMessage) {
 
 //elementSelector (string): is #AIChat" or "#userChat" for 
 //messages (array of objs): [{username:"user", userColor:"#color", content:"message text", messageID:"id", entity:"user or AI"}]
-function appendMessagesWithConverter(messages, elementSelector, sessionID) {
+function appendMessages(messages, elementSelector, sessionID) {
 
   messages.forEach(({ username, userColor, content, messageID, entity }) => {
 
@@ -418,7 +414,7 @@ function appendMessagesWithConverter(messages, elementSelector, sessionID) {
 
     if (!isHost) newDiv.find('.messageControls').remove();
     if (elementSelector == "#userChat") newDiv.find('.messageEdit').remove();
-    console.warn('newDiv: ', newDiv, 'elementSelector: ', elementSelector);
+    console.debug('newDiv content: ', content, 'elementSelector: ', elementSelector);
     $(elementSelector).append(newDiv);
     addMessageEditListeners(newDiv);
 
@@ -443,9 +439,8 @@ function addMessageEditListeners(newDiv) {
 
     //first we get the message content from server as it's saved in the database
     let currentMessageData = await getMessageContent(mesID)
-    console.debug(currentMessageData.message)
 
-    await editMessage(currentMessageData.message)
+    await editMessage(currentMessageData.content)
 
     async function getMessageContent(mesID) {
       //this outgoing message type receives a response
@@ -457,16 +452,17 @@ function addMessageEditListeners(newDiv) {
         mesID: mesID,
         sessionID: sessionID
       };
-
+      console.debug('outgoing messsage content request', messageContentRequest)
       return new Promise((resolve, reject) => {
 
         const messageContentHandler = (response) => {
           //parse the response, extract the mesage contents
+          console.debug(response)
           let responseDataJSON = JSON.parse(response.data)
-          //console.log(responseDataJSON)
+          console.debug('messageContentResponse: ', responseDataJSON)
           //and remove listener once we have it
           socket.removeEventListener('message', messageContentHandler);
-          resolve(responseDataJSON.content);
+          resolve(responseDataJSON);
         };
         //we create a one-time listener to handle the next response that will go past our main switch
         socket.addEventListener('message', messageContentHandler);
@@ -493,7 +489,7 @@ function addMessageEditListeners(newDiv) {
           title: "Edit Message",
           buttons: {
             Ok: function () {
-              console.log($("#mesEditText").val())
+              console.debug('new content for edited message: ', $("#mesEditText").val())
               $(this).dialog("close");
               const newMessageContent = $("#mesEditText").val()
               $(this).remove()
@@ -507,6 +503,7 @@ function addMessageEditListeners(newDiv) {
               }
               //send a 'mesasgeEdit' outgoing message to server
               //this resolves with a 'pastChatToLoad' response, which the main switch will handle.
+              console.debug('mesEditRequest', mesEditRequest)
               util.messageServer(mesEditRequest)
             },
             Cancel: function () {
@@ -527,7 +524,7 @@ function addMessageEditListeners(newDiv) {
   //MARK: Line 500
   $newdiv.find(`.messageDelete`).off('click').on('click', async function () {
     if ($(this).parent().parent().parent().parent().children().length === 1) { //check how many messages are inside the userChat/AIChat container
-      alert('Can not delete the only message in this chat. If you want to delete this chat, use the Past Chats list.')
+      alert('Can not delete the only message in this chat. \nIf you want to delete an AI Chat, use the Past Chats list.\nFor User Chats, just empty it with the trash can.')
       return
     }
 
@@ -583,6 +580,8 @@ async function connectWebSocket(username) {
       console.debug("Received server message:", message);
     }
 
+    console.info('Received parsedMessage type:', parsedMessage.type)
+
     /*TODO: 
         condense anything that is related to user state into a single message type: 
             userList, AIChatUserlist, userconnect, userDisconnect, username change
@@ -614,13 +613,13 @@ async function connectWebSocket(username) {
         console.debug("saw AI chat update instruction");
         $("#AIChat").empty();
         let resetChatHistory = parsedMessage.chatHistory;
-        appendMessagesWithConverter(resetChatHistory, "#AIChat", resetChatHistory[0].sessionID,)
+        appendMessages(resetChatHistory, "#AIChat", resetChatHistory[0].sessionID,)
         break;
       case "userChatUpdate": //when last message in user char is deleted
         console.debug("saw user chat update instruction");
         $("#userChat").empty();
         let resetUserChatHistory = parsedMessage.chatHistory;
-        appendMessagesWithConverter(resetUserChatHistory, "#userChat", resetUserChatHistory[0].sessionID,)
+        appendMessages(resetUserChatHistory, "#userChat", resetUserChatHistory[0].sessionID,)
         break;
 
       case "modeChange":
@@ -714,8 +713,8 @@ async function connectWebSocket(username) {
         $("#pastChatsList")
           .find(`div[data-session_id="${parsedMessage.sessionID}"]`)
           .addClass("activeChat");
-        //TODO: this feels like a duplicate of the appendWithConverter function...merge?
-        appendMessagesWithConverter(pastChatHistory, "#AIChat", parsedMessage.sessionID)
+        console.debug('about to append messages: ', pastChatHistory, "#AIChat", parsedMessage.sessionID)
+        appendMessages(pastChatHistory, "#AIChat", parsedMessage.sessionID)
         util.kindlyScrollDivToBottom($("#AIChat"))
         break;
       case "pastChatDeleted":
@@ -747,42 +746,47 @@ async function connectWebSocket(username) {
         break;
       //MARK: streamedAIResponse
       case "streamedAIResponse":
-        //TODO: merge this into appendWithConverter (and add a flag to it to indicate it's a streamed response?)
-        //console.warn(parsedMessage.color)
         $("body").addClass("currentlyStreaming");
         currentlyStreaming = true;
-        let newStreamDivSpan;
-        let streamedMessageEditDeleteHTML = "";
-        if (isHost) {
-          streamedMessageEditDeleteHTML = `
-            <div class="messageControls transition250">
-              <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
-              <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
-            </div>`
-        }
-        if (!$("#AIChat .incomingStreamDiv").length) {
-          newStreamDivSpan = $(`<div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}" data-entityType="AI"></div>`).html(`
-          <div class="messageHeader flexbox justifySpaceBetween">
-            <span style="color:white" class="chatUserName">${parsedMessage.username} 🤖</span>
-            ${streamedMessageEditDeleteHTML}
-          </div>
-          <div class="messageContent">
-            <span></span>
-          </div>`);
+
+        accumulatedContent += parsedMessage.content;
+
+        let $incomingDiv = $("#AIChat .incomingStreamDiv");
+        if (!$incomingDiv.length) {
+          const newStreamDivSpan = $(`
+            <div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}" data-entityType="AI">
+                <div class="messageHeader flexbox justifySpaceBetween">
+                    <span style="color:white" class="chatUserName">${parsedMessage.username} 🤖</span>
+                    <div class="messageControls transition250">
+                        <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+                        <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+                    </div>
+                </div>
+                <div class="messageContent"><span></span></div>
+            </div>
+        `);
+          if (!isHost) newStreamDivSpan.find('.messageControls').remove();
+
           $("#AIChat").append(newStreamDivSpan);
-          util.kindlyScrollDivToBottom($("#AIChat"));
         }
-        await displayStreamedResponse(message);
+
+        // Debounced update
+        pendingHTML = mendHTML(parsedMessage.content);
+        //if (!frameRequested) {
+        requestAnimationFrame(updateStreamedMessageHTML);
+        //  frameRequested = true;
+        //}
+
         break;
 
       case "streamedAIResponseEnd":
         console.debug("saw stream end");
         //const HTMLizedContent = converter.makeHtml(accumulatedContent);
-        const newDivElement = $("<p>").html(accumulatedContent);
-        const elementsToRemove = $(".incomingStreamDiv .messageContent").children("span");
+        const newDivElement = $("<p>").html(parsedMessage.content);
+        const elementsToRemove = $(".incomingStreamDiv .messageContent").children();
         elementsToRemove.remove();
         if (isHost) addMessageEditListeners('.incomingStreamDiv');
-        $(".incomingStreamDiv").append(newDivElement.html());
+        $(".incomingStreamDiv .messageContent").html(newDivElement.html());
         accumulatedContent = "";
         fullRawAccumulatedContent = "";
         $(".incomingStreamDiv").removeClass("incomingStreamDiv");
@@ -813,7 +817,7 @@ async function connectWebSocket(username) {
           messageID: messageID,
           entity: entityTypeString
         }
-        appendMessagesWithConverter([chatMessageObj], "#" + chatID, sessionID)
+        appendMessages([chatMessageObj], "#" + chatID, sessionID)
         util.kindlyScrollDivToBottom($(`div[data-chat-id="${chatID}"]`));
 
         if (chatID === "AIChat") {
@@ -831,49 +835,55 @@ async function connectWebSocket(username) {
   });
 }
 
-let fullRawAccumulatedContent = ""; //store the whole message
-let accumulatedContent = ""; // variable to store tokens for the currently streaming paragraph
-async function displayStreamedResponse(message) {
-  await util.delay(0);
-  var content = JSON.parse(message).content;
-  let newStreamDivSpan = $("#AIChat .incomingStreamDiv .messageContent span:last");
-  let newStreamDiv = $("#AIChat .incomingStreamDiv .messageContent");
 
-  //content = DOMPurify.sanitize(content);
 
-  let spanElement, contentLeftover;
-  if (content.includes("\nabcxyz1234567890zyxabc")) { //that oddly lone and specific string is simply to disable this check for now, since parsing \n is broken
-    //preprocess individual paragraphs.
-    //sometimes AI produces new lines with the start of the next sentence together.
-    //we want to remove the newlines, but keep the first word of the next paragraph.
+function mendHTML(html) {
+  const openTags = getOpenTags(html);
+  const closing = openTags.slice().reverse().map(tag => `</${tag}>`).join('');
+  //console.warn(html + closing)
+  return html + closing;
 
-    contentLeftover = content.replaceAll("\n", "");
+  function getOpenTags(html) {
+    const tagStack = [];
+    const tagRegex = /<\/?([a-zA-Z0-9]+)(\s[^>]*)?>/g;
+    let match;
 
-    if (!contentLeftover) {
-      contentLeftover === "";
-    } //if there was nothing else, set it to blank.
-    let trimmedParagraph = util.trimIncompleteSentences(accumulatedContent); //trim what we accumulated so far.
+    while ((match = tagRegex.exec(html)) !== null) {
+      const fullTag = match[0];
+      const tagName = match[1].toLowerCase();
 
-    //let markdownParagraph = converter.makeHtml(trimmedParagraph); //make it markdown
-    $(newStreamDiv).children("span").remove(); //remove all the token spans that went into producing it.
-    $(newStreamDiv).append(trimmedParagraph); //add the markdown paragraph inplace of the token spans.
-    accumulatedContent = contentLeftover; //set accumulated content the leftovers after the newline cut (first character/word of next sentence)
-    newStreamDiv.append($("<span>")); //add a new span for the new paragraph's tokens to come into.
-  } else {
-    //if we are still doing the same paragraph, just add tokens into spans
-    accumulatedContent += content;
-    spanElement = $("<span>").html(content);
-    newStreamDivSpan.append(spanElement);
+      // Skip self-closing
+      if (/\/>$/.test(fullTag) || ['br', 'img', 'hr', 'meta', 'input', 'link'].includes(tagName)) continue;
+
+      if (fullTag.startsWith('</')) {
+        const idx = tagStack.lastIndexOf(tagName);
+        if (idx !== -1) tagStack.splice(idx, 1);
+      } else {
+        tagStack.push(tagName);
+      }
+    }
+    //console.warn(tagStack)
+    return tagStack;
+  }
+}
+
+let pendingHTML = null;
+let frameRequested = false;
+
+function updateStreamedMessageHTML() {
+  if (!pendingHTML) return;
+
+  const $incomingDiv = $("#AIChat .incomingStreamDiv");
+  if ($incomingDiv.length) {
+    $incomingDiv.find(".messageContent span").html(pendingHTML);
+    util.kindlyScrollDivToBottom($("#AIChat"));
   }
 
-  // Find and preserve existing username span within .incomingStreamDiv
-  //const existingUsernameSpan = newStreamDivSpan.find('.chatUserName');
-
-  util.kindlyScrollDivToBottom($("#AIChat"));
-
-  // Scroll to the bottom of the div to view incoming tokens
-  //not sure this is working
+  pendingHTML = null;
+  frameRequested = false;
 }
+
+let accumulatedContent = ""; // variable to store tokens for the currently streaming paragraph
 
 function handleSocketOpening(socket) {
   console.log("WebSocket opened to server:", serverUrl);
@@ -933,6 +943,8 @@ function doAIRetry() {
     UUID: myUUID,
     username: username,
     char: char,
+    mesID: $("#AIChat").children("div").last().attr("data-messageID"),
+    sessionID: $("#AIChat").children("div").last().attr("data-sessionID"),
   };
   disableButtons()
   util.messageServer(retryMessage);

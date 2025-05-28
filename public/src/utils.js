@@ -199,8 +199,8 @@ function calculatePromptsBlockheight() {
 
 
 function trimIncompleteSentences(input, include_newline = false) {
-    if (input === undefined) { return 'Error processing response (could not trim sentences).' }
-    console.log("incoming string for trim", input)
+    if (input === undefined) { return 'Error processing response (could not trim sentences because input was undefined).' }
+    console.debug("incoming string for trim", input)
     const punctuation = new Set(['...', '…', '.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit
     let last = -1;
     for (let i = input.length - 1; i >= 0; i--) {

@@ -2,15 +2,10 @@
 import fs from 'fs';
 import $ from 'jquery';
 import util from 'util';
-import { Readable } from 'stream';
-import { EventEmitter } from 'events';
-import iconv from 'iconv-lite';
-import { StringDecoder } from 'string_decoder';
+import stream from './stream.js';
 import db from './db.js';
 import fio from './file-io.js';
 import { apiLogger as logger } from './log.js';
-
-const textEmitter = new EventEmitter();
 
 
 function delay(ms) {
@@ -37,117 +32,86 @@ async function getAPIDefaults(shouldReturn = null) {
     }
 }
 
+//MARK: getAIResponse
 async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage) {
-    let isCCSelected = liveAPI.type === 'CC' ? true : false
-    let isClaude = liveAPI.claude
-    let APICallParams
+    // logger.warn('getAIResponse liveAPI:', liveAPI)
+    // logger.warn(`liveConfig: ${JSON.stringify(liveConfig)}`);
+    const isCCSelected = liveAPI.type === 'CC';
+    const isClaude = liveAPI.claude;
+
+    let apiCallParams;
+
     try {
-        if (engineMode === 'TC') {
-            //logger.info('using TC api template')
-            APICallParams = TCAPIDefaults
-        } else {
-            //logger.info('using horde api param template')
-            APICallParams = HordeAPIDefaults
-        }
+        apiCallParams = engineMode === 'TC' ? TCAPIDefaults : HordeAPIDefaults;
 
-        //if it's not an empty trigger from host
-        //if userInput is empty we can just request the AI directly
-        let charFile = liveConfig.promptConfig.selectedCharacter
-        logger.trace(`selected character: ${charFile}`)
-        let cardData = await fio.charaRead(charFile, 'png')
-        let cardJSON = JSON.parse(cardData)
-        let charName = cardJSON.name
-        var finalCharName = JSON.stringify(`\n${charName}:`);
-        //strips out HTML tags from last message
-        var fixedFinalCharName = JSON.parse(finalCharName.replace(/<[^>]+>/g, ''));
-        //a careful observer might notice that we don't set the userInput string into the 'prompt' section of the API Params at this point.
-        //this is because the userInput has already been saved into the chat session, and the next function will read 
-        const [fullPromptforAI, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, fixedFinalCharName, parsedMessage.username, liveAPI)
-        const samplerData = await fio.readFile(liveConfig.promptConfig.selectedSamplerPreset)
+        const charFile = liveConfig.promptConfig.selectedCharacter;
+        const cardData = await fio.charaRead(charFile, 'png');
+        const cardJSON = JSON.parse(cardData);
+        const charName = cardJSON.name;
+        const formattedCharName = JSON.parse(JSON.stringify(`\n${charName}:`).replace(/<[^>]+>/g, ''));
+
+        const [fullPrompt, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, formattedCharName, parsedMessage.username, liveAPI);
+        const samplerData = await fio.readFile(liveConfig.promptConfig.selectedSamplerPreset);
         const samplers = JSON.parse(samplerData);
-        //logger.debug(samplers)
-        //apply the selected preset values to the API call
 
-        if (liveConfig.promptConfig.engineMode === 'horde') {
-            APICallParams = HordeAPIDefaults
-        } else {
-            APICallParams = TCAPIDefaults
-        }
-
-        //logger.info(APICallParams)
-
-        for (const [key, value] of Object.entries(samplers)) {
-            if (liveConfig.promptConfig.engineMode === 'horde') {
-                APICallParams['params'][key] = value;
+        Object.entries(samplers).forEach(([key, value]) => {
+            if (engineMode === 'horde') {
+                apiCallParams.params[key] = value;
             } else {
-                APICallParams[key] = value;
+                apiCallParams[key] = value;
             }
-        }
-        //add full prompt to API call
-        if (!isCCSelected) { //TC and Claude get 'prompt' (even though Claude is CC)
-            APICallParams.prompt = fullPromptforAI;
-        } else { //CC gets 'messages'
-            APICallParams.messages = fullPromptforAI
-        }
+        });
 
-        //ctx and response length for Text Completion API
-        if (liveConfig.promptConfig.engineMode !== 'horde' && !isCCSelected) {
-            //APICallParams.truncation_length = Number(liveConfig.promptConfig.contextSize)
-            APICallParams.max_tokens = Number(liveConfig.promptConfig.responseLength)
+        apiCallParams.stream = isStreaming;
+
+        if (!isCCSelected) {
+            apiCallParams.prompt = fullPrompt;
+        } else {
+            apiCallParams.messages = fullPrompt;
         }
 
-        //add stop strings
-        const [finalAPICallParams, entitiesList] = await setStopStrings(liveConfig, APICallParams, includedChatObjects, liveAPI)
+        if (engineMode !== 'horde' && !isCCSelected) {
+            apiCallParams.max_tokens = Number(liveConfig.promptConfig.responseLength);
+        }
+        const [finalApiCallParams, entitiesList] = await setStopStrings(liveConfig, apiCallParams, includedChatObjects, liveAPI);
 
-        var AIChatUserList, AIResponse = '';
-        if (liveConfig.promptConfig.engineMode === 'horde') {
-            APICallParams.params.max_context_length = Number(liveConfig.promptConfig.contextSize)
-            APICallParams.params.max_length = Number(liveConfig.promptConfig.responseLength)
-            AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
-            if (onlyUserList) {
-                logger.info('userlist:', AIChatUserList)
-                return AIChatUserList
-            }
-            finalAPICallParams.models = [liveConfig.promptConfig.selectedHordeWorker]
-            const [hordeResponse, workerName, hordeModel, kudosCost] = await requestToHorde(hordeKey, finalAPICallParams);
+        //logger.info('[getAIResponse] >> finalApiCallParams:', finalApiCallParams);
+
+        let AIChatUserList, AIResponse = '';
+        if (engineMode === 'horde') { //if horde...
+            apiCallParams.params.max_context_length = Number(liveConfig.promptConfig.contextSize);
+            apiCallParams.params.max_length = Number(liveConfig.promptConfig.responseLength);
+            AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects);
+            if (onlyUserList) return AIChatUserList; //if only User List for horde
+
+            finalApiCallParams.models = [liveConfig.promptConfig.selectedHordeWorker];
+            const [hordeResponse] = await requestToHorde(hordeKey, finalApiCallParams);
             AIResponse = hordeResponse;
-            AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
 
-            //logger.info('response:', AIResponse)
-            //logger.info('userlist:', AIChatUserList)
+            return [AIResponse, AIChatUserList];
+        } else { //if TC or CC
+            AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects);
+            if (onlyUserList) return AIChatUserList; //if only User List for TC/CC
+            //logger.warn('getting rawResponse for stream')
+            let rawResponse = await requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, includedChatObjects, false, liveConfig, parsedMessage, formattedCharName);
+            //logger.warn('finished getting rawResponse..., moving on..');
 
-            return [AIResponse, AIChatUserList]
-        }
-        else {
-
-            AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
-            if (onlyUserList) {
-                return AIChatUserList
-            }
-            //finalAPICallParams includes formatted TC prompt
-            //includedChatObjects is an array of chat history objects that got included in the prompt
-            //we send these along in case we are using chat completion, and need to convert before pinging the API.
-            let rawResponse = await requestToTCorCC(isStreaming, liveAPI, finalAPICallParams, includedChatObjects, false, liveConfig, parsedMessage, fixedFinalCharName)
-
-
-            //finalize non-streamed responses
-            if (!finalAPICallParams.stream) {
-                console.log('RAW RESPONSE')
-                console.log(rawResponse)
-                AIResponse = postProcessText(trimIncompleteSentences(rawResponse))
+            //logger.warn('finalApiCallParams.stream (after requestToTCorCC):', finalApiCallParams.stream);
+            //logger.warn('checking if we are in a stream or not? ', finalApiCallParams.stream);
+            if (!finalApiCallParams.stream) { //if not streaming..
+                //logger.warn('no stream, returning rawResponse as a whole chunk');
+                AIResponse = await postProcessText(trimIncompleteSentences(rawResponse));
                 await db.upsertChar(charName, charName, user.color);
                 await db.writeAIChatMessage(charName, charName, AIResponse, 'AI');
-                // let AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects)
-                return [AIResponse, AIChatUserList]
-
-            } else {
-
-                return null
+                return [AIResponse, AIChatUserList];
+            } else { //if TC and stream...
+                //logger.info('it was streamed already, no need to return anything..')
+                //return null;
+                return [AIResponse, AIChatUserList]; //return this anyway for now, since it crashes without it
             }
         }
     } catch (error) {
-        logger.error('Error while requesting AI response');
-        logger.error(error);
+        logger.error('Error while requesting AI response:', error);
     }
 }
 
@@ -317,13 +281,14 @@ function postProcessText(text) {
     return text;
 }
 
+//MARK: addCharDefsToPrompt
 async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharName, username, liveAPI) {
     //logger.debug(`[addCharDefsToPrompt] >> GO`)
     //logger.debug(liveAPI)
     let isClaude = liveAPI.claude
     let isCCSelected = liveAPI.type === 'CC' ? true : false
     let doD4CharDefs = liveConfig.promptConfig.D4CharDefs
-    //console.log(doD4CharDefs)
+    //logger.info(doD4CharDefs)
 
 
     //logger.debug(`addCharDefsToPrompt: ${username}`)
@@ -490,10 +455,10 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     let newItem, newObj, newItemTokens
 
                     if (i === chatHistory.length - D4Loc && D4ANObj.content.length > 0 && D4Added === false) {
-                        logger.warn('saw D4 incoming')
+                        //logger.warn('saw D4 incoming')
                         shouldAddD4 = true
                         if (!isClaude) {
-                            logger.warn('adding D4')
+                            //logger.warn('adding D4')
                             CCMessageObj.push(D4ANObj)
                             D4Added = true
                             shouldAddD4 = false
@@ -502,10 +467,10 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         }
                     }
                     if (i === chatHistory.length - D1Loc && D1JBObj.content.length > 0 && D1Added === false) {
-                        logger.warn('saw D1 incoming')
+                        // logger.warn('saw D1 incoming')
                         shouldAddD1 = true
                         if (!isClaude) {
-                            logger.warn('adding D1')
+                            // logger.warn('adding D1')
                             CCMessageObj.push(D1JBObj)
                             D1Added = true
                             shouldAddD1 = false
@@ -585,6 +550,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
     })
 }
 
+//MARK: getHordeModelList
 async function getHordeModelList(hordekey) {
     logger.info('Getting Horde model list...');
     //const url = 'https://horde.koboldai.net/api/v2/workers?type=text';
@@ -642,6 +608,7 @@ async function getHordeModelList(hordekey) {
     return options
 }
 
+//MARK: requestToHorde
 async function requestToHorde(hordeKey, stringToSend) {
     logger.info('Sending Horde request...');
     const url = 'https://aihorde.net/api/v2/generate/text/async';
@@ -655,9 +622,9 @@ async function requestToHorde(hordeKey, stringToSend) {
 
     hordeKey = hordeKey || '0000000000';
     var body = JSON.stringify(stringToSend);
-    logger.info(`--- horde payload:`)
+    logger.debug(`--- horde payload:`)
     logger.info(headers)
-    logger.info(stringToSend)
+    logger.debug(stringToSend)
 
     var timeout = 30000; // Timeout value in milliseconds (30 seconds)
 
@@ -820,7 +787,9 @@ async function getModelList(api, liveConfig = null) {
 
 }
 
-async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, includedChatObjects, isTest, liveConfig, parsedMessage, charName) {
+//MARK: requestToTCorCC
+async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, includedChatObjects, isTest, liveConfig, parsedMessage, charName) {
+    logger.info('[requestToTCorCC] >> GO')
     const TCEndpoint = liveAPI.endpoint
     const TCAPIKey = liveAPI.key
     const key = TCAPIKey.trim()
@@ -832,7 +801,7 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
 
     //this is brought in from the sampler preset, but we don't use it yet.
     //better to not show it in the API gen call response, would be confusing.
-    delete APICallParamsAndPrompt.system_prompt
+    delete finalApiCallParams.system_prompt
 
     let baseURL = TCEndpoint.trim()
 
@@ -864,20 +833,20 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
 
     if (isCCSelected && !isClaude) { //for OAI CC
         chatURL = baseURL + 'chat/completions'
-        delete APICallParamsAndPrompt.prompt
+        delete finalApiCallParams.prompt
     } else if (!isCCSelected) { //for TC (Tabby, KCPP, and OR?)
         chatURL = baseURL + 'completions'
-        delete APICallParamsAndPrompt.messages
+        delete finalApiCallParams.messages
     }
 
     if (isClaude) {
         chatURL = baseURL + 'messages'
         headers['anthropic-version'] = '2023-06-01';
-        //APICallParamsAndPrompt.max_tokens_to_sample = APICallParamsAndPrompt.max_tokens
-        //delete APICallParamsAndPrompt.max_tokens
-        if (APICallParamsAndPrompt.temperature > 1) { APICallParamsAndPrompt.temperature = 1 }
+        //finalApiCallParams.max_tokens_to_sample = finalApiCallParams.max_tokens
+        //delete finalApiCallParams.max_tokens
+        if (finalApiCallParams.temperature > 1) { finalApiCallParams.temperature = 1 }
         if (liveConfig.promptConfig.systemPrompt.length > 0) {
-            APICallParamsAndPrompt.system = postProcessText(replaceMacros(liveConfig.promptConfig.systemPrompt, parsedMessage.username, charName))
+            finalApiCallParams.system = postProcessText(replaceMacros(liveConfig.promptConfig.systemPrompt, parsedMessage.username, charName))
         }
     }
 
@@ -888,29 +857,31 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
             Authorization: `Bearer ${key}`,
             'HTTP-Referer': 'http://127.0.0.1:8181/'
         }
-        APICallParamsAndPrompt.transforms = ['middle-out']
-        APICallParamsAndPrompt.route = 'fallback'
+        finalApiCallParams.transforms = ['middle-out']
+        finalApiCallParams.route = 'fallback'
     }
 
     if (isOpenAI) {
-        console.warn('we are using an OpenAI API, so stop will be trimmed to 4')
-        APICallParamsAndPrompt.stop = APICallParamsAndPrompt.stop.slice(0, 4);
+        logger.warn('we are using an OpenAI API, so stop will be trimmed to 4')
+        finalApiCallParams.stop = finalApiCallParams.stop.slice(0, 4);
     }
 
     try {
 
-        APICallParamsAndPrompt.model = liveAPI.selectedModel
-        APICallParamsAndPrompt.stream = isStreaming
+        finalApiCallParams.model = liveAPI.selectedModel
+        // logger.warn('setting finalApiCallParams.stream to isStreaming:', isStreaming)
+        finalApiCallParams.stream = isStreaming
 
-        logger.debug('HEADERS')
-        console.log(headers)
-        logger.info('PAYLOAD')
-        console.log(APICallParamsAndPrompt)
+        //logger.debug('HEADERS')
+        //logger.info(headers)
+        //logger.info('PAYLOAD')
+        //logger.debug(finalApiCallParams)
 
-        const body = JSON.stringify(APICallParamsAndPrompt);
-        //console.log(body)
+        const body = JSON.stringify(finalApiCallParams);
+        //logger.info(body)
 
-        let streamingReportText = APICallParamsAndPrompt.stream ? 'streamed' : 'non-streamed'
+        let streamingReportText = finalApiCallParams.stream ? 'streamed' : 'non-streamed'
+        // logger.info('finalApiCallParams.stream (inside requestToTCorCC): ' + finalApiCallParams.stream);
         logger.info(`Sending ${streamingReportText} ${liveAPI.type} API request to ${chatURL}..`);
         //logger.debug(`API KEY: ${key}`)
 
@@ -921,25 +892,24 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
             timeout: 0,
         }
 
-        //console.log(args)
-        // const response = await fetch(chatURL, args)
+        //logger.info(args)
         const response = await fetch(chatURL, args)
-        /* console.log('FULL RESPONSE')
-        console.log('=====================')
-        console.log(util.inspect(response, { depth: null }));
-        console.log('=====================')
-    */
+        //logger.info('FULL RESPONSE')
+        //logger.info('=====================')
+        //logger.info(util.inspect(response, { depth: null }));
+        //logger.info('=====================')
+
         if (response.status === 200) {
-            logger.debug('Status 200: Ok.')
+            logger.info('Status 200: Ok.')
             return await processResponse(response, isCCSelected, isTest, isStreaming, liveAPI)
         } else {
             let responseStatus = response.status
-            logger.warn('API error: ' + responseStatus)
+            logger.error('API error: ' + responseStatus)
 
             let parsedResponse, unparsedResponse
             try {
                 parsedResponse = await response.json()
-                logger.warn(parsedResponse);
+                logger.warn(parsedResponse); //for debugging
                 return (parsedResponse)
             }
             catch {
@@ -966,200 +936,64 @@ async function requestToTCorCC(isStreaming, liveAPI, APICallParamsAndPrompt, inc
     }
 }
 
+//MARK: processResponse
 async function processResponse(response, isCCSelected, isTest, isStreaming, liveAPI) {
+    logger.info('Processing response..')
     let isClaude = liveAPI.claude
 
     if (!isStreaming) {
         try {
             let JSONResponse = await response.json();
-            //logger.debug('Response JSON:', JSONResponse);
+            logger.debug('Response JSON:', JSONResponse);
             return processNonStreamedResponse(JSONResponse, isCCSelected, isTest, isClaude);
         }
         catch (error) {
-            console.error('Error parsing JSON:', error);
+            logger.error('Error parsing JSON:', error);
         }
     } else {
         if (response.body) {
-            let stream = response.body;
-            let data = '';
-
-            // Initialize StringDecoder
-            const decoder = new StringDecoder('utf8');
-
-            if (typeof stream.on !== 'function') {
-                // Create a new readable stream from response.body
-                stream = Readable.from(response.body);
-            } else {
-                logger.debug('saw function in response body..')
-                logger.debug(stream)
+            let chunk = await stream.processStreamedResponse(response, isCCSelected, isTest, isClaude);
+            //logger.info('chunk: ', chunk)
+            if (chunk) {
+                return chunk
             }
-            let text;
-
-            stream.on('data', async (chunk) => {
-                // Use StringDecoder to handle UTF-8 text properly
-                const dataChunk = decoder.write(chunk);
-                data += dataChunk;
-                // Process individual JSON objects
-                let separatorIndex
-                while (true) {
-                    separatorIndex = data.indexOf('data: ');
-                    if (separatorIndex === -1) {
-                        // Incomplete JSON object, wait for more data
-                        break;
-                    }
-                    // Extract the JSON object string
-                    const jsonStartIndex = separatorIndex + 6;
-                    const jsonEndIndex = data.indexOf('\n', jsonStartIndex);
-                    if (jsonEndIndex === -1) {
-                        // Incomplete JSON object, wait for more data
-                        break;
-                    }
-                    const jsonChunk = data.substring(jsonStartIndex, jsonEndIndex);
-
-                    // Check if it's the final object
-                    if (jsonChunk === '[DONE]') {
-                        //logger.debug('End of stream. Closing the stream.');
-                        stream.destroy();
-                        break;
-                    }
-
-                    // Remove the "data: " prefix
-                    const trimmedJsonChunk = jsonChunk.trim().replace(/^data:\s+/, '');
-                    //logger.debug('trimmedJsonChunk:')
-                    //logger.info(trimmedJsonChunk)
-                    // Parse and process the JSON object
-
-                    // Check if it's the final object (again)
-                    if (trimmedJsonChunk === '[DONE]') {
-                        //logger.debug('End of stream. Closing the stream.');
-                        stream.destroy();
-                        break;
-                    }
-
-                    let jsonData = null;
-                    try {
-                        jsonData = JSON.parse(trimmedJsonChunk);
-                    } catch (error) {
-                        console.error('Error parsing JSON:', error);
-                        break;
-                    }
-                    if (jsonData.choices && jsonData.choices.length > 0) {
-                        if (isCCSelected) {
-                            //logger.debug(jsonData.choices)
-                            text = jsonData.choices[0].delta.content;
-                        } else {
-                            text = jsonData.choices[0].text;
-                        }
-
-                        textEmitter.emit('text', text);
-                        //logger.debug(text)
-
-                        //return text
-                    } else {
-                        if (isClaude) {
-                            if (jsonData.type === 'message_stop') {
-                                stream.destroy();
-                                break;
-                            } else if (jsonData.type === 'content_block_start' ||
-                                jsonData.type === 'message_start' ||
-                                jsonData.type === 'content_block_stop' ||
-                                jsonData?.delta?.stop_reason
-                            ) {
-                                //do nothing
-                            } else if (jsonData?.delta?.text) {
-                                text = jsonData.delta.text;
-                            } else {
-                                logger.warn('did not see completion:')
-                                logger.warn(jsonData)
-                            }
-                        } else {
-                            logger.warn('did not see "choices" object, saw this:')
-                            logger.warn(jsonData)
-                        }
-                        textEmitter.emit('text', text);
-
-                    }
-                    // Remove the processed JSON object from the data string
-                    data = data.substring(jsonEndIndex + 1);
-                }
-            });
-
-            stream.on('end', () => { logger.debug('All data entries processed.'); });
-            stream.on('error', (error) => { logger.warn('Error while streaming data:', error); });
-
-            // Start reading the chunks
-            await readStreamChunks(stream);
-            return;
         }
+
     }
 
-}
+    async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest, isClaude) {
 
-function isNonUTF8Token(token) {
-    const utf8Buffer = iconv.encode(token, 'utf8');
-    const encodedBuffer = iconv.encode(token, 'binary');
-    return !utf8Buffer.equals(encodedBuffer);
-}
-
-
-async function readStreamChunks(readableStream) {
-    return new Promise((resolve, reject) => {
-        if (!(readableStream instanceof Readable)) {
-            reject(new Error('Invalid readable stream'));
-            logger.debug(readableStream)
-            return;
+        let text
+        let apistatus = 200 //if we got here it's 200.
+        //logger.info('--- API RESPONSE')
+        //logger.info(JSONResponse) 
+        //logger.info(`isCCSelected? ${isCCSelected}`)
+        //logger.info(`isTest? ${isTest}`)
+        if (isCCSelected) {
+            if (isClaude) {
+                text = JSONResponse.completion;
+            }
+            else if (JSONResponse.choices && JSONResponse.choices.length > 0) {
+                text = JSONResponse.choices[0].message?.content
+            }
+            else {
+                logger.info(JSONResponse)
+                return "Unknown API type. Couldn't find response. Check console log."
+            }
+        } else { // text completions have data in 'choices'
+            text = JSONResponse.choices[0].text
         }
-
-        const chunks = [];
-        readableStream.on('data', (chunk) => {
-            const data = chunk.toString('utf-8');
-            chunks.push(data);
-        });
-
-        readableStream.on('end', () => {
-            logger.info('Stream ended.');
-            const data = chunks.join('');
-            resolve({ data, streamEnded: true }); // Resolve with data and streamEnded flag
-        });
-
-        readableStream.on('error', (error) => {
-            console.error('Error while reading the stream:', error);
-            reject(error);
-        });
-    });
-}
-
-async function processNonStreamedResponse(JSONResponse, isCCSelected, isTest, isClaude) {
-
-    let text
-    let apistatus = 200 //if we got here it's 200.
-    //logger.info('--- API RESPONSE')
-    //logger.info(JSONResponse) 
-    //console.log(`isCCSelected? ${isCCSelected}`)
-    //console.log(`isTest? ${isTest}`)
-    if (isCCSelected) {
-        if (isClaude) {
-            text = JSONResponse.completion;
+        //this assumes we got a response from the server that was not 200
+        if (isTest) {
+            let testResults = {
+                status: apistatus,
+                value: text
+            }
+            return testResults
         }
-        else if (JSONResponse.choices && JSONResponse.choices.length > 0) {
-            text = JSONResponse.choices[0].message?.content
-        }
-        else {
-            logger.info(JSONResponse)
-            return "Unknown API type. Couldn't find response. Check console log."
-        }
-    } else { // text completions have data in 'choices'
-        text = JSONResponse.choices[0].text
+        return text
     }
-    //this assumes we got a response from the server that was not 200
-    if (isTest) {
-        let testResults = {
-            status: apistatus,
-            value: text
-        }
-        return testResults
-    }
-    return text
+
 }
 
 export default {
@@ -1168,7 +1002,6 @@ export default {
     replaceMacros,
     testAPI,
     getModelList,
-    textEmitter,
     processResponse,
     addCharDefsToPrompt,
     setStopStrings,

@@ -338,17 +338,23 @@ async function readUserChat() {
 
 //Remove last AI chat in the current session from the database
 async function removeLastAIChatMessage() {
-    logger.debug('Removing last AI chat message from database...');
     const db = await dbPromise;
-    //Get the last message_id from the current session
     try {
-        const row = await db.get('SELECT message_id FROM aichats WHERE session_id = (SELECT session_id FROM sessions WHERE is_active = TRUE) ORDER BY message_id DESC LIMIT 1');
+        const session = await db.get('SELECT session_id FROM sessions WHERE is_active = 1 LIMIT 1');
+        if (!session) {
+            logger.error('Tried to remove last message from AIChat, but no active session found. Returning null.');
+            return null;
+        }
+
+        const row = await db.get('SELECT message_id FROM aichats WHERE session_id = ? ORDER BY message_id DESC LIMIT 1', [session.session_id]);
         if (row) {
             await db.run('DELETE FROM aichats WHERE message_id = ?', [row.message_id]);
-            logger.debug('A message was deleted');
+            logger.info(`Deleted last message ${row.message_id} from session ${session.session_id}`);
         }
+        return session.session_id;
     } catch (err) {
         logger.error('Error deleting message:', err);
+        return null;
     }
 }
 
@@ -363,21 +369,24 @@ async function writeAIChatMessage(username, userId, message, entity) {
 
     collapseNewlines(message)
 
-    logger.debug('Writing AI chat message to database...' + username + ' ' + userId + ' ' + message + ' ' + entity);
+    logger.info('Writing AI chat message...Username: ' + username + ', User ID: ' + userId + ', Entity: ' + entity);
     const db = await dbPromise;
     try {
         let sessionId;
         const row = await db.get('SELECT session_id FROM sessions WHERE is_active = TRUE');
         if (!row) {
-            logger.debug('No active session found, creating a new session...');
+            logger.info('No active session found, creating a new session...');
             await db.run('INSERT INTO sessions DEFAULT VALUES');
             sessionId = (await db.get('SELECT session_id FROM sessions WHERE is_active = TRUE')).session_id;
-            logger.debug(`A new session was created with session_id ${sessionId}`);
+            logger.info(`A new session was created with session_id ${sessionId}`);
         } else {
             sessionId = row.session_id;
         }
-        await db.run('INSERT INTO aichats (session_id, user_id, message, username, entity) VALUES (?, ?, ?, ?, ?)', [sessionId, userId, message, username, entity]);
-        logger.debug('An AI chat message was inserted');
+        await db.run('INSERT INTO aichats (session_id, user_id, message, username, entity) VALUES (?, ?, ?, ?, ?)',
+            [sessionId, userId, message, username, entity]);
+        let resultingMessageID = (await db.get('SELECT message_id FROM aichats WHERE session_id = ? ORDER BY message_id DESC LIMIT 1', [sessionId]))?.message_id;
+
+        logger.info('Message written into session ' + sessionId + ' with message_id ' + resultingMessageID);
     } catch (err) {
         logger.error('Error writing AI chat message:', err);
     }
@@ -497,67 +506,55 @@ async function getUser(uuid) {
 
 // Read AI chat data from the SQLite database
 async function readAIChat(sessionID = null) {
-    logger.debug('Reading AI chat...');
     const db = await dbPromise;
-    let sessionWhereClause = '';
-    let foundSessionID = null
-    let params = [];
+    let wasAutoDiscovered = false;
 
-    if (sessionID) {
-        sessionWhereClause = 'WHERE a.session_id = ?';
-        params = [sessionID];
-    } else {
-        sessionWhereClause = 'WHERE a.session_id = (SELECT session_id FROM sessions WHERE is_active = TRUE)';
+    if (!sessionID) {
+        const activeSession = await db.get('SELECT session_id FROM sessions WHERE is_active = 1 LIMIT 1');
+        if (!activeSession) return [JSON.stringify([]), null];
+        sessionID = activeSession.session_id;
+        wasAutoDiscovered = true;
     }
 
+    const rows = await db.all(`
+        SELECT 
+            a.username,
+            a.message,
+            CASE
+                WHEN u.user_id IS NULL THEN 
+                    (SELECT c.display_color FROM characters c WHERE c.char_id = a.user_id)
+                ELSE 
+                    u.username_color
+            END AS userColor,
+            a.message_id,
+            a.session_id,
+            a.entity
+        FROM aichats a
+        LEFT JOIN users u ON a.user_id = u.user_id
+        WHERE a.session_id = ?
+        ORDER BY a.timestamp ASC
+    `, [sessionID]);
+
+    const result = JSON.stringify(rows.map(row => ({
+        username: row.username,
+        content: row.message,
+        userColor: row.userColor,
+        sessionID: row.session_id,
+        messageID: row.message_id,
+        entity: row.entity
+    })));
+
+    return [result, sessionID];
+}
+
+async function getNextMessageID() {
+    const db = await dbPromise;
     try {
-        const rows = await db.all(`
-            SELECT 
-                a.username,
-                a.message,
-                CASE
-                    WHEN u.user_id IS NULL THEN 
-                        (SELECT c.display_color FROM characters c WHERE c.char_id = a.user_id)
-                    ELSE 
-                        u.username_color
-                END AS userColor,
-                a.message_id,
-                a.session_id,
-                a.entity,
-                (SELECT session_id FROM sessions WHERE is_active = TRUE) AS foundSessionID
-            FROM aichats a
-            LEFT JOIN users u ON a.user_id = u.user_id
-            ${sessionWhereClause}
-            ORDER BY a.timestamp ASC
-        `, params);
-
-        const result = JSON.stringify(rows.map(row => ({
-            username: row.username,
-            content: row.message,
-            userColor: row.userColor,
-            sessionID: row.session_id,
-            messageID: row.message_id,
-            entity: row.entity
-        })));
-
-        if (rows.length > 0) {
-            foundSessionID = rows[0].foundSessionID;
-        }
-
-        // Update the active session if sessionID is provided
-        if (sessionID) {
-            await db.run('UPDATE sessions SET is_active = FALSE');
-            await db.run('UPDATE sessions SET is_active = TRUE WHERE session_id = ?', [sessionID]);
-        }
-        if (sessionID === null) { //happens when loading initial AIchat on page load
-            return [result, foundSessionID];
-        } else { //happens when user loads a past chat later.
-            return [result, sessionID];
-        }
-
+        const row = await db.get('SELECT MAX(message_id) AS maxMessageID FROM aichats');
+        return (row?.maxMessageID ?? 0) + 1;
     } catch (err) {
-        logger.error('An error occurred while reading from the database:', err);
-        throw err;
+        logger.error('Failed to get next message ID:', err);
+        return 1; // fallback for empty DB
     }
 }
 
@@ -598,11 +595,23 @@ async function getCharacterColor(charName) {
     }
 }
 
-async function getMessage(messageID) {
-    logger.debug('Getting message...' + messageID);
+//currently userchats aren't editable, so we only look at aichats.
+async function getMessage(messageID, sessionID) {
+    logger.info(`Getting AIChat message ${messageID}, sessionID: ${sessionID}`);
     const db = await dbPromise;
     try {
-        return await db.get('SELECT * FROM aichats WHERE message_id = ?', [messageID]);
+        logger.info(`trying for message...`);
+        let result = await db.get(
+            'SELECT * FROM aichats WHERE message_id = ? AND session_id = ?',
+            [messageID, sessionID]
+        );
+        if (!result) {
+            logger.info(`Message not found for messageID ${messageID} and sessionID ${sessionID}. this is result: ${result}`);
+            return null;
+        }
+        if (result) logger.info(`Message found, returning to user.`); //: ${result.message}`);
+        return result.message
+
     } catch (err) {
         logger.error('Error getting message:', err);
         throw err;
@@ -613,6 +622,7 @@ async function editMessage(sessionID, mesID, newMessage) {
     const db = await dbPromise;
     try {
         await db.run('UPDATE aichats SET message = ? WHERE message_id = ?', [newMessage, mesID]);
+        logger.info(`Message ${mesID} was edited.`);
         return 'ok'
     } catch (err) {
         logger.error('Error editing message:', err);
@@ -777,5 +787,6 @@ export default {
     newUserChatSession,
     getLatestCharacter,
     deleteAPI,
-    editMessage
+    editMessage,
+    getNextMessageID
 };

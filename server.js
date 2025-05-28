@@ -1106,11 +1106,12 @@ async function handleConnections(ws, type, request) {
                             type: 'chatMessage',
                             chatID: chatID,
                             username: username,
-                            content: markdownifyChatHistoriesArray(chatJSON), //content,
+                            content: content, //content,
                             userColor: userColor,
                             sessionID: foundSessionID,
                             messageID: newMessageID
                         }
+                        logger.error('prompt', userPrompt.content)
                         await broadcast(userPrompt)
                     }
 

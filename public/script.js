@@ -1,6 +1,7 @@
 import control from "./src/controls.js";
 import util from "./src/utils.js";
 import handleconfig from './src/handleconfig.js'
+import { streamUpdater } from "./src/streamUpdater.js";
 
 export var username,
   isAutoResponse,
@@ -674,7 +675,7 @@ async function connectWebSocket(username) {
         let newUsernameChatItem = $("<div>");
         newUsernameChatItem.html(`<i>${content}</i>`);
         $("#userChat").append(newUsernameChatItem);
-        util.kindlyScrollDivToBottom($("#userChat"));
+        //util.kindlyScrollDivToBottom($("#userChat"));
         break;
       case "changeCharacter":
         let currentChar = $("#characters").val();
@@ -722,7 +723,7 @@ async function connectWebSocket(username) {
           .addClass("activeChat");
         console.debug('about to append messages: ', pastChatHistory, "#AIChat", parsedMessage.sessionID)
         appendMessages(pastChatHistory, "#AIChat", parsedMessage.sessionID)
-        util.kindlyScrollDivToBottom($("#AIChat"))
+        util.unkindlyScrollDivToBottom($("#AIChat"))
         break;
       case "pastChatDeleted":
         let wasActive = parsedMessage?.wasActive;
@@ -773,16 +774,12 @@ async function connectWebSocket(username) {
             </div>
         `);
           if (!isHost) newStreamDivSpan.find('.messageControls').remove();
-
           $("#AIChat").append(newStreamDivSpan);
         }
 
-        // Debounced update
         pendingHTML = mendHTML(parsedMessage.content);
-        if (!frameRequested) {
-          requestAnimationFrame(updateStreamedMessageHTML);
-          frameRequested = true;
-        }
+        streamUpdater.go(pendingHTML);
+        //requestAnimationFrame(updateStreamedMessageHTML);
 
         break;
 
@@ -872,21 +869,6 @@ function mendHTML(html) {
 }
 
 let pendingHTML = null;
-let frameRequested = false;
-
-function updateStreamedMessageHTML() {
-  if (!pendingHTML) return;
-
-  const $incomingDiv = $("#AIChat .incomingStreamDiv");
-  if ($incomingDiv.length) {
-    $incomingDiv.find(".messageContent span").html(pendingHTML);
-    util.kindlyScrollDivToBottom($("#AIChat"));
-  }
-
-  pendingHTML = null;
-  frameRequested = false;
-}
-
 let accumulatedContent = ""; // variable to store tokens for the currently streaming paragraph
 
 function handleSocketOpening(socket) {

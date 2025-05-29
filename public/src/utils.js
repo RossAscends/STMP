@@ -1,6 +1,7 @@
 import {
     socket, isUserScrollingAIChat, isUserScrollingUserChat, username,
-    isAutoResponse, isStreaming, isClaude, contextSize, responseLength, isPhone, isLandscape, currentlyStreaming, myUUID
+    isAutoResponse, isStreaming, isClaude, contextSize, responseLength,
+    isPhone, isLandscape, currentlyStreaming, myUUID,
 } from '../script.js'
 
 function delay(ms) {
@@ -248,25 +249,34 @@ function messageServer(message) {
 //and the user is not presently scrolling.
 //used to keep streamed chats in view as they come in if you're sitting at the bottom
 //but allows for uninterrupted chat history viewing when new messages arrive as well.
-function kindlyScrollDivToBottom(divElement) {
-    let relevantScrollStatus = false
-    if (divElement.get(0) === $("#AIChat").get(0)) {
-        relevantScrollStatus = isUserScrollingAIChat
-    }
-    if (divElement.get(0) === $("#chat").get(0)) {
-        relevantScrollStatus = isUserScrollingUserChat
-    }
+function kindlyScrollDivToBottom($div) {
+    const el = $div.get(0);
+    if (!el || !autoScrollLocked) return;
 
-    //200 is arbitrary and perhaps too aggressive, but it works reliable where 100 did not.
-    const isScrolledToBottom = divElement.scrollTop() + divElement.outerHeight() >= divElement[0].scrollHeight - 200;
-
-    //console.log(divElement.attr('id'), isScrolledToBottom, relevantScrollStatus, isUserScrollingAIChat, isUserScrollingUserChat)
-    //console.log(`scrolling? ${isScrolledToBottom && !relevantScrollStatus}`)
-
-    if (isScrolledToBottom && !relevantScrollStatus) {
-        divElement.scrollTop(divElement[0].scrollHeight);
-    }
+    el.scrollTo({
+        top: el.scrollHeight,
+        behavior: "smooth"
+    });
 }
+
+let autoScrollLocked = true;
+
+$("#AIChat").on("scroll", function () {
+    const $this = $(this);
+    const tolerance = 150;
+    const scrolledToBottom = $this.scrollTop() + $this.outerHeight() >= this.scrollHeight - tolerance;
+
+    autoScrollLocked = scrolledToBottom;
+});
+
+
+function unkindlyScrollDivToBottom(divElement, duration = 300) {
+    divElement.stop().animate(
+        { scrollTop: divElement[0].scrollHeight },
+        duration
+    );
+}
+
 
 
 const activeChatClearTimers = {
@@ -400,6 +410,7 @@ export default {
     trimIncompleteSentences,
     messageServer,
     kindlyScrollDivToBottom,
+    unkindlyScrollDivToBottom,
     isValidURL,
     calculatePromptsBlockheight,
     clearChatWithCountdown,

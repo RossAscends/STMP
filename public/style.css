@@ -592,14 +592,14 @@ input::placeholder {
     max-height: 100%;
     overflow-x: hidden;
     line-break: anywhere;
-    margin-top: 10px;
+    margin-top: 5px;
 }
 
 #userList>small,
 #AIChatUserList>small {
-    display: block;
+    /*     display: block;
     position: absolute;
-    top: 5px;
+    top: 5px; */
 }
 
 #lists {
@@ -624,7 +624,7 @@ input::placeholder {
 }
 
 #pastChatsBlock {
-    height: 50svh;
+    max-height: 50svh;
     flex-shrink: 0;
     overflow-y: auto;
     overflow-x: hidden;
@@ -640,12 +640,13 @@ input::placeholder {
 }
 
 #pastChatsList {
-    overflow-y: auto;
+    overflow-y: scroll;
     overflow-x: hidden;
     border-radius: 5px;
-    padding: 0px;
+    padding: 0px 5px 0 10px;
+    /*     padding-right: 5px;
+    padding-left: 10px; */
     height: 100%;
-    /*makes background on show text, allowing for it to effect scrollbar but not the whole div*/
     -webkit-background-clip: text;
 }
 

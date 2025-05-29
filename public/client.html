@@ -320,8 +320,35 @@
         </div>
 
     </div>
-    <div id="userListsWrap" class="flexbox padding5 justifyContentCenter flexFlowCol">
-
+    <div id="userListsWrap" class="flexbox padding5 noGap justifyContentCenter flexFlowCol">
+        <!--
+            <div id="crowdControlToggle" class="textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
+                <i class="nonButtonButton fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
+                <h4>Crowd Control</h4>
+            </div> 
+        -->
+        <div id="pastChatsToggle" class="isControlPanelToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
+            <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
+            <h4>Past Chats</h4>
+        </div>
+        <div id="pastChatsBlock" class="flexbox flexFlowCol">
+            <div id="pastChatsWrap" class="flexbox flexFlowCol ">
+                <!-- hidden button that is auto-clicked on each mesage received to update chat list -->
+                <button id="showPastChats" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Refresh Past Chats List" hidden>🔄</button>
+                <div id="pastChatsList" class="flexbox Hcentered alignContentStart"></div>
+            </div>
+        </div>
+        <hr class="width100p">
+        <div id="crowdControl" class="isArrayType flexbox flexFlowCol heightFitContent justifyContentEnd Vcentered">
+            <div class="flexbox">
+                <button id="disableInput" class="flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable User Input">🤐</button>
+                <button id="turnBasedMode" class="flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔢</button>
+                <label for="allowImages" class=" Vcentered checkbox_label flexbox noWrap fontSize1p25em mutedColor textshadow" title="Allow Image Embeds in Chat Messages">
+                    🖌️
+                    <input type="checkbox" id="allowImages" class="flexbox Vcentered width50px" title="Allow Image Embeds in Chat Messages">
+                </label>
+            </div>
+        </div>
         <div id="lists" class="flexbox flex1">
             <div id="userList" class="flexbox transition250 flexFlowCol ">
                 <small class="alignSelfCenter">Users</small>
@@ -334,34 +361,6 @@
         </div>
         <hr class="width100p">
         <div id="crowdControlBlock" class="hostControls flexbox flexFlowCol alignItemsCenter">
-            <div id="pastChatsToggle" class="isControlPanelToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
-                <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
-                <h4>Past Chats</h4>
-            </div>
-
-            <div id="pastChatsBlock" class="flexbox flexFlowCol">
-                <div id="pastChatsWrap" class="flexbox flexFlowCol ">
-                    <!-- hidden button that is auto-clicked on each mesage received to update chat list -->
-                    <button id="showPastChats" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Refresh Past Chats List" hidden>🔄</button>
-                    <div id="pastChatsList" class="flexbox Hcentered alignContentStart"></div>
-                </div>
-            </div>
-            <hr class="width100p">
-            <div id="crowdControlToggle" class="textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
-                <i class="nonButtonButton fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
-                <h4>Crowd Control</h4>
-            </div>
-            <div id="crowdControl" class="isArrayType flexbox flexFlowCol heightFitContent justifyContentEnd Vcentered">
-                <div class="flexbox">
-                    <button id="disableInput" class="flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable User Input">🤐</button>
-                    <button id="turnBasedMode" class="flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔢</button>
-                    <label for="allowImages" class=" Vcentered checkbox_label flexbox noWrap fontSize1p25em mutedColor textshadow" title="Allow Image Embeds in Chat Messages">
-                        🖌️
-                        <input type="checkbox" id="allowImages" class="flexbox Vcentered width50px" title="Allow Image Embeds in Chat Messages">
-                    </label>
-                </div>
-
-            </div>
         </div>
     </div>
 

@@ -155,7 +155,7 @@ function showPastChats(chatList) {
         const nameAndTimestampDiv = $(`<div data-session_id="${item.session_id}" class="pastChatInfo noGap flexbox flexFlowCol flex1">`);
         const timestampText = $(`<small>${formattedTimestamp}</small>`);
         const messageCount = $(`<span> ${item.messageCount}</span>`);
-        const delButton = $(`<button data-session_id="${item.session_id}" class="pastChatDelButton opacityHalf bgTransparent">🗑️</button>`);
+        const delButton = $(`<button data-session_id="${item.session_id}" class="fontSize1p25em pastChatDelButton opacityHalf bgTransparent">🗑️</button>`);
         divElement.append(nameAndTimestampDiv).append(messageCount).append(delButton);
         nameAndTimestampDiv.append(sessionText).append(timestampText);
         $pastChatsList.append(divElement);

@@ -246,7 +246,9 @@
             <div id="chatWrap" class="flexbox flex1 noWrap transition250 justifyContentCenter alignItemsCenter">
                 <div id="LLMChatWrapper" class="flexbox flexFlowCol transition250 flex1 noGap">
                     <div class="chatHeader Hcentered Vcentered flexbox positionRelative justifySpaceBetween width100p">
-                        <div class="hostControls"></div><!-- empty spacer div -->
+                        <div class="" style="opacity: 0;">
+                            <div id="NOOP_UserChatHeaderSpacer" class="square1p5em fontSize1p25em"> </div>
+                        </div>
                         <div class="flexbox alignItemsCenter ">
                             AI Chat with
                             <div class="custom-select hostControls">
@@ -258,10 +260,9 @@
 
                         <button id="clearAIChat" class="hostControls chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear AI Chat History">🗑️</button>
                     </div>
-                    <!-- <div class="chatAndTrashWrap flexbox positionRelative flex1 overflowXHidden"> -->
 
                     <div id="AIChat" data-chat-id="AIChat" class="marginTop5 transition250 positionRelative flex1 overflowXHidden width100p"></div>
-                    <!-- </div> -->
+
                     <div id="AIChatHostControls" class="hostControls flexbox justifySpaceAround noWrap">
                         <button id="deleteLastMessageButton" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Remove last message from chat">✂️</button>
                         <button id="triggerAIResponse" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Request AI Response">🤖</button>

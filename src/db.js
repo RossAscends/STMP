@@ -358,6 +358,17 @@ async function removeLastAIChatMessage() {
     }
 }
 
+async function setActiveChat(sessionID) {
+    const db = await dbPromise;
+    try {
+        await db.run('UPDATE sessions SET is_active = 0 WHERE is_active = 1');
+        await db.run('UPDATE sessions SET is_active = 1 WHERE session_id = ?', [sessionID]);
+        logger.info(`Session ${sessionID} was set as active.`);
+    } catch (err) {
+        logger.error(`Error setting session ${sessionID} as active:`, err);
+    }
+}
+
 //this might not be necessary, but just in case. 
 function collapseNewlines(x) {
     x.replace(/\r/g, '');
@@ -788,5 +799,6 @@ export default {
     getLatestCharacter,
     deleteAPI,
     editMessage,
-    getNextMessageID
+    getNextMessageID,
+    setActiveChat,
 };

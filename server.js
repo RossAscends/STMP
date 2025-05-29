@@ -949,6 +949,7 @@ async function handleConnections(ws, type, request) {
                 }
                 else if (parsedMessage.type === 'loadPastChat') {
                     const [pastChat, sessionID] = await db.readAIChat(parsedMessage.session)
+                    await db.setActiveChat(sessionID)
                     let jsonArray = JSON.parse(pastChat)
                     const pastChatsLoadMessage = {
                         type: 'pastChatToLoad',

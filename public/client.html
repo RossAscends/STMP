@@ -212,37 +212,42 @@
     </div>
     <div id="leftSpanner" class="spanner15vw"></div>
     <div id="bodywrap" class="flexbox noWrap noGap flexFlowCol">
-        <div id="universalControls" class="flexbox heightFitContent justifySpaceAround">
-            <div class="flexbox noWrap heightFitcontent">
-                <button id="controlPanelToggle" class="hostControls Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Toggle Control Panel">🎛️</button>
-                <button id="chatsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor textshadow">🖼️</button>
-                <button id="userListsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor textshadow">📜</button>
-            </div>
-            <div class="flexbox noWrap heightFitcontent">
-                <button id="reconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" hidden title="Connect">▶️</button>
-                <button id="disconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Disconnect">⏸</button>
-                <button id="profileManagementButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Manage Profile">🛠️</button>
-                <div id="profileManagementMenu" class="flexbox noWrap flexFlowCol positionAbsolute" style="display:none;">
-                    <label for="usernameInput" class="widthFitContent flexbox flexFlowCol noWrap noTextWrap">
-                        <span>UserChat Name:</span>
-                        <input type="text" maxlength="12" id="usernameInput" class="width100px bgBrightUp" placeholder="Username">
-                    </label>
-                    <label for="AIUsernameInput" class="widthFitContent flexbox flexFlowCol noWrap noTextWrap">
-                        <span>AIChat Name:</span>
-                        <input type="text" maxlength="12" id="AIUsernameInput" class="width100px bgBrightUp" placeholder="Username">
-                    </label>
-                    <div class="flexbox noWrap Hcentered">
-                        <button id="submitkey" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Submit Role Key">🔑</button>
-                        <button id="clearLocalStorage" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Delete Username and Unique ID">⛔</button>
-                        <button id="keepAliveAudio" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Play background audio to keep mobile users alive">🔊</button>
+
+        <div id="contentWrap" class="flexbox justifyContentCenter flexFlowCol noGap paddingLR5">
+            <div id="universalControls" class="flexbox heightFitContent Hcentered justifySpaceBetween">
+                <div class="flexbox noWrap heightFitcontent">
+                    <button id="controlPanelToggle" class="hostControls Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Toggle Control Panel">🎛️</button>
+                </div>
+                <div class="flexbox noWrap heightFitcontent">
+                    <button id="chatsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor textshadow">🖼️</button>
+                    <button id="reconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" hidden title="Connect">▶️</button>
+                    <button id="disconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Disconnect">⏸</button>
+                    <button id="profileManagementButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Manage Profile">🛠️</button>
+                    <div id="profileManagementMenu" class="flexbox noWrap flexFlowCol positionAbsolute" style="display:none;">
+                        <label for="usernameInput" class="widthFitContent flexbox flexFlowCol noWrap noTextWrap">
+                            <span>UserChat Name:</span>
+                            <input type="text" maxlength="12" id="usernameInput" class="width100px bgBrightUp" placeholder="Username">
+                        </label>
+                        <label for="AIUsernameInput" class="widthFitContent flexbox flexFlowCol noWrap noTextWrap">
+                            <span>AIChat Name:</span>
+                            <input type="text" maxlength="12" id="AIUsernameInput" class="width100px bgBrightUp" placeholder="Username">
+                        </label>
+                        <div class="flexbox noWrap Hcentered">
+                            <button id="submitkey" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Submit Role Key">🔑</button>
+                            <button id="clearLocalStorage" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Delete Username and Unique ID">⛔</button>
+                            <button id="keepAliveAudio" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Play background audio to keep mobile users alive">🔊</button>
+                        </div>
                     </div>
+
+                </div>
+                <div class="flexbox noWrap heightFitcontent">
+                    <button id="userListsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor textshadow">📜</button>
+                </div>
+                <div id="roleKeyInputDiv" class=" justifyContentCenter positionAbsolute marginBot5 marginTop5 flexbox width100p" style="display:none;">
+                    <input id="roleKeyInput" type="text" maxlength="32" class="width100px bgBrightUp" placeholder="Role Key">
                 </div>
             </div>
-            <div id="roleKeyInputDiv" class=" justifyContentCenter positionAbsolute marginBot5 marginTop5 flexbox width100p" style="display:none;">
-                <input id="roleKeyInput" type="text" maxlength="32" class="width100px bgBrightUp" placeholder="Role Key">
-            </div>
-        </div>
-        <div id="contentWrap" class="flexbox justifyContentCenter noGap paddingLR5">
+
             <div id="chatWrap" class="flexbox flex1 noWrap transition250 justifyContentCenter alignItemsCenter">
                 <div id="LLMChatWrapper" class="flexbox flexFlowCol transition250 flex1 noGap">
                     <div class="chatHeader Hcentered Vcentered flexbox positionRelative justifySpaceBetween width100p">
@@ -305,7 +310,6 @@
                     </div>
                 </div>
             </div>
-
         </div>
 
     </div>

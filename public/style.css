@@ -60,7 +60,8 @@ button,
 }
 
 #contentWrap {
-    max-height: calc(100svh - 3em);
+    /* max-height: calc(100svh - 3em); */
+    max-height: 100svh;
 }
 
 #chatWrap {

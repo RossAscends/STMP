@@ -369,6 +369,28 @@ async function setActiveChat(sessionID) {
     }
 }
 
+async function getActiveChat() {
+    const db = await dbPromise;
+    try {
+        const row = await db.get('SELECT session_id FROM sessions WHERE is_active = 1 LIMIT 1');
+        if (!row) {
+            logger.error('Tried to get active session, but no active session found. Returning null.');
+            return null;
+        }
+
+        if (row.session_id === null) {
+            logger.error('Found active session, but session_id is null. Returning null.');
+            return null;
+        }
+        logger.info('Found active session with session_id: ' + row.session_id);
+        return row.session_id;
+
+    } catch (err) {
+        logger.error('Error getting active session:', err);
+        return null;
+    }
+}
+
 //this might not be necessary, but just in case. 
 function collapseNewlines(x) {
     x.replace(/\r/g, '');
@@ -405,11 +427,14 @@ async function writeAIChatMessage(username, userId, message, entity) {
 
 // Update all messages in the current session to a new session ID and clear the current session
 async function newSession() {
-    logger.debug('Creating a new session...');
+
     const db = await dbPromise;
     try {
         await db.run('UPDATE sessions SET is_active = FALSE, ended_at = CURRENT_TIMESTAMP WHERE is_active = TRUE');
         await db.run('INSERT INTO sessions DEFAULT VALUES');
+        const newSessionID = (await db.get('SELECT session_id FROM sessions WHERE is_active = TRUE')).session_id;
+        logger.info('Creating a new session with session_id ' + newSessionID + '...');
+        return newSessionID;
     } catch (error) {
         logger.error('Error creating a new session:', error);
     }
@@ -733,6 +758,7 @@ async function getAPI(name) {
     }
 }
 
+//currently unused...exports a JSON object of all messages in a session
 async function exportSession(sessionID) {
     logger.debug('Exporting session...' + sessionID);
     const db = await dbPromise;
@@ -801,4 +827,6 @@ export default {
     editMessage,
     getNextMessageID,
     setActiveChat,
+    getActiveChat,
+    exportSession
 };

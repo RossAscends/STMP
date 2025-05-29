@@ -459,7 +459,9 @@ async function removeAnyUserChatMessage(parsedMessage) {
 
 async function saveAndClearChat(type) {
     if (type === 'AIChat') {
-        await db.newSession();
+        let newSessionID = await db.newSession();
+        await db.setActiveChat(newSessionID);
+        return newSessionID
     }
     else if (type === 'userChat') {
         await db.newUserChatSession();
@@ -701,15 +703,6 @@ async function handleConnections(ws, type, request) {
                     await broadcast(guestStateMessage, 'guest');
                     return
                 }
-                if (parsedMessage.type === 'clearChat') {
-                    //clear the UserChat.json file
-                    await saveAndClearChat('userChat')
-                    const clearUserChatInstruction = {
-                        type: 'clearChat'
-                    }
-                    await broadcast(clearUserChatInstruction);
-                    return
-                }
                 else if (parsedMessage.type === 'modelSelect') {
                     const selectedModel = parsedMessage.value;
                     logger.info(`Changing selected model for ${liveConfig.APIConfig.name} to ${selectedModel}..`)
@@ -817,10 +810,14 @@ async function handleConnections(ws, type, request) {
                             const cardJSON = JSON.parse(cardData);
                             const firstMes = api.replaceMacros(cardJSON.first_mes, thisUserUsername, cardJSON.name);
                             const charName = cardJSON.name;
+                            const sessionID = await db.getActiveChat('AIChat');
+                            const messageID = await db.getNextMessageID();
 
                             const newAIChatFirstMessage = {
                                 type: 'chatMessage',
                                 chatID: 'AIChat',
+                                sessionID: sessionID,
+                                messageID: messageID,
                                 content: purifier.makeHtml(firstMes), //firstMes,
                                 username: charName,
                                 AIChatUserList: [{ username: charName, color: 'white' }]

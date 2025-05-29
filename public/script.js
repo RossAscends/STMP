@@ -1246,8 +1246,6 @@ $(async function () {
   const $controlPanel = $("#controlPanel");
   const $chatWrap = $("#chatWrap")
   const $innerChatWrap = $("#innerChatWrap")
-  const $LLMChatWrapper = $("#LLMChatWrapper");
-  const $OOCChatWrapper = $("#OOCChatWrapper");
   const $AIChatInputButtons = $("#AIChatInputButtons");
   const $userChatInputButtons = $("#userChatInputButtons");
 
@@ -1454,11 +1452,12 @@ $(async function () {
   });
 
   $("#profileManagementButton").on("click", function () {
-    util.betterSlideToggle($("#profileManagementMenu"), 250, "width");
+    $("#profileManagementMenu").css("opacity", "1");
+    util.betterSlideToggle($("#profileManagementMenu"), 250, "width", false);
   });
 
   $("#clearLocalStorage").on("click", function () {
-    util.betterSlideToggle($("#profileManagementMenu"), 250, "width");
+    util.betterSlideToggle($("#profileManagementMenu"), 250, "width", false);
     $("<div></div>")
       .dialog({
         draggable: false,
@@ -1547,7 +1546,7 @@ $(async function () {
       !$target.is("#roleKeyInput")
     ) {
       if ($("#profileManagementMenu").hasClass("needsReset")) {
-        util.betterSlideToggle($("#profileManagementMenu"), 250, "width");
+        util.betterSlideToggle($("#profileManagementMenu"), 250, "width", false);
       }
       if ($("#roleKeyInputDiv").hasClass("needsReset")) {
         $("#roleKeyInputDiv").fadeToggle().removeClass("needsReset");
@@ -1582,41 +1581,41 @@ $(async function () {
   });
 
   var chatsToggleState = 0;
+  const $LLMChatWrapper = $("#LLMChatWrapper");
+  const $OOCChatWrapper = $("#OOCChatWrapper");
+  const $contentWrap = $("#contentWrap");
+
   $("#chatsToggle").off("click").on("click", async function () {
-    // Increment the state and wrap around to 0 after the third state
     chatsToggleState = (chatsToggleState + 1) % 3;
 
-    if (chatsToggleState === 0) { //going back to dual display
-      $LLMChatWrapper.removeClass('hidden')
-      $OOCChatWrapper.removeClass('hidden')
-      await util.delay(1)
-      $LLMChatWrapper.css({ flex: "1", opacity: "1" })
-      $OOCChatWrapper.css({ flex: "1", opacity: "1" })
+    if (chatsToggleState === 0) {
+      // Dual chat view
+      $contentWrap.removeClass("widthNarrow").addClass("widthFull");
+      $LLMChatWrapper.removeClass("hidden");
+      await util.delay(1);
+      $LLMChatWrapper.css({ flex: "1" });
+      await util.delay(251);
+      $LLMChatWrapper.css({ opacity: "1" });
+    } else if (chatsToggleState === 1) {
+      // AI chat only
+      $contentWrap.removeClass("widthFull").addClass("widthNarrow");
+      $OOCChatWrapper.css({ flex: "0", opacity: "0" });
+      $LLMChatWrapper.css({ flex: "1", opacity: "1" });
+      await util.delay(251);
+      $OOCChatWrapper.addClass("hidden").css({ flex: "1" }); //preload flex for next switch
 
-      if (!isPhone) {
-        $LLMChatWrapper.css({ maxWidth: '100%' })
-        $OOCChatWrapper.css({ maxWidth: '100%' })
-      }
-      await util.delay(250)
-
-    } else if (chatsToggleState === 1) { // only showing AI chat
-      if (!isPhone) {
-        $OOCChatWrapper.css({ maxWidth: '50%' })
-        $LLMChatWrapper.css({ maxWidth: '50%' })
-      }
-      await util.delay(1)
-      $OOCChatWrapper.css({ flex: "0", opacity: "0" })
-      await util.delay(250)
-      $OOCChatWrapper.addClass('hidden');
-
-    } else if (chatsToggleState === 2) { //only showing user chat
-      $OOCChatWrapper.removeClass('hidden')
-      $LLMChatWrapper.css({ flex: "0", opacity: "0" })
-      await util.delay(250)
-      $LLMChatWrapper.addClass('hidden');
-      $OOCChatWrapper.css({ flex: "1", opacity: "1" });
+    } else if (chatsToggleState === 2) {
+      // OOC chat only
+      $contentWrap.removeClass("widthFull").addClass("widthNarrow");
+      $LLMChatWrapper.css({ opacity: "0" });
+      await util.delay(251);
+      $OOCChatWrapper.removeClass("hidden");
+      await util.delay(1);
+      $LLMChatWrapper.addClass("hidden").css({ flex: "0" });
+      $OOCChatWrapper.css({ opacity: "1" });
     }
   });
+
 
   $("#userListsToggle").off("click").on("click", async function () {
 

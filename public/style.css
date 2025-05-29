@@ -60,8 +60,20 @@ button,
 }
 
 #contentWrap {
-    /* max-height: calc(100svh - 3em); */
     max-height: 100svh;
+    width: 100%;
+    transition: width 250ms ease;
+    /* always transition width */
+}
+
+.widthFull {
+    width: 100%;
+}
+
+.widthNarrow {
+    width: 70% !important;
+    /* or any desired value */
+    /*max-width: 900px; /* optional, for large screens */
 }
 
 #chatWrap {
@@ -454,7 +466,7 @@ pre {
 }
 
 .hidden {
-    display: none;
+    display: none !important;
 }
 
 #userChat div p,
@@ -513,7 +525,7 @@ input::placeholder {
 
 #controlPanelToggle {
     left: 5px;
-    filter: hue-rotate(213deg) saturate(0.5) brightness(1.1);
+    /* filter: hue-rotate(213deg) saturate(0.5) brightness(1.1); */
 }
 
 #userRole {
@@ -873,11 +885,11 @@ hr {
 }
 
 .opacityHalf {
-    filter: opacity(0.5);
+    opacity: 0.5;
 }
 
 .opacityHalf:hover {
-    filter: opacity(1)
+    opacity: 1
 }
 
 .greyscale:not(:disabled):hover,
@@ -960,24 +972,21 @@ hr {
     height: fit-content;
 }
 
-.hidden {
-    display: none
-}
-
 .isControlPanelToggle {
     min-height: 5vh;
 }
 
 #profileManagementMenu {
-    right: 0;
-    top: 2.25em;
-    background-color: #313338;
+    right: 15vw;
+    /* top: 3em; */
+    background-color: #2c2d31;
     width: min-content;
     padding: 5px;
     z-index: 10;
-    border-radius: 10px;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+    border-radius: 0 0 0 10px;
+    box-shadow: -5px 5px 5px rgba(0, 0, 0, 0.3);
 }
+
 
 #AIChatHostControls {
     background-color: #313338;

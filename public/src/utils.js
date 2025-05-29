@@ -31,21 +31,29 @@ function setHeightToDivHeight(target, reference) {
     target.css('height', reference.css('height'))
 }
 
-async function betterSlideToggle(target, speed = 250, animationDirection) {
+async function betterSlideToggle(target, speed = 250, animationDirection = 'height', toggleOpacity = true) {
+
+    if (!target) {
+        console.error('No target passed to betterSlideToggle, skipping');
+        return
+    }
+
+    if (target.hasClass('isAnimating')) return;
+
     return new Promise((resolve) => {
-        if (target.hasClass('isAnimating')) { return }
-        target.animate({ [animationDirection]: 'toggle', opacity: 'toggle' }, {
+        const props = { [animationDirection]: 'toggle' };
+        if (toggleOpacity) props.opacity = 'toggle';
+
+        target.animate(props, {
             duration: speed,
-            start: () => {
-                target.addClass('isAnimating')
-            },
+            start: () => target.addClass('isAnimating'),
             complete: () => {
-                target.removeClass('isAnimating')
-                target.toggleClass('needsReset')
-                resolve()
+                target.removeClass('isAnimating');
+                target.toggleClass('needsReset');
+                resolve();
             }
         });
-    })
+    });
 }
 
 async function flashElement(elementID, type, flashDelay = 400, times = 1) {

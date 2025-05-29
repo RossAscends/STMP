@@ -11,7 +11,7 @@ body {
     color: #bcbec2;
     margin: 0;
     padding: 0;
-    font-family: "Noto Sans", "Noto Color Emoji", sans-serif;
+    font-family: "Noto Sans", "Noto Color Emoji", sans-serif !important;
     font-size: 15px;
     font-weight: 500;
     display: flex;
@@ -25,7 +25,9 @@ body {
 textarea,
 input,
 select,
-button {
+button,
+.ui-dialog *,
+.ui-widget textarea {
     font-family: "Noto Sans", "Noto Color Emoji", sans-serif;
 }
 
@@ -128,7 +130,8 @@ button {
     text-align: center;
 }
 
-#controlPanel span {
+#controlPanel span,
+small {
     font-size: 0.8em;
 }
 
@@ -528,8 +531,9 @@ input::placeholder {
     overflow-y: auto;
     height: 100%;
     max-height: 100%;
-    border-radius: 0;
-    /* padding: 7px 5% 5px 10px; */
+    border-radius: 10px;
+    border: 1px solid rgba(128, 128, 128, 0.2)
+        /* padding: 7px 5% 5px 10px; */
 }
 
 .chatAndTrashWrap {
@@ -678,9 +682,9 @@ input::placeholder {
 }
 
 
-small {
+/* small {
     font-size: 0.7em
-}
+} */
 
 hr {
     background-image: linear-gradient(90deg, rgba(128, 128, 128, 100), rgba(128, 128, 128, 100));
@@ -991,6 +995,12 @@ hr {
     width: 100%;
     background-color: #393a3f !important;
     padding: 3px 7px;
+    resize: none !important;
+}
+
+.ui-dialog .ui-dialog-title {
+    text-align: center;
+    width: 100%;
 }
 
 .ui-dialog .ui-dialog-titlebar {
@@ -1172,7 +1182,7 @@ button:disabled,
 }
 
 
-@media (max-width: 800px) {
+@media (max-width: 1000px) {
 
     #bodywrap {
         max-height: calc(100svh - 20px);
@@ -1245,7 +1255,7 @@ button:disabled,
     }
 
     button:not(#controlPanel button, .ui-button) {
-        font-size: 1.75em !important;
+        font-size: 1.5em !important;
     }
 
     /*     #userListsWrap {

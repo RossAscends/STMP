@@ -146,7 +146,7 @@ function correctSizeChats() {
     $("#OOCChatWrapper, #LLMChatWrapper, #chatWrap").animate({ height: chatHeight }, { duration: 1 })
 }
 
-function correctSizeBody() {
+function correctSizeBody(isPhone, isIOS) {
     var orientation = window.orientation;
     if (isPhone && (orientation === 90 || orientation === -90)) {
         // Landscape orientation on iOS

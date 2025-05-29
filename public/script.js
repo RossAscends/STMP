@@ -833,7 +833,7 @@ async function connectWebSocket(username) {
         break;
       default:
         console.warn(`UNKNOWN MESSAGE TYPE "${parsedMessage.type}": Main Switch ignoring, perhaps it's a special response for a different function`);
-        console.warn(parsedMessage);
+        console.debug(parsedMessage);
         break;
     }
   });
@@ -1015,83 +1015,105 @@ async function callCharDefPopup() {
 
   //MARK: chardefPopup (LN:1k)
   async function showCharDefs(charDefs, whichChar) {
-    const widthToUse = isPhone ? ($(window).width() - 10) : $("#contentWrap").width()
-    const heightToUse = isPhone ? ($(window).height() - 10) : $("#contentWrap").height()
-    const columnOrNot = isPhone ? 'flexFlowCol' : ''
-    charDefs = JSON.parse(charDefs)
-    console.log(charDefs)
+    const isMobile = isPhone;
+    const width = isMobile ? $(window).width() - 10 : $("body").width() / 1.2;
+    const height = isMobile ? $(window).height() - 10 : $("#contentWrap").height() / 1.3;
+    const layoutClass = isMobile ? 'flexFlowCol' : '';
+    const firstMesDynamicDimension = isMobile ? 'height' : 'width';
+    const parsedDefs = JSON.parse(charDefs);
 
-    $(`<div id="charDefPopup" class="flexbox ${columnOrNot}"></div>`)
-      .html(
-        `<div class="flexbox flexFlowCol flex1">
+    console.log(parsedDefs);
+
+    const $popup = $(`
+    <div id="charDefPopup" class="flexbox flexFlowCol">
+      <div class="flexbox flexFlowCol">
+        <small>
+        Best practice is to only put immutable traits in the description field.<br>
+        Information that might change over the course of a chat should be put in the Control Panel's D4 or D1 'Insertions' boxes.
+        </small>        
+      </div>
+
+      <div>
+        <div class="flexbox flexFlowCol">
           Name
           <textarea id="charDefsName" class="JQUIPopupInput" rows="1"></textarea>
+        </div>
+      </div>
+
+      <div class="flexbox flex1 marginTop5 ${layoutClass}">
+        <div class="flexbox flexFlowCol flex1">
           Description
           <textarea id="charDefsDesc" class="JQUIPopupInput flex1"></textarea>
-          <!--
-          Personality
-          <textarea id="charDefsPersonality" class="JQUIPopupInput flex1"></textarea>
-          -->
         </div>
-
-        <div class="flexbox flexFlowCol flex1">
-          <!--  
-          Scenario
-          <textarea id="charDefsScenario" class="JQUIPopupInput flex1"></textarea>
-          -->
+        <div class="flexbox flexFlowCol" style="${firstMesDynamicDimension}: 35%;">
           First Message
           <textarea id="charDefsFirstMessage" class="JQUIPopupInput flex1"></textarea>
-          <!--
-          Example Messages
-          <textarea id="charDefsExampleMessages" class="JQUIPopupInput flex1"></textarea>
-          -->
-        </div>`
-      )
-      .dialog({
-        width: widthToUse,
-        height: heightToUse,
-        draggable: false,
-        resizable: false,
-        modal: true,
-        position: { my: "center", at: "center", of: window },
-        title: `Character Definitions - ${charDefs.name}`,
-        buttons: {
-          Save: function () {
-            //replace old card data with new STMP data, leaving old data otherwise untouched.
-            charDefs.name = $("#charDefsName").val()
-            charDefs.description = $("#charDefsDesc").val()
-            charDefs.first_mes = $("#charDefsFirstMessage").val()
+        </div>
+      </div>
+    </div>
+  `);
 
-            const charEditRequest = {
-              type: 'charEditRequest',
-              UUID: myUUID,
-              char: whichChar,
-              newCharDefs: charDefs
-            }
-            $(this).dialog("close");
-            $(this).remove()
-            console.warn(charEditRequest)
-            util.messageServer(charEditRequest)
-          },
-          Cancel: function () {
-            $(this).dialog("close");
-            $(this).remove()
-          },
-        },
-        open: function () {
-          $("#charDefsName").val(charDefs?.data?.name || charDefs.name || 'no name found??')
-          $("#charDefsDesc").val(charDefs?.data?.description || charDefs.description || '')
-          //$("#charDefsPersonality").val(charDefs?.data?.personality || charDefs?.personality || '')
-          //$("#charDefsScenario").val(charDefs?.data?.scenario || charDefs?.scenario || '')
-          $("#charDefsFirstMessage").val(charDefs?.data?.first_mes || charDefs.first_mes || '')
-          //$("#charDefsExampleMessages").val(charDefs?.data?.mes_example || charDefs?.mes_example || '')
-          //$("#charDefsLoreBook").val(charDefs?.data?.character_book || 'No Embedded LoreBook')
+    $popup.dialog({
+      show: { effect: 'fade', duration: 250 },
+      hide: false, // we handle fade out ourselves
+      width,
+      height,
+      draggable: false,
+      resizable: false,
+      modal: true,
+      title: `${parsedDefs.name}'s Character Definitions`,
+      position: { my: "center", at: "center", of: window },
+      buttons: {
+        Save() {
+          parsedDefs.name = $("#charDefsName").val();
+          parsedDefs.description = $("#charDefsDesc").val();
+          parsedDefs.first_mes = $("#charDefsFirstMessage").val();
 
-          $(".ui-button").trigger("blur");
+          util.messageServer({
+            type: 'charEditRequest',
+            UUID: myUUID,
+            char: whichChar,
+            newCharDefs: parsedDefs
+          });
+
+          $(this).dialog("close");
         },
-        close: function () { },
-      })
+        Cancel() {
+          $(this).dialog("close");
+        }
+      },
+      open() {
+        $('.ui-widget-overlay').hide().fadeIn(250);
+
+        $("#charDefsName").val(parsedDefs?.data?.name || parsedDefs.name || 'No name found??');
+        $("#charDefsDesc").val(parsedDefs?.data?.description || parsedDefs.description || '');
+        $("#charDefsFirstMessage").val(parsedDefs?.data?.first_mes || parsedDefs.first_mes || '');
+
+        $(".ui-button").trigger("blur");
+      },
+      beforeClose(event, ui) {
+        const $content = $(this); // #charDefPopup
+        const $dialogWrapper = $content.closest('.ui-dialog'); // includes title bar, buttons
+        const $overlay = $('.ui-widget-overlay');
+
+        if ($dialogWrapper.is(':visible')) {
+          event.preventDefault(); // prevent jQuery UI from closing immediately
+
+          // Run both fadeOuts in parallel, then destroy dialog after both finish
+          $.when(
+            $dialogWrapper.fadeOut(250),
+            $overlay.fadeOut(250)
+          ).done(() => {
+            $content.dialog("destroy").remove();
+          });
+
+          return false; // still required to block default close
+        }
+      },
+      close() { } // Required to avoid default behavior interfering
+    });
   }
+
 }
 
 //MARK: disableButtons
@@ -1781,12 +1803,12 @@ $(async function () {
   });
 
   $(window).on("resize", async function () {
-    util.correctSizeBody();
+    util.correctSizeBody(isPhone, isIOS);
   });
 
   isLandscape = util.checkIsLandscape();
 
-  util.correctSizeBody();
+  util.correctSizeBody(isPhone, isIOS);
   util.correctSizeChats();
   //close the past chats on page load
   util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");

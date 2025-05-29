@@ -934,7 +934,7 @@ function doAIRetry() {
     mesID: $("#AIChat").children("div").last().attr("data-messageID"),
     sessionID: $("#AIChat").children("div").last().attr("data-sessionID"),
   };
-  disableButtons()
+  //disableButtons()
   util.messageServer(retryMessage);
 }
 
@@ -956,7 +956,7 @@ async function sendMessageToAIChat(type) {
     userInput: markdownContent,
   };
   localStorage.setItem("AIChatUsername", username);
-  disableButtons()
+  //disableButtons()
   util.messageServer(websocketRequest);
   messageInput.val("").trigger("focus");
 }

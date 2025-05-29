@@ -26,7 +26,7 @@
 
 <body class="Hcentered">
     <div id="controlPanel" class="hostControls initialState padding5 flexbox flexFlowCol overflowYHidden transition250">
-        <div id="controlPanelContents" class=" flexbox flexFlowCol noGap height100p">
+        <div id="controlPanelContents" class="flexbox flexFlowCol noGap height100p">
             <div id="AIConfigToggle" class="isControlPanelToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
                 <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
                 <h4>AI Config</h4>
@@ -246,13 +246,15 @@
                             <span class="greyscale">⏳</span>
                             <input type="text" id="AIChatDelay" data-for-config-array="crowdControl" class="numbersOnlyTextInput hostControls flexbox Vcentered" value="2">
                         </label>
-                        <label for="AIChatAutoClearCadence" class="flexbox noWrap square1p5em fontSize1p5em textshadow Vcentered " title="Auto clear AI Chat after X messages (max 999)">
+                        <label for="AIChatAutoClearCadence" class="unavailable-overlay flexbox noWrap square1p5em fontSize1p5em textshadow Vcentered " title="Auto clear AI Chat after X messages (max 999)">
                             <span class="greyscale">🗑️</span>
                             <input type="text" id="AIChatAutoClearCadence" data-for-config-array="crowdControl" class="numbersOnlyTextInput hostControls flexbox Vcentered" value="2">
                         </label>
                         <label for="AIResponseCadence" class="flexbox noWrap square1p5em  textshadow Vcentered" title="Trigger AI Response every X User messages (max 999)">
                             <button id="triggerAIResponse" class="fontSize1p5em square1p5em bgTransparent greyscale textshadow" title="Click to Request Immediate AI Response">🤖</button>
-                            <input type="text" id="AIResponseCadence" data-for-config-array="crowdControl" class="numbersOnlyTextInput flexbox hostControls Vcentered" value="2">
+                            <div class="unavailable-overlay">
+                                <input type="text" id="AIResponseCadence" data-for-config-array="crowdControl" class=" numbersOnlyTextInput flexbox hostControls Vcentered" value="2">
+                            </div>
                         </label>
                         <!-- <button id="deleteLastMessageButton" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Remove last message from chat">✂️</button> -->
 
@@ -287,7 +289,7 @@
                             <span class="greyscale">⏳</span>
                             <input type="text" inputmode="numeric" pattern="[0-9]*" id="userChatDelay" data-for-config-array="crowdControl" class="numbersOnlyTextInput hostControls flexbox Vcentered" value="2">
                         </label>
-                        <label for="userChatAutoclearCadence" class="flexbox noWrap square1p5em fontSize1p5em textshadow Vcentered " title="Auto clear AI Chat after X messages (max 999)">
+                        <label for="userChatAutoclearCadence" class="unavailable-overlay flexbox noWrap square1p5em fontSize1p5em textshadow Vcentered " title="Auto clear AI Chat after X messages (max 999)">
                             <span class="greyscale">🗑️</span>
                             <input type="text" inputmode="numeric" pattern="[0-9]*" id="userChatAutoclearCadence" data-for-config-array="crowdControl" class="numbersOnlyTextInput hostControls flexbox Vcentered" value="2">
                         </label>
@@ -341,8 +343,8 @@
         <hr class="width100p">
         <div id="crowdControl" class="isArrayType flexbox flexFlowCol heightFitContent justifyContentEnd Vcentered">
             <div class="flexbox">
-                <button id="disableInput" class="flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable User Input">🤐</button>
-                <button id="turnBasedMode" class="flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔢</button>
+                <button id="disableInput" class="unavailable-overlay flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable User Input">🤐</button>
+                <button id="turnBasedMode" class="unavailable-overlay flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔢</button>
                 <label for="allowImages" class=" Vcentered checkbox_label flexbox noWrap fontSize1p25em mutedColor textshadow" title="Allow Image Embeds in Chat Messages">
                     🖌️
                     <input type="checkbox" id="allowImages" class="flexbox Vcentered width50px" title="Allow Image Embeds in Chat Messages">

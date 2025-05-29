@@ -1168,6 +1168,36 @@ button:disabled,
     background: darkred;
 }
 
+.unavailable-overlay {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: max-content;
+
+}
+
+.unavailable-overlay::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    border-radius: 10px;
+    border: 1px solid black;
+    /* ensure it's above inner content */
+    background-image: repeating-linear-gradient(45deg,
+            black,
+            black 3px,
+            transparent 3px,
+            transparent 6px);
+    pointer-events: auto;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+
 /* Shake with rotation and offset movement */
 @keyframes intenseShake {
     0% {

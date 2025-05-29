@@ -1811,7 +1811,7 @@ $(async function () {
   util.correctSizeChats();
   //close the past chats on page load
   //util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");
-
+  $(".unavailable-overlay").attr("title", "This feature is not yet available.");
   $("#charDefsPopupButton").on('click', function () { callCharDefPopup() }
 
   )

@@ -309,7 +309,7 @@ async function processConfirmedConnection(parsedMessage) {
   var userRole = isHost ? "Host" : "Guest";
   $("#userRole").text(userRole);
   $("#charName").text(selectedCharacterDisplayName);
-  $("#charName").parent().prop('title', `Powered by  ${parsedMessage.selectedModelForGuestDisplay}`);
+  $("#charName").parent().prop('title', `Powered by ${parsedMessage.selectedModelForGuestDisplay}`);
 
   if (isHost) {
     //process all control and selector values for hosts
@@ -662,7 +662,7 @@ async function connectWebSocket(username) {
         break
       case "modelChangeForGuests":
         let selectedModel = parsedMessage.selectedModelForGuestDisplay;
-        $("#charName").parent().prop('title', `Powered by  ${selectedModel}`);
+        $("#charName").parent().prop('title', `Powered by ${selectedModel}`);
         break
       case "userChangedName":
         console.debug("saw notification of user name change");
@@ -1016,8 +1016,8 @@ async function callCharDefPopup() {
   //MARK: chardefPopup (LN:1k)
   async function showCharDefs(charDefs, whichChar) {
     const isMobile = isPhone;
-    const width = isMobile ? $(window).width() - 10 : $("body").width() / 1.2;
-    const height = isMobile ? $(window).height() - 10 : $("#contentWrap").height() / 1.3;
+    const width = isMobile ? $(window).width() - 10 : $("#contentWrap").width();
+    const height = isMobile ? $(window).height() - 10 : $("#contentWrap").height();
     const layoutClass = isMobile ? 'flexFlowCol' : '';
     const firstMesDynamicDimension = isMobile ? 'height' : 'width';
     const parsedDefs = JSON.parse(charDefs);

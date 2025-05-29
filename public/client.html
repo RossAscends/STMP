@@ -252,7 +252,7 @@
                             <div class="custom-select hostControls">
                                 <select id="cardList" class="flex1 dynamicSelector"></select>
                             </div>
-                            <button id="charDefsPopupButton" class="hostControls bgTransparent fontSize1p25em square1p5em">🧠</button>
+                            <button id="charDefsPopupButton" class="hostControls bgTransparent fontSize1p25em square1p5em" title="Open Character Definitions Edit Panel">🧠</button>
                             <span id="charName"></span>
                         </div>
 
@@ -278,9 +278,16 @@
                 </div>
 
                 <div id="OOCChatWrapper" class="flexbox flexFlowCol transition250 flex1 noGap">
-                    <div class="chatHeader Hcentered Vcentered flexbox positionRelative">
-                        User Chat
-                        <button id="clearUserChat" class="hostControls chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear User Chat History">🗑️</button>
+                    <div class="Vcentered chatHeader flexbox justifySpaceBetween positionRelative">
+                        <div style="opacity: 0;">
+                            <div id="NOOP_UserChatHeaderSpacer" class="square1p5em fontSize1p25em"> </div>
+                        </div>
+                        <div>
+                            User Chat
+                        </div>
+                        <div>
+                            <button id="clearUserChat" class="chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear User Chat History">🗑️</button>
+                        </div>
                     </div>
 
                     <!-- <div class="chatAndTrashWrap flexbox positionRelative flex1 overflowXHidden"> -->

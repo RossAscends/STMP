@@ -474,7 +474,8 @@ function addMessageEditListeners(newDiv) {
 
     async function editMessage(message) {
       //create a popup window to handle editing of hte content
-      const widthToUse = isPhone ? ($(window).width() - 10) : $("#AIChat").width()
+      const widthToUse = isPhone ? ($(window).width() - 10) : $(window).width() / 3
+      const heightToUse = isPhone ? ($(window).height() - 10) : $(window).height() / 2
 
       $(`<div id="mesEditPopup"></div>`)
         .html(
@@ -482,7 +483,7 @@ function addMessageEditListeners(newDiv) {
         )
         .dialog({
           width: widthToUse,
-          height: widthToUse,
+          height: heightToUse,
           draggable: false,
           resizable: false,
           modal: true,

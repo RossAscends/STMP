@@ -15,7 +15,7 @@ export var myUUID, myUsername;
 export var socket = null;
 export var isUserScrollingAIChat = false;
 export var isUserScrollingUserChat = false;
-let UserChatScrollTimeout, AIChatScrollTimeout;
+let userChatScrollTimeout, AIChatScrollTimeout;
 
 var doKeepAliveAudio = false;
 var isKeepAliveAudioPlaying = false;
@@ -414,7 +414,7 @@ function appendMessages(messages, elementSelector, sessionID) {
 
     if (!isHost) newDiv.find('.messageControls').remove();
     if (elementSelector == "#userChat") newDiv.find('.messageEdit').remove();
-    console.debug('newDiv content: ', content, 'elementSelector: ', elementSelector);
+    //console.debug('newDiv content: ', content, 'elementSelector: ', elementSelector);
     $(elementSelector).append(newDiv);
     addMessageEditListeners(newDiv);
 
@@ -577,11 +577,14 @@ async function connectWebSocket(username) {
       parsedMessage.type == "pastChatsList" ||
       parsedMessage.type == "pastChatToLoad" ||
       parsedMessage.type == "heartbeatResponse" ||
-      parsedMessage.type == "streamedAIResponse"
+      parsedMessage.type == "chatUpdate" ||
+      parsedMessage.type == "connectionConfirmed"
     ) {
-
+      if (parsedMessage.type !== "streamedAIResponse") {
+        console.info('Received parsedMessage type:', parsedMessage.type)
+      }
     } else {
-      console.info('Received parsedMessage type:', parsedMessage.type, message)
+      console.info('Received parsedMessage type:', parsedMessage.type, 'message:', message)
     }
 
 

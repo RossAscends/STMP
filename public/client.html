@@ -253,9 +253,21 @@
 
                     <div id="AIChat" data-chat-id="AIChat" class="marginTop5 transition250 positionRelative flex1 overflowXHidden width100p"></div>
 
-                    <div id="AIChatHostControls" class="hostControls flexbox justifySpaceAround noWrap">
-                        <button id="deleteLastMessageButton" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Remove last message from chat">✂️</button>
-                        <button id="triggerAIResponse" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Request AI Response">🤖</button>
+                    <div id="AIChatHostControls" class="hostControls flexbox justifySpaceAround noWrap Vcentered">
+                        <label for="AIChatDelay" class="flexbox noWrap square1p5em fontSize1p5em mutedColor textshadow Vcentered" title="AI Chat Cooldown Timer">
+                            ⏳
+                            <input type="text" id="AIChatDelay" class="hostControls flexbox Vcentered" min="0" max="600" value="2" title="AI Chat Cooldown Timer">
+                        </label>
+                        <label for="AIChatAutoClearCadence" class="flexbox noWrap square1p5em fontSize1p5em mutedColor textshadow Vcentered " title="Auto clear AI Chat after X messages">
+                            🗑️
+                            <input type="text" id="AIChatAutoClearCadence" class="hostControls flexbox Vcentered" min="0" max="600" value="2" title="Auto clear AI Chat after X messages">
+                        </label>
+                        <label for="AIResponseCadence" class="flexbox noWrap square1p5em fontSize1p5em mutedColor textshadow Vcentered" title="Trigger AI Response every X User messages">
+                            🤖
+                            <input type="text" id="AIResponseCadence" class="flexbox hostControls Vcentered" min="0" max="600" value="2" title="Trigger AI Response every X User messages">
+                        </label>
+                        <!-- <button id="deleteLastMessageButton" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Remove last message from chat">✂️</button> -->
+                        <!-- <button id="triggerAIResponse" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Request AI Response">🤖</button> -->
                         <button id="AIRetry" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Regenerate AI Response">🔄</button>
                     </div>
                     <div id="AIInputBlock" class="flexbox noWrap">
@@ -281,10 +293,17 @@
                         </div>
                     </div>
 
-                    <!-- <div class="chatAndTrashWrap flexbox positionRelative flex1 overflowXHidden"> -->
-
                     <div id="userChat" data-chat-id="userChat" class="marginTop5 transition250 positionRelative flex1 overflowXHidden width100p"></div>
-                    <!-- </div> -->
+                    <div id="userChatHostControls" class="hostControls flexbox justifySpaceAround noWrap">
+                        <label for="userChatDelay" class="flexbox noWrap square1p5em fontSize1p5em mutedColor textshadow Vcentered" title="AI Chat Cooldown Timer">
+                            ⏳
+                            <input type="text" id="userChatDelay" class="hostControls flexbox Vcentered" min="0" max="600" value="2" title="AI Chat Cooldown Timer">
+                        </label>
+                        <label for="userChatAutoclearCadence" class="flexbox noWrap square1p5em fontSize1p5em mutedColor textshadow Vcentered " title="Auto clear AI Chat after X messages">
+                            🗑️
+                            <input type="text" id="userChatAutoclearCadence" class="hostControls flexbox Vcentered" min="0" max="600" value="2" title="Auto clear AI Chat after X messages">
+                        </label>
+                    </div>
                     <div id="inputBlock" class="flexbox noWrap">
                         <div class="inputAndIconsWrapper flexbox transition250 positionRelative">
                             <textarea id="messageInput" class="" maxlength="1000" placeholder="Message the User Chat"></textarea>
@@ -314,6 +333,7 @@
 
     </div>
     <div id="userListsWrap" class="flexbox transition250 justifyContentCenter flexFlowCol">
+
         <div id="lists" class="flexbox flex1">
             <div id="userList" class="flexbox transition250 flexFlowCol ">
                 <small class="alignSelfCenter">Users</small>
@@ -325,44 +345,21 @@
             </div>
         </div>
 
-
         <div id="crowdControlBlock" class="hostControls flexbox flexFlowCol alignItemsCenter">
             <div id="crowdControlToggle" class="textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
                 <i class="nonButtonButton fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
                 <h4>Crowd Control</h4>
             </div>
-            <div id="crowdControl" class="isArrayType flexbox flexFlowCol heightFitContent justifyContentEnd">
+            <div id="crowdControl" class="isArrayType flexbox flexFlowCol heightFitContent justifyContentEnd Vcentered">
                 <div class="flexbox">
-                    <button id="disableInput" class="flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable User Input">🤐</button>
+                    <button id="disableInput" class="flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable User Input">🤐</button>
                     <button id="turnBasedMode" class="flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔢</button>
+                    <label for="allowImages" class=" Vcentered checkbox_label flexbox noWrap fontSize1p25em mutedColor textshadow" title="Allow Image Embeds in Chat Messages">
+                        🖌️
+                        <input type="checkbox" id="allowImages" class="flexbox Vcentered width50px" title="Allow Image Embeds in Chat Messages">
+                    </label>
                 </div>
 
-                <label for="AIChatDelay" class="flexbox noWrap fontSize1p25em mutedColor textshadow" title="AI Chat Cooldown Timer">
-                    🤖⏳
-                    <input type="number" id="AIChatDelay" class=" flexbox Vcentered width50px" min="0" max="600" value="2" title="AI Chat Cooldown Timer">sec
-                </label>
-                <label for="AIChatAutoClearCadence" class="flexbox noWrap fontSize1p25em mutedColor textshadow " title="Auto clear AI Chat after X messages">
-                    🤖🗑️
-                    <input type="number" id="AIChatAutoClearCadence" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="Auto clear AI Chat after X messages">📨
-                </label>
-                <label for="AIResponseCadence" class="flexbox noWrap fontSize1p25em mutedColor textshadow" title="Trigger AI Response every X User messages">
-                    🤖📨
-                    <input type="number" id="AIResponseCadence" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="Trigger AI Response every X User messages">
-                    🧑📨
-                </label>
-                <label for="userChatDelay" class="flexbox noWrap fontSize1p25em mutedColor textshadow " title="User Chat Cooldown Timer">
-                    🧑⏳
-                    <input type="number" id="userChatDelay" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="User Chat Cooldown Timer">sec
-                </label>
-                <label for="userChatAutoclearCadence" class="flexbox noWrap fontSize1p25em mutedColor textshadow" title="Clear User Chat Every X Messages">
-                    🧑🗑️
-                    <input type="number" id="userChatAutoclearCadence" class="flexbox Vcentered width50px" min="0" max="600" value="2" title="Clear User Chat Every X Messages">
-                    📨
-                </label>
-                <label for="allowImages" class=" checkbox_label flexbox noWrap fontSize1p25em mutedColor textshadow" title="Allow Image Embeds in Chat Messages">
-                    🖌️❓
-                    <input type="checkbox" id="allowImages" class="flexbox Vcentered width50px" title="Allow Image Embeds in Chat Messages">
-                </label>
             </div>
         </div>
     </div>

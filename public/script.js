@@ -10,7 +10,7 @@ export var username,
   responseLength,
   isPhone,
   isLandscape;
-export var currentlyStreaming = false; //set true when streamed response is incomine, and false when not.
+export var currentlyStreaming = false; //set true when streamed response is incoming, and false when not.
 export var myUUID, myUsername;
 export var socket = null;
 export var isUserScrollingAIChat = false;
@@ -272,14 +272,14 @@ function updateUserList(listType, userList) {
     return 0;
   });
 
-  console.warn(userList)
+  console.debug('userList: ', userList)
   userList.forEach(({ username, role, color, entity }) => {
     let isAI = entity === "AI" ? true : false;
     const usernameText = listType === "AIChatUserList" && isAI ? `${username} 🤖` : role === "host" ? `${username} 🔑` : username;
     const usernameColor = listType === "AIChatUserList" && isAI ? "white" : color;
-    console.warn(usernameText);
+    //console.warn(usernameText);
     const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${usernameColor};">${usernameText}</li>`;
-    console.log(listItem);
+    //console.log(listItem);
     listElement.append(listItem);
   });
 }
@@ -573,14 +573,18 @@ async function connectWebSocket(username) {
 
     //dont send spammy server messages to the console
     if (
-      parsedMessage.type !== "streamedAIResponse" &&
-      parsedMessage.type !== "pastChatsList" &&
-      parsedMessage.type !== "pastChatToLoad"
+      parsedMessage.type == "streamedAIResponse" ||
+      parsedMessage.type == "pastChatsList" ||
+      parsedMessage.type == "pastChatToLoad" ||
+      parsedMessage.type == "heartbeatResponse" ||
+      parsedMessage.type == "streamedAIResponse"
     ) {
-      console.debug("Received server message:", message);
+
+    } else {
+      console.info('Received parsedMessage type:', parsedMessage.type, message)
     }
 
-    console.info('Received parsedMessage type:', parsedMessage.type)
+
 
     /*TODO: 
         condense anything that is related to user state into a single message type: 
@@ -772,30 +776,27 @@ async function connectWebSocket(username) {
 
         // Debounced update
         pendingHTML = mendHTML(parsedMessage.content);
-        //if (!frameRequested) {
-        requestAnimationFrame(updateStreamedMessageHTML);
-        //  frameRequested = true;
-        //}
+        if (!frameRequested) {
+          requestAnimationFrame(updateStreamedMessageHTML);
+          frameRequested = true;
+        }
 
         break;
 
       case "streamedAIResponseEnd":
         console.debug("saw stream end");
-        //const HTMLizedContent = converter.makeHtml(accumulatedContent);
         const newDivElement = $("<p>").html(parsedMessage.content);
         const elementsToRemove = $(".incomingStreamDiv .messageContent").children();
         elementsToRemove.remove();
         if (isHost) addMessageEditListeners('.incomingStreamDiv');
         $(".incomingStreamDiv .messageContent").html(newDivElement.html());
         accumulatedContent = "";
-        fullRawAccumulatedContent = "";
         $(".incomingStreamDiv").removeClass("incomingStreamDiv");
-        currentlyStreaming = false;
-        console.debug('currentlyStreaming: ', currentlyStreaming);
-        console.debug('Re-enabling buttons');
-        $("body").removeClass("currentlyStreaming");
-        enableButtons();
         updateUserList("AIChatUserList", parsedMessage.AIChatUserList);
+        $("body").removeClass("currentlyStreaming");
+        currentlyStreaming = false;
+        console.debug('Re-enabling buttons');
+        enableButtons();
         break;
       case "AIResponse":
       case "chatMessage":
@@ -920,9 +921,10 @@ function disconnectWebSocket() {
   }
 }
 
-//MARK:doAIRetry
+//MARK:AIRetry/sendToAIChat
 function doAIRetry() {
   if (currentlyStreaming) {
+    console.debug("currentlyStreaming = true, canceling retry attempt.");
     return;
   }
   const isLastMesFromAI = $("#AIChat").children("div").last().attr("data-entityType") === "AI";
@@ -951,20 +953,13 @@ function doAIRetry() {
 }
 
 async function sendMessageToAIChat(type) {
-  if (currentlyStreaming) {
-    return;
-  }
-
-  if ($("#AIUsernameInput").val().trim() === "") {
-    alert("Can't send chat message with no username!");
-    return;
-  }
 
   var messageInput = $("#AIMessageInput");
   if (messageInput.val().trim() === "" && type !== "forced") {
     alert("Can't send empty message!");
     return;
   }
+
   username = $("#AIUsernameInput").val();
   var markdownContent = `${messageInput.val()}`;
   var websocketRequest = {
@@ -975,6 +970,7 @@ async function sendMessageToAIChat(type) {
     userInput: markdownContent,
   };
   localStorage.setItem("AIChatUsername", username);
+  disableButtons()
   util.messageServer(websocketRequest);
   messageInput.val("").trigger("focus");
 }
@@ -1096,21 +1092,20 @@ async function callCharDefPopup() {
 }
 
 //MARK: disableButtons
-function disableButtons() {
-  const buttonsToDisable = [
-    "#AISendButton",
-    "#deleteLastMessageButton",
-    "#triggerAIResponse",
-    "#AIRetry",
-    "#cardList",
-    "#APIList",
-    "#D4CharDefs",
-    "#toggleMode",
-    ".messageEdit",
-    ".messageDelete"
-  ];
 
-  buttonsToDisable.forEach(selector => {
+const disableableButtons = [
+  "#AISendButton",
+  "#deleteLastMessageButton",
+  "#triggerAIResponse",
+  "#AIRetry",
+  "#toggleMode",
+  ".messageEdit",
+  ".messageDelete"
+];
+
+function disableButtons() {
+
+  disableableButtons.forEach(selector => {
     const $element = $(selector);
     if ($element.length) {
       $element.prop("disabled", true).addClass("disabled");
@@ -1122,28 +1117,26 @@ function disableButtons() {
 }
 
 function enableButtons() {
-  console.debug('Re-enabling buttons');
-  const buttonsToEnable = [
-    "#AISendButton", "#deleteLastMessageButton", "#triggerAIResponse", "#AIRetry",
-    "#cardList", "#APIList", "#D4CharDefs", "#isStreaming", "#isAutoResponse", "#toggleMode",
-    ".messageEdit", ".messageDelete"
-  ];
 
-  buttonsToEnable.forEach(selector => {
+  disableableButtons.forEach(selector => {
     const $element = $(selector);
     if ($element.length) {
-      $element
-        .prop('disabled', false)
-        .removeAttr('disabled')
-        .removeClass('disabled')
-        .prop('readonly', false)
-        .removeAttr('readonly');
       console.debug(`Enabled ${selector}:`, {
         disabledProp: $element.prop('disabled'),
         disabledAttr: $element.attr('disabled'),
         hasDisabledClass: $element.hasClass('disabled'),
-        readonlyProp: $element.prop('readonly'),
-        readonlyAttr: $element.attr('readonly'),
+        isCheckbox: $element.is('input[type="checkbox"]'),
+        html: $element[0]?.outerHTML || 'Not found'
+      });
+
+      if ($element.prop('disabled') == true) $element.prop('disabled', false);
+      if ($element.attr('disabled') == true) $element.removeAttr('disabled')
+      if ($element.hasClass('disabled')) $element.removeClass('disabled')
+
+      console.debug(`Enabled ${selector}:`, {
+        disabledProp: $element.prop('disabled'),
+        disabledAttr: $element.attr('disabled'),
+        hasDisabledClass: $element.hasClass('disabled'),
         isCheckbox: $element.is('input[type="checkbox"]'),
         html: $element[0]?.outerHTML || 'Not found'
       });
@@ -1153,8 +1146,10 @@ function enableButtons() {
   });
 
   // Explicitly clear readonly for all checkboxes
-  $('input[type="checkbox"]').prop('readonly', false).removeAttr('readonly');
-  console.debug('Cleared readonly for all checkboxes');
+  /*   $('input[type="checkbox"]')
+      .prop('readonly', false)
+      .removeAttr('readonly');
+    console.debug('Cleared readonly for all checkboxes'); */
 
   console.debug('Re-enabled buttons');
 
@@ -1163,22 +1158,16 @@ function enableButtons() {
       isStreaming: {
         disabledProp: $("#isStreaming").prop('disabled'),
         disabledAttr: $("#isStreaming").attr('disabled'),
-        readonlyProp: $("#isStreaming").prop('readonly'),
-        readonlyAttr: $("#isStreaming").attr('readonly'),
         html: $("#isStreaming")[0]?.outerHTML || 'Not found'
       },
       isAutoResponse: {
         disabledProp: $("#isAutoResponse").prop('disabled'),
         disabledAttr: $("#isAutoResponse").attr('disabled'),
-        readonlyProp: $("#isAutoResponse").prop('readonly'),
-        readonlyAttr: $("#isAutoResponse").attr('readonly'),
         html: $("#isAutoResponse")[0]?.outerHTML || 'Not found'
       },
       D4CharDefs: {
         disabledProp: $("#D4CharDefs").prop('disabled'),
         disabledAttr: $("#D4CharDefs").attr('disabled'),
-        readonlyProp: $("#D4CharDefs").prop('readonly'),
-        readonlyAttr: $("#D4CharDefs").attr('readonly'),
         html: $("#D4CharDefs")[0]?.outerHTML || 'Not found'
       }
     });
@@ -1390,15 +1379,26 @@ $(async function () {
     }
   });
 
-  $("#AISendButton").off("click").on("click", function () {
+  $("#AISendButton").off("click").on("click", async function () {
     if ($(this).hasClass("disabledButton") || currentlyStreaming) {
+      console.warn('Cannot send message while AI is generating response. "disabledButton"?: ', $(this).hasClass("disabledButton"), "currentlyStreaming?: ", currentlyStreaming);
       alert("AI is currently generating a response, please wait.");
-      console.warn('Cannot send message while AI is generating response.');
       return;
     }
-    sendMessageToAIChat();
-    $("#AIMessageInput").trigger("input");
-    disableButtons()
+
+    if ($("#AIUsernameInput").val().trim() === "") {
+      console.warn(`Can't send empty message to AI Chat!`)
+      return
+    }
+
+    if ($("#AIUsernameInput").val().trim() === "") {
+      alert("Can't send chat message with no username!");
+      return;
+    }
+
+    await sendMessageToAIChat();
+    $("#AIMessageInput").trigger("input"); //this resets the input height
+
     $(this).addClass("disabledButton").text("🚫");
     setTimeout(() => {
       $(this).removeClass("disabledButton").text("✏️");

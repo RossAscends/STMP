@@ -412,7 +412,7 @@ async function setEngineMode(mode, hordeWorkerList = null) {
     } */
 
   if (shouldModify) {
-    console.warn("API MODE:", mode);
+    console.debug("API MODE:", mode);
     liveConfig.promptConfig.engineMode = mode;
 
     toggleModeElement
@@ -435,7 +435,7 @@ async function setEngineMode(mode, hordeWorkerList = null) {
     $("#hordeWorkerListBlock").hide();
     $("#TCCCAPIBlock").show();
     $("#isStreaming").prop('checked', isStreaming);
-    console.warn('hiding horde model list');
+    console.debug('hiding horde model list');
     $("#isStreamingChekboxBlock").show();
   }
 }

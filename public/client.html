@@ -232,7 +232,7 @@
                             <div class="custom-select hostControls">
                                 <select id="cardList" class="flex1 dynamicSelector"></select>
                             </div>
-                            <button id="charDefsPopupButton" class="hostControls bgTransparent fontSize1p25em square1p5em" title="Open Character Definitions Edit Panel">🧠</button>
+                            <button id="charDefsPopupButton" class="hostControls bgTransparent mutedColor fontSize1p25em square1p5em" title="Open Character Definitions Edit Panel">🧠</button>
                             <span id="charName"></span>
                         </div>
 
@@ -242,20 +242,20 @@
                     <div id="AIChat" data-chat-id="AIChat" class="marginTop5 transition250 positionRelative flex1 overflowXHidden width100p"></div>
 
                     <div id="AIChatHostControls" class="hostControls flexbox justifySpaceAround noWrap Vcentered">
-                        <label for="AIChatDelay" class="flexbox noWrap square1p5em fontSize1p5em mutedColor textshadow Vcentered" title="AI Chat Cooldown Timer">
-                            ⏳
-                            <input type="text" id="AIChatDelay" class="hostControls flexbox Vcentered" min="0" max="600" value="2" title="AI Chat Cooldown Timer">
+                        <label for="AIChatDelay" class="flexbox noWrap square1p5em fontSize1p5em textshadow Vcentered" title="AI Chat Cooldown Timer (seconds, max 999)">
+                            <span class="greyscale">⏳</span>
+                            <input type="text" id="AIChatDelay" data-for-config-array="crowdControl" class="numbersOnlyTextInput hostControls flexbox Vcentered" value="2">
                         </label>
-                        <label for="AIChatAutoClearCadence" class="flexbox noWrap square1p5em fontSize1p5em mutedColor textshadow Vcentered " title="Auto clear AI Chat after X messages">
-                            🗑️
-                            <input type="text" id="AIChatAutoClearCadence" class="hostControls flexbox Vcentered" min="0" max="600" value="2" title="Auto clear AI Chat after X messages">
+                        <label for="AIChatAutoClearCadence" class="flexbox noWrap square1p5em fontSize1p5em textshadow Vcentered " title="Auto clear AI Chat after X messages (max 999)">
+                            <span class="greyscale">🗑️</span>
+                            <input type="text" id="AIChatAutoClearCadence" data-for-config-array="crowdControl" class="numbersOnlyTextInput hostControls flexbox Vcentered" value="2">
                         </label>
-                        <label for="AIResponseCadence" class="flexbox noWrap square1p5em fontSize1p5em mutedColor textshadow Vcentered" title="Trigger AI Response every X User messages">
-                            🤖
-                            <input type="text" id="AIResponseCadence" class="flexbox hostControls Vcentered" min="0" max="600" value="2" title="Trigger AI Response every X User messages">
+                        <label for="AIResponseCadence" class="flexbox noWrap square1p5em  textshadow Vcentered" title="Trigger AI Response every X User messages (max 999)">
+                            <button id="triggerAIResponse" class="fontSize1p5em square1p5em bgTransparent greyscale textshadow" title="Click to Request Immediate AI Response">🤖</button>
+                            <input type="text" id="AIResponseCadence" data-for-config-array="crowdControl" class="numbersOnlyTextInput flexbox hostControls Vcentered" value="2">
                         </label>
                         <!-- <button id="deleteLastMessageButton" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Remove last message from chat">✂️</button> -->
-                        <!-- <button id="triggerAIResponse" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Request AI Response">🤖</button> -->
+
                         <button id="AIRetry" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Regenerate AI Response">🔄</button>
                     </div>
                     <div id="AIInputBlock" class="flexbox noWrap">
@@ -283,13 +283,13 @@
 
                     <div id="userChat" data-chat-id="userChat" class="marginTop5 transition250 positionRelative flex1 overflowXHidden width100p"></div>
                     <div id="userChatHostControls" class="hostControls flexbox justifySpaceAround noWrap">
-                        <label for="userChatDelay" class="flexbox noWrap square1p5em fontSize1p5em mutedColor textshadow Vcentered" title="AI Chat Cooldown Timer">
-                            ⏳
-                            <input type="text" id="userChatDelay" class="hostControls flexbox Vcentered" min="0" max="600" value="2" title="AI Chat Cooldown Timer">
+                        <label for="userChatDelay" class="flexbox noWrap square1p5em fontSize1p5em textshadow Vcentered" title="User Chat Cooldown Timer (seconds, max 999)">
+                            <span class="greyscale">⏳</span>
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" id="userChatDelay" data-for-config-array="crowdControl" class="numbersOnlyTextInput hostControls flexbox Vcentered" value="2">
                         </label>
-                        <label for="userChatAutoclearCadence" class="flexbox noWrap square1p5em fontSize1p5em mutedColor textshadow Vcentered " title="Auto clear AI Chat after X messages">
-                            🗑️
-                            <input type="text" id="userChatAutoclearCadence" class="hostControls flexbox Vcentered" min="0" max="600" value="2" title="Auto clear AI Chat after X messages">
+                        <label for="userChatAutoclearCadence" class="flexbox noWrap square1p5em fontSize1p5em textshadow Vcentered " title="Auto clear AI Chat after X messages (max 999)">
+                            <span class="greyscale">🗑️</span>
+                            <input type="text" inputmode="numeric" pattern="[0-9]*" id="userChatAutoclearCadence" data-for-config-array="crowdControl" class="numbersOnlyTextInput hostControls flexbox Vcentered" value="2">
                         </label>
                     </div>
                     <div id="inputBlock" class="flexbox noWrap">

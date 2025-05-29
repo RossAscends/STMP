@@ -226,6 +226,7 @@ select,
 #AIChatHostControls input[type='text'],
 #userChatHostControls input[type='text'] {
     width: 2.5em;
+    padding-left: 5px;
 }
 
 button,

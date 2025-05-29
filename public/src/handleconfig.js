@@ -255,12 +255,13 @@ async function selectFromPopulatedSelector(value, elementID) {
 
 async function populateInput(value, elementID) {
   return new Promise(async (resolve) => {
+    //console.warn('populateInput checking:', value, elementID)
     let shouldContinue = await checkArguments("populateInput", arguments)
     if (!shouldContinue) {
       resolve();
       return
     }
-
+    //console.warn('populating input:', value, elementID)
     $(`#${elementID}`).val(value);
     util.flashElement(elementID, "good");
     //console.debug(`confirming ${elementID} value is now ${$(`#${elementID}`).val()}`);
@@ -512,8 +513,14 @@ async function updateConfigState(element) {
     //console.log('static selector, text field, or checkbox')
     propName = elementID
     arrayName = $element.closest('.isArrayType').prop('id')
+    //console.warn('arrayName:', arrayName)
     if (arrayName == undefined) {
-      arrayName = 'promptConfig'
+      if ($element.data('for-config-array') !== undefined) {
+        arrayName = $element.data('for-config-array')
+        console.warn('arrayName was undefined, but element has data-for-config-array:', arrayName)
+      } else {
+        arrayName = 'promptConfig'
+      }
     }
   }
 
@@ -572,11 +579,83 @@ $("#APIList").on("change", async function () {
   util.flashElement("apiList", "good");
 });
 
-$("#promptConfig input, #promptConfig select:not(#APIList, #modelList), #cardList, #hordeWorkerList").on('change', function () { updateConfigState($(this)) })
-
-$("#systemPrompt, #D4AN, #D4CharDefs, #D1JB, #crowdControl input").on('change', function () {
+$("#promptConfig input, #promptConfig select:not(#APIList, #modelList), #cardList, #hordeWorkerList").on('change', function () {
   updateConfigState($(this))
 })
+
+$("#systemPrompt, #D4AN, #D4CharDefs, #D1JB, #crowdControl input, #AIChatHostControls input, #userChatHostControls input").on('change', function () {
+  updateConfigState($(this))
+})
+
+$(".numbersOnlyTextInput").on("input", function () {
+  const original = $(this).val();
+  let cleaned = original.replace(/[^0-9]/g, "").replace(/^0+/, "") || "0";
+
+  if (original !== cleaned) {
+    $(this).val(cleaned);
+    setTimeout(() => {
+      console.warn('applying focus test 2')
+      this.setSelectionRange(0, 1);
+    }, 1);
+    util.flashElement($(this).prop("id"), "bad");
+  }
+
+  if (cleaned < 0 || cleaned > 999) {
+
+    cleaned = util.minMax(cleaned, 0, 999);
+    $(this).val(cleaned);
+    console.warn("out of range, setting to:", cleaned);
+    util.flashElement($(this).prop("id"), "bad");
+
+  }
+});
+
+$(".numbersOnlyTextInput").on("keydown", function (e) {
+  const val = $(this).val();
+
+  // If input is "0" and user types a digit (0-9), replace it immediately
+  if (val === "0") {
+    $(this).trigger("focus"); // focus it so selection shows afterwards
+    setTimeout(() => {
+      this.setSelectionRange(0, 1); //select the zero
+    }, 1);
+  }
+
+  if (val === "0" && e.key.length === 1 && /[0-9]/.test(e.key)) {
+    e.preventDefault();
+    $(this).val(e.key).trigger("input").trigger("change");
+    return; // stop further processing
+  }
+
+  const step = 1;
+  const min = parseInt($(this).attr("min")) || 0;
+  const max = parseInt($(this).attr("max")) || 999;
+  let value = parseInt(val);
+
+  if (isNaN(value)) value = min;
+
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    const newVal = Math.min(value + step, max);
+    $(this).val(String(newVal)).trigger("input").trigger("change");
+  } else if (e.key === "ArrowDown") {
+    e.preventDefault();
+    const newVal = Math.max(value - step, min);
+    if (newVal === "0") {
+      $(this).trigger("focus");
+      setTimeout(() => {
+        console.warn('applying focus test 2')
+        this.setSelectionRange(0, 1);
+      }, 1);
+    }
+
+    $(this).val(String(newVal)).trigger("input").trigger("change");
+  }
+});
+
+
+
+
 
 async function addNewAPI() {
   //check each field for validity, flashElement if invalid

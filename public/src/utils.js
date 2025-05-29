@@ -56,6 +56,10 @@ async function betterSlideToggle(target, speed = 250, animationDirection = 'heig
     });
 }
 
+function minMax(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
 async function flashElement(elementID, type, flashDelay = 400, times = 1) {
     var element = $('#' + elementID);
     let color
@@ -398,5 +402,6 @@ export default {
     kindlyScrollDivToBottom,
     isValidURL,
     calculatePromptsBlockheight,
-    clearChatWithCountdown
+    clearChatWithCountdown,
+    minMax,
 }    

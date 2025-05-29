@@ -419,8 +419,6 @@ function appendMessages(messages, elementSelector, sessionID) {
     $(elementSelector).append(newDiv);
     addMessageEditListeners(newDiv);
 
-    if (currentlyStreaming) disableButtons();
-
   });
 
 }
@@ -729,7 +727,6 @@ async function connectWebSocket(username) {
       case "pastChatDeleted":
         let wasActive = parsedMessage?.wasActive;
         if (wasActive) {
-          //$("#clearAIChat").trigger("click");
           $("#AIChat").empty();
           $("#AIChatUserList ul").empty();
         }
@@ -757,6 +754,7 @@ async function connectWebSocket(username) {
       case "streamedAIResponse":
         $("body").addClass("currentlyStreaming");
         currentlyStreaming = true;
+        disableButtons()
 
         accumulatedContent += parsedMessage.content;
 
@@ -934,7 +932,7 @@ function doAIRetry() {
     mesID: $("#AIChat").children("div").last().attr("data-messageID"),
     sessionID: $("#AIChat").children("div").last().attr("data-sessionID"),
   };
-  //disableButtons()
+
   util.messageServer(retryMessage);
 }
 
@@ -956,7 +954,6 @@ async function sendMessageToAIChat(type) {
     userInput: markdownContent,
   };
   localStorage.setItem("AIChatUsername", username);
-  //disableButtons()
   util.messageServer(websocketRequest);
   messageInput.val("").trigger("focus");
 }
@@ -1108,7 +1105,10 @@ const disableableButtons = [
   "#AIRetry",
   "#toggleMode",
   ".messageEdit",
-  ".messageDelete"
+  ".messageDelete",
+  "#clearAIChat",
+  "#clearUserChat"
+
 ];
 
 function disableButtons() {
@@ -1117,7 +1117,7 @@ function disableButtons() {
     const $element = $(selector);
     if ($element.length) {
       $element.prop("disabled", true).addClass("disabled");
-      console.debug(`Disabled ${selector}: ${$element.prop("disabled")}`);
+      console.warn(`Disabled ${selector}: ${$element.prop("disabled")}`);
     } else {
       console.warn(`Element ${selector} not found in DOM`);
     }
@@ -1152,12 +1152,6 @@ function enableButtons() {
       console.warn(`Element ${selector} not found in DOM`);
     }
   });
-
-  // Explicitly clear readonly for all checkboxes
-  /*   $('input[type="checkbox"]')
-      .prop('readonly', false)
-      .removeAttr('readonly');
-    console.debug('Cleared readonly for all checkboxes'); */
 
   console.debug('Re-enabled buttons');
 
@@ -1316,7 +1310,6 @@ $(async function () {
 
   $("#triggerAIResponse").off("click").on("click", function () {
     console.debug('saw force trigger for AI response click')
-    disableButtons()
     sendMessageToAIChat("forced");
 
   });
@@ -1414,12 +1407,16 @@ $(async function () {
 
   $("#clearUserChat").off("click").on("click", function () {
     console.warn('saw clear chat click');
+
     util.clearChatWithCountdown('manual', 'start', "#userChat", isHost, () => {
       //console.warn("userChat Clear Timer Completed");
     });
   });
 
   $("#clearAIChat").off("click").on("click", function () {
+    if (currentlyStreaming) {
+      console.warn(`can't clear chat while AI is generating response`);
+    }
     util.clearChatWithCountdown('manual', 'start', "#AIChat", isHost, () => {
       //console.warn("AI Clear Chat Timer Completed");
     });

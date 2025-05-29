@@ -196,18 +196,6 @@
                     </div>
                 </div>
             </div>
-            <hr>
-            <div id="pastChatsToggle" class="isControlPanelToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
-                <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
-                <h4>Past Chats</h4>
-            </div>
-            <div id="pastChatsBlock" class="flexbox flexFlowCol">
-                <div id="pastChatsWrap" class="flexbox flexFlowCol ">
-                    <!-- hidden button that is auto-clicked on each mesage received to update chat list -->
-                    <button id="showPastChats" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Refresh Past Chats List" hidden>🔄</button>
-                    <div id="pastChatsList" class="flexbox Hcentered alignContentStart"></div>
-                </div>
-            </div>
         </div>
     </div>
     <div id="leftSpanner" class="spanner15vw"></div>
@@ -332,7 +320,7 @@
         </div>
 
     </div>
-    <div id="userListsWrap" class="flexbox transition250 justifyContentCenter flexFlowCol">
+    <div id="userListsWrap" class="flexbox padding5 justifyContentCenter flexFlowCol">
 
         <div id="lists" class="flexbox flex1">
             <div id="userList" class="flexbox transition250 flexFlowCol ">
@@ -344,8 +332,21 @@
                 <ul></ul>
             </div>
         </div>
-
+        <hr class="width100p">
         <div id="crowdControlBlock" class="hostControls flexbox flexFlowCol alignItemsCenter">
+            <div id="pastChatsToggle" class="isControlPanelToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
+                <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
+                <h4>Past Chats</h4>
+            </div>
+
+            <div id="pastChatsBlock" class="flexbox flexFlowCol">
+                <div id="pastChatsWrap" class="flexbox flexFlowCol ">
+                    <!-- hidden button that is auto-clicked on each mesage received to update chat list -->
+                    <button id="showPastChats" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Refresh Past Chats List" hidden>🔄</button>
+                    <div id="pastChatsList" class="flexbox Hcentered alignContentStart"></div>
+                </div>
+            </div>
+            <hr class="width100p">
             <div id="crowdControlToggle" class="textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
                 <i class="nonButtonButton fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
                 <h4>Crowd Control</h4>

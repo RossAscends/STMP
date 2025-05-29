@@ -143,8 +143,13 @@ button,
     text-align: center;
 }
 
-#controlPanel span,
-small {
+#controlPanel span {
+    font-size: 0.8em;
+    color: #666
+}
+
+small,
+#pastChatsBlock span {
     font-size: 0.8em;
 }
 
@@ -570,7 +575,7 @@ input::placeholder {
 
 #userListsWrap {
     background: #2c2d31;
-    padding: 10px 5px;
+    /* padding: 10px 5px; */
     /* margin: 0 0 0 5px; */
     /* border-radius: 10px; */
     height: 100vh;
@@ -637,7 +642,7 @@ input::placeholder {
     overflow-y: auto;
     overflow-x: hidden;
     border-radius: 5px;
-    padding: 0 4px 0 12px;
+    padding: 0px;
     height: 100%;
     /*makes background on show text, allowing for it to effect scrollbar but not the whole div*/
     -webkit-background-clip: text;
@@ -645,7 +650,7 @@ input::placeholder {
 
 .pastChatItem {
     cursor: pointer;
-    padding: 0 3px;
+    padding: 3px 0px 3px 7px;
     border-radius: 5px;
     /* border: 1px solid #666; */
     background-color: #393a3f;

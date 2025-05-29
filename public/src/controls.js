@@ -146,16 +146,17 @@ function showPastChats(chatList) {
 
     for (let i = 0; i < chatArray.length; i++) {
         const item = chatArray[i];
-        const divElement = $(`<div class="pastChatItem flexbox transition250" data-session_id="${item.session_id}">`);
+        const divElement = $(`<div class="pastChatItem flexbox Vcentered transition250" data-session_id="${item.session_id}">`);
         if (item.is_active) {
             divElement.addClass('activeChat');
         }
         const formattedTimestamp = util.formatSQLTimestamp(item.latestTimestamp);
-        const sessionText = $(`<span>${item.aiName} (${item.messageCount})</span>`);
-        const nameAndTimestampDiv = $(`<div data-session_id="${item.session_id}" class="pastChatInfo flexbox flexFlowCol flex1">`);
+        const sessionText = $(`<span>${item.aiName}</span>`);
+        const nameAndTimestampDiv = $(`<div data-session_id="${item.session_id}" class="pastChatInfo noGap flexbox flexFlowCol flex1">`);
         const timestampText = $(`<small>${formattedTimestamp}</small>`);
+        const messageCount = $(`<span> ${item.messageCount}</span>`);
         const delButton = $(`<button data-session_id="${item.session_id}" class="pastChatDelButton opacityHalf bgTransparent">🗑️</button>`);
-        divElement.append(nameAndTimestampDiv).append(delButton);
+        divElement.append(nameAndTimestampDiv).append(messageCount).append(delButton);
         nameAndTimestampDiv.append(sessionText).append(timestampText);
         $pastChatsList.append(divElement);
     }

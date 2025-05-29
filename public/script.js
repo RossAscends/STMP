@@ -1810,7 +1810,7 @@ $(async function () {
   util.correctSizeBody(isPhone, isIOS);
   util.correctSizeChats();
   //close the past chats on page load
-  util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");
+  //util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");
 
   $("#charDefsPopupButton").on('click', function () { callCharDefPopup() }
 

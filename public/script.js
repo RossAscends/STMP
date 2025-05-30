@@ -1574,8 +1574,9 @@ $(async function () {
   const $LLMChatWrapper = $("#LLMChatWrapper");
   const $OOCChatWrapper = $("#OOCChatWrapper");
   const $contentWrap = $("#contentWrap");
-
+  //MARK: chatsToggle
   $("#chatsToggle").off("click").on("click", async function () {
+    let soloWidth = isMobileViewport ? "widthFull" : "widthNarrow";
     chatsToggleState = (chatsToggleState + 1) % 3;
 
     if (chatsToggleState === 0) {
@@ -1588,7 +1589,7 @@ $(async function () {
       $LLMChatWrapper.css({ opacity: "1" });
     } else if (chatsToggleState === 1) {
       // AI chat only
-      $contentWrap.removeClass("widthFull").addClass("widthNarrow");
+      $contentWrap.removeClass("widthFull").addClass(soloWidth);
       $OOCChatWrapper.css({ flex: "0", opacity: "0" });
       $LLMChatWrapper.css({ flex: "1", opacity: "1" });
       await util.delay(251);
@@ -1596,7 +1597,7 @@ $(async function () {
 
     } else if (chatsToggleState === 2) {
       // OOC chat only
-      $contentWrap.removeClass("widthFull").addClass("widthNarrow");
+      $contentWrap.removeClass("widthFull").addClass(soloWidth);
       $LLMChatWrapper.css({ opacity: "0" });
       await util.delay(251);
       $OOCChatWrapper.removeClass("hidden");
@@ -1796,9 +1797,8 @@ $(async function () {
   });
 
   isLandscape = util.checkIsLandscape();
-
-  util.correctSizeBody(isPhone, isIOS);
-  util.correctSizeChats();
+  await util.delay(10)
+  await util.correctSizeBody(isPhone, isIOS);
   //close the past chats on page load
   //util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");
   $(".unavailable-overlay").attr("title", "This feature is not yet available.");

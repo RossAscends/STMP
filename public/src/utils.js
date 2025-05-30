@@ -159,14 +159,15 @@ function isPhone() {
     return isTouchDevice && isMobileViewport;
 }
 
-function correctSizeChats() {
+async function correctSizeChats() {
     let universalControlsHeight = $("#universalControls").outerHeight()
-    let totalHeight = $(window).height()
-    let chatHeight = totalHeight - universalControlsHeight - 10 + 'px'
-    $("#OOCChatWrapper, #LLMChatWrapper, #chatWrap").animate({ height: chatHeight }, { duration: 1 })
+    let totalHeight = $(window).innerHeight()
+    let chatHeight = totalHeight - universalControlsHeight - 10
+
+    $("#OOCChatWrapper, #LLMChatWrapper, #chatWrap").css('height', `${chatHeight}px`)
 }
 
-function correctSizeBody(isPhoneCheck, isIOS) {
+async function correctSizeBody(isPhoneCheck, isIOS) {
     var orientation = window.orientation;
     if (isPhoneCheck && (orientation === 90 || orientation === -90)) {
         // Landscape orientation on iOS
@@ -187,7 +188,7 @@ function correctSizeBody(isPhoneCheck, isIOS) {
             'margin': 'auto'
         });
     }
-    correctSizeChats()
+    // await correctSizeChats()
 };
 
 

@@ -214,7 +214,7 @@
 
                 </div>
                 <div class="flexbox noWrap heightFitcontent">
-                    <button id="userListsToggle" class="opacityHalf hostControls Vcentered bgTransparent fontSize1p25em greyscale textshadow">📜</button>
+                    <button id="userListsToggle" class="opacityHalf Vcentered bgTransparent fontSize1p25em greyscale textshadow">📜</button>
                 </div>
                 <div id="roleKeyInputDiv" class=" justifyContentCenter positionAbsolute marginBot5 marginTop5 flexbox width100p" style="display:none;">
                     <input id="roleKeyInput" type="text" maxlength="32" class="width100px bgBrightUp" placeholder="Role Key">
@@ -322,14 +322,14 @@
         </div>
 
     </div>
-    <div id="userListsWrap" class="flexbox padding5 noGap justifyContentCenter flexFlowCol">
+    <div id="userListsWrap" class="transition250 flexbox padding5 noGap justifyContentCenter flexFlowCol">
         <!--
             <div id="crowdControlToggle" class="textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
                 <i class="nonButtonButton fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
                 <h4>Crowd Control</h4>
             </div> 
         -->
-        <div id="pastChatsToggle" class="isControlPanelToggle textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
+        <div id="pastChatsToggle" class="isControlPanelToggle hostControls textBrightUp nonButtonButton flexbox Hcentered Vcentered transition250 bgTransparent textshadow alignSelfCenter">
             <i class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow"></i>
             <h4>Past Chats</h4>
         </div>
@@ -341,8 +341,9 @@
             </div>
         </div>
         <hr class="width100p">
-        <div id="crowdControl" class="isArrayType flexbox flexFlowCol heightFitContent justifyContentEnd Vcentered">
+        <div id="crowdControl" class="hostControls isArrayType flexbox flexFlowCol heightFitContent justifyContentEnd Vcentered">
             <div class="flexbox">
+                <button id="showHostToast" class="flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable User Input">📢</button>
                 <button id="disableInput" class="unavailable-overlay flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable User Input">🤐</button>
                 <button id="turnBasedMode" class="unavailable-overlay flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔢</button>
                 <label for="allowImages" class=" Vcentered checkbox_label flexbox noWrap fontSize1p25em mutedColor textshadow" title="Allow Image Embeds in Chat Messages">
@@ -365,6 +366,7 @@
         <div id="crowdControlBlock" class="hostControls flexbox flexFlowCol alignItemsCenter">
         </div>
     </div>
+    <div id="hostToast"></div>
 
 </body>
 

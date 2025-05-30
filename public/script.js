@@ -2,6 +2,7 @@ import control from "./src/controls.js";
 import util from "./src/utils.js";
 import handleconfig from './src/handleconfig.js'
 import { streamUpdater } from "./src/streamUpdater.js";
+import hostToast from "./src/hostToast.js";
 
 export var username,
   isAutoResponse,
@@ -827,6 +828,9 @@ async function connectWebSocket(username) {
         updateUserList(targetList, parsedMessage.AIChatUserList);
         isAIResponse = false;
         break;
+      case 'hostToastResponse':
+        hostToast.showHostToast(parsedMessage.content, parsedMessage.username);
+        break;
       default:
         console.warn(`UNKNOWN MESSAGE TYPE "${parsedMessage.type}": Main Switch ignoring, perhaps it's a special response for a different function`);
         console.debug(parsedMessage);
@@ -995,11 +999,10 @@ async function callCharDefPopup() {
 
   //MARK: chardefPopup (LN:1k)
   async function showCharDefs(charDefs, whichChar) {
-    const isMobile = isPhone;
-    const width = isMobile ? $(window).width() - 10 : $("#contentWrap").width();
-    const height = isMobile ? $(window).height() - 10 : $("#contentWrap").height();
-    const layoutClass = isMobile ? 'flexFlowCol' : '';
-    const firstMesDynamicDimension = isMobile ? 'height' : 'width';
+    const width = isPhone ? $(window).width() - 10 : $("#contentWrap").width();
+    const height = isPhone ? $(window).height() - 10 : $("#contentWrap").height();
+    const layoutClass = isPhone ? 'flexFlowCol' : '';
+    const firstMesDynamicDimension = isPhone ? 'height' : 'width';
     const parsedDefs = JSON.parse(charDefs);
 
     console.log(parsedDefs);
@@ -1218,7 +1221,7 @@ $(async function () {
   verifyCheckboxStates();
 
   isPhone = /Mobile/.test(navigator.userAgent);
-  console.debug(`Is this a phone? ${isPhone}`);
+  console.debug(`Is this a phone? ${isPhone} : ${navigator.userAgent}`);
 
   const $controlPanel = $("#controlPanel");
   const $chatWrap = $("#chatWrap")
@@ -1518,7 +1521,7 @@ $(async function () {
     util.messageServer(pastChatListRequest);
   });
 
-  $(document).on("click", async function (e) {
+  $(document).on("mouseUp", async function (e) {
     var $target = $(e.target);
     if (
       !$target.is("#profileManagementButton") &&
@@ -1531,6 +1534,7 @@ $(async function () {
       if ($("#roleKeyInputDiv").hasClass("needsReset")) {
         $("#roleKeyInputDiv").fadeToggle().removeClass("needsReset");
       }
+      if (!$target.is('#hostToast') && isPhone) $("#hostToast").trigger('mouseleave');
     }
   });
 

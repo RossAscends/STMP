@@ -1023,8 +1023,18 @@ async function handleConnections(ws, type, request) {
                         return
                     }
                 }
+                else if (parsedMessage.type === 'hostToastRequest') {
+                    const hostToastMessage = {
+                        type: 'hostToastResponse',
+                        content: purifier.makeHtml(parsedMessage.message),
+                        username: thisUserUsername
+                    }
+                    await broadcast(hostToastMessage)
+                    return
+
+                }
             }
-            //process universal message types
+            //process universal message types that all users can send
 
             if (parsedMessage.type === 'usernameChange') {
                 //logger.info(parsedMessage)

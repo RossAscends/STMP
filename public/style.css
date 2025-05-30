@@ -1083,6 +1083,36 @@ hr {
     displaY: none;
 }
 
+#hostToast {
+    display: none;
+    position: fixed;
+    top: 4.2em;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgb(216 196 76 / 50%);
+    backdrop-filter: blur(4px);
+    color: #333;
+    padding: 15px 15px;
+    border-radius: 10px;
+    font-size: 1.4em;
+    font-weight: bold;
+    z-index: 10000;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    max-width: 65vw;
+    /* width: 65vw; */
+    /* pointer-events: none; */
+    border: 2px solid rgba(51, 51, 51, 0.4);
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+#hostToast p {
+    margin: 0;
+    padding: 5px;
+}
+
+
 input:disabled,
 select:disabled,
 input[readonly]:not([type="checkbox"]),
@@ -1247,6 +1277,15 @@ button:disabled,
         flex-flow: column;
     }
 
+    #hostToast {
+        top: 0;
+        width: 100vw;
+        max-width: 100vw;
+        border-radius: 0 0 10px 10px;
+        font-size: 1.1em;
+        padding: 12px 10px;
+    }
+
     #chatWrap {
         flex-flow: column;
     }
@@ -1296,7 +1335,7 @@ button:disabled,
         flex-flow: column;
     }
 
-    #roleKeyInput,
+    /*     #roleKeyInput,
     #characters,
     #AIUsernameInput,
     #usernameInput,
@@ -1304,7 +1343,7 @@ button:disabled,
     select {
         height: 2em;
         font-size: 1em
-    }
+    } */
 
     input[type='checkbox'] {
         height: 2em;

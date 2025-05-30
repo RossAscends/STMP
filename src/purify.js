@@ -68,6 +68,12 @@ const quotesExtension = () => {
     }));
 };
 
+const openLinksInNewTab = () => [{
+    type: 'output',
+    regex: /<a\s+href="([^"]+)"([^>]*)>/g,
+    replace: '<a href="$1"$2 target="_blank" rel="noopener noreferrer">'
+}];
+
 const BRTagsToParagraphTags = () => {
     const regexes = [{ regex: /<br>/g, replace: "</p><p>" }];
 
@@ -89,7 +95,7 @@ const createConverter = (allowImages = true) => {
         backslashEscapesHTMLTags: true,
         literalMidWordUnderscores: true,
         strikethrough: true,
-        extensions: [sanitizeExtension(allowImages), quotesExtension, BRTagsToParagraphTags],
+        extensions: [sanitizeExtension(allowImages), quotesExtension, BRTagsToParagraphTags, openLinksInNewTab],
     });
 };
 

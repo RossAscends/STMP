@@ -1,7 +1,7 @@
 import {
     socket, isUserScrollingAIChat, isUserScrollingUserChat, username,
     isAutoResponse, isStreaming, isClaude, contextSize, responseLength,
-    isPhone, isLandscape, currentlyStreaming, myUUID,
+    isLandscape, currentlyStreaming, myUUID,
 } from '../script.js'
 
 function delay(ms) {
@@ -126,7 +126,7 @@ function checkIsLandscape() {
 
 function enterToSendChat(event, buttonElementId) {
     if (event.which === 13) {
-        if (event.shiftKey || event.metaKey || isPhone) {
+        if (event.shiftKey || event.metaKey || isPhone()) {
             // Ctrl+Enter was pressed, allow default behavior
             return;
         }
@@ -152,6 +152,13 @@ async function toggleControlPanelBlocks(toggle, type = null) {
     }
 }
 
+function isPhone() {
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isMobileViewport = window.matchMedia('(max-width: 999px)').matches;
+    console.debug('isTouchDevice', isTouchDevice, 'isMobileViewport', isMobileViewport)
+    return isTouchDevice && isMobileViewport;
+}
+
 function correctSizeChats() {
     let universalControlsHeight = $("#universalControls").outerHeight()
     let totalHeight = $(window).height()
@@ -159,9 +166,9 @@ function correctSizeChats() {
     $("#OOCChatWrapper, #LLMChatWrapper, #chatWrap").animate({ height: chatHeight }, { duration: 1 })
 }
 
-function correctSizeBody(isPhone, isIOS) {
+function correctSizeBody(isPhoneCheck, isIOS) {
     var orientation = window.orientation;
-    if (isPhone && (orientation === 90 || orientation === -90)) {
+    if (isPhoneCheck && (orientation === 90 || orientation === -90)) {
         // Landscape orientation on iOS
         if (isIOS) {
             $('body').css({
@@ -170,7 +177,7 @@ function correctSizeBody(isPhone, isIOS) {
                 'height': 'calc(100svh - 36px)'
             })
         }
-    } else if (isPhone) {
+    } else if (isPhoneCheck) {
         // Portrait orientation
         $('body').css({
             'padding': '0px',
@@ -415,4 +422,5 @@ export default {
     calculatePromptsBlockheight,
     clearChatWithCountdown,
     minMax,
+    isPhone
 }    

@@ -10,8 +10,9 @@ export var username,
   isClaude,
   contextSize,
   responseLength,
-  isPhone,
-  isLandscape;
+  isPhone, isTouchDevice, isMobileViewport, isLandscape;
+
+
 export var currentlyStreaming = false; //set true when streamed response is incoming, and false when not.
 export var myUUID, myUsername;
 export var socket = null;
@@ -319,7 +320,7 @@ async function processConfirmedConnection(parsedMessage) {
 
     $("#charName").hide();
     $(".hostControls").removeClass('hostControls'); //stop them from being hidden
-    if (isPhone) {
+    if (isPhone || isMobileViewport) {
       //handle initial loads for phones, hide the control panel
       $("#leftSpanner").css('display', 'block').remove()
       $("#universalControls").css('height', 'unset');
@@ -1220,8 +1221,13 @@ $(async function () {
   console.debug('Document ready');
   verifyCheckboxStates();
 
-  isPhone = /Mobile/.test(navigator.userAgent);
+  isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  isMobileViewport = window.matchMedia('(max-width: 999px)').matches;
+  isPhone = util.isPhone();
+
   console.debug(`Is this a phone? ${isPhone} : ${navigator.userAgent}`);
+  console.debug(`Is this a touch device? ${isTouchDevice} : onTouchStart? ${'ontouchstart' in window} maxTouchPoints? ${navigator.maxTouchPoints > 0}`)
+  console.debug(`Is this a mobile viewport? ${isMobileViewport} : ${$(document).innerWidth()}`);
 
   const $controlPanel = $("#controlPanel");
   const $chatWrap = $("#chatWrap")
@@ -1786,7 +1792,7 @@ $(async function () {
   });
 
   $(window).on("resize", async function () {
-    util.correctSizeBody(isPhone, isIOS);
+    util.correctSizeBody(util.isPhone(), isIOS);
   });
 
   isLandscape = util.checkIsLandscape();

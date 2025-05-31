@@ -608,7 +608,7 @@ async function handleConnections(ws, type, request) {
     if (thisUserRole === 'host') {
         hostUUID = uuid;
 
-        cardList = await fio.getCardList() //get a fresh card list on each new connection
+        cardList = await fio.getCardList() //get a fresh card list on each new host connection
 
         const [apis, APIConfig] = await Promise.all([
             db.getAPIs().then(duplicateNameToValue),
@@ -671,7 +671,7 @@ async function handleConnections(ws, type, request) {
                 clientsObject[parsedMessage.UUID] = thisClientObj;
             }
 
-            logger.trace('Received message from client:', parsedMessage);
+            logger.info('Received message from client:', parsedMessage);
 
             //first check if the sender is host, and if so, process possible host commands
             if (thisUserRole === 'host') {
@@ -1035,6 +1035,16 @@ async function handleConnections(ws, type, request) {
                     return
 
                 }
+                else if (parsedMessage.type === 'cardListRequest') {
+                    cardList = await fio.getCardList()
+                    logger.info('New Card List: ', cardList)
+                    const cardListResponse = {
+                        type: 'cardListResponse',
+                        cardList: cardList
+                    }
+                    await ws.send(JSON.stringify(cardListResponse))
+                    return
+                }
             }
             //process universal message types that all users can send
             //MARK: Universal WS Msgs
@@ -1085,15 +1095,7 @@ async function handleConnections(ws, type, request) {
                     await ws.send(JSON.stringify(keyRejectedMessage))
                 }
             }
-            else if (parsedMessage.type = 'cardListRequest') {
-                cardList = await fio.getCardList()
-                logger.info('New Card List: ', cardList)
-                const cardListResponse = {
-                    type: 'cardListResponse',
-                    cardList: cardList
-                }
-                await ws.send(JSON.stringify(cardListResponse))
-            }
+
             //MARK: new chat Mes Handling
             else if (parsedMessage.type === 'chatMessage') { //handle normal chat messages
                 //having this enable sends the user's colors along with the response message if it uses parsedMessage as the base..

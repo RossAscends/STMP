@@ -541,10 +541,10 @@ async function updateConfigState(element) {
 
 const $cardList = $("#cardList");
 async function refreshCardList(cardList) {
-  console.warn('old cardList', liveConfig.promptConfig.cardList)
+  //console.warn('old cardList', liveConfig.promptConfig.cardList)
   await populateSelector(cardList, "cardList", liveConfig.promptConfig.selectedCharacter);
   await updateConfigState($cardList);
-  console.warn('new cardList', liveConfig.promptConfig.cardList)
+  //console.warn('new cardList', liveConfig.promptConfig.cardList)
 }
 
 function getCardListArrayFromSelectorContents() {

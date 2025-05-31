@@ -196,7 +196,7 @@ function showPastChats(chatList) {
 async function getCharList() {
     const charlistrefreshreqeust = {
         UUID: myUUID,
-        type: "getCharList"
+        type: "cardListRequest"
     }
     util.messageServer(charlistrefreshreqeust)
 }

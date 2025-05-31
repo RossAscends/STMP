@@ -327,6 +327,42 @@ select,
     max-width: 200px;
 } */
 
+#AIChatDropOverlay,
+#UploadSuccessOverlay {
+    position: absolute;
+    top: 3em;
+    left: 1.5em;
+    width: 87%;
+    height: 80%;
+    background-color: rgba(85, 108, 214, .28);
+    color: rgb(216 216 216);
+    border: 5px dashed #243166;
+    border-radius: 10px;
+    font-size: 1.5em;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+    z-index: 10;
+    padding: 30px;
+}
+
+#UploadSuccessOverlay {
+    background-color: rgba(87, 202, 83, 0.28);
+    color: rgb(216 216 216);
+    border: 5px dashed rgb(61, 165, 58);
+}
+
+#LLMChatWrapper.dragover #AIChatDropOverlay,
+#LLMChatWrapper.uploadSuccess #UploadSuccessOverlay {
+    opacity: 1 !important;
+}
+
+
+
 input[type='checkbox'] {
     appearance: none;
     position: relative;

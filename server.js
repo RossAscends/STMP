@@ -298,6 +298,8 @@ async function initFiles() {
 
 // Create directories
 fio.createDirectoryIfNotExist("./public/api-presets");
+fio.createDirectoryIfNotExist("./public/characters");
+fio.createDirectoryIfNotExist("./public/instruct");
 
 // Call the function to initialize the files
 
@@ -998,7 +1000,7 @@ async function handleConnections(ws, type, request) {
                         sessionID: parsedMessage.sessionID,
                         mesID: parsedMessage.mesID
                     }
-                    ws.send(JSON.stringify(messageContentResponse))
+                    ws.send(JSON.stringify(messageContentResponse), 'host')
                     return
                 }
                 else if (parsedMessage.type === 'messageEdit') {
@@ -1040,8 +1042,30 @@ async function handleConnections(ws, type, request) {
                         type: 'cardListResponse',
                         cardList: cardList
                     }
-                    await ws.send(JSON.stringify(cardListResponse))
+                    await broadcast(cardListResponse, 'host')
                     return
+                }
+                else if (parsedMessage.type === "fileUpload") {
+                    const result = await fio.validateAndAcceptPNGUploads(parsedMessage);
+                    logger.info('file upload result: ', (result))
+                    if (result.status === 'error') {
+                        const response = {
+                            type: "fileUploadError",
+                            message: result.response
+                        }
+                        await broadcast(response, 'host')
+                        return
+                    }
+                    if (result.status === 'ok') {
+                        const response = {
+                            type: "fileUploadSuccess",
+                            message: result.response,
+                        }
+                        //console.warn('file upload response: ', response)
+                        await broadcast(response, 'host')
+                        return
+
+                    }
                 }
             }
             //process universal message types that all users can send

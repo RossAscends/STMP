@@ -606,6 +606,16 @@ async function connectWebSocket(username) {
 
     //MARK: parsedMessage switch
     switch (parsedMessage?.type) {
+      case "fileUploadSuccess":
+        console.warn("Uploaded successfully:", parsedMessage.message);
+        util.showUploadSuccessOverlay(parsedMessage.message);
+        await util.delay(500);
+        $("#charListRefresh").trigger('click');
+        break;
+      case "fileUploadError":
+        console.warn("Upload failed:", parsedMessage.message);
+        alert(parsedMessage.message);
+        break;
       case 'cardListResponse':
         handleconfig.refreshCardList(parsedMessage.cardList);
         break;
@@ -1806,7 +1816,67 @@ $(async function () {
   //close the past chats on page load
   //util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");
   $(".unavailable-overlay").attr("title", "This feature is not yet available.");
-  $("#charDefsPopupButton").on('click', function () { callCharDefPopup() }
+  $("#charDefsPopupButton").on('click', function () { callCharDefPopup() })
 
-  )
+  const $aiChatDropZone = $("#AIChat");
+
+  const $llmChatWrapper = $("#LLMChatWrapper");
+  const $aiChat = $("#AIChat");
+
+  $aiChat.on("dragover", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const visibleHeight = $aiChat.outerHeight(); // or use a fixed height if preferred
+    //$("#AIChatDropOverlay").css("height", visibleHeight);
+    $llmChatWrapper.addClass("dragover");
+  });
+
+  $aiChat.on("dragleave drop", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    $llmChatWrapper.removeClass("dragover");
+  });
+
+  $aiChatDropZone.on("dragleave", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    //$("#AIChatDropOverlay").css('opacity', '0');
+  });
+
+  $aiChatDropZone.on("drop", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const $overlay = $("#AIChatDropOverlay");
+    //$overlay.css('opacity', '0');
+    //setTimeout(() => $overlay.remove(), 250);
+
+    const files = e.originalEvent.dataTransfer.files;
+    for (let file of files) {
+      if (file.type !== "image/png") {
+        alert("Only PNG files allowed.");
+        continue;
+      }
+      if (file.size > 1024 * 1024) {
+        alert("File too large (max 1MB).");
+        continue;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const uploadMessage = {
+          type: "fileUpload",
+          UUID: myUUID,
+          filename: file.name,
+          mimeType: file.type,
+          size: file.size,
+          content: event.target.result.split(',')[1]
+        };
+        socket.send(JSON.stringify(uploadMessage));
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
 });

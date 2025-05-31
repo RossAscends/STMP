@@ -1,8 +1,15 @@
 import fs from 'fs';
 import { promisify } from 'util';
 import $ from 'jquery';
-import express from 'express';
+import express, { response } from 'express';
 import { fileLogger as logger } from './log.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const ROOT_DIR = path.join(__dirname, '..');
 
 const writeFileAsync = promisify(fs.writeFile);
 import encode from 'png-chunks-encode';
@@ -55,6 +62,72 @@ function createDirectoryIfNotExist(path) {
         }
     }
 }
+
+function sanitizeFilename(filename) {
+    return filename.replace(/[^a-z0-9_\-\.]/gi, '_');
+}
+
+function getUniqueFilename(dir, baseName, ext) {
+    let candidate = `${baseName}${ext}`;
+    let counter = 1;
+    while (fs.existsSync(path.join(dir, candidate))) {
+        candidate = `${baseName}_${counter}${ext}`;
+        counter++;
+    }
+    return candidate;
+}
+
+async function validateAndAcceptPNGUploads(uploadMessage) {
+    logger.info('[[validateAndAcceptPNGUploads]] STARTING...');
+
+    const { filename, mimeType, content, UUID, size } = uploadMessage;
+    const CHARACTER_UPLOAD_DIR = path.join(ROOT_DIR, 'public', 'characters');
+    const MAX_SIZE = 1 * 1024 * 1024;
+    const buffer = Buffer.from(content, 'base64');
+    let responseMessage, status, validatedDefs;
+
+    // 1. Validate type
+    if (mimeType !== "image/png") {
+        responseMessage = `❌ PNG Card upload failed: Only PNGs are allowed. ${filename} (${mimeType})`;
+        logger.warn(responseMessage);
+        return { response: responseMessage, status: 'error' };
+    }
+
+    // 2. Validate size
+    if (buffer.length > MAX_SIZE) {
+        responseMessage = `❌ PNG Card upload failed: File Too Large. ${filename} (${buffer.length} bytes)`;
+        logger.warn(responseMessage);
+        return { response: responseMessage, status: 'error' };
+    }
+
+    // 3. Validate metadata
+    try {
+        validatedDefs = await characterCardParser('', 'png', buffer);
+        if (!validatedDefs) {
+            throw new Error('Embedded character data missing or unreadable.');
+        }
+    } catch (err) {
+        responseMessage = `❌ PNG Card rejected: ${err.message}`;
+        logger.warn(responseMessage);
+        return { response: responseMessage, status: 'error' };
+    }
+
+    // 4. Save to disk
+    const safeName = sanitizeFilename(path.basename(filename));
+    const ext = path.extname(safeName).toLowerCase();
+    const baseName = path.basename(safeName, ext);
+    const finalName = getUniqueFilename(CHARACTER_UPLOAD_DIR, baseName, ext);
+    const filePath = path.join(CHARACTER_UPLOAD_DIR, finalName);
+    fs.writeFileSync(filePath, buffer);
+
+    responseMessage = `✅ Card uploaded: ${JSON.parse(validatedDefs).name}`;
+    validatedDefs = ''
+
+    logger.info(responseMessage);
+    return { response: responseMessage, status: 'ok' };
+}
+
+
 
 async function readConfig() {
     await acquireLock()
@@ -331,5 +404,6 @@ export default {
     getInstructList,
     getSamplerPresetList,
     charaRead,
-    charaWrite
+    charaWrite,
+    validateAndAcceptPNGUploads
 }

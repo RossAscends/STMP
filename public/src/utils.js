@@ -422,6 +422,17 @@ export function clearChatWithCountdown(trigger, type, targetSelector, isHost, on
     });
 }
 
+async function showUploadSuccessOverlay(message = "✅ PNG Card Saved!") {
+    const $LLMWrapper = $("#LLMChatWrapper");
+    const $overlay = $(`<div id="UploadSuccessOverlay" class="transition250"></div>`);
+
+    if ($("#UploadSuccessOverlay").length < 1) $LLMWrapper.append($overlay);
+    await delay(250) //let the drop zone fade out
+    $("#UploadSuccessOverlay").text(message)
+    $LLMWrapper.css('position', 'relative').addClass('uploadSuccess')
+
+    setTimeout(() => { $LLMWrapper.removeClass('uploadSuccess') }, 1200);
+}
 
 export default {
     correctSizeBody,
@@ -445,5 +456,6 @@ export default {
     clearChatWithCountdown,
     minMax,
     isPhone,
-    fadeSwap
+    fadeSwap,
+    showUploadSuccessOverlay
 }    

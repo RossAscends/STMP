@@ -466,7 +466,7 @@ pre {
 }
 
 .messageControls {
-    opacity: 0.1;
+    opacity: 0;
     right: 5px;
     gap: 10px;
     position: relative;
@@ -1338,6 +1338,10 @@ button:disabled,
 
     #userListsWrap>div {
         flex: 1;
+    }
+
+    .messageControls {
+        opacity: 0.1;
     }
 }
 

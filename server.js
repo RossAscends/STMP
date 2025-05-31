@@ -671,8 +671,6 @@ async function handleConnections(ws, type, request) {
                 clientsObject[parsedMessage.UUID] = thisClientObj;
             }
 
-            logger.info('Received message from client:', parsedMessage);
-
             //first check if the sender is host, and if so, process possible host commands
             if (thisUserRole === 'host') {
                 if (parsedMessage.type === 'clientStateChange') {

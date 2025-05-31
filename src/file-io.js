@@ -247,7 +247,7 @@ async function tryReadImage(img_url) {
 async function getCardList() {
     logger.info('Gathering character card list..')
     const path = 'public/characters'
-    const files = await fs.promises.readdir(path);
+    const files = (await fs.promises.readdir(path)).filter(file => file.endsWith('.png'));
     var cards = []
     var i = 0
     logger.trace('Files in character directory:');

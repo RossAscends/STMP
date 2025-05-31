@@ -606,6 +606,9 @@ async function connectWebSocket(username) {
 
     //MARK: parsedMessage switch
     switch (parsedMessage?.type) {
+      case 'cardListResponse':
+        handleconfig.refreshCardList(parsedMessage.cardList);
+        break;
       case 'heartbeatResponse':
         break
       case "clearChat":
@@ -1697,6 +1700,10 @@ $(async function () {
     }
 
     util.flashElement("modelList", "good");
+  });
+
+  $("#charListRefresh").on("click", async function () {
+    await control.getCharList();
   });
 
   /*   $("#controlPanel > div > div > .isControlPanelToggle").on("click", function () {

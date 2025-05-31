@@ -193,6 +193,14 @@ function showPastChats(chatList) {
     });
 }
 
+async function getCharList() {
+    const charlistrefreshreqeust = {
+        UUID: myUUID,
+        type: "getCharList"
+    }
+    util.messageServer(charlistrefreshreqeust)
+}
+
 export default {
     submitKey,
     updateUserName,
@@ -204,5 +212,6 @@ export default {
     disableAPIEdit,
     updateSelectedModel,
     showPastChats,
-    validateUserName
+    validateUserName,
+    getCharList
 }

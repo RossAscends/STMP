@@ -497,6 +497,7 @@ async function updateConfigState(element) {
   if (elementID === 'cardList') {
     arrayName = 'promptConfig'
     propName = 'selectedCharacter'
+    liveConfig['promptConfig']['cardList'] = getCardListArrayFromSelectorContents()
     liveConfig['promptConfig']['selectedCharacterDisplayName'] = $element.find('option:selected').text()
   }
   else if ($element.is('select') && $element.hasClass('dynamicSelector')) {
@@ -536,6 +537,26 @@ async function updateConfigState(element) {
 
   await util.flashElement(elementID, 'good')
   util.messageServer(stateChangeMessage)
+}
+
+const $cardList = $("#cardList");
+async function refreshCardList(cardList) {
+  console.warn('old cardList', liveConfig.promptConfig.cardList)
+  await populateSelector(cardList, "cardList", liveConfig.promptConfig.selectedCharacter);
+  await updateConfigState($cardList);
+  console.warn('new cardList', liveConfig.promptConfig.cardList)
+}
+
+function getCardListArrayFromSelectorContents() {
+  const cardListObj = [];
+  let i = 0;
+  $("#cardList option").each(function () {
+    const optionValue = $(this).val();
+    const optionText = $(this).text();
+    cardListObj[i] = { name: optionText, value: optionValue };
+    i++;
+  });
+  return cardListObj;
 }
 
 
@@ -730,6 +751,10 @@ async function addNewAPI() {
 
 export default {
   processLiveConfig,
+  updateConfigState,
+  refreshCardList,
+  liveConfig,
+  populateSelector,
   setEngineMode,
   addNewAPI,
   deleteAPI,

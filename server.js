@@ -608,6 +608,8 @@ async function handleConnections(ws, type, request) {
     if (thisUserRole === 'host') {
         hostUUID = uuid;
 
+        cardList = await fio.getCardList() //get a fresh card list on each new connection
+
         const [apis, APIConfig] = await Promise.all([
             db.getAPIs().then(duplicateNameToValue),
             db.getAPI(liveConfig.promptConfig.selectedAPI)
@@ -639,7 +641,7 @@ async function handleConnections(ws, type, request) {
         connectedUsers = userList;
     }
 
-    //MARK: Inc. Msg handling
+    //MARK: WS Msg handling
     // Handle incoming messages from clients
     ws.on('message', async function (message) {
 
@@ -1035,7 +1037,7 @@ async function handleConnections(ws, type, request) {
                 }
             }
             //process universal message types that all users can send
-
+            //MARK: Universal WS Msgs
             if (parsedMessage.type === 'usernameChange') {
                 //logger.info(parsedMessage)
                 clientsObject[uuid].username = parsedMessage.newName;
@@ -1082,6 +1084,15 @@ async function handleConnections(ws, type, request) {
                     logger.error(`Key rejected: ${parsedMessage.key} from ${senderUUID}`)
                     await ws.send(JSON.stringify(keyRejectedMessage))
                 }
+            }
+            else if (parsedMessage.type = 'cardListRequest') {
+                cardList = await fio.getCardList()
+                logger.info('New Card List: ', cardList)
+                const cardListResponse = {
+                    type: 'cardListResponse',
+                    cardList: cardList
+                }
+                await ws.send(JSON.stringify(cardListResponse))
             }
             //MARK: new chat Mes Handling
             else if (parsedMessage.type === 'chatMessage') { //handle normal chat messages

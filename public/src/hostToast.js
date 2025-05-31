@@ -5,7 +5,7 @@ async function showHostToast(msg, username) {
     const $toast = $('#hostToast');
     const fadeDuration = 10000;
     const fadeInDuration = 500;
-    const visibleDuration = 10000;
+    const visibleDuration = 1000;
 
     let fadeStarted = false;
     let fadeWasPaused = false;
@@ -58,18 +58,23 @@ async function showHostToast(msg, username) {
     });
 
     const $closeBtn = $('<div>', {
-        html: '&times;',
+        html: '<i class="fa-solid fa-xmark"></i>',
         css: {
             position: 'absolute',
-            top: '5px',
-            right: '10px',
+            top: '0',
+            paddingTop: '5px',
+            paddingRight: '5px',
             cursor: 'pointer',
-            fontSize: '1.5em',
+            fontSize: '0.8em',
+            width: '100%',
             color: '#555',
+            justifyContent: 'flex-end',
         }
     }).on('click', () => {
         hardCloseToast();
     });
+
+    $closeBtn.addClass('flexbox')
 
     $toast.empty().append($closeBtn, $header, $body).fadeIn(fadeInDuration);
 

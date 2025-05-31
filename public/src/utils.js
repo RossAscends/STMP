@@ -117,6 +117,27 @@ function heartbeat(socket) {
     }, 5000);
 }
 
+const fadeSwap = async function ({ show = null, hide = null }) {
+    console.log('fadeSwap', show, hide);
+    const tasks = [];
+
+    // Hide only if currently visible
+    if (hide && hide.length && (!hide.hasClass('hidden') || !hide.hasClass('opacityZero'))) {
+        hide.addClass('opacityZero');
+        tasks.push(delay(250).then(() => hide.addClass('hidden')));
+    }
+
+    // Show only if currently hidden
+    if (show && show.length && (hide?.is(show) || show.hasClass('hidden') || show.hasClass('opacityZero'))) {
+        show.removeClass('hidden');
+        tasks.push(delay(1).then(() => show.removeClass('opacityZero')));
+    }
+
+    await Promise.all(tasks);
+};
+
+
+
 function checkIsLandscape() {
     console.debug('checking landscape or not..')
     console.debug("window H, W: ", $(window).height(), $(window).width())
@@ -136,17 +157,17 @@ function enterToSendChat(event, buttonElementId) {
 }
 
 async function toggleControlPanelBlocks(toggle, type = null) {
-    let target = toggle.next();
+    let target = toggle.parent().next();
     if (target.hasClass('isAnimating')) { return; }
 
     if (type === 'single') {
         // Toggle the target panel
         console.debug(`Toggling panel view ${target.attr('id')}`);
-        toggle.children('i').toggleClass('fa-toggle-on fa-toggle-off');
+        toggle.toggleClass('fa-toggle-on fa-toggle-off');
 
-        if (toggle.children('i').hasClass('fa-toggle-off')) target.addClass('minimized')
+        if (toggle.hasClass('fa-toggle-off')) target.addClass('minimized')
         await betterSlideToggle(target, 100, 'height');
-        if (toggle.children('i').hasClass('fa-toggle-on')) target.removeClass('minimized')
+        if (toggle.hasClass('fa-toggle-on')) target.removeClass('minimized')
 
         return;
     }
@@ -423,5 +444,6 @@ export default {
     calculatePromptsBlockheight,
     clearChatWithCountdown,
     minMax,
-    isPhone
+    isPhone,
+    fadeSwap
 }    

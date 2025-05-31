@@ -321,25 +321,31 @@ async function processConfirmedConnection(parsedMessage) {
     $("#charName").hide();
     $(".hostControls").removeClass('hostControls'); //stop them from being hidden
     if (isPhone || isMobileViewport) {
-      //handle initial loads for phones, hide the control panel
-      $("#leftSpanner").css('display', 'block').remove()
-      $("#universalControls").css('height', 'unset');
-      $("#roleKeyInputDiv").removeClass("positionAbsolute");
+      //handle initial loads for phones, 
+      //hide the control panel and user lists
+      //$("#universalControls").css('height', 'unset');
+      $("#roleKeyInputDiv")
+        .removeClass("positionAbsolute")
+        .css({ width: '95%', height: 'unset' })
+
       if ($("#controlPanel").hasClass("initialState")) {
         $("#controlPanel").removeClass("initialState").addClass('opacityZero').addClass('hidden');
       }
+
       $("#userListsWrap").addClass('hidden').addClass('opacityZero')
-      $("#roleKeyInputDiv")
-        .css('width', '95%')
-        .css('height', 'unset');
-    } else if ($("#controlPanel").hasClass("initialState")) {
-      //handle first load for PC, shows the panel
-      $("#controlPanel").addClass('opacityZero').show()
-      $("#controlPanel").removeClass('opacityZero')
-      $("#leftSpanner").css('display', 'block').remove()
-      $("#controlPanel").removeClass("initialState");
-      $("#keepAliveAudio").hide(); //TODO: figure the logic for this out. It can be helpful perhaps for non localhost Hosts on PC
-    }
+
+    } else //handle first load for PC, shows the panel
+      if ($("#controlPanel").hasClass("initialState")) {
+        $("#controlPanel").addClass('opacityZero').show()
+        $("#userListsWrap").addClass('opacityZero').show()
+        await util.delay(250);
+        $("#controlPanel").removeClass('opacityZero')
+        $("#userListsWrap").removeClass('opacityZero')
+        $("#controlPanel").removeClass("initialState");
+        //TODO: figure the logic for this out. 
+        // It can be helpful perhaps for non localhost Hosts on PC
+        $("#keepAliveAudio").hide();
+      }
 
     if (!$("#promptConfigTextFields").hasClass('heightHasbeenSet') && $("#controlPanel").css('display') !== 'none') {
       // $("#promptConfigTextFields").css("height", util.calculatePromptsBlockheight())
@@ -353,8 +359,7 @@ async function processConfirmedConnection(parsedMessage) {
     $(".chatHeader").removeClass('justifySpaceBetween')
     control.disableAPIEdit();
     if (isPhone) {
-      $("#universalControls").css('height', 'unset');
-      $("#leftSpanner").css('display', 'block').remove()
+      // $("#universalControls").css('height', 'unset');
       $("#userListsWrap").addClass('hidden').addClass('opacityZero')
       $("#roleKeyInputDiv")
         .removeClass("positionAbsolute")
@@ -944,19 +949,19 @@ function doAIRetry() {
 async function sendMessageToAIChat(type) {
 
   var messageInput = $("#AIMessageInput");
-  if (messageInput.val().trim() === "" && type !== "forced") {
-    alert("Can't send empty message!");
-    return;
-  }
+  /*   if (messageInput.val().trim() === "" && type !== "forced") {
+      alert("Can't send empty message!");
+      return;
+    } */
 
   username = $("#AIUsernameInput").val();
-  var markdownContent = `${messageInput.val()}`;
+  var content = `${messageInput.val()}`;
   var websocketRequest = {
     type: "chatMessage",
     chatID: "AIChat",
     UUID: myUUID,
     username: username,
-    userInput: markdownContent,
+    userInput: content,
   };
   localStorage.setItem("AIChatUsername", username);
   util.messageServer(websocketRequest);
@@ -1218,6 +1223,10 @@ function verifyCheckboxStates() {
 //MARK:listeners
 $(async function () {
 
+  /*   document.getElementById('refreshBtn').addEventListener('click', () => {
+      location.reload(true); // forces full reload, bypassing cache if possible
+    }); */
+
   console.debug('Document ready');
   verifyCheckboxStates();
 
@@ -1229,9 +1238,9 @@ $(async function () {
   console.debug(`Is this a touch device? ${isTouchDevice} : onTouchStart? ${'ontouchstart' in window} maxTouchPoints? ${navigator.maxTouchPoints > 0}`)
   console.debug(`Is this a mobile viewport? ${isMobileViewport} : ${$(document).innerWidth()}`);
 
-  const $controlPanel = $("#controlPanel");
+
   const $chatWrap = $("#chatWrap")
-  const $innerChatWrap = $("#innerChatWrap")
+
   const $AIChatInputButtons = $("#AIChatInputButtons");
   const $userChatInputButtons = $("#userChatInputButtons");
 
@@ -1240,7 +1249,7 @@ $(async function () {
   $("#usernameInput").val(username);
   $("#AIUsernameInput").val(AIChatUsername);
 
-  if (!isPhone) {
+  if (!util.isPhone()) {
     $("#userChat").css('min-width', ($("#OOCChatWrapper").width() / 2) - 10);
     $("#AIChat").css('min-width', ($("#LLMChatWrapper").width() / 2) - 10);
   }
@@ -1282,7 +1291,7 @@ $(async function () {
 
 
     if ($(this).hasClass("disabledButton")) {
-      console.debug("sendButton is disabled");
+      console.warn("sendButton is disabled");
       return;
     }
 
@@ -1302,14 +1311,14 @@ $(async function () {
     }, userChatDelay);
 
     username = $("#usernameInput").val();
-    var markdownContent = `${messageInput.val()}`;
+    var content = `${messageInput.val()}`;
     //var htmlContent = converter.makeHtml(markdownContent);
     var messageObj = {
       type: "chatMessage",
       chatID: "userChat",
       UUID: myUUID,
       username: username,
-      content: markdownContent,
+      content: content,
     };
     localStorage.setItem("username", username);
     util.messageServer(messageObj);
@@ -1476,39 +1485,39 @@ $(async function () {
       );
   });
 
-  if (
-    window.matchMedia("(orientation: landscape)").matches &&
-    /Mobile/.test(navigator.userAgent)
-  ) {
-    if (isIOS) {
+  /*   if (
+      window.matchMedia("(orientation: landscape)").matches &&
+      /Mobile/.test(navigator.userAgent)
+    ) {
+      if (isIOS) {
+        $("body").css({
+          "padding-left": "0px",
+          "padding-right": "0px",
+          width: "100sfw",
+          height: "calc(100svh - 5px)",
+        });
+        $(".bodyWrap").css({
+          gap: "5px",
+        });
+        $(".fontSize1p5em")
+          .addClass("fontSize1p25em")
+          .removeClass("fontSize1p5em");
+        $(".fontSize1p25em")
+          .css("width", "2em")
+          .css("height", "2em")
+          .css("line-height", "2em")
+          .css("padding", "0");
+      }
+    }
+  
+    if (util.isPhone() && isIOS) {
       $("body").css({
         "padding-left": "0px",
         "padding-right": "0px",
         width: "100sfw",
-        height: "calc(100svh - 5px)",
+        height: "calc(100svh - 15px)",
       });
-      $(".bodywrap").css({
-        gap: "5px",
-      });
-      $(".fontSize1p5em")
-        .addClass("fontSize1p25em")
-        .removeClass("fontSize1p5em");
-      $(".fontSize1p25em")
-        .css("width", "2em")
-        .css("height", "2em")
-        .css("line-height", "2em")
-        .css("padding", "0");
-    }
-  }
-
-  if (/Mobile/.test(navigator.userAgent) && isIOS) {
-    $("body").css({
-      "padding-left": "0px",
-      "padding-right": "0px",
-      width: "100sfw",
-      height: "calc(100svh - 15px)",
-    });
-  }
+    } */
 
   //MARK: Line 1500
   $("#messageInput").on("keypress", function (event) {
@@ -1544,29 +1553,27 @@ $(async function () {
     }
   });
 
-  $("#controlPanelToggle").on("click", async function () {
-    if (!isPhone && $("#controlPanel").width() !== 0) {
-      $("#controlPanelContents").css('width', $("#controlPanel").width());
-    }
 
-    if (isPhone && $("#controlPanel").hasClass('opacityZero')) {
-      console.log('toggline CP to be visible before fade in')
-      $("#controlPanel").toggleClass('hidden')
-      if (!$("#promptConfigTextFields").hasClass('heightHasbeenSet') && $("#controlPanel").css('display') !== 'none') {
-        //  $("#promptConfigTextFields").css("height", util.calculatePromptsBlockheight())
-        $("#promptConfigTextFields").addClass('heightHasbeenSet')
+  $("#controlPanelToggle, #userListsToggle").off("click").on("click", async function () {
+    const $controlPanel = $("#controlPanel");
+    const $userListsWrap = $("#userListsWrap");
+
+    if (util.isPhone() || isMobileViewport) {
+      const isControlPanelToggle = $(this).is("#controlPanelToggle");
+      const $show = isControlPanelToggle ? $controlPanel : $userListsWrap;
+      const $hide = isControlPanelToggle ? $userListsWrap : $controlPanel;
+
+      const isCurrentlyVisible = !$show.hasClass("hidden") && !$show.hasClass("opacityZero");
+
+      // If the target is already visible, just hide it
+      if (isCurrentlyVisible) {
+        await util.fadeSwap({ hide: $show });
+      } else {
+        await util.fadeSwap({ show: $show, hide: $hide });
       }
-      await util.delay(1)
-    }
-    //await util.betterSlideToggle($controlPanel, 250, "width");
-    $("#controlPanel").toggleClass('opacityZero')
-    await util.delay(250)
-
-    console.log($("#controlPanel").css('opacity'))
-
-    if (isPhone && $("#controlPanel").hasClass('opacityZero')) {
-      console.log('toggling CP to be invisible after fadeout')
-      $("#controlPanel").toggleClass('hidden')
+    } else {
+      const $target = $(this).is("#controlPanelToggle") ? $controlPanel : $userListsWrap;
+      $target.toggleClass("opacityZero");
     }
   });
 
@@ -1574,6 +1581,7 @@ $(async function () {
   const $LLMChatWrapper = $("#LLMChatWrapper");
   const $OOCChatWrapper = $("#OOCChatWrapper");
   const $contentWrap = $("#contentWrap");
+  const $body = $("body");
   //MARK: chatsToggle
   $("#chatsToggle").off("click").on("click", async function () {
     let soloWidth = isMobileViewport ? "widthFull" : "widthNarrow";
@@ -1581,6 +1589,7 @@ $(async function () {
 
     if (chatsToggleState === 0) {
       // Dual chat view
+      $body.removeClass('soloChatView');
       $contentWrap.removeClass("widthNarrow").addClass("widthFull");
       $LLMChatWrapper.removeClass("hidden");
       await util.delay(1);
@@ -1589,6 +1598,7 @@ $(async function () {
       $LLMChatWrapper.css({ opacity: "1" });
     } else if (chatsToggleState === 1) {
       // AI chat only
+      $body.addClass('soloChatView');
       $contentWrap.removeClass("widthFull").addClass(soloWidth);
       $OOCChatWrapper.css({ flex: "0", opacity: "0" });
       $LLMChatWrapper.css({ flex: "1", opacity: "1" });
@@ -1604,22 +1614,6 @@ $(async function () {
       await util.delay(1);
       $LLMChatWrapper.addClass("hidden").css({ flex: "0" });
       $OOCChatWrapper.css({ opacity: "1" });
-    }
-  });
-
-
-  $("#userListsToggle").off("click").on("click", async function () {
-
-    if (isPhone && !$("#userListsWrap").hasClass('opacityZero')) {
-      $("#userListsWrap").toggleClass('opacityZero')
-      await util.delay(250)
-      $("#userListsWrap").toggleClass('hidden')
-    } else if (isPhone && $("#userListsWrap").hasClass('opacityZero')) {
-      $("#userListsWrap").toggleClass('hidden')
-      await util.delay(1)
-      $("#userListsWrap").toggleClass('opacityZero')
-    } else {
-      $("#userListsWrap").toggleClass('opacityZero')
     }
   });
 
@@ -1709,8 +1703,8 @@ $(async function () {
       util.toggleControlPanelBlocks($(this), "all");
     }); */
 
-  $(`.isControlPanelToggle,
-    #crowdControlToggle`).on("click", function () {
+  $(`.isControlPanelToggle i,
+    #crowdControlToggle i`).on("click", function () {
     util.toggleControlPanelBlocks($(this), "single");
   });
 
@@ -1793,12 +1787,15 @@ $(async function () {
   });
 
   $(window).on("resize", async function () {
-    util.correctSizeBody(util.isPhone(), isIOS);
+    // util.correctSizeBody(util.isPhone(), isIOS);
   });
 
-  isLandscape = util.checkIsLandscape();
-  await util.delay(10)
-  await util.correctSizeBody(isPhone, isIOS);
+  if (util.isPhone() || isMobileViewport) {
+    isLandscape = util.checkIsLandscape();
+    await util.delay(10)
+    // await util.correctSizeBody(isPhone, isIOS);
+  }
+
   //close the past chats on page load
   //util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");
   $(".unavailable-overlay").attr("title", "This feature is not yet available.");

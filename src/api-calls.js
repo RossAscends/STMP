@@ -101,12 +101,15 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
             if (!finalApiCallParams.stream) { //if not streaming..
                 //logger.warn('no stream, returning rawResponse as a whole chunk');
                 AIResponse = await postProcessText(trimIncompleteSentences(rawResponse));
-                await db.upsertChar(charName, charName, user.color);
+                await db.upsertChar(charName, charName, user.color); //why upsert? because it might not exist yet
                 await db.writeAIChatMessage(charName, charName, AIResponse, 'AI');
                 return [AIResponse, AIChatUserList];
             } else { //if TC and stream...
                 //logger.info('it was streamed already, no need to return anything..')
                 //return null;
+                //console.warn('TC/CC stream response incoming, returning: [AIResponse, AIChatUserList]');
+                //console.warn('AIResponse:', AIResponse);
+                //console.warn('AIChatUserList:', AIChatUserList);
                 return [AIResponse, AIChatUserList]; //return this anyway for now, since it crashes without it
             }
         }
@@ -122,6 +125,7 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
 //if a match is found, the username and associated color are added into the AIChatUserList array
 //this array is returned and sent along with the AI response, in order to populate the AI Chat UserList.
 
+//MARK: makeAIChatUserList
 async function makeAIChatUserList(entitiesList, chatHistoryFromPrompt) {
     const chatHistoryEntities = entitiesList;
     const fullChatDataJSON = chatHistoryFromPrompt;
@@ -133,11 +137,14 @@ async function makeAIChatUserList(entitiesList, chatHistoryFromPrompt) {
                 const userColor = chat.userColor;
                 const username = chat.username;
                 const entityType = chat.entity;
-                AIChatUserList.push({ username: username, color: userColor, entity: entityType });
+                const uuid = chat.user_id;
+                const role = chat.role;
+                AIChatUserList.push({ username: username, color: userColor, entity: entityType, uuid: uuid, role: role });
                 break; // Once a match is found, no need to continue the inner loop
             }
         }
     }
+    logger.warn(`AIChatUserList result: ${JSON.stringify(AIChatUserList)}`);
     return AIChatUserList;
 }
 

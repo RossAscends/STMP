@@ -167,13 +167,28 @@ var wsType =
 var serverUrl = `${wsType}://${hostname}:${port}`;
 
 
+//MARK: updateUserList
 function updateUserList(listType, userList) {
-  //console.warn(`updating ${listType} list`);
-  //console.warn(userList);
+
 
   if (!userList || userList.length === 0) {
     console.warn('saw no userlist for ', listType);
     return;
+  }
+
+  if (typeof userList === "string") {
+    console.warn(`saw userList as string, parsing JSON for ${listType}`);
+    try {
+      userList = JSON.parse(userList);
+    } catch (e) {
+      console.error("Failed to parse userList JSON string:", e);
+      return;
+    }
+  }
+
+  if (!Array.isArray(userList)) {
+    console.warn('userList is not a real array — converting:', userList);
+    userList = Object.values(userList); // fallback for array-like objects
   }
 
   const listElement = $(`#${listType} ul`);
@@ -802,7 +817,13 @@ async function connectWebSocket(username) {
           $("#showPastChats").trigger("click"); //autoupdate the past chat list with each AI chat message
         }
         let targetList = isAIResponse ? "AIChatUserList" : "userList";
-        updateUserList(targetList, parsedMessage.AIChatUserList);
+        if (isAIResponse && AIChatUserList && AIChatUserList.length > 0) {
+          updateUserList(targetList, AIChatUserList);
+        }
+        else if (isAIResponse && AIChatUserList && AIChatUserList.length === 0) {
+          console.warn("saw empty AIChatUserList from an AI Response, so not updating it");
+        }
+
         isAIResponse = false;
         break;
       case 'hostToastResponse':

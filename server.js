@@ -824,7 +824,7 @@ async function handleConnections(ws, type, request) {
                                 content: purifier.makeHtml(firstMes), //firstMes,
                                 username: charName,
                                 entity: 'AI',
-                                AIChatUserList: [{ username: charName, color: 'white' }],
+                                AIChatUserList: [{ username: charName, color: 'white', entity: 'AI', role: 'AI' }],
                             };
 
                             logger.warn('Adding the first message to the chat file');

@@ -24,8 +24,9 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
     }
 
     const endResponse = async () => {
-        //logger.warn('AIChatUserList in text Listener EndResponse')
-        //logger.warn(AIChatUserList)
+
+        //logger.error('AIChatUserList in text Listener EndResponse')
+        //logger.error(AIChatUserList)
         currentlyStreaming = false
         if (shouldContinue) {
             //logger.warn('shouldContinue is true, so we will append the content before continue to the accumulated output')
@@ -80,9 +81,7 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
             messageID: messageID,
         };
         await broadcast(streamedTokenMessage);
-        currentlyStreaming = true
-
-
+        currentlyStreaming = true;
     };
 };
 
@@ -92,6 +91,7 @@ async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, 
     isStreaming = engineMode === 'horde' ? false : isStreaming;
     let activeSessionID;
     if (sessionID) activeSessionID = sessionID;
+
     //logger.warn('handle response sees sessionID: ', activeSessionID)
     // logger.warn(`isStreaming: ${isStreaming}, engineMode: ${engineMode}, selectedAPI: ${selectedAPI}`);
 
@@ -100,18 +100,24 @@ async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, 
         //const activeChat = JSON.parse(activeChatJSON);
         const newMessageID = await db.getNextMessageID();
 
+        //this is a dry run to get the AIChatUserList, so we can create the listener EARLY.
+        const AIChatUserList = await api.getAIResponse(
+            isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, true, parsedMessage, false
+        );
         // Create listener EARLY
-        const textListener = await createTextListener(parsedMessage, liveConfig, [], user, foundSessionID, newMessageID, shouldContinue);
-        //  logger.warn('Listener registered for textEmitter.');
+        const textListener = await createTextListener(parsedMessage, liveConfig, AIChatUserList, user, foundSessionID, newMessageID, shouldContinue);
+
         textEmitter.removeAllListeners('text'); // Prevent multiple listeners
         textEmitter.on('text', textListener); // 🔁 NOW the emitter is hooked
 
-        const response = await api.getAIResponse(
+        //this is the actual call to the API, which will start streaming.
+        const [AIResponse, uselessAIChatUserList] = await api.getAIResponse(
             isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage, shouldContinue
         );
 
-        if (!response || !response[0]) {
+        if (!AIResponse || !AIResponse[0]) {
             // logger.warn('[handleResponse] null or empty response received for streaming.');
+
             textListener('END_OF_RESPONSE');
             const trimmed = await api.trimIncompleteSentences(accumulatedStreamOutput);
             if (shouldContinue) {
@@ -126,11 +132,13 @@ async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, 
         }
 
     } else {
-        const response = await api.getAIResponse(
+        const [AIResponse, AIChatUserList] = await api.getAIResponse(
             isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage
         );
 
-        const [AIResponse, AIChatUserList] = response;
+        //const [AIResponse, AIChatUserList] = response;
+
+        //logger.warn('not streaming, AIChatUserList:', AIChatUserList);
 
         const AIResponseMessage = {
             chatID: parsedMessage.chatID,

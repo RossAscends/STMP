@@ -212,9 +212,8 @@
         <div id="bodyWrap" class="flexbox noWrap noGap flexFlowCol">
             <div id="contentWrap" class="flexbox transition250 justifyContentCenter flexFlowCol alignSelfCenter noGap paddingLR5  ">
                 <div id="universalControls" class="flexbox transition250  heightFitContent Hcentered justifySpaceBetween alignSelfCenter">
-                    <div class="dummyLocation flexbox noWrap heightFitcontent">
-                        <button id="controlPanelToggle" class="opacityHalf hostControls Vcentered bgTransparent fontSize1p25em greyscale textshadow" title="Toggle Control Panel">🎛️</button>
-                    </div>
+                    <div id="NOOP_universalControlsSpacer" class="guestSpacing fontSize1p25em square1p5em"></div>
+                    <button id="controlPanelToggle" class="opacityHalf hostControls Vcentered bgTransparent fontSize1p25em square1p5em greyscale textshadow" title="Toggle Control Panel">🎛️</button>
                     <div class="flexbox noWrap heightFitcontent">
                         <button id="chatsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor textshadow">🖼️</button>
                         <button id="reconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" hidden title="Connect">▶️</button>
@@ -230,24 +229,24 @@
 
                     <div id="LLMChatWrapper" class="flexbox flexFlowCol transition250 flex1 noGap">
                         <div class="chatHeader Hcentered Vcentered flexbox positionRelative justifySpaceBetween width100p">
-                            <div class="" style="opacity: 0;">
-                                <div id="NOOP_AIChatHeaderSpacer" class="hostControls square1p5em fontSize1p25em"> </div>
+                            <div>
+                                <button id="emptyAIChatDisplay" class="transition250 chatSweep bgTransparent square1p5em fontSize1p25em greyscale textshadow" title="Empty AI Chat\n(Affects Your Display Only)">🧹</button>
                             </div>
                             <div class="flexbox alignItemsCenter ">
                                 AI Chat with
                                 <div class="custom-select hostControls">
-                                    <select id="cardList" class="flex1 dynamicSelector"></select>
+                                    <select id="cardList" class="hostControls flex1 dynamicSelector"></select>
                                 </div>
                                 <button id="charListRefresh" class="hostControls bgTransparent mutedColor fontSize1p25em square1p5em" title="Refresh Character List">🔄</button>
                                 <button id="charDefsPopupButton" class="hostControls bgTransparent mutedColor fontSize1p25em square1p5em" title="Open Character Definitions Edit Panel">🧠</button>
                                 <span id="charName"></span>
                             </div>
-
-                            <button id="clearAIChat" class="hostControls chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear AI Chat History">🗑️</button>
+                            <div id="NOOP_AIChatHeaderSpacer" class="guestSpacing square1p5em fontSize1p25em" style="opacity: 0;"> </div>
+                            <button id="clearAIChat" class="hostControls bgTransparent square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear AI Chat History\n(Ends current chat session and starts a new one with selected character.)">🗑️</button>
                         </div>
                         <div id="AIChatDropOverlay" class="transition250">📎 Drop PNG Character Card Here</div>
 
-                        <div id="AIChat" data-chat-id="AIChat" class=" drop-zone marginTop5 transition250 positionRelative flex1 overflowXHidden width100p"></div>
+                        <div id="AIChat" data-chat-id="AIChat" class="chatWindow drop-zone marginTop5 transition250 positionRelative flex1 overflowXHidden width100p"></div>
 
                         <div id="AIChatHostControls" class="hostControls flexbox justifySpaceAround noWrap Vcentered">
                             <label for="AIChatDelay" class="flexbox noWrap square1p5em fontSize1p5em textshadow Vcentered" title="AI Chat Cooldown Timer (seconds, max 999)">
@@ -280,16 +279,17 @@
 
                     <div id="OOCChatWrapper" class="flexbox flexFlowCol transition250 flex1 noGap">
                         <div class="Hcentered Vcentered chatHeader flexbox justifySpaceBetween positionRelative">
-                            <div id="NOOP_UserChatHeaderSpacer" class="hostControls square1p5em fontSize1p25em" style="opacity: 0;"> </div>
+                            <button id="emptyUserChatDisplay" class="transition250 chatSweep bgTransparent square1p5em fontSize1p25em greyscale textshadow" title="Empty  Chat\n(Affects Your Display Only)">🧹</button>
                             <div>
                                 User Chat
                             </div>
                             <div>
+                                <div id="NOOP_UserChatHeaderSpacer" class="guestSpacing square1p5em fontSize1p25em" style="opacity: 0;"> </div>
                                 <button id="clearUserChat" class="hostControls chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear User Chat History">🗑️</button>
                             </div>
                         </div>
 
-                        <div id="userChat" data-chat-id="userChat" class="marginTop5 transition250 positionRelative flex1 overflowXHidden width100p"></div>
+                        <div id="userChat" data-chat-id="userChat" class="chatWindow marginTop5 transition250 positionRelative flex1 overflowXHidden width100p"></div>
                         <div id="userChatHostControls" class="hostControls flexbox justifySpaceAround noWrap">
                             <label for="userChatDelay" class="flexbox noWrap square1p5em fontSize1p5em textshadow Vcentered" title="User Chat Cooldown Timer (seconds, max 999)">
                                 <span class="greyscale">⏳</span>

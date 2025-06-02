@@ -62,17 +62,18 @@ function minMax(value, min, max) {
 }
 
 async function flashElement(elementID, type, flashDelay = 400, times = 1) {
+    //console.warn('flashing element', elementID, 'type', type, 'times', times, 'delay', flashDelay)
     var element = $('#' + elementID);
     let color
     switch (type) {
         case 'good':
-            color = '#496951'
+            color = '#496951 !important'
             break;
         case 'bad':
-            color = '#8a4f4e'
+            color = '#8a4f4e !important'
             break;
         case 'warn':
-            color = '#a4a155'
+            color = '#a4a155 !important'
             break;
     }
     for (var i = 0; i < times; i++) {

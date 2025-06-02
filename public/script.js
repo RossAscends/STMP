@@ -325,6 +325,7 @@ async function processConfirmedConnection(parsedMessage) {
     $("#charName").hide();
     $("#leftSpanner").remove()
     $(".hostControls").removeClass('hostControls'); //stop them from being hidden by CSS
+    $(".guestSpacing").remove();
     if (isPhone || isMobileViewport) {
       //handle initial loads for phones, 
       //hide the control panel and user lists
@@ -361,9 +362,7 @@ async function processConfirmedConnection(parsedMessage) {
     $("#showPastChats").trigger("click");
   } else { // is Guest
     //hide control panel and host controls for guests
-    $(".chatHeader").removeClass('justifySpaceBetween')
-    $(".dummyLocation").append(`<div id="NOOP_universalControlsSpacer" class="opacityHalf Vcentered bgTransparent fontSize1p25em square1p5em"></div>`)
-
+    $(".guestSpacing").css('display', 'block')
     $(".hostControls").remove();
     $("#leftSpanner").show()
 
@@ -1795,6 +1794,19 @@ $(async function () {
     }, 100)
   );
 
+  $('.chatSweep').off('click').on('click', async function () {
+    //clears the display of a chat window for the user
+    //but has no effect on the server or other users.
+    //intended to prevent users from suffering slowdown from a large number of messages.
+    const $button = $(this);
+    const $targetChat = $button.parent().parent().find('.chatWindow');
+    $targetChat.addClass('transition250 opacityZero');
+    await util.delay(250);
+    $targetChat.empty()
+    $targetChat.removeClass('opacityZero');
+    //await util.delay(250);
+    await util.flashElement($targetChat.prop('id'), 'good')
+  });
   //listener for mobile users that detects change in visiible of the app.
   //it checks the websocket's readyState when the app becomes visible again
   //and provides immediate feedback on whether the websocket is still open or if

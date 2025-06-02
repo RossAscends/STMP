@@ -20,7 +20,8 @@ html {
     overflow: hidden;
 }
 
-/* jQuery UI Specific Styles */
+/* MARK: jQuery UI
+*/
 .ui-widget,
 .ui-dialog,
 .ui-widget-content,
@@ -73,6 +74,50 @@ html {
     display: none;
 }
 
+.JQUIPopupInput {
+    width: 100%;
+    background-color: #393a3f;
+    padding: 3px 7px;
+    resize: none;
+}
+
+/*MARK:.modal
+*/
+.modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 20px;
+    border: 1px solid black;
+    z-index: 1000;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.modal form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.modal input,
+.modal button {
+    margin: 10px 0;
+    padding: 5px;
+    width: 100%;
+    max-width: 200px;
+}
+
+.modal p {
+    margin: 0 0 10px;
+}
+
+/*MARK: #containers
+*/
 #appWrap {
     display: flex;
     justify-content: center;
@@ -117,9 +162,36 @@ html {
     padding: 5px;
 }
 
-.hidden {
-    display: none !important;
+#OOCChatWrapper img,
+#LLMChatWrapper img {
+    max-height: 80%;
+    max-width: 80%;
 }
+
+#profileManagementMenu {
+    top: 3.5em;
+    background-color: #2c2d31;
+    width: min-content;
+    margin: 0 auto;
+    padding: 20px 20px 10px 20px;
+    z-index: 10;
+    border-radius: 10px;
+    border: 1px solid #444;
+    gap: 10px;
+    box-shadow: -5px 5px 5px rgba(0, 0, 0, 0.3);
+}
+
+hr {
+    background-image: linear-gradient(90deg, rgba(128, 128, 128, 100), rgba(128, 128, 128, 100));
+    margin: 5px 0;
+    height: 1px;
+    min-height: 1px;
+    border: 0;
+    opacity: 0.2;
+}
+
+/*MARK: scrollbars
+*/
 
 ::-webkit-scrollbar {
     width: 12px;
@@ -214,6 +286,9 @@ small {
     min-height: 0;
 }
 
+
+/*MARK: inputs/buttons
+*/
 input,
 textarea,
 button,
@@ -300,34 +375,78 @@ select,
     background: transparent;
 }
 
-/* .custom-select::before,
-.custom-select::after {
-    --size: 0.3rem;
+input[type="checkbox"]::before {
     content: "";
-    position: absolute;
-    right: 3px;
-    pointer-events: none;
-    z-index: 3;
-} */
-
-/* .custom-select::before {
-    border-left: var(--size) solid transparent;
-    border-right: var(--size) solid transparent;
-    border-bottom: var(--size) solid #888;
-    top: 25%;
+    width: 1em;
+    height: 1em;
+    transform: scale(0);
+    transition: 120ms transform ease-in-out;
+    box-shadow: inset 1em 1em #888;
+    transform-origin: bottom left;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
 }
 
-.custom-select::after {
-    border-left: var(--size) solid transparent;
-    border-right: var(--size) solid transparent;
-    border-top: var(--size) solid #888;
-    top: 50%;
-} */
+input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
 
-/* #modelList {
-    max-width: 200px;
-} */
+.checkbox_label {
+    display: flex;
+    flex-direction: row;
+    column-gap: 5px;
+    align-items: baseline;
+}
 
+button,
+input,
+.nonButtonButton {
+    padding: 3px;
+    width: fit-content;
+}
+
+#AIChatInputButtons,
+#UserChatInputButtons {
+    top: 0;
+    background-color: #313338;
+}
+
+#AIChatHostControls {
+    background-color: #313338;
+    z-index: 9;
+}
+
+#UserChatInputButtons {
+    border-radius: 0 10px 10px 0;
+    background-color: #393a3f;
+}
+
+#AIChatInputButtons button {
+    padding: 0;
+}
+
+input::placeholder {
+    color: #666;
+    align-self: center;
+}
+
+.disconnected::placeholder {
+    color: red;
+}
+
+#controlPanelToggle {
+    left: 5px;
+}
+
+input:disabled,
+select:disabled,
+input[readonly]:not([type="checkbox"]),
+button:disabled,
+.disabled {
+    cursor: not-allowed;
+}
+
+/*MARK: dragdrop overlays
+*/
 #AIChatDropOverlay,
 #UploadSuccessOverlay {
     position: absolute;
@@ -362,8 +481,6 @@ select,
     opacity: 1 !important;
 }
 
-
-
 input[type='checkbox'] {
     appearance: none;
     position: relative;
@@ -380,56 +497,11 @@ input[type='checkbox'] {
     display: grid;
 }
 
-input[type="checkbox"]::before {
-    content: "";
-    width: 1em;
-    height: 1em;
-    transform: scale(0);
-    transition: 120ms transform ease-in-out;
-    box-shadow: inset 1em 1em #888;
-    transform-origin: bottom left;
-    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
-}
-
-input[type="checkbox"]:checked::before {
-    transform: scale(1);
-}
-
-.checkbox_label {
-    display: flex;
-    flex-direction: row;
-    column-gap: 5px;
-    align-items: baseline;
-}
-
-button,
-input,
-.nonButtonButton {
-    padding: 3px;
-    width: fit-content;
-}
-
-.scrollY {
-    overflow-y: auto;
-}
-
-.hoverglow {
-    transition: all 250ms;
-    outline: 1px solid #666;
-    filter: saturate(0.5);
-}
-
 .messageTime {
     font-size: 0.8em;
     margin-left: 5px;
     color: #888;
     font-weight: 400;
-}
-
-#OOCChatWrapper img,
-#LLMChatWrapper img {
-    max-height: 80%;
-    max-width: 80%;
 }
 
 code {
@@ -456,6 +528,9 @@ pre {
     display: none;
 }
 
+
+/*MARK:chatMessages
+*/
 #userChat>div,
 #AIChat>div {
     padding: 5px;
@@ -514,6 +589,8 @@ pre {
     color: #8ca3d9;
 }
 
+/*MARK:chat Inputs
+*/
 #AIMessageInput,
 #messageInput {
     height: 2.2em;
@@ -525,34 +602,6 @@ pre {
     max-height: 50vh;
     overflow-y: auto;
     line-height: 1.4em;
-}
-
-#AIChatInputButtons,
-#UserChatInputButtons {
-    top: 0;
-    background-color: #313338;
-}
-
-#UserChatInputButtons {
-    border-radius: 0 10px 10px 0;
-    background-color: #393a3f;
-}
-
-#AIChatInputButtons button {
-    padding: 0;
-}
-
-input::placeholder {
-    color: #666;
-    align-self: center;
-}
-
-.disconnected::placeholder {
-    color: red;
-}
-
-#controlPanelToggle {
-    left: 5px;
 }
 
 #userRole {
@@ -575,15 +624,17 @@ input::placeholder {
     border: 1px solid rgba(128, 128, 128, 0.2);
 }
 
-.chatAndTrashWrap {
+/* .chatAndTrashWrap {
     height: 100%;
     max-height: 100%;
     overflow-y: auto;
     padding-top: 5px;
     background-color: #313338;
     border-radius: 10px 10px 0 0;
-}
+} */
 
+/* MARK:userLists
+*/
 #userListsWrap {
     background: #2c2d31;
     height: 100vh;
@@ -618,6 +669,9 @@ input::placeholder {
     padding: 3px;
     font-size: 0.8em;
 }
+
+/*pastChats
+*/
 
 #pastChatsBlock {
     max-height: 50vh;
@@ -683,13 +737,22 @@ input::placeholder {
     border: 1px solid transparent;
 }
 
-hr {
-    background-image: linear-gradient(90deg, rgba(128, 128, 128, 100), rgba(128, 128, 128, 100));
-    margin: 5px 0;
-    height: 1px;
-    min-height: 1px;
-    border: 0;
-    opacity: 0.2;
+/*MARK: STMP Tailwind
+*/
+
+
+.hidden {
+    display: none !important;
+}
+
+.scrollY {
+    overflow-y: auto;
+}
+
+.hoverglow {
+    transition: all 250ms;
+    outline: 1px solid #666;
+    filter: saturate(0.5);
 }
 
 .padding5 {
@@ -932,22 +995,6 @@ hr {
     height: fit-content;
 }
 
-#profileManagementMenu {
-    top: 3.5em;
-    background-color: #2c2d31;
-    width: min-content;
-    margin: 0 auto;
-    padding: 5px;
-    z-index: 10;
-    border-radius: 10px;
-    box-shadow: -5px 5px 5px rgba(0, 0, 0, 0.3);
-}
-
-#AIChatHostControls {
-    background-color: #313338;
-    z-index: 9;
-}
-
 .overflowYHidden {
     overflow-y: hidden;
 }
@@ -956,13 +1003,8 @@ hr {
     overflow-x: hidden;
 }
 
-.JQUIPopupInput {
-    width: 100%;
-    background-color: #393a3f;
-    padding: 3px 7px;
-    resize: none;
-}
-
+/*MARK: hostToast
+*/
 #hostToast {
     display: none;
     position: fixed;
@@ -990,46 +1032,7 @@ hr {
     padding: 5px;
 }
 
-input:disabled,
-select:disabled,
-input[readonly]:not([type="checkbox"]),
-button:disabled,
-.disabled {
-    cursor: not-allowed;
-}
 
-.modal {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: white;
-    padding: 20px;
-    border: 1px solid black;
-    z-index: 1000;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.modal form {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.modal input,
-.modal button {
-    margin: 10px 0;
-    padding: 5px;
-    width: 100%;
-    max-width: 200px;
-}
-
-.modal p {
-    margin: 0 0 10px;
-}
 
 .modal #errorMessage {
     min-height: 20px;
@@ -1102,6 +1105,8 @@ body.disableGuestInput #AIInputBlock * {
     background-color: #5b1a1a !important;
 }
 
+/*MARK:@hover styles
+*/
 @media (any-hover: hover) {
 
     select:hover:not(:disabled),
@@ -1164,6 +1169,8 @@ body.disableGuestInput #AIInputBlock * {
     }
 }
 
+/*MARK: shake animation
+*/
 @keyframes intenseShake {
     0% {
         transform: translate(0, 0) rotate(0deg);
@@ -1197,6 +1204,8 @@ body.disableGuestInput #AIInputBlock * {
     --shake-intensity: 1px;
 }
 
+/*MARK: @mobile
+*/
 @media (max-width: 1000px) {
 
     body {
@@ -1360,6 +1369,46 @@ body.disableGuestInput #AIInputBlock * {
     }
 }
 
+/*MARK:@mobile landscape
+*/
+@media (max-width: 1000px) and (orientation: landscape) {
+
+    #controlPanelContents,
+    #chatWrap,
+    #userListsWrap {
+        flex-flow: row;
+    }
+
+    #LLMChatWrapper,
+    #OOCChatWrapper {
+        height: 100% !important;
+    }
+
+    #controlPanelContents>div,
+    #userListsWrap>div {
+        flex: 1;
+    }
+
+    #controlPanelContents> :first-child {
+        flex: 0
+    }
+
+    #controlPanelContents {
+        gap: 5px;
+    }
+
+    .isControlPanelToggle i {
+        display: none;
+    }
+
+    #crowdControl {
+        margin-top: 5px;
+    }
+
+}
+
+/*MARK: @mobile PWA
+*/
 @media (max-width: 1000px) and (display-mode: standalone) {
 
     body {
@@ -1476,6 +1525,8 @@ body.disableGuestInput #AIInputBlock * {
 
 }
 
+/*MARK:@Desktop PWA
+*/
 @media (min-width: 1001px) and (display-mode: standalone) {
 
     /*for desktop PWA users*/
@@ -1486,40 +1537,4 @@ body.disableGuestInput #AIInputBlock * {
     #userListsWrap {
         border-radius: 10px 0 0 0;
     }
-}
-
-@media (max-width: 1000px) and (orientation: landscape) {
-
-    #controlPanelContents,
-    #chatWrap,
-    #userListsWrap {
-        flex-flow: row;
-    }
-
-    #LLMChatWrapper,
-    #OOCChatWrapper {
-        height: 100% !important;
-    }
-
-    #controlPanelContents>div,
-    #userListsWrap>div {
-        flex: 1;
-    }
-
-    #controlPanelContents> :first-child {
-        flex: 0
-    }
-
-    #controlPanelContents {
-        gap: 5px;
-    }
-
-    .isControlPanelToggle i {
-        display: none;
-    }
-
-    #crowdControl {
-        margin-top: 5px;
-    }
-
 }

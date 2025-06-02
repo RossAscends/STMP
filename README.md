@@ -249,7 +249,7 @@ Incorporating embedded lorebooks is under consideration.
 
 ### Host Controls
 
-- Toggle for locking AI chat for users? (this is already kind of done with AutoResponse off)
+- ~~Toggle for locking AI chat for users? (this is already kind of done with AutoResponse off)~~
 - Drag-sort list to set User Turn Order for AI chatting?
 - Ability to rename chats.
 - ability for Host to edit a User's role from the UI

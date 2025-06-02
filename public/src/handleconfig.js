@@ -47,6 +47,7 @@ Based on the following array sent from server:
           userChatDelay,      //number input value
           AIChatDelay,           //number input value
           allowImages,        //checkbox
+          guestInputPermissionState, //boolean to toggle body class
       },
   ]
 */

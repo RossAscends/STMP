@@ -1087,6 +1087,19 @@ button:disabled,
     opacity: 0.5;
 }
 
+.toggledOnCrowdControl {
+    border: 5px solid #2b9b3d;
+    border-radius: 50%;
+    filter: unset;
+}
+
+body.disableGuestInput #inputBlock *,
+body.disableGuestInput #AIInputBlock * {
+    color: #651b1b !important;
+    cursor: not-allowed;
+    background-color: #5b1a1a !important;
+}
+
 @media (any-hover: hover) {
 
     select:hover:not(:disabled),

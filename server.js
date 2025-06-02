@@ -204,6 +204,7 @@ async function initFiles() {
             AIChatDelay: "2",
             userChatDelay: "2",
             allowImages: true,
+            guestInputPermissionState: true, //true = guests can input, false = guests cannot input
         }
     };
 
@@ -524,12 +525,10 @@ async function handleConnections(ws, type, request) {
     const decodedUsername = decodeURIComponent(encodedUsername || '').trim();
 
 
-
     //USE THESE WHEN REFERRING TO THE USER
     let uuid = urlParams.get('uuid');
     let thisUserColor, thisUserUsername, thisUserRole;
     //USE THESE WHEN REFERRING TO THE USER
-
 
 
     if (!uuid) {
@@ -596,13 +595,15 @@ async function handleConnections(ws, type, request) {
         role: thisUserRole,
         selectedCharacterDisplayName: liveConfig.promptConfig?.selectedCharacterDisplayName,
         userList: connectedUsers,
-        liveConfig: {
-            crowdControl: {
-                userChatDelay: liveConfig?.crowdControl?.userChatDelay || "2",
-                AIChatDelay: liveConfig?.crowdControl?.AIChatDelay || "2",
-                allowImages: liveConfig?.crowdControl?.allowImages || false
-            }
-        },
+        /*         liveConfig: {
+                    crowdControl: {
+                        userChatDelay: liveConfig?.crowdControl?.userChatDelay || "2",
+                        AIChatDelay: liveConfig?.crowdControl?.AIChatDelay || "2",
+                        allowImages: liveConfig?.crowdControl?.allowImages || false,
+                        guestInputPermissionState: liveConfig?.crowdControl?.guestInputPermissionState || true
+        
+                    }
+                }, */
         crowdControl: liveConfig.crowdControl,
         selectedModelForGuestDisplay: liveConfig.APIConfig.selectedModel
     };
@@ -1067,6 +1068,28 @@ async function handleConnections(ws, type, request) {
 
                     }
                 }
+                else if (parsedMessage.type === 'disableGuestInput') {
+                    //logger.info('saw disableGuestInput request from host')
+                    liveConfig.crowdControl.guestInputPermissionState = false
+                    await fio.writeConfig(liveConfig, 'crowdControl.guestInputPermissionState', false)
+                    const disableGuestInputMessage = {
+                        type: 'toggleGuestInputState',
+                        allowed: liveConfig.crowdControl.guestInputPermissionState
+                    }
+                    await broadcast(disableGuestInputMessage)
+                    return
+                }
+                else if (parsedMessage.type === 'allowGuestInput') {
+                    liveConfig.crowdControl.guestInputPermissionState = true
+                    await fio.writeConfig(liveConfig, 'crowdControl.guestInputPermissionState', true)
+                    //logger.info('saw allowGuestInput request from host')
+                    const allowGuestInputMessage = {
+                        type: 'toggleGuestInputState',
+                        allowed: liveConfig.crowdControl.guestInputPermissionState
+                    }
+                    await broadcast(allowGuestInputMessage)
+                    return
+                }
             }
             //process universal message types that all users can send
             //MARK: Universal WS Msgs
@@ -1120,6 +1143,8 @@ async function handleConnections(ws, type, request) {
 
             //MARK: new chat Mes Handling
             else if (parsedMessage.type === 'chatMessage') { //handle normal chat messages
+                //logger.warn('guestInputPermissionState: ', liveConfig.crowdControl.guestInputPermissionState)
+                //logger.warn('thisUserRole: ', thisUserRole)
                 //having this enable sends the user's colors along with the response message if it uses parsedMessage as the base..
                 parsedMessage.userColor = thisUserColor
                 const chatID = parsedMessage.chatID;
@@ -1127,7 +1152,21 @@ async function handleConnections(ws, type, request) {
                 const userColor = thisUserColor
                 let userInput = parsedMessage?.userInput
                 const hordePrompt = parsedMessage?.userInput
+                const senderUUID = parsedMessage.UUID
+                const canPost = liveConfig.crowdControl.guestInputPermissionState;
                 var userPrompt
+
+                if (!canPost && thisUserRole !== 'host') {
+                    //get their username from the clientsObject
+                    let thisUser = clientsObject[senderUUID];
+                    logger.warn('Guest input is disabled, ignoring message from:', thisUser.username);
+                    const guestInputDisabledMessage = {
+                        type: 'inputDisabledWarning',
+                        message: `Guest input is currently disabled by the host. Please wait until it is enabled again.`,
+                    }
+                    await ws.send(JSON.stringify(guestInputDisabledMessage));
+                    return
+                }
 
                 //setup the userPrompt array in order to send the input into the AIChat box
                 if (chatID === 'AIChat') {

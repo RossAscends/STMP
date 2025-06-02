@@ -3,6 +3,7 @@ import util from "./src/utils.js";
 import handleconfig from './src/handleconfig.js'
 import { streamUpdater } from "./src/streamUpdater.js";
 import hostToast from "./src/hostToast.js";
+import disableGuestInput from "./src/disableGuestInput.js";
 
 export var username,
   isAutoResponse,
@@ -25,7 +26,7 @@ var isKeepAliveAudioPlaying = false;
 var keepAliveAudio = new Audio("silence.mp3");
 
 export var isHost;
-var AIChatDelay, userChatDelay, allowImages;
+var AIChatDelay, userChatDelay, guestInputPermissionState, allowImages;
 
 //this prevents selectors from firing off when being initially populated
 var initialLoad = true;
@@ -295,21 +296,24 @@ async function processConfirmedConnection(parsedMessage) {
   //process universal stuff for guests
   const {
     clientUUID, role, selectedCharacterDisplayName,
-    chatHistory, AIChatHistory, userList, sessionID, AIChatSessionID
+    chatHistory, AIChatHistory, userList, sessionID, AIChatSessionID, crowdControl
   } = parsedMessage;
 
-  //console.warn(chatHistory)
+  console.debug(crowdControl)
 
-  //these two need to be set as globals here in script.js
-  AIChatDelay = parsedMessage.liveConfig.crowdControl.AIChatDelay * 1000;
-  userChatDelay = parsedMessage.liveConfig.crowdControl.userChatDelay * 1000;
-  //allowImages = parsedMessage.liveConfig.crowdControl.allowImages
+  //these need to be set as globals here in script.js
+  AIChatDelay = crowdControl.AIChatDelay * 1000;
+  userChatDelay = crowdControl.userChatDelay * 1000;
+  guestInputPermissionState = crowdControl.guestInputPermissionState;
+  //console.warn('guestInputPermissionState: ', guestInputPermissionState)
+
 
   myUUID = myUUID === "" ? clientUUID : myUUID;
   localStorage.setItem("UUID", myUUID);
   isHost = role === "host" ? true : false;
   console.debug(`my UUID is: ${myUUID}`);
   var userRole = isHost ? "Host" : "Guest";
+  disableGuestInput.toggleState(guestInputPermissionState);
   $("#userRole").text(userRole);
   $("#charName").text(selectedCharacterDisplayName);
   $("#charName").parent().prop('title', `Powered by ${parsedMessage.selectedModelForGuestDisplay}`);
@@ -592,6 +596,7 @@ async function connectWebSocket(username) {
       }
     } else {
       console.info('Received parsedMessage type:', parsedMessage.type, 'message:', message)
+      //console.info(parsedMessage.liveConfig)
     }
 
 
@@ -606,6 +611,12 @@ async function connectWebSocket(username) {
 
     //MARK: parsedMessage switch
     switch (parsedMessage?.type) {
+      case "toggleGuestInputState":
+        disableGuestInput.toggleState(parsedMessage.allowed);
+        break;
+      case 'inputDisabledWarning':
+        hostToast.showHostToast(parsedMessage.message, 'System', 500);
+        break;
       case "fileUploadSuccess":
         console.warn("Uploaded successfully:", parsedMessage.message);
         util.showUploadSuccessOverlay(parsedMessage.message);
@@ -664,8 +675,8 @@ async function connectWebSocket(username) {
         break;
       case "guestConnectionConfirmed":
       case "connectionConfirmed":
-        console.debug(parsedMessage)
-        allowImages = handleconfig.allowImages() || parsedMessage.liveConfig.crowdControl.allowImages
+        //console.info(parsedMessage.liveConfig)
+        allowImages = handleconfig.allowImages() || parsedMessage.crowdControl.allowImages
         //console.warn('allowImages upon connection: ', allowImages)
         processConfirmedConnection(parsedMessage);
         break;
@@ -1330,7 +1341,9 @@ $(async function () {
     }
     var messageInput = $("#messageInput");
     if (messageInput.val().trim() === "") {
-      alert("Can't send empty message!");
+      //alert("Can't send empty message!");
+      messageInput.trigger("focus");
+      console.warn("Can't send empty message to User Chat!");
       return;
     }
 

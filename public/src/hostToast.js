@@ -1,11 +1,12 @@
 import util from './utils.js';
 import { myUUID, isPhone, isLandscape } from '../script.js';
 
-async function showHostToast(msg, username) {
+async function showHostToast(msg, username, duration = 1000) {
     const $toast = $('#hostToast');
-    const fadeDuration = 10000;
+    const visibleDuration = duration;
+    const fadeDuration = visibleDuration * 10;
     const fadeInDuration = 500;
-    const visibleDuration = 1000;
+
 
     let fadeStarted = false;
     let fadeWasPaused = false;

@@ -912,7 +912,7 @@ async function handleConnections(ws, type, request) {
                         let activeSessionID = await removeLastAIChatMessage()
                         await stream.handleResponse(
                             parsedMessage, selectedAPI, hordeKey,
-                            engineMode, user, liveConfig, activeSessionID
+                            engineMode, user, liveConfig, false, activeSessionID
                         );
                         return
                     } catch (parseError) {
@@ -1131,11 +1131,15 @@ async function handleConnections(ws, type, request) {
 
                 //setup the userPrompt array in order to send the input into the AIChat box
                 if (chatID === 'AIChat') {
-                    let shouldContinue = parsedMessage.userInput.length == 0 ? true : false
+                    let userTryingToContinue = parsedMessage.userInput.length == 0 ? true : false
+                    let [currentChat, sessionID] = await db.readAIChat()
+                    let messageHistory = JSON.parse(currentChat)
+                    let lastMessageEntity = messageHistory[messageHistory.length - 1].entity
+                    let shouldContinue = userTryingToContinue && lastMessageEntity === 'AI' ? true : false
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     //this can be the case when a previous chat is wiped, and we need to force send
                     //the character's firstMessage into the new chat session.
-                    if (!shouldContinue) {
+                    if (!shouldContinue && userInput && userInput.length > 0) {
                         userInput = userInput.slice(0, 1000); //force respect the message size limit
                         await db.writeAIChatMessage(username, senderUUID, userInput, 'user');
                         let [activeChat, foundSessionID] = await db.readAIChat()

@@ -271,22 +271,22 @@ async function populateInput(value, elementID) {
 }
 
 async function toggleCheckbox(value, elementID) {
-  console.debug(`${elementID} previous state:`, $(`#${elementID}`).prop("checked"));
-  console.debug(elementID, ' incoming value:', value);
+  //console.debug(`${elementID} previous state:`, $(`#${elementID}`).prop("checked"));
+  //console.debug(elementID, ' incoming value:', value);
 
   if (Number.isInteger(value)) {
-    console.debug('Received integer for checkbox value:', elementID, value);
+    //console.debug('Received integer for checkbox value:', elementID, value);
   }
 
   return new Promise(async (resolve) => {
     const shouldContinue = await checkArguments("toggleCheckbox", arguments);
     if (!shouldContinue) {
-      console.debug(elementID, ' saw no need to change, early stop')
+      //console.debug(elementID, ' saw no need to change, early stop')
       resolve();
       return;
     }
 
-    console.debug(elementID, '- setting checkbox checked state: ', value);
+    //console.debug(elementID, '- setting checkbox checked state: ', value);
     $(`#${elementID}`).prop("checked", Boolean(value));
     console.debug(`${elementID} checked state after change:`, $(`#${elementID}`).prop("checked"));
 

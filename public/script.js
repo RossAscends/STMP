@@ -32,10 +32,10 @@ var AIChatDelay, userChatDelay, guestInputPermissionState, allowImages;
 var initialLoad = true;
 //MARK: startupUserName
 async function startupUsernames() {
-  console.debug(`[startupUsernames]>> GO`);
+  //console.debug(`[startupUsernames]>> GO`);
 
   async function initializeUsername() {
-    console.debug(`[initializeUsername]>> GO`);
+    //console.debug(`[initializeUsername]>> GO`);
     // Prevent duplicate dialogs
     if ($(".ui-dialog").length) {
       console.debug('Dialog already exists, removing');
@@ -118,16 +118,14 @@ async function startupUsernames() {
       ? storedAIChatUsername
       : username;
 
-  console.debug(
-    `[localStorage] username:${username}, AIChatUsername:${AIChatUsername}`
-  );
+  //console.debug(`[localStorage] username:${username}, AIChatUsername:${AIChatUsername}`);
 
   return { username, AIChatUsername };
 }
 
 //MARK:validateUserName
 export function validateUserName(username) {
-  console.debug('validateUserName input:', username, 'Type:', typeof username);
+  //console.debug('validateUserName input:', username, 'Type:', typeof username);
   if (!username || username.trim().length === 0) {
     return { success: false, error: 'Username cannot be empty.' };
   }
@@ -150,93 +148,6 @@ export function validateUserName(username) {
   return { success: true, username };
 }
 
-
-/* var sanitizeExtension = {
-  type: "output",
-  filter: function (text) {
-
-    let forbiddenTags = ["style", "audio", "script", "iframe", "object", "embed", "form", "input", "select",
-      "button", "marquee", "blink", "font"];
-    console.warn('allowImages sanitize init: ', allowImages)
-    if (allowImages === false) {
-      console.warn('checking for images...')
-      const imageRegex = /<img\b[^>]*>/gi;
-      const hasImage = imageRegex.test(text);
-      console.warn('text: ', text)
-      console.warn('hasImage: ', hasImage)
-
-      if (hasImage) {
-        console.warn('removing images..')
-        text = text.replace(imageRegex, '>>haha embed fail, laugh at this user<<');
-      }
-      console.warn('After text: ', text)
-      forbiddenTags.push("img");
-    } else {
-      forbiddenTags = forbiddenTags.filter(tag => tag !== "img");
-
-    }
-
-    const sanitizedHTML = DOMPurify.sanitize(text, {
-      FORBID_TAGS: forbiddenTags,
-      FORBID_ATTR: ["onload", "onclick", "onmouseover", "srcdoc", "data-*", "style", "color", "bgcolor"]
-    });
-
-    return sanitizedHTML;
-  },
-};
-
-
-var quotesExtension = function () {
-  var regexes = [
-    { regex: /â|â/g, replace: '"' },
-    { regex: /â¦/g, replace: "..." },
-    { regex: /Ã¢ÂÂ¦/g, replace: "..." },
-    { regex: /â/g, replace: "'" },
-    { regex: /ÃÂ¢ÃÂÃÂ/g, replace: "'" },
-    { regex: /Ã¢ÂÂ/g, replace: "'" },
-    { regex: /(?<!<[^>]+)"([^"]*)"(?![^<]*>)/g, replace: "<q>$1</q>" }, //double quotes, but not those within <tags like="these">
-    { regex: /“([^“”]*)”/g, replace: '<q class="invisible-quotation">"$1"</q>', },
-    { regex: /‘([^‘’]*)’/g, replace: "<q class=\"invisible-quotation\">'$1'</q>", },
-    { regex: /â([^(ââ]*)â/g, replace: "<q class=\"invisible-quotation\">'$1'</q>", },
-    { regex: /«([^«»]*)»/g, replace: '<q class="invisible-quotation">«$1»</q>', },
-    { regex: /「([^「」]*)」/g, replace: '<q class="invisible-quotation">「$1」</q>', },
-    { regex: /『([^『』]*)』/g, replace: '<q class="invisible-quotation">『$1』</q>', },
-    { regex: /【([^【】]*)】/g, replace: '<q class="invisible-quotation">【$1】</q>', },
-    { regex: /《([^《》]*)》/g, replace: '<q class="invisible-quotation">《$1》</q>', },
-  ];
-
-  return regexes.map(function (rule) {
-    return {
-      type: "output",
-      regex: rule.regex,
-      replace: rule.replace,
-    };
-  });
-};
-
-var BRTagsToParagraphTags = function () {
-  var regexes = [{ regex: /<br>/g, replace: "</p><p>" }];
-
-  return regexes.map(function (rule) {
-    return {
-      type: "output",
-      regex: rule.regex,
-      replace: rule.replace,
-    };
-  });
-};
-
-var converter = new showdown.Converter({
-  simpleLineBreaks: true,
-  openLinksInNewWindow: true,
-  parseImgDimensions: false,
-  emoji: true,
-  backslashEscapesHTMLTags: true,
-  literalMidWordUnderscores: true,
-  strikethrough: true,
-  extensions: [sanitizeExtension, quotesExtension, BRTagsToParagraphTags],
-}); */
-
 //routine to check if we are on an iOS device or not
 var dummyElement = $("<div>").css("-webkit-touch-callout", "none");
 var isIOS = dummyElement.css("-webkit-touch-callout") === "none";
@@ -252,7 +163,7 @@ var wsType =
     window.location.hostname !== "localhost"
     ? "wss"
     : "ws";
-console.debug(`We will connect to "${wsType}" server..`);
+//console.debug(`We will connect to "${wsType}" server..`);
 var serverUrl = `${wsType}://${hostname}:${port}`;
 
 
@@ -261,7 +172,7 @@ function updateUserList(listType, userList) {
   //console.warn(userList);
 
   if (!userList || userList.length === 0) {
-    console.warn('saw no userlist for ', listType, '..returning!');
+    console.warn('saw no userlist for ', listType);
     return;
   }
 
@@ -276,7 +187,7 @@ function updateUserList(listType, userList) {
     return 0;
   });
 
-  console.debug('userList: ', userList)
+  //console.debug('userList: ', userList)
   userList.forEach(({ username, role, color, entity }) => {
     let isAI = entity === "AI" ? true : false;
     const usernameDecorator = listType === "AIChatUserList" && isAI ? ` 🤖` : role === "host" ? `👑` : null;
@@ -312,7 +223,7 @@ async function processConfirmedConnection(parsedMessage) {
   myUUID = myUUID === "" ? clientUUID : myUUID;
   localStorage.setItem("UUID", myUUID);
   isHost = role === "host" ? true : false;
-  console.debug(`my UUID is: ${myUUID}`);
+  //console.debug(`my UUID is: ${myUUID}`);
   var userRole = isHost ? "Host" : "Guest";
   disableGuestInput.toggleState(guestInputPermissionState);
   $("#userRole").text(userRole);
@@ -547,7 +458,7 @@ function addMessageEditListeners(newDiv) {
 
     }
   });
-  //MARK: Line 500
+
   $newdiv.find(`.messageDelete`).off('click').on('click', async function () {
     if ($(this).parent().parent().parent().parent().children().length === 1) { //check how many messages are inside the userChat/AIChat container
       alert('Can not delete the only message in this chat. \nIf you want to delete an AI Chat, use the Past Chats list.\nFor User Chats, just empty it with the trash can.')
@@ -588,7 +499,7 @@ async function connectWebSocket(username) {
   myUUID = localStorage.getItem("UUID") !== null ? localStorage.getItem("UUID") : "";
   console.log(`trying to connect to ${serverUrl} with ${myUUID}, ${myUsername} or ${username}`);
   socket = new WebSocket(serverUrl + "?uuid=" + myUUID + "&username=" + encodeURIComponent(username));
-  console.log("socket connected!");
+  //console.log("socket connected!");
 
   socket.onopen = function () { handleSocketOpening(socket); }
   socket.onclose = disconnectWebSocket;
@@ -945,7 +856,7 @@ function handleSocketOpening(socket) {
   $("#reconnectButton").hide();
   $("#disconnectButton").show();
   const username = $("#usernameInput").val();
-  console.debug(`connected as ${username}`);
+  //console.debug(`connected as ${username}`);
   $("#messageInput")
     .prop("disabled", false)
     .prop("placeholder", "Message the User Chat")
@@ -1198,25 +1109,25 @@ function enableButtons() {
   disableableButtons.forEach(selector => {
     const $element = $(selector);
     if ($element.length) {
-      console.debug(`Enabled ${selector}:`, {
-        disabledProp: $element.prop('disabled'),
-        disabledAttr: $element.attr('disabled'),
-        hasDisabledClass: $element.hasClass('disabled'),
-        isCheckbox: $element.is('input[type="checkbox"]'),
-        html: $element[0]?.outerHTML || 'Not found'
-      });
+      /*       console.debug(`Enabled ${selector}:`, {
+              disabledProp: $element.prop('disabled'),
+              disabledAttr: $element.attr('disabled'),
+              hasDisabledClass: $element.hasClass('disabled'),
+              isCheckbox: $element.is('input[type="checkbox"]'),
+              html: $element[0]?.outerHTML || 'Not found'
+            }); */
 
       if ($element.prop('disabled') == true) $element.prop('disabled', false);
       if ($element.attr('disabled') == true) $element.removeAttr('disabled')
       if ($element.hasClass('disabled')) $element.removeClass('disabled')
 
-      console.debug(`Enabled ${selector}:`, {
-        disabledProp: $element.prop('disabled'),
-        disabledAttr: $element.attr('disabled'),
-        hasDisabledClass: $element.hasClass('disabled'),
-        isCheckbox: $element.is('input[type="checkbox"]'),
-        html: $element[0]?.outerHTML || 'Not found'
-      });
+      /*       console.debug(`Enabled ${selector}:`, {
+              disabledProp: $element.prop('disabled'),
+              disabledAttr: $element.attr('disabled'),
+              hasDisabledClass: $element.hasClass('disabled'),
+              isCheckbox: $element.is('input[type="checkbox"]'),
+              html: $element[0]?.outerHTML || 'Not found'
+            }); */
     } else {
       console.warn(`Element ${selector} not found in DOM`);
     }
@@ -1224,41 +1135,41 @@ function enableButtons() {
 
   console.debug('Re-enabled buttons');
 
-  setTimeout(() => {
-    console.debug('Checking button states after delay:', {
-      isStreaming: {
-        disabledProp: $("#isStreaming").prop('disabled'),
-        disabledAttr: $("#isStreaming").attr('disabled'),
-        html: $("#isStreaming")[0]?.outerHTML || 'Not found'
-      },
-      isAutoResponse: {
-        disabledProp: $("#isAutoResponse").prop('disabled'),
-        disabledAttr: $("#isAutoResponse").attr('disabled'),
-        html: $("#isAutoResponse")[0]?.outerHTML || 'Not found'
-      },
-      D4CharDefs: {
-        disabledProp: $("#D4CharDefs").prop('disabled'),
-        disabledAttr: $("#D4CharDefs").attr('disabled'),
-        html: $("#D4CharDefs")[0]?.outerHTML || 'Not found'
-      }
-    });
-  }, 100);
+  /*   setTimeout(() => {
+      console.debug('Checking button states after delay:', {
+        isStreaming: {
+          disabledProp: $("#isStreaming").prop('disabled'),
+          disabledAttr: $("#isStreaming").attr('disabled'),
+          html: $("#isStreaming")[0]?.outerHTML || 'Not found'
+        },
+        isAutoResponse: {
+          disabledProp: $("#isAutoResponse").prop('disabled'),
+          disabledAttr: $("#isAutoResponse").attr('disabled'),
+          html: $("#isAutoResponse")[0]?.outerHTML || 'Not found'
+        },
+        D4CharDefs: {
+          disabledProp: $("#D4CharDefs").prop('disabled'),
+          disabledAttr: $("#D4CharDefs").attr('disabled'),
+          html: $("#D4CharDefs")[0]?.outerHTML || 'Not found'
+        }
+      });
+    }, 100); */
 }
 
 function verifyCheckboxStates() {
   const checkboxes = ['#isStreaming', '#isAutoResponse', '#D4CharDefs'];
-  console.debug('Checking checkbox states at page load:');
+  //console.debug('Checking checkbox states at page load:');
   checkboxes.forEach(selector => {
     const $element = $(selector);
     if ($element.length) {
-      console.debug(`State for ${selector}:`, {
-        readonlyProp: $element.prop('readonly'),
-        readonlyAttr: $element.attr('readonly'),
-        disabledProp: $element.prop('disabled'),
-        disabledAttr: $element.attr('disabled'),
-        classes: $element.attr('class'),
-        html: $element[0]?.outerHTML || 'Not found'
-      });
+      /*       console.debug(`State for ${selector}:`, {
+              readonlyProp: $element.prop('readonly'),
+              readonlyAttr: $element.attr('readonly'),
+              disabledProp: $element.prop('disabled'),
+              disabledAttr: $element.attr('disabled'),
+              classes: $element.attr('class'),
+              html: $element[0]?.outerHTML || 'Not found'
+            }); */
     } else {
       console.warn(`Checkbox ${selector} not found in DOM at page load`);
     }
@@ -1300,7 +1211,7 @@ $(async function () {
   const $userChatInputButtons = $("#userChatInputButtons");
 
   let { username, AIChatUsername } = await startupUsernames();
-  console.log("Startup Usernames:", username, AIChatUsername);
+  //console.log("Startup Usernames:", username, AIChatUsername);
   $("#usernameInput").val(username);
   $("#AIUsernameInput").val(AIChatUsername);
 
@@ -1582,7 +1493,7 @@ $(async function () {
       });
     } */
 
-  //MARK: Line 1500
+
   $("#messageInput").on("keypress", function (event) {
     util.enterToSendChat(event, "#sendButton");
   });

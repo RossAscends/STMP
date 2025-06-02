@@ -177,7 +177,7 @@ async function toggleControlPanelBlocks(toggle, type = null) {
 function isPhone() {
     const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     const isMobileViewport = window.matchMedia('(max-width: 999px)').matches;
-    console.debug('isTouchDevice', isTouchDevice, 'isMobileViewport', isMobileViewport)
+    //console.debug('isTouchDevice', isTouchDevice, 'isMobileViewport', isMobileViewport)
     return isTouchDevice && isMobileViewport;
 }
 

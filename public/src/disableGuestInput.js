@@ -26,7 +26,7 @@ async function requestAllow() {
 }
 
 function toggleState(allowed) {
-    console.warn("toggleState called with allowed:", allowed);
+    console.debug("[disableGuestInput.toggleState] called with allowed:", allowed);
     if (!isHost) {
         if (!allowed) {
             $body.addClass("disableGuestInput");

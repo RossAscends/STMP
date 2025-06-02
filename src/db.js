@@ -298,34 +298,42 @@ async function deleteAPI(APIName) {
 async function readUserChat() {
     logger.debug('Reading user chat...');
     const db = await dbPromise;
-    let foundSessionID
+    let foundSessionID;
 
     try {
         const rows = await db.all(`
-            SELECT u.username, u.username_color, uc.message, uc.message_id, uc.session_id
+            SELECT 
+                u.username,
+                u.username_color,
+                uc.message,
+                uc.message_id,
+                uc.session_id,
+                ur.role AS userRole,
+                uc.timestamp
             FROM userchats uc 
             LEFT JOIN users u ON uc.user_id = u.user_id
+            LEFT JOIN user_roles ur ON uc.user_id = ur.user_id
             WHERE uc.active = TRUE
             ORDER BY uc.timestamp ASC 
         `);
+
         if (rows.length === 0) {
             logger.debug('No active user chats found.');
         }
-        let result = JSON.stringify(rows.map(row => ({
+
+        const result = JSON.stringify(rows.map(row => ({
             username: row.username || 'Unknown',
             content: row.message,
             userColor: row.username_color || '#FFFFFF',
             messageID: row.message_id,
-            sessionID: row.session_id
+            sessionID: row.session_id,
+            role: row.userRole || null,
+            timestamp: row.timestamp
         })));
-
-        //logger.info(result)
 
         if (rows.length > 0) {
             foundSessionID = rows[0].session_id;
             logger.info(`Found ${rows.length} active user chats in session ${foundSessionID}`);
-
-
         }
 
         return [result, foundSessionID];
@@ -335,6 +343,7 @@ async function readUserChat() {
         throw err;
     }
 }
+
 
 //Remove last AI chat in the current session from the database
 async function removeLastAIChatMessage() {
@@ -415,8 +424,11 @@ async function writeAIChatMessage(username, userId, message, entity) {
         } else {
             sessionId = row.session_id;
         }
-        await db.run('INSERT INTO aichats (session_id, user_id, message, username, entity) VALUES (?, ?, ?, ?, ?)',
-            [sessionId, userId, message, username, entity]);
+        const timestamp = new Date().toISOString();
+        await db.run(
+            'INSERT INTO aichats (session_id, user_id, message, username, entity, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
+            [sessionId, userId, message, username, entity, timestamp]
+        );
         let resultingMessageID = (await db.get('SELECT message_id FROM aichats WHERE session_id = ? ORDER BY message_id DESC LIMIT 1', [sessionId]))?.message_id;
 
         logger.info('Message written into session ' + sessionId + ' with message_id ' + resultingMessageID);
@@ -564,9 +576,12 @@ async function readAIChat(sessionID = null) {
             END AS userColor,
             a.message_id,
             a.session_id,
-            a.entity
+            a.entity,
+            ur.role AS userRole,
+            a.timestamp
         FROM aichats a
         LEFT JOIN users u ON a.user_id = u.user_id
+        LEFT JOIN user_roles ur ON a.user_id = ur.user_id
         WHERE a.session_id = ?
         ORDER BY a.timestamp ASC
     `, [sessionID]);
@@ -577,8 +592,11 @@ async function readAIChat(sessionID = null) {
         userColor: row.userColor,
         sessionID: row.session_id,
         messageID: row.message_id,
-        entity: row.entity
-    })));
+        entity: row.entity,
+        role: row.userRole ?? null,
+        timestamp: row.timestamp
+    })
+    ));
 
     return [result, sessionID];
 }

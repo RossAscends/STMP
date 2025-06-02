@@ -1003,6 +1003,12 @@ pre {
     overflow-x: hidden;
 }
 
+.usernameDecorator {
+    filter: saturate(0.5);
+    bottom: 0.1em;
+    position: relative;
+}
+
 /*MARK: hostToast
 */
 #hostToast {

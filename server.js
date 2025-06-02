@@ -824,12 +824,16 @@ async function handleConnections(ws, type, request) {
                                 content: purifier.makeHtml(firstMes), //firstMes,
                                 username: charName,
                                 entity: 'AI',
-                                AIChatUserList: [{ username: charName, color: 'white' }]
+                                AIChatUserList: [{ username: charName, color: 'white' }],
                             };
 
                             logger.warn('Adding the first message to the chat file');
                             await db.writeAIChatMessage(charName, charName, firstMes, 'AI');
                             logger.warn(`Sending ${charName}'s first message to AI Chat`);
+                            let newChat = await db.readAIChat();
+                            let lastMessage = newChat[0][newChat[0].length - 1];
+                            let newTimestamp = lastMessage.timestamp;
+                            newAIChatFirstMessage.timestamp = newTimestamp;
                             await broadcast(newAIChatFirstMessage);
                         }
 
@@ -1198,6 +1202,8 @@ async function handleConnections(ws, type, request) {
                             sessionID: foundSessionID,
                             messageID: newMessageID,
                             entity: 'user',
+                            role: thisUserRole,
+                            timestamp: lastItem?.timestamp || new Date().toISOString(),
                         }
                         await broadcast(userPrompt)
                     }
@@ -1227,7 +1233,10 @@ async function handleConnections(ws, type, request) {
                         userColor: userColor,
                         content: purifier.makeHtml(newContent),
                         messageID: newMessageID,
-                        sessionID: sessionID
+                        sessionID: sessionID,
+                        role: thisUserRole,
+                        entity: 'user',
+                        timestamp: lastItem?.timestamp || new Date().toISOString(),
                     }
                     //logger.info(newUserChatMessage)
                     await broadcast(newUserChatMessage)

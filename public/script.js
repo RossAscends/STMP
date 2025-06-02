@@ -279,10 +279,11 @@ function updateUserList(listType, userList) {
   console.debug('userList: ', userList)
   userList.forEach(({ username, role, color, entity }) => {
     let isAI = entity === "AI" ? true : false;
-    const usernameText = listType === "AIChatUserList" && isAI ? `${username} 🤖` : role === "host" ? `${username} 🔑` : username;
+    const usernameDecorator = listType === "AIChatUserList" && isAI ? ` 🤖` : role === "host" ? `👑` : null;
     const usernameColor = listType === "AIChatUserList" && isAI ? "white" : color;
+    const usernameHTML = usernameDecorator === null ? username : `${username}<span class="usernameDecorator">${usernameDecorator}</span>`;
     //console.warn(usernameText);
-    const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${usernameColor};">${usernameText}</li>`;
+    const listItem = `<li data-foruser="${username}" title="${username}" style="color: ${usernameColor};">${usernameHTML}</li>`;
     //console.log(listItem);
     listElement.append(listItem);
   });
@@ -403,26 +404,34 @@ async function processConfirmedConnection(parsedMessage) {
 //messages (array of objs): [{username:"user", userColor:"#color", content:"message text", messageID:"id", entity:"user or AI"}]
 function appendMessages(messages, elementSelector, sessionID) {
 
-  messages.forEach(({ username, userColor, content, messageID, entity }) => {
+  messages.forEach(({ username, userColor, content, messageID, entity, role, timestamp }) => {
 
     let dataEntityTypeString = "";
     let isAI = entity === "AI" ? true : false;
-    let usernameToShow = isAI ? `${username} 🤖` : username;
+    let usernameToShow = isAI ? `${username}` : username;
+    const usernameDecorator = isAI ? ` 🤖` : role === "host" ? ` 👑` : null;
+    //usernameHTML = role === "host" ? `${usernameToShow} 👑` : usernameToShow;
+    const usernameHTML = usernameDecorator === null ? usernameToShow : `<span>${usernameToShow}<span class="usernameDecorator">${usernameDecorator}</span></span>`;
     userColor = isAI ? "white" : userColor;
     elementSelector === "#AIChat" ? dataEntityTypeString = `data-entityType="${entity}"` : dataEntityTypeString = "";
+    //let rawtimestamp = new Date(timestamp);
+    //console.warn('rawtimestamp: ', rawtimestamp, 'timestamp: ', timestamp, 'type: ', typeof rawtimestamp, typeof timestamp);
 
-    let timestamp = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + " " + new Date().toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' });
+
+    let formattedTimestamp = new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + " " + new Date(timestamp).toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' });
 
     let newDiv = $(`
     <div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}" ${dataEntityTypeString}>
-      <div class="messageHeader flexbox justifySpaceBetween">
-        <span style="color:${userColor}" class="flexbox alignItemsCenter chatUserName">${usernameToShow}
-        <small class="messageTime">${timestamp}</small>
+      <div class="messageHeader flexbox justifySpaceBetween width100p">
+        <span style="color:${userColor}" class="flexbox alignItemsCenter chatUserName">${usernameHTML}</span>
+        <span class="flexbox">
+          
+          <div class="messageControls transition250">
+              <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+              <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+          </div>
+          <small class="messageTime">${formattedTimestamp}</small>
         </span>
-        <div class="messageControls transition250">
-            <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
-            <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
-        </div>
       </div>
       <div class="messageContent">
       ${content}
@@ -859,7 +868,7 @@ async function connectWebSocket(username) {
         var {
           chatID, username, content,
           userColor, color, workerName,
-          hordeModel, kudosCost, AIChatUserList, messageID, entity
+          hordeModel, kudosCost, AIChatUserList, messageID, entity, role, timestamp
         } = JSON.parse(message);
         //console.warn(entity, isAIResponse)
         let sessionID = parsedMessage.sessionID
@@ -871,7 +880,9 @@ async function connectWebSocket(username) {
           userColor: userColor,
           content: content,
           messageID: messageID,
-          entity: entityTypeString
+          entity: entityTypeString,
+          role: role,
+          timestamp: timestamp
         }
         appendMessages([chatMessageObj], "#" + chatID, sessionID)
         util.kindlyScrollDivToBottom($(`div[data-chat-id="${chatID}"]`));

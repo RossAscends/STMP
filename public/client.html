@@ -208,11 +208,11 @@
                 </div>
             </div>
         </div>
-        <!-- <div id="leftSpanner" class="spanner15vw"></div> -->
+        <div id="leftSpanner" class="spanner15vw" hidden></div>
         <div id="bodyWrap" class="flexbox noWrap noGap flexFlowCol">
             <div id="contentWrap" class="flexbox transition250 justifyContentCenter flexFlowCol alignSelfCenter noGap paddingLR5  ">
                 <div id="universalControls" class="flexbox transition250  heightFitContent Hcentered justifySpaceBetween alignSelfCenter">
-                    <div class="flexbox noWrap heightFitcontent">
+                    <div class="dummyLocation flexbox noWrap heightFitcontent">
                         <button id="controlPanelToggle" class="opacityHalf hostControls Vcentered bgTransparent fontSize1p25em greyscale textshadow" title="Toggle Control Panel">🎛️</button>
                     </div>
                     <div class="flexbox noWrap heightFitcontent">
@@ -231,7 +231,7 @@
                     <div id="LLMChatWrapper" class="flexbox flexFlowCol transition250 flex1 noGap">
                         <div class="chatHeader Hcentered Vcentered flexbox positionRelative justifySpaceBetween width100p">
                             <div class="" style="opacity: 0;">
-                                <div id="NOOP_AIChatHeaderSpacer" class="square1p5em fontSize1p25em"> </div>
+                                <div id="NOOP_AIChatHeaderSpacer" class="hostControls square1p5em fontSize1p25em"> </div>
                             </div>
                             <div class="flexbox alignItemsCenter ">
                                 AI Chat with
@@ -279,15 +279,13 @@
                     </div>
 
                     <div id="OOCChatWrapper" class="flexbox flexFlowCol transition250 flex1 noGap">
-                        <div class="Vcentered chatHeader flexbox justifySpaceBetween positionRelative">
-                            <div style="opacity: 0;">
-                                <div id="NOOP_UserChatHeaderSpacer" class="square1p5em fontSize1p25em"> </div>
-                            </div>
+                        <div class="Hcentered Vcentered chatHeader flexbox justifySpaceBetween positionRelative">
+                            <div id="NOOP_UserChatHeaderSpacer" class="hostControls square1p5em fontSize1p25em" style="opacity: 0;"> </div>
                             <div>
                                 User Chat
                             </div>
                             <div>
-                                <button id="clearUserChat" class="chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear User Chat History">🗑️</button>
+                                <button id="clearUserChat" class="hostControls chatTrash square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear User Chat History">🗑️</button>
                             </div>
                         </div>
 
@@ -361,38 +359,24 @@
 
 
     <div id="profileManagementMenu" class="flexbox noWrap flexFlowCol positionAbsolute" style="display:none;">
-        <label for="usernameInput" class="widthFitContent flexbox flexFlowCol noWrap noTextWrap">
-            <span>UserChat Name:</span>
+        <label for="usernameInput" class="alignItemsCenter alignSelfCenter flexFlowCol flexbox noTextWrap noWrap widthFitContent">
+            <span>UserChat Name</span>
             <input type="text" maxlength="12" id="usernameInput" class="width100px bgBrightUp" placeholder="Username">
         </label>
-        <label for="AIUsernameInput" class="widthFitContent flexbox flexFlowCol noWrap noTextWrap">
-            <span>AIChat Name:</span>
+        <label for="AIUsernameInput" class="alignItemsCenter alignSelfCenter flexFlowCol flexbox noTextWrap noWrap widthFitContent">
+            <span>AIChat Name</span>
             <input type="text" maxlength="12" id="AIUsernameInput" class="width100px bgBrightUp" placeholder="Username">
         </label>
         <div class="flexbox noWrap Hcentered">
             <button id="submitkey" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Submit Role Key">🔑</button>
-            <button id="clearLocalStorage" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Delete Username and Unique ID">⛔</button>
-            <button id="keepAliveAudio" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Play background audio to keep mobile users alive">🔊</button>
+            <button id="clearLocalStorage" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Delete Usernames and Unique ID">⛔</button>
+            <button id="keepAliveAudio" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Play silent background audio to keep remote connections alive">🔊</button>
+            <button id="refreshBtn" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Force Page Refresh">🔄</button>
         </div>
     </div>
-    <div id="roleKeyInputDiv" class=" justifyContentCenter positionAbsolute marginBot5 marginTop5 flexbox width100p" style="display:none;">
+    <div id=" roleKeyInputDiv" class=" justifyContentCenter positionAbsolute marginBot5 marginTop5 flexbox width100p" style="display:none;">
         <input id="roleKeyInput" type="text" maxlength="32" class="width100px bgBrightUp" placeholder="Role Key">
     </div>
-    <!--     <button id="refreshBtn" style="
-  position: fixed;
-  bottom: 10px;
-  right: 10px;
-  z-index: 9999;
-  padding: 5px 10px;
-  background: red;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 14px;
-  opacity: 0.7;
-">
-        🔄 Refresh
-    </button> -->
     <div id="hostToast"></div>
 
 </body>

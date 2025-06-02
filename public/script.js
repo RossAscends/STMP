@@ -323,7 +323,8 @@ async function processConfirmedConnection(parsedMessage) {
     await handleconfig.processLiveConfig(parsedMessage)
 
     $("#charName").hide();
-    $(".hostControls").removeClass('hostControls'); //stop them from being hidden
+    $("#leftSpanner").remove()
+    $(".hostControls").removeClass('hostControls'); //stop them from being hidden by CSS
     if (isPhone || isMobileViewport) {
       //handle initial loads for phones, 
       //hide the control panel and user lists
@@ -331,6 +332,7 @@ async function processConfirmedConnection(parsedMessage) {
       $("#roleKeyInputDiv")
         .removeClass("positionAbsolute")
         .css({ width: '95%', height: 'unset' })
+
 
       if ($("#controlPanel").hasClass("initialState")) {
         $("#controlPanel").removeClass("initialState").addClass('opacityZero').addClass('hidden');
@@ -359,8 +361,13 @@ async function processConfirmedConnection(parsedMessage) {
     $("#showPastChats").trigger("click");
   } else { // is Guest
     //hide control panel and host controls for guests
-    $("#controlPanel, .hostControls").remove();
     $(".chatHeader").removeClass('justifySpaceBetween')
+    $(".dummyLocation").append(`<div id="NOOP_universalControlsSpacer" class="opacityHalf Vcentered bgTransparent fontSize1p25em square1p5em"></div>`)
+
+    $(".hostControls").remove();
+    $("#leftSpanner").show()
+
+
     control.disableAPIEdit();
     if (isPhone) {
       // $("#universalControls").css('height', 'unset');
@@ -1263,10 +1270,6 @@ function verifyCheckboxStates() {
 //MARK:listeners
 $(async function () {
 
-  /*   document.getElementById('refreshBtn').addEventListener('click', () => {
-      location.reload(true); // forces full reload, bypassing cache if possible
-    }); */
-
   console.debug('Document ready');
   verifyCheckboxStates();
 
@@ -1280,7 +1283,6 @@ $(async function () {
 
 
   const $chatWrap = $("#chatWrap")
-
   const $AIChatInputButtons = $("#AIChatInputButtons");
   const $userChatInputButtons = $("#userChatInputButtons");
 
@@ -1317,6 +1319,12 @@ $(async function () {
         .css("height", "unset")
         .toggleClass("needsReset")
         .fadeToggle();
+    });
+
+  $('#refreshBtn')
+    .off('click')
+    .on('click', function () {
+      location.reload(true);
     });
 
   $("#roleKeyInput").on("input", function () {
@@ -1578,7 +1586,7 @@ $(async function () {
     util.messageServer(pastChatListRequest);
   });
 
-  $(document).on("mouseUp", async function (e) {
+  $(document).on("mouseup", async function (e) {
     var $target = $(e.target);
     if (
       !$target.is("#profileManagementButton") &&

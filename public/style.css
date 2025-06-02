@@ -274,6 +274,7 @@ select,
 
 .hostControls {
     display: none;
+    transition: all 250ms ease;
 }
 
 .positionAbsolute {
@@ -932,12 +933,13 @@ hr {
 }
 
 #profileManagementMenu {
-    right: 15vw;
+    top: 3.5em;
     background-color: #2c2d31;
     width: min-content;
+    margin: 0 auto;
     padding: 5px;
     z-index: 10;
-    border-radius: 0 0 0 10px;
+    border-radius: 10px;
     box-shadow: -5px 5px 5px rgba(0, 0, 0, 0.3);
 }
 
@@ -1358,7 +1360,7 @@ body.disableGuestInput #AIInputBlock * {
     }
 }
 
-@media (display-mode: standalone) {
+@media (max-width: 1000px) and (display-mode: standalone) {
 
     body {
         margin: unset;
@@ -1429,7 +1431,7 @@ body.disableGuestInput #AIInputBlock * {
     #userListsWrap {
         width: calc(100% - max(env(safe-area-inset-right), 0px) - max(env(safe-area-inset-right), 0px));
         height: calc(100% - 3em - max(env(safe-area-inset-top), 0px) - max(env(safe-area-inset-bottom), 0px));
-        top: 2em;
+        top: 3em;
     }
 
     #appWrap {
@@ -1457,7 +1459,7 @@ body.disableGuestInput #AIInputBlock * {
     #universalControls {
         width: 100%;
         max-width: 100%;
-        overflow: scroll;
+        height: 3em;
     }
 
     #contentWrap {
@@ -1472,8 +1474,18 @@ body.disableGuestInput #AIInputBlock * {
         align-content: center;
     }
 
+}
 
+@media (min-width: 1001px) and (display-mode: standalone) {
 
+    /*for desktop PWA users*/
+    #controlPanel {
+        border-radius: 0 10px 0 0
+    }
+
+    #userListsWrap {
+        border-radius: 10px 0 0 0;
+    }
 }
 
 @media (max-width: 1000px) and (orientation: landscape) {

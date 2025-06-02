@@ -862,7 +862,7 @@ async function connectWebSocket(username) {
           hordeModel, kudosCost, AIChatUserList, messageID
         } = JSON.parse(message);
         let sessionID = parsedMessage.sessionID
-        let entityTypeString = isAIResponse ? "AI" : "user";
+        let entityTypeString = entity || isAIResponse ? "AI" : "user";
         let chatMessageObj =
         {
           username: username,

@@ -41,7 +41,9 @@ export const streamUpdater = (() => {
         }
 
         if ($target.length) {
+            //let $messageContent = $target.closest(".messageContent");
             $target.html(pendingHTML);
+            //console.warn($messageContent.text())
         } else {
             return;
         }

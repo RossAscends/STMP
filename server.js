@@ -823,6 +823,7 @@ async function handleConnections(ws, type, request) {
                                 messageID: messageID,
                                 content: purifier.makeHtml(firstMes), //firstMes,
                                 username: charName,
+                                entity: 'AI',
                                 AIChatUserList: [{ username: charName, color: 'white' }]
                             };
 

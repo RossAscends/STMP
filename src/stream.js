@@ -13,15 +13,24 @@ const textEmitter = new EventEmitter();
 var isStreaming = true
 let accumulatedStreamOutput = ''
 
-const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user, sessionID, messageID) => {
+const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, user, sessionID, messageID, shouldContinue) => {
     //logger.warn('createTextListener activated');
     let currentlyStreaming
     //logger.warn(parsedMessage)
+    let contentBeforeContinue
+
+    if (shouldContinue) {
+        contentBeforeContinue = await db.getMessage(messageID - 1, sessionID);
+    }
 
     const endResponse = async () => {
         //logger.warn('AIChatUserList in text Listener EndResponse')
         //logger.warn(AIChatUserList)
         currentlyStreaming = false
+        if (shouldContinue) {
+            //logger.warn('shouldContinue is true, so we will append the content before continue to the accumulated output')
+            accumulatedStreamOutput = contentBeforeContinue + accumulatedStreamOutput;
+        }
         //if (!responseEnded) {
         //    responseEnded = true;
         textEmitter.removeAllListeners('text');
@@ -65,6 +74,7 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user, ses
             content: purify.partialMarkdownToHTML(purifier.makeHtml((accumulatedStreamOutput))),
             username: liveConfig.promptConfig.selectedCharacterDisplayName,
             type: 'streamedAIResponse',
+            isContinue: shouldContinue,
             color: user?.color || 'red', //if red, then we have a problem somewhere. AI dont have colors atm, defaulting to white in frontend.
             sessionID: sessionID,
             messageID: messageID,
@@ -76,13 +86,13 @@ const createTextListener = (parsedMessage, liveConfig, AIChatUserList, user, ses
     };
 };
 
-async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, user, liveConfig, sessionID = null) {
+async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, user, liveConfig, shouldContinue, sessionID = null) {
     // logger.warn('handleResponse liveConfig.promptConfig.stream:', liveConfig.promptConfig.isStreaming)
     isStreaming = liveConfig.promptConfig.isStreaming;
     isStreaming = engineMode === 'horde' ? false : isStreaming;
     let activeSessionID;
     if (sessionID) activeSessionID = sessionID;
-    logger.warn('handle response sees sessionID: ', activeSessionID)
+    //logger.warn('handle response sees sessionID: ', activeSessionID)
     // logger.warn(`isStreaming: ${isStreaming}, engineMode: ${engineMode}, selectedAPI: ${selectedAPI}`);
 
     if (isStreaming) {
@@ -91,22 +101,25 @@ async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, 
         const newMessageID = await db.getNextMessageID();
 
         // Create listener EARLY
-        const textListener = createTextListener(parsedMessage, liveConfig, [], user, foundSessionID, newMessageID);
+        const textListener = await createTextListener(parsedMessage, liveConfig, [], user, foundSessionID, newMessageID, shouldContinue);
         //  logger.warn('Listener registered for textEmitter.');
         textEmitter.removeAllListeners('text'); // Prevent multiple listeners
         textEmitter.on('text', textListener); // 🔁 NOW the emitter is hooked
 
         const response = await api.getAIResponse(
-            isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage
+            isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage, shouldContinue
         );
 
         if (!response || !response[0]) {
             // logger.warn('[handleResponse] null or empty response received for streaming.');
             textListener('END_OF_RESPONSE');
             const trimmed = await api.trimIncompleteSentences(accumulatedStreamOutput);
-            await db.writeAIChatMessage(
-                liveConfig.promptConfig.selectedCharacterDisplayName, 'AI', trimmed, 'AI'
-            );
+            if (shouldContinue) {
+                await db.editMessage(sessionID, newMessageID - 1, trimmed)
+            } else {
+                await db.writeAIChatMessage(liveConfig.promptConfig.selectedCharacterDisplayName, 'AI', trimmed, 'AI');
+            }
+
             accumulatedStreamOutput = '';
         } else {
             logger.info('streaming started successfully.');

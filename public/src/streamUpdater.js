@@ -1,5 +1,6 @@
 export const streamUpdater = (() => {
     let pendingHTML = null;
+    let isContinue;
     let lastUpdateTime = 0;
     let scrollTimeout = null;
     let isScrolling = false;
@@ -28,8 +29,22 @@ export const streamUpdater = (() => {
 
         if (!pendingHTML) return;
 
-        const $target = $aiChat.find(".incomingStreamDiv .messageContent span");
-        if ($target.length) $target.html(pendingHTML);
+        let $target;
+        if (isContinue) {
+            $target = $aiChat.find(".incomingStreamDiv .messageContent p:last-child span:last-child");
+            //remove the outermost <P> tag from pending
+            pendingHTML = pendingHTML.replace(/<p>(.*?)<\/p>/, '$1');
+            //add a leading space
+            pendingHTML = " " + pendingHTML;
+        } else {
+            $target = $aiChat.find(".incomingStreamDiv .messageContent span");
+        }
+
+        if ($target.length) {
+            $target.html(pendingHTML);
+        } else {
+            return;
+        }
 
         const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
         if (nearBottom && !userIsScrolling && !isScrolling) {
@@ -67,8 +82,9 @@ export const streamUpdater = (() => {
     }
 
     return {
-        go(newHTML) {
+        go(newHTML, shouldContinue) {
             pendingHTML = newHTML;
+            isContinue = shouldContinue;
             requestAnimationFrame(update);
         }
     };

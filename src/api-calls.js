@@ -33,7 +33,7 @@ async function getAPIDefaults(shouldReturn = null) {
 }
 
 //MARK: getAIResponse
-async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage) {
+async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage, shouldContinue) {
     // logger.warn('getAIResponse liveAPI:', liveAPI)
     // logger.warn(`liveConfig: ${JSON.stringify(liveConfig)}`);
     const isCCSelected = liveAPI.type === 'CC';
@@ -50,7 +50,7 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
         const charName = cardJSON.name;
         const formattedCharName = JSON.parse(JSON.stringify(`\n${charName}:`).replace(/<[^>]+>/g, ''));
 
-        const [fullPrompt, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, formattedCharName, parsedMessage.username, liveAPI);
+        const [fullPrompt, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, formattedCharName, parsedMessage.username, liveAPI, shouldContinue);
         const samplerData = await fio.readFile(liveConfig.promptConfig.selectedSamplerPreset);
         const samplers = JSON.parse(samplerData);
 
@@ -282,7 +282,7 @@ function postProcessText(text) {
 }
 
 //MARK: addCharDefsToPrompt
-async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharName, username, liveAPI) {
+async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharName, username, liveAPI, shouldContinue) {
     //logger.debug(`[addCharDefsToPrompt] >> GO`)
     //logger.debug(liveAPI)
     let isClaude = liveAPI.claude
@@ -342,8 +342,9 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 stringToReturn = stringToReturn.trim()
 
                 let promptTokens = countTokens(stringToReturn)
-                logger.trace(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
+                //logger.trace(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
                 let insertedItems = []
+                let lastInsertedEntity
 
                 for (let i = chatHistory.length - 1; i >= 0; i--) {
                     let obj = chatHistory[i];
@@ -366,46 +367,70 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     if (promptTokens + newItemTokens < liveConfig.promptConfig.contextSize) {
                         promptTokens += newItemTokens;
                         ChatObjsInPrompt.push(obj)
-                        logger.trace(`added new item, prompt tokens: ~${promptTokens}`);
+                        //logger.trace(`added new item, prompt tokens: ~${promptTokens}`);
                         insertedItems.push(newItem); // Add new item to the array
                     }
+                    //logger.warn(obj.username, obj.user, obj.content)
+                    lastInsertedEntity = obj.username === charName ? 'Assistant' : 'Human'; // Store the last entity type
                 }
                 //reverse to prepare for D4AN insertion
                 insertedItems.reverse()
                 let numOfObjects = insertedItems.length
                 let positionForD4AN = numOfObjects - 4
-                //logger.trace(`D4AN will be inserted at position ${positionForD4AN} of ${numOfObjects}`)
+                let positionForD1JB = numOfObjects - 1
+                //logger.warn(`D4AN will be inserted at position ${positionForD4AN} of ${numOfObjects}`)
                 D4AN = D4AN.trim()
                 if (D4AN.length !== 0 && D4AN !== '' && D4AN !== undefined && D4AN !== null) {
                     if (insertedItems.length < 5) {
-                        logger.trace('adding D4AN at top of prompt because it is small')
-                        insertedItems.splice(1, 0, `${endSequence}${systemSequence}${D4AN}`)
+                        //logger.warn('adding D4AN at top of prompt because it is small')
+                        insertedItems.splice(0, 0, `${endSequence}${systemSequence}${D4AN}`)
                     } else {
-                        logger.trace('adding D4AN at depth 4')
+                        //logger.warn('adding D4AN at depth', positionForD4AN)
                         insertedItems.splice(positionForD4AN, 0, `${endSequence}${systemSequence}${D4AN}`)
+                        numOfObjects = insertedItems.length
+                        positionForD1JB = numOfObjects - 1
                     }
-
+                }
+                D1JB = D1JB.trim()
+                if (D1JB.length !== 0 && D1JB !== '' && D1JB !== undefined && D1JB !== null) {
+                    if (insertedItems.length < 2) {
+                        //logger.warn('adding D1JB at top of prompt because it is small')
+                        insertedItems.splice(1, 0, `${endSequence}${systemSequence}${D1JB}`)
+                    } else {
+                        //logger.warn('adding D1JB at depth', positionForD1JB)
+                        insertedItems.splice(positionForD1JB, 0, `${endSequence}${systemSequence}${D1JB}`)
+                    }
                 }
                 // Reverse the array before appending to insertedChatHistory
                 //let reversedItems = insertedItems.reverse();
                 //let insertedChatHistory = reversedItems.join('');
                 let insertedChatHistory = insertedItems.join('');
                 stringToReturn += insertedChatHistory
-                stringToReturn += `${endSequence}`
-                //add the final mes and userInput        
-                if (D1JB.length !== 0 && D1JB !== '' && D1JB !== undefined && D1JB !== null) {
-                    stringToReturn += `${systemSequence}${D1JB}${endSequence}`
+
+                //logger.warn('lastInsertedEntity:', lastInsertedEntity, 'shouldContinue:', shouldContinue)
+
+                if (shouldContinue === true && lastInsertedEntity === 'Assistant') {
+                    //logger.info('not adding end sequence because this is a continue for an AI msg')
+                } else {
+                    // logger.info('adding end sequence')
+                    stringToReturn += `${endSequence}`
                 }
 
-                stringToReturn += `${outputSequence}`
-                if (isClaude) {
-                    stringToReturn += `Assistant:` //toggle for claude    
+                //add the final mes and userInput        
+                if (shouldContinue === true && lastInsertedEntity === 'Assistant') { //no need to add last user msg and char name if we are continuing
+                    //logger.info('this is a continue for an AI msg, not adding last user Msg and charname')
+                    stringToReturn = postProcessText(stringToReturn)
                 } else {
-                    stringToReturn += lastUserMesageAndCharName.trim();
+                    //logger.info('adding last user Msg and leading charname as usual')
+                    stringToReturn += `${outputSequence}`
+                    if (isClaude) {
+                        stringToReturn += `Assistant:` //toggle for claude    
+                    } else {
+                        stringToReturn += lastUserMesageAndCharName.trim();
+                    }
                 }
 
                 stringToReturn = postProcessText(stringToReturn)
-
                 resolve([stringToReturn, ChatObjsInPrompt]);
             } else { //craft the CC prompt
                 // logger.info('adding Chat Completion style message objects into prompt')

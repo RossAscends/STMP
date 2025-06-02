@@ -1131,11 +1131,11 @@ async function handleConnections(ws, type, request) {
 
                 //setup the userPrompt array in order to send the input into the AIChat box
                 if (chatID === 'AIChat') {
-                    let isEmptyTrigger = parsedMessage.userInput.length == 0 ? true : false
+                    let shouldContinue = parsedMessage.userInput.length == 0 ? true : false
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     //this can be the case when a previous chat is wiped, and we need to force send
                     //the character's firstMessage into the new chat session.
-                    if (!isEmptyTrigger) {
+                    if (!shouldContinue) {
                         userInput = userInput.slice(0, 1000); //force respect the message size limit
                         await db.writeAIChatMessage(username, senderUUID, userInput, 'user');
                         let [activeChat, foundSessionID] = await db.readAIChat()
@@ -1157,11 +1157,11 @@ async function handleConnections(ws, type, request) {
                         await broadcast(userPrompt)
                     }
 
-                    if (liveConfig.promptConfig.isAutoResponse || isEmptyTrigger) {
+                    if (liveConfig.promptConfig.isAutoResponse || shouldContinue) {
                         //normal user typing into AIChart, or forced trigger
                         await stream.handleResponse(
                             parsedMessage, selectedAPI, hordeKey,
-                            engineMode, user, liveConfig
+                            engineMode, user, liveConfig, shouldContinue
                         );
                     }
                 }

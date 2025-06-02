@@ -775,12 +775,25 @@ async function connectWebSocket(username) {
         $("body").addClass("currentlyStreaming");
         currentlyStreaming = true;
         disableButtons()
-
+        let isContinue = parsedMessage.isContinue;
         accumulatedContent += parsedMessage.content;
-
         let $incomingDiv = $("#AIChat .incomingStreamDiv");
-        if (!$incomingDiv.length) {
-          const newStreamDivSpan = $(`
+        if (isContinue) {
+          //console.warn('saw shouldContinue');
+          if (!$incomingDiv.length) {
+            //console.warn('no incomingStreamDiv, so finding the last one and making it continue');
+            $incomingDiv = $("#AIChat").find("div[data-entitytype='AI']").last()
+            $incomingDiv.addClass("incomingStreamDiv")
+            $incomingDiv.find(".messageContent p:last-child").append('<span></span>');
+            //console.warn($incomingDiv)
+          } else {
+            //console.warn('found an incomingStreamDiv, so continuing it');
+            //console.warn($incomingDiv)
+          }
+        } else {
+          //console.warn('not a continue, so add a new message div')
+          if (!$incomingDiv.length) {
+            const newStreamDivSpan = $(`
             <div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}" data-entityType="AI">
                 <div class="messageHeader flexbox justifySpaceBetween">
                     <span style="color:white" class="chatUserName">${parsedMessage.username} 🤖</span>
@@ -792,12 +805,15 @@ async function connectWebSocket(username) {
                 <div class="messageContent"><span></span></div>
             </div>
         `);
-          if (!isHost) newStreamDivSpan.find('.messageControls').remove();
-          $("#AIChat").append(newStreamDivSpan);
+            if (!isHost) newStreamDivSpan.find('.messageControls').remove();
+            $("#AIChat").append(newStreamDivSpan);
+          }
         }
 
+
+
         pendingHTML = mendHTML(parsedMessage.content);
-        streamUpdater.go(pendingHTML);
+        streamUpdater.go(pendingHTML, isContinue);
         //requestAnimationFrame(updateStreamedMessageHTML);
 
         break;
@@ -1139,7 +1155,7 @@ function disableButtons() {
     const $element = $(selector);
     if ($element.length) {
       $element.prop("disabled", true).addClass("disabled");
-      console.warn(`Disabled ${selector}: ${$element.prop("disabled")}`);
+      //console.warn(`Disabled ${selector}: ${$element.prop("disabled")}`);
     } else {
       console.warn(`Element ${selector} not found in DOM`);
     }

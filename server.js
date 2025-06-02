@@ -1142,7 +1142,7 @@ async function handleConnections(ws, type, request) {
                 }
             }
 
-            //MARK: new chat Mes Handling
+            //MARK: 'chatMesasge' type
             else if (parsedMessage.type === 'chatMessage') { //handle normal chat messages
                 //logger.warn('guestInputPermissionState: ', liveConfig.crowdControl.guestInputPermissionState)
                 //logger.warn('thisUserRole: ', thisUserRole)
@@ -1187,7 +1187,7 @@ async function handleConnections(ws, type, request) {
                         var lastItem = chatJSON[chatJSON.length - 1]
                         var newMessageID = lastItem?.messageID
                         var content = purifier.makeHtml(parsedMessage.userInput)
-                        logger.info('content: ', content)
+                        //logger.info('Input from: ', username, ' Content: ', content)
 
                         userPrompt = {
                             type: 'chatMessage',
@@ -1196,7 +1196,8 @@ async function handleConnections(ws, type, request) {
                             content: content, //content,
                             userColor: userColor,
                             sessionID: foundSessionID,
-                            messageID: newMessageID
+                            messageID: newMessageID,
+                            entity: 'user',
                         }
                         await broadcast(userPrompt)
                     }

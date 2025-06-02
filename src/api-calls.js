@@ -823,6 +823,7 @@ async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, include
     let isOpenRouter = TCEndpoint.includes('openrouter') ? true : false
     let isOpenAI = TCEndpoint.includes('openai') ? true : false
     let isClaude = liveAPI.claude
+    let selectedModel = liveAPI.selectedModel
 
     //this is brought in from the sampler preset, but we don't use it yet.
     //better to not show it in the API gen call response, would be confusing.
@@ -893,8 +894,9 @@ async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, include
 
     try {
 
-        finalApiCallParams.model = liveAPI.selectedModel
-        // logger.warn('setting finalApiCallParams.stream to isStreaming:', isStreaming)
+        finalApiCallParams.model = selectedModel
+        //logger.warn('setting finalApiCallParams.stream to isStreaming:', isStreaming)
+        //logger.warn(finalApiCallParams.model)
         finalApiCallParams.stream = isStreaming
 
         //logger.debug('HEADERS')
@@ -906,6 +908,7 @@ async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, include
         //logger.info(body)
 
         let streamingReportText = finalApiCallParams.stream ? 'streamed' : 'non-streamed'
+        //let modelReportText = finalApiCallParams.model ? `model ${finalApiCallParams.model}` : 'no model specified'
         // logger.info('finalApiCallParams.stream (inside requestToTCorCC): ' + finalApiCallParams.stream);
         logger.info(`Sending ${streamingReportText} ${liveAPI.type} API request to ${chatURL}..`);
         //logger.debug(`API KEY: ${key}`)

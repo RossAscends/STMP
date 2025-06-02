@@ -851,6 +851,7 @@ async function connectWebSocket(username) {
         console.debug('Re-enabling buttons');
         enableButtons();
         break;
+      //MARK: chatMessage
       case "AIResponse":
       case "chatMessage":
         let isAIResponse = false;
@@ -859,10 +860,12 @@ async function connectWebSocket(username) {
         var {
           chatID, username, content,
           userColor, color, workerName,
-          hordeModel, kudosCost, AIChatUserList, messageID
+          hordeModel, kudosCost, AIChatUserList, messageID, entity
         } = JSON.parse(message);
+        //console.warn(entity, isAIResponse)
         let sessionID = parsedMessage.sessionID
-        let entityTypeString = entity || isAIResponse ? "AI" : "user";
+        let entityTypeString = entity === undefined ? isAIResponse === true ? "AI" : "user" : entity;
+        //console.warn(entityTypeString)
         let chatMessageObj =
         {
           username: username,

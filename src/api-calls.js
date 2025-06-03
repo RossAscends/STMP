@@ -815,8 +815,77 @@ async function getModelList(api, liveConfig = null) {
     } else {
         logger.error(`Error getting models. Code ${response.status}`)
     }
+}
 
+async function tryLoadModel(api, liveConfig, liveAPI) {
+    logger.info(`[tryLoadModel] >> GO`)
 
+    let isClaude = api.isClaude
+    let modelLoadEndpoint = api.endpoint
+    let selectedModel = liveConfig.APIConfig.selectedModel
+
+    if (!/^https?:\/\//i.test(modelLoadEndpoint)) {
+        if (modelLoadEndpoint.includes("localhost") || modelLoadEndpoint.includes("127.0.0.1")) {
+            // Add "http://" at the beginning
+            modelLoadEndpoint = "http://" + modelLoadEndpoint;
+        } else {
+            // Add "https://" at the beginning
+            modelLoadEndpoint = "https://" + modelLoadEndpoint;
+        }
+    }
+
+    // Check if baseURL ends with "/"
+    if (!/\/$/.test(modelLoadEndpoint)) {
+        // Add "/" at the end
+        modelLoadEndpoint += "/";
+    }
+
+    modelLoadEndpoint = modelLoadEndpoint + 'model/load'
+    let key = 'Bearer ' + api.key
+
+    let headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': api.key,
+        Authorization: key
+    }
+
+    let body = JSON.stringify(
+        {
+            model_name: selectedModel,
+            num_gpu_layers: 999,
+            max_seq_len: Number(api.ctxSize),
+            cache_size: Number(api.ctxSize),
+            flash_attention: true,
+            cache_mode_k: 'Q8_0',
+            cache_mode_v: 'Q8_0',
+        })
+
+    if (isClaude) {
+        headers['anthropic-version'] = '2023-06-01';
+    }
+    let args = {
+        method: 'POST',
+        headers: headers,
+        body: body
+    }
+    logger.info(`Trying to tell the API to load model at: ${modelLoadEndpoint}`)
+    //logger.debug(modelLoadEndpoint)
+    logger.info(args)
+
+    const response = await fetch(modelLoadEndpoint, args);
+
+    if (response.status === 200) {
+        //let responseJSON = await response.json();
+        //let modelNames = responseJSON.data.map(item => item.id);
+        logger.info('Model Load response: ', response.status);
+        //logger.info(modelNames);
+        return response.status
+        //return responseJSON.data;
+    } else {
+        logger.error(`Error getting models. Code ${response.status}`)
+    }
+
+    return response
 }
 
 //MARK: requestToTCorCC
@@ -1041,5 +1110,6 @@ export default {
     addCharDefsToPrompt,
     setStopStrings,
     trimIncompleteSentences,
-    getHordeModelList
+    getHordeModelList,
+    tryLoadModel
 }

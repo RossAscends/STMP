@@ -777,6 +777,15 @@ async function handleConnections(ws, type, request) {
                         return
                     }
                 }
+                else if (parsedMessage.type === 'modelLoadRequest') {
+                    const response = await api.tryLoadModel(parsedMessage.api, liveConfig, hordeKey);
+                    const responseMessage = {
+                        type: 'modelLoadResponse',
+                        result: response,
+
+                    };
+                    return ws.send(JSON.stringify(responseMessage));
+                }
 
                 else if (parsedMessage.type === 'startClearChatTimer') {
                     logger.warn('recognized startClearChatTimer message');

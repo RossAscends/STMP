@@ -1,3 +1,12 @@
+
+/*TODO: 
+    condense anything that is related to user state into a single message type: 
+        userList, AIChatUserlist, userconnect, userDisconnect, username change
+
+ *condense both clearchats into a single type with a 'chatID' property
+
+ */
+
 import control from "./src/controls.js";
 import util from "./src/utils.js";
 import handleconfig from './src/handleconfig.js'
@@ -13,9 +22,11 @@ export var username,
   responseLength,
   isPhone, isTouchDevice, isMobileViewport, isLandscape;
 
-
 export var currentlyStreaming = false; //set true when streamed response is incoming, and false when not.
-export var myUUID, myUsername;
+export var myUUID
+export var myUsername
+export var myAIChatUsername
+export var myUserColor
 export var socket = null;
 export var isUserScrollingAIChat = false;
 export var isUserScrollingUserChat = false;
@@ -107,13 +118,13 @@ async function startupUsernames() {
   }
 
   const storedUsername = localStorage.getItem("username");
-  const storedAIChatUsername = localStorage.getItem("AIChatUsername");
-  const username =
+  var storedAIChatUsername = localStorage.getItem("AIChatUsername");
+  var username =
     storedUsername && storedUsername !== ""
       ? storedUsername
       : await initializeUsername();
   const myUUID = localStorage.getItem("UUID") || "";
-  const AIChatUsername =
+  var AIChatUsername =
     storedAIChatUsername && storedAIChatUsername !== ""
       ? storedAIChatUsername
       : username;
@@ -223,7 +234,7 @@ async function processConfirmedConnection(parsedMessage) {
   //process universal stuff for guests
   const {
     clientUUID, role, selectedCharacterDisplayName,
-    chatHistory, AIChatHistory, userList, sessionID, AIChatSessionID, crowdControl
+    chatHistory, AIChatHistory, userList, sessionID, AIChatSessionID, crowdControl, color
   } = parsedMessage;
 
   console.debug(crowdControl)
@@ -236,6 +247,9 @@ async function processConfirmedConnection(parsedMessage) {
 
 
   myUUID = myUUID === "" ? clientUUID : myUUID;
+  myUserColor = color || "#ffffff"; //default to white if no color is provided, this signals a problem
+  $("#AIChatUserNameHolder").css('color', myUserColor).text(myAIChatUsername);
+  $("#userChatUserNameHolder").css('color', myUserColor).text(myUsername);
   localStorage.setItem("UUID", myUUID);
   isHost = role === "host" ? true : false;
   //console.debug(`my UUID is: ${myUUID}`);
@@ -507,10 +521,12 @@ function addMessageEditListeners(newDiv) {
 }
 
 
+//MARK: connectWebSocket
 async function connectWebSocket(username) {
   var username, AIChatUsername;
 
   myUsername = localStorage.getItem("username") !== null ? localStorage.getItem("username") : ({ username, AIChatUsername } = await startupUsernames());
+  myAIChatUsername = localStorage.getItem("AIChatUsername") !== null ? localStorage.getItem("AIChatUsername") : ({ username, AIChatUsername } = await startupUsernames());
   myUUID = localStorage.getItem("UUID") !== null ? localStorage.getItem("UUID") : "";
   console.log(`trying to connect to ${serverUrl} with ${myUUID}, ${myUsername} or ${username}`);
   socket = new WebSocket(serverUrl + "?uuid=" + myUUID + "&username=" + encodeURIComponent(username));
@@ -541,17 +557,15 @@ async function connectWebSocket(username) {
     }
 
 
-
-    /*TODO: 
-        condense anything that is related to user state into a single message type: 
-            userList, AIChatUserlist, userconnect, userDisconnect, username change
-
-     *condense both clearchats into a single type with a 'chatID' property
-
-     */
-
     //MARK: parsedMessage switch
     switch (parsedMessage?.type) {
+      case "modelLoadResponse":
+        if (parsedMessage.result === 200) {
+          await util.flashElement("modelLoadButton", "good");
+        } else {
+          await util.flashElement("modelLoadButton", "bad");
+        }
+        break;
       case "toggleGuestInputState":
         disableGuestInput.toggleState(parsedMessage.allowed);
         break;
@@ -1380,6 +1394,10 @@ $(async function () {
       util.flashElement("usernameInput", "good");
       // Reset both inputs' backgrounds to default after successful update
       $("#usernameInput, #AIUsernameInput").css('background-color', '');
+      myUsername = currentUsernameResult.username;
+      myAIChatUsername = AIChatUsernameResult.username;
+      $("#AIChatUserNameHolder").text(myAIChatUsername);
+      $("#userChatUserNameHolder").text(myUsername);
     } else {
       console.warn("Username update skipped:", {
         currentUsernameValid: currentUsernameResult.success,
@@ -1558,7 +1576,7 @@ $(async function () {
       const $show = isControlPanelToggle ? $controlPanel : $userListsWrap;
       const $hide = isControlPanelToggle ? $userListsWrap : $controlPanel;
 
-      const isCurrentlyVisible = !$show.hasClass("hidden") && !$show.hasClass("opacityZero");
+      const isCurrentlyVisible = (!$show.hasClass("hidden") && !$show.hasClass("opacityZero")) || $show.is(":visible");
 
       // If the target is already visible, just hide it
       if (isCurrentlyVisible) {
@@ -1585,7 +1603,7 @@ $(async function () {
     if (chatsToggleState === 0) {
       // Dual chat view
       $body.removeClass('soloChatView');
-      $contentWrap.removeClass("widthNarrow").addClass("widthFull");
+      if (isMobileViewport) $contentWrap.removeClass("widthNarrow").addClass("widthFull");
       $LLMChatWrapper.removeClass("hidden");
       await util.delay(1);
       $LLMChatWrapper.css({ flex: "1" });
@@ -1594,7 +1612,7 @@ $(async function () {
     } else if (chatsToggleState === 1) {
       // AI chat only
       $body.addClass('soloChatView');
-      $contentWrap.removeClass("widthFull").addClass(soloWidth);
+      if (isMobileViewport) $contentWrap.removeClass("widthFull").addClass(soloWidth);
       $OOCChatWrapper.css({ flex: "0", opacity: "0" });
       $LLMChatWrapper.css({ flex: "1", opacity: "1" });
       await util.delay(251);
@@ -1602,7 +1620,7 @@ $(async function () {
 
     } else if (chatsToggleState === 2) {
       // OOC chat only
-      $contentWrap.removeClass("widthFull").addClass(soloWidth);
+      if (isMobileViewport) $contentWrap.removeClass("widthFull").addClass(soloWidth);
       $LLMChatWrapper.css({ opacity: "0" });
       await util.delay(251);
       $OOCChatWrapper.removeClass("hidden");
@@ -1675,8 +1693,12 @@ $(async function () {
     }
   });
 
-  $("#modelLoadButton").on("click", async function () {
+  $("#modelListRefreshButton").on("click", async function () {
     await control.getModelList();
+  });
+
+  $("#modelLoadButton").on("click", async function () {
+    await control.tryForceModelLoad();
   });
 
   $("#modelList").on("input", function () {
@@ -1873,5 +1895,4 @@ $(async function () {
       reader.readAsDataURL(file);
     }
   });
-
 });

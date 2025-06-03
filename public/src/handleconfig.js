@@ -85,8 +85,10 @@ import util from "./utils.js";
 import control from "./controls.js";
 import { myUUID } from "../script.js";
 
-var liveConfig, APIConfig, liveAPI, promptConfig, crowdControl, selectedModelForGuestDisplay
+var APIConfig, liveAPI, promptConfig, crowdControl, selectedModelForGuestDisplay
 var initialLoad = true
+
+export var liveConfig
 
 async function processLiveConfig(configArray) {
 
@@ -151,7 +153,7 @@ async function processLiveConfig(configArray) {
 
   if (!APIConfig.modelList) {
     console.warn('Did not see a modelList for this API, clicking modelListButton to get one.')
-    $("#modelLoadButton").trigger("click");
+    $("#modelListRefreshButton").trigger("click");
   } else { //problem: APIConfig.modeList will save the modelList from non-horde APIs, even if horde is the active engine mode
     //this is because EngineMode is part of promptConfig, not APIConfig
     //however APIConfig.SelectedModel DOES save the last selected horde model...so we can use that..
@@ -165,7 +167,7 @@ async function processLiveConfig(configArray) {
       await selectFromPopulatedSelector(APIConfig.selectedModel, "hordeWorkerList")
       $("#charName").parent().prop('title', `Powered by  ${APIConfig.selectedModel}`);
       //console.log('clicking horde model button load')
-      //$("#modelLoadButton").trigger("click");
+      //$("#modelListRefreshButton").trigger("click");
     } else {
 
       await populateSelector(APIConfig.modelList, "modelList", APIConfig.selectedModel);

@@ -27,7 +27,7 @@
 
 <body class="Hcentered flexbox">
 
-    <div id="appWrap" class="flexbox noGap Hcentered Vcentered">
+    <div id="appWrap" class="flexbox noGap Hcentered Vcentered alignContentCenter">
         <div id="controlPanel" class="hostControls initialState padding5 flexbox flexFlowCol overflowYHidden transition250 opacityZero ">
             <div id="controlPanelContents" class="flexbox flexFlowCol noGap height100p">
                 <div class="flexFlowCol flexbox">
@@ -111,7 +111,10 @@
                                         </div>
                                         <div id="modelListBlock" class="flexbox flexFlowCol Hcentered">
                                             <div class="flexbox alignItemsCenter justifyContentCenter">
-                                                <small class="alignSelfCenter">Models</small><button class="alignSelfCenter margin0 Vcentered bgBrightUp" id="modelLoadButton"><i class="fa-solid fa-refresh"></i></button>
+                                                <button class="alignSelfCenter margin0 Vcentered bgBrightUp" id="modelLoadButton" title="Attempt to force load the selected model"><i class="fa-solid fa-bars-progress"></i></button>
+                                                <small class="alignSelfCenter">Models</small>
+                                                <button class="alignSelfCenter margin0 Vcentered bgBrightUp" id="modelListRefreshButton" title="Refresh the model list"><i class="fa-solid fa-refresh"></i></button>
+
                                             </div>
                                             <div class="flexbox">
                                                 <div class="custom-select flexbox flexFlowCol">
@@ -233,7 +236,9 @@
                                 <button id="emptyAIChatDisplay" class="transition250 chatSweep bgTransparent square1p5em fontSize1p25em greyscale textshadow" title="Empty AI Chat\n(Affects Your Display Only)">🧹</button>
                             </div>
                             <div class="flexbox alignItemsCenter ">
-                                AI Chat with
+                                Chat as
+                                <span id="AIChatUserNameHolder"></span>
+                                with
                                 <div class="custom-select hostControls">
                                     <select id="cardList" class="hostControls flex1 dynamicSelector"></select>
                                 </div>
@@ -281,7 +286,9 @@
                         <div class="Hcentered Vcentered chatHeader flexbox justifySpaceBetween positionRelative">
                             <button id="emptyUserChatDisplay" class="transition250 chatSweep bgTransparent square1p5em fontSize1p25em greyscale textshadow" title="Empty  Chat\n(Affects Your Display Only)">🧹</button>
                             <div>
-                                User Chat
+                                Chat as
+                                <span id="userChatUserNameHolder"></span>
+                                with Other Users
                             </div>
                             <div>
                                 <div id="NOOP_UserChatHeaderSpacer" class="guestSpacing square1p5em fontSize1p25em" style="opacity: 0;"> </div>

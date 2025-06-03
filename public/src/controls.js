@@ -1,5 +1,6 @@
 import util from './utils.js'
 import { isUserScrollingAIChat, isUserScrollingUserChat, myUUID, validateUserName, isHost } from '../script.js'
+import { liveConfig } from './handleconfig.js'
 
 
 function updateSelectedModel(model) {
@@ -132,6 +133,34 @@ async function getModelList() { //this gets back a hostStateChange message from 
     util.messageServer(modelListRequestMessage)
 }
 
+async function tryForceModelLoad() { //this gets back a hostStateChange message from server with the modellist for the selected API
+    let APIConfig = liveConfig.APIConfig;
+    let promptConfig = liveConfig.promptConfig;
+    console.warn(APIConfig);
+    console.warn(promptConfig);
+    let name = $("#selectedAPI").val()
+    let endpoint = $("#endpoint").val()
+    let key = $("#key").val()
+    let type = $("#type").val()
+    let claude = $("#claude").prop('checked')
+    let ctxSize = promptConfig.contextSize;
+    let modelLoadRequestMessage = {
+        UUID: myUUID,
+        type: 'modelLoadRequest',
+        api: {
+            name: name,
+            endpoint: endpoint,
+            key: key,
+            type: type,
+            claude: claude,
+            ctxSize: ctxSize,
+        }
+
+    }
+    util.messageServer(modelLoadRequestMessage)
+
+}
+
 function showPastChats(chatList) {
     const $pastChatsList = $("#pastChatsList");
     $pastChatsList.empty();
@@ -213,5 +242,6 @@ export default {
     updateSelectedModel,
     showPastChats,
     validateUserName,
-    getCharList
+    getCharList,
+    tryForceModelLoad
 }

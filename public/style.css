@@ -190,29 +190,6 @@ hr {
     opacity: 0.2;
 }
 
-/*MARK: scrollbars
-*/
-
-::-webkit-scrollbar {
-    width: 12px;
-    scrollbar-gutter: stable;
-}
-
-::-webkit-scrollbar-track {
-    background-color: #2c2d31;
-    border: 3px solid #313338;
-    margin: 5px 0;
-    border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb {
-    background-color: #1e1f23;
-    border-radius: 10px;
-    background-clip: content-box;
-    border: 3px solid transparent;
-    min-height: 40px;
-}
-
 .spanner15vw {
     width: 15vw;
 }
@@ -257,6 +234,15 @@ hr {
     overflow-x: hidden;
 }
 
+body.soloChatView #bodyWrap {
+    width: 50vw
+}
+
+body.soloChatView #controlPanel,
+body.soloChatView #userListsWrap {
+    width: 25vw;
+}
+
 #controlPanel h4,
 #userListsWrap h4 {
     margin: 0;
@@ -284,6 +270,29 @@ small {
 #insertionsBlock.minimized {
     flex-grow: 0;
     min-height: 0;
+}
+
+/*MARK: scrollbars
+*/
+
+::-webkit-scrollbar {
+    width: 12px;
+    scrollbar-gutter: stable;
+}
+
+::-webkit-scrollbar-track {
+    background-color: #2c2d31;
+    border: 3px solid #313338;
+    margin: 5px 0;
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: #1e1f23;
+    border-radius: 10px;
+    background-clip: content-box;
+    border: 3px solid transparent;
+    min-height: 40px;
 }
 
 
@@ -775,6 +784,10 @@ pre {
     align-content: start;
 }
 
+.alignContentCenter {
+    align-content: center;
+}
+
 .alignSelfCenter {
     align-self: center;
 }
@@ -1243,9 +1256,9 @@ body.disableGuestInput #AIInputBlock * {
 
     #appWrap {
         align-items: start;
-        justify-items: flex-start;
+        /*         justify-items: flex-start;
         align-content: flex-start;
-        justify-content: flex-start;
+        justify-content: flex-start; */
         flex-direction: column;
     }
 
@@ -1348,7 +1361,7 @@ body.disableGuestInput #AIInputBlock * {
     }
 
     button {
-        font-size: 1.5em;
+        font-size: 1em;
     }
 
     input[type='checkbox'] {

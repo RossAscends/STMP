@@ -347,6 +347,8 @@ function appendMessages(messages, elementSelector, sessionID) {
     const usernameHTML = usernameDecorator === null ? usernameToShow : `<span>${usernameToShow}<span class="usernameDecorator">${usernameDecorator}</span></span>`;
     userColor = isAI ? "white" : userColor;
     elementSelector === "#AIChat" ? dataEntityTypeString = `data-entityType="${entity}"` : dataEntityTypeString = "";
+    let containerTypeClass = elementSelector === "#AIChat" ? "forAIChat" : "forUserChat"; //this is used as an identifier for message deletion/editing
+
     //let rawtimestamp = new Date(timestamp);
     //console.warn('rawtimestamp: ', rawtimestamp, 'timestamp: ', timestamp, 'type: ', typeof rawtimestamp, typeof timestamp);
 
@@ -360,8 +362,8 @@ function appendMessages(messages, elementSelector, sessionID) {
         <span class="flexbox">
           
           <div class="messageControls transition250">
-              <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
-              <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+              <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="messageEdit ${containerTypeClass} messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+              <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="messageDelete ${containerTypeClass} messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
           </div>
           <small class="messageTime">${formattedTimestamp}</small>
         </span>
@@ -493,12 +495,7 @@ function addMessageEditListeners(newDiv) {
       return;
     }
 
-    let chatContainer = $(this).parent().parent().parent().parent().prop('id');
-    let deletionType;
-    if (chatContainer === "AIChat") { deletionType = "AI" }
-    if (chatContainer === "userChat") { deletionType = "user" }
-
-
+    let deletionType = $(this).hasClass('forAIChat') ? "AIChat" : "userChat";
 
     const mesID = $(this).data('messageid')
     const sessionID = $(this).data('sessionid')

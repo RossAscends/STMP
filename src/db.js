@@ -269,7 +269,7 @@ async function deleteUserChatMessage(mesID) {
         const row = await db.get('SELECT * FROM userchats WHERE message_id = ?', [mesID]);
         if (row) {
             await db.run('DELETE FROM userchats WHERE message_id = ?', [mesID]);
-            logger.debug(`User chat message ${mesID} was deleted`);
+            logger.info(`User chat message ${mesID} was deleted`);
             return 'ok';
         }
 

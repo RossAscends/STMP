@@ -994,18 +994,20 @@ async function handleConnections(ws, type, request) {
                 }
                 //MARK: message Delete
                 else if (parsedMessage.type === 'messageDelete') {
+                    logger.info('saw messageDelete request from host', parsedMessage)
                     let result
 
-                    if (parsedMessage.deleteType == 'user') {
+                    if (parsedMessage.deleteType == 'userChat') {
                         await removeAnyUserChatMessage(parsedMessage);
                         return
                     }
 
 
-                    if (parsedMessage.deleteType == 'AI') {
+                    if (parsedMessage.deleteType == 'AIChat') {
                         await removeAnyAIChatMessage(parsedMessage);
                         return
                     }
+                    return
                 }
                 else if (parsedMessage.type === 'messageContentRequest') {
                     const messageContent = await db.getMessage(parsedMessage.mesID, parsedMessage.sessionID)

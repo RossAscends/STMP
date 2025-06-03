@@ -168,19 +168,6 @@ html {
     max-width: 80%;
 }
 
-#profileManagementMenu {
-    top: 3.5em;
-    background-color: #2c2d31;
-    width: min-content;
-    margin: 0 auto;
-    padding: 20px 20px 10px 20px;
-    z-index: 10;
-    border-radius: 10px;
-    border: 1px solid #444;
-    gap: 10px;
-    box-shadow: -5px 5px 5px rgba(0, 0, 0, 0.3);
-}
-
 hr {
     background-image: linear-gradient(90deg, rgba(128, 128, 128, 100), rgba(128, 128, 128, 100));
     margin: 5px 0;
@@ -843,7 +830,7 @@ pre {
 }
 
 .greenHighlight {
-    background-color: #496951;
+    background-color: #496951 !important;
 }
 
 .borderRad5 {

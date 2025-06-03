@@ -28,7 +28,7 @@ remoteApp.use(express.static('public'));
 
 let selectedAPI = 'Default'
 
-//for console coloring
+//MARK: Console Coloring
 const color = {
     byNum: (mess, fgNum) => {
         mess = mess || '';
@@ -64,10 +64,6 @@ const usernameColors = [
     '#FF4C86',  // Pink
 ];
 
-// Create both HTTP servers
-const wsPort = 8181; //WS for host
-const wssPort = 8182; //WSS for guests
-
 let modKey = ''
 let hostKey = ''
 
@@ -89,7 +85,7 @@ const authString = "_STUsername_:_STPassword_";
 const secretsPath = path.join(__dirname, 'secrets.json');
 let engineMode = 'TC'
 
-// Routes
+//MARK: Routes
 localApp.get('/', async (req, res) => {
     const filePath = path.join(__dirname, 'public/client.html');
     try {
@@ -112,6 +108,8 @@ remoteApp.get('/', async (req, res) => {
     }
 });
 
+//MARK: setup WS
+
 // Handle 404 Not Found
 localApp.use((req, res) => {
     res.status(404).send('Not found');
@@ -123,6 +121,10 @@ remoteApp.use((req, res) => {
 
 const localServer = http.createServer(localApp);
 const guestServer = http.createServer(remoteApp);
+
+// Create both HTTP servers
+const wsPort = 8181; //WS for host
+const wssPort = 8182; //WSS for guests
 
 // Create a WebSocket server
 const wsServer = new WebSocket.Server({ server: localServer });
@@ -208,6 +210,7 @@ async function initFiles() {
         }
     };
 
+    //MARK: mainInit
     async function mainInit() {
         const instructSequences = await fio.readFile(defaultConfig.promptConfig.selectedInstruct);
         defaultConfig.instructSequences = instructSequences;
@@ -414,6 +417,7 @@ async function broadcastUserList() {
     logger.trace(connectedUsers)
 }
 
+//MARK: removeLastAIChatMsg
 async function removeLastAIChatMessage() {
     let activeSessionID = await db.removeLastAIChatMessage()
     let [AIChatJSON, sessionID] = await db.readAIChat();
@@ -479,7 +483,7 @@ function duplicateNameToValue(array) {
 }
 
 //logger.debug(liveConfig)
-
+//MARK: getValFromConfigFile
 async function getValueFromConfigFile(key) {
     try {
         //logger.warn('configdata: ', configdata);
@@ -1262,7 +1266,7 @@ async function handleConnections(ws, type, request) {
 
     ws.on('close', async () => {
         // Remove the disconnected client from the clientsObject
-        logger.debug(`Client ${uuid} disconnected..removing from clientsObject`);
+        logger.info(`Client ${uuid} disconnected..removing from clientsObject`);
         delete clientsObject[uuid];
         updateConnectedUsers()
         await broadcastUserList();

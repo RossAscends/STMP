@@ -32,10 +32,6 @@ export var isUserScrollingAIChat = false;
 export var isUserScrollingUserChat = false;
 let userChatScrollTimeout, AIChatScrollTimeout;
 
-var doKeepAliveAudio = false;
-var isKeepAliveAudioPlaying = false;
-var keepAliveAudio = new Audio("silence.mp3");
-
 export var isHost;
 var AIChatDelay, userChatDelay, guestInputPermissionState, allowImages;
 
@@ -290,9 +286,6 @@ async function processConfirmedConnection(parsedMessage) {
         $("#controlPanel").removeClass('opacityZero')
         $("#userListsWrap").removeClass('opacityZero')
         $("#controlPanel").removeClass("initialState");
-        //TODO: figure the logic for this out. 
-        // It can be helpful perhaps for non localhost Hosts on PC
-        $("#keepAliveAudio").hide();
       }
 
     if (!$("#promptConfigTextFields").hasClass('heightHasbeenSet') && $("#controlPanel").css('display') !== 'none') {
@@ -1270,14 +1263,12 @@ $(async function () {
 
   $("#submitkey")
     .off("click")
-    .on("click", function () {
-      if (isPhone) {
-        util.betterSlideToggle($("#profileManagementMenu"), 250, "width");
-      }
-      $("#roleKeyInputDiv")
-        .css("height", "unset")
-        .toggleClass("needsReset")
-        .fadeToggle();
+    .on("click", async function () {
+      $(".universalCentralControls").css('opacity', '0');
+      await util.delay(125);
+      $("#roleKeyInputDiv").css("height", "unset");
+      util.betterSlideToggle($("#roleKeyInputDiv"), 250, "height", true);
+      //$("#roleKeyInput").trigger("focus");
     });
 
   $('#refreshBtn')
@@ -1462,13 +1453,7 @@ $(async function () {
     util.messageServer(delLastMessage);
   });
 
-  $("#profileManagementButton").on("click", function () {
-    $("#profileManagementMenu").css("opacity", "1");
-    util.betterSlideToggle($("#profileManagementMenu"), 250, "width", false);
-  });
-
   $("#clearLocalStorage").on("click", function () {
-    util.betterSlideToggle($("#profileManagementMenu"), 250, "width", false);
     $("<div></div>")
       .dialog({
         draggable: false,
@@ -1551,21 +1536,12 @@ $(async function () {
 
   $(document).on("mouseup", async function (e) {
     var $target = $(e.target);
-    if (
-      !$target.is("#profileManagementButton") &&
-      !$target.parents("#profileManagementMenu").length &&
-      !$target.is("#roleKeyInput")
-    ) {
-      if ($("#profileManagementMenu").hasClass("needsReset")) {
-        util.betterSlideToggle($("#profileManagementMenu"), 250, "width", false);
-      }
-      if ($("#roleKeyInputDiv").hasClass("needsReset")) {
-        $("#roleKeyInputDiv").fadeToggle().removeClass("needsReset");
-      }
-      if (!$target.is('#hostToast') && isPhone) $("#hostToast").trigger('mouseleave');
+    if (!$target.is("#roleKeyInput") && $("#roleKeyInputDiv").hasClass("needsReset")) {
+      util.betterSlideToggle($("#roleKeyInputDiv"), 250, "height", true);
+      $(".universalCentralControls").css('opacity', '1');
     }
+    if (!$target.is('#hostToast') && isPhone) $("#hostToast").trigger('mouseleave');
   });
-
 
   $("#controlPanelToggle, #userListsToggle").off("click").on("click", async function () {
     const $controlPanel = $("#controlPanel");
@@ -1772,12 +1748,12 @@ $(async function () {
     //await util.delay(250);
     await util.flashElement($targetChat.prop('id'), 'good')
   });
+
   //listener for mobile users that detects change in visiible of the app.
   //it checks the websocket's readyState when the app becomes visible again
   //and provides immediate feedback on whether the websocket is still open or if
   //they have been disconnected while the app was invisible.
-  //also it will pause/play the keepAlive audio if it's enabled.
-  document.addEventListener("visibilitychange", function () {
+  document.addEventListener("visibilitychange", async function () {
     // Check WebSocket status immediately when the app becomes visible
     if (socket && socket.readyState !== WebSocket.OPEN) {
       console.log("App became visible, and the socket is disconnected");
@@ -1792,31 +1768,6 @@ $(async function () {
         .prop("disabled", true)
         .prop("placeholder", "DISCONNECTED")
         .addClass("disconnected");
-    }
-
-    if (isPhone && document.visibilityState === "visible") {
-      //pause any playing audio
-      if (doKeepAliveAudio && isKeepAliveAudioPlaying) {
-        keepAliveAudio.pause();
-        isKeepAliveAudioPlaying = false;
-      }
-    } else if (isPhone && document.visibilityState === "hidden") {
-      // play the background audio if it's set to on.
-      if (doKeepAliveAudio && !isKeepAliveAudioPlaying) {
-        keepAliveAudio.play();
-        isKeepAliveAudioPlaying = true;
-      }
-      //TODO: add automatic class toggling when visibility changes, to dim userlist.
-    }
-  });
-
-  //simple toggle for whether to play KeepAliveAudio for minimized mobile users
-  $("#keepAliveAudio").on("touchstart", function () {
-    doKeepAliveAudio = !doKeepAliveAudio;
-    $("#keepAliveAudio").toggleClass("greenHighlight");
-    //this should never happen due to the auto stop when visible, but just in case.
-    if (!keepAliveAudio && isKeepAliveAudioPlaying) {
-      keepAliveAudio.pause();
     }
   });
 

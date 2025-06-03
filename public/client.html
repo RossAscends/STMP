@@ -19,6 +19,7 @@
     <script src="https://cdn.jsdelivr.net/npm/showdown@latest/dist/showdown.min.js"></script>
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.1/themes/base/jquery-ui.css">
     <script type="module" src="script.js"></script>
+    <script type="module" src="src/keepAliveAudio.js"></script>
     <link rel="stylesheet" type="text/css" href="style.css">
     <link href="css/fontawesome.css" rel="stylesheet">
     <link href="css/solid.css" rel="stylesheet">
@@ -26,6 +27,8 @@
 </head>
 
 <body class="Hcentered flexbox">
+    <audio id="keepAliveAudioElement" src="cup-of-cohee.ogg" preload="auto" loop muted></audio>
+
 
     <div id="appWrap" class="flexbox noGap Hcentered Vcentered alignContentCenter">
         <div id="controlPanel" class="hostControls initialState padding5 flexbox flexFlowCol overflowYHidden transition250 opacityZero ">
@@ -217,11 +220,13 @@
                 <div id="universalControls" class="flexbox transition250  heightFitContent Hcentered justifySpaceBetween alignSelfCenter">
                     <div id="NOOP_universalControlsSpacer" class="guestSpacing fontSize1p25em square1p5em"></div>
                     <button id="controlPanelToggle" class="opacityHalf hostControls Vcentered bgTransparent fontSize1p25em square1p5em greyscale textshadow" title="Toggle Control Panel">🎛️</button>
-                    <div class="flexbox noWrap heightFitcontent">
+                    <div class="universalCentralControls flexbox noWrap heightFitcontent transition250">
                         <button id="chatsToggle" class="hideDivButton Vcentered bgTransparent fontSize1p25em mutedColor textshadow">🖼️</button>
+                        <button id="refreshBtn" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Force Page Refresh">🔄</button>
                         <button id="reconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" hidden title="Connect">▶️</button>
                         <button id="disconnectButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Disconnect">⏸</button>
-                        <button id="profileManagementButton" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Manage Profile">🛠️</button>
+                        <button id="submitkey" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Submit Role Key">🔑</button>
+                        <button id="clearLocalStorage" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Delete Usernames and Unique ID">⛔</button>
                     </div>
                     <div class="flexbox noWrap heightFitcontent">
                         <button id="userListsToggle" class="opacityHalf Vcentered bgTransparent fontSize1p25em greyscale textshadow">📜</button>
@@ -237,7 +242,11 @@
                             </div>
                             <div class="flexbox alignItemsCenter ">
                                 Chat as
-                                <span id="AIChatUserNameHolder"></span>
+                                <span id="AIChatUserNameHolder" hidden></span>
+                                <label for="usernameInput" class="alignItemsCenter alignSelfCenter flexFlowCol flexbox noTextWrap noWrap widthFitContent">
+
+                                    <input type="text" maxlength="12" id="usernameInput" class="width100px bgBrightUp" placeholder="Username">
+                                </label>
                                 with
                                 <div class="custom-select hostControls">
                                     <select id="cardList" class="hostControls flex1 dynamicSelector"></select>
@@ -285,9 +294,12 @@
                     <div id="OOCChatWrapper" class="flexbox flexFlowCol transition250 flex1 noGap">
                         <div class="Hcentered Vcentered chatHeader flexbox justifySpaceBetween positionRelative">
                             <button id="emptyUserChatDisplay" class="transition250 chatSweep bgTransparent square1p5em fontSize1p25em greyscale textshadow" title="Empty  Chat\n(Affects Your Display Only)">🧹</button>
-                            <div>
+                            <div class="flexbox alignItemsCenter ">
                                 Chat as
-                                <span id="userChatUserNameHolder"></span>
+                                <span id="userChatUserNameHolder" hidden></span>
+                                <label for="AIUsernameInput" class="alignItemsCenter alignSelfCenter flexFlowCol flexbox noTextWrap noWrap widthFitContent">
+                                    <input type="text" maxlength="12" id="AIUsernameInput" class="width100px bgBrightUp" placeholder="Username">
+                                </label>
                                 with Other Users
                             </div>
                             <div>
@@ -339,6 +351,7 @@
             <div class="flexFlowCol flexbox flex1">
                 <div id="crowdControl" class="hostControls isArrayType flexbox flexFlowCol heightFitContent justifyContentEnd Vcentered">
                     <div class="flexbox">
+                        <button id="keepAliveAudio" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Play silent background audio to keep remote connections alive">🔊</button>
                         <button id="showHostToast" class="flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Send a Host Toast to all Users">📢</button>
                         <button id="disableGuestInput" class="flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable Guest Input">🤐</button>
                         <button id="turnBasedMode" class="unavailable-overlay flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔢</button>
@@ -365,24 +378,9 @@
     </div>
 
 
-    <div id="profileManagementMenu" class="flexbox noWrap flexFlowCol positionAbsolute" style="display:none;">
-        <label for="usernameInput" class="alignItemsCenter alignSelfCenter flexFlowCol flexbox noTextWrap noWrap widthFitContent">
-            <span>UserChat Name</span>
-            <input type="text" maxlength="12" id="usernameInput" class="width100px bgBrightUp" placeholder="Username">
-        </label>
-        <label for="AIUsernameInput" class="alignItemsCenter alignSelfCenter flexFlowCol flexbox noTextWrap noWrap widthFitContent">
-            <span>AIChat Name</span>
-            <input type="text" maxlength="12" id="AIUsernameInput" class="width100px bgBrightUp" placeholder="Username">
-        </label>
-        <div class="flexbox noWrap Hcentered">
-            <button id="submitkey" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Submit Role Key">🔑</button>
-            <button id="clearLocalStorage" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Delete Usernames and Unique ID">⛔</button>
-            <button id="keepAliveAudio" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Play silent background audio to keep remote connections alive">🔊</button>
-            <button id="refreshBtn" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Force Page Refresh">🔄</button>
-        </div>
-    </div>
-    <div id=" roleKeyInputDiv" class=" justifyContentCenter positionAbsolute marginBot5 marginTop5 flexbox width100p" style="display:none;">
-        <input id="roleKeyInput" type="text" maxlength="32" class="width100px bgBrightUp" placeholder="Role Key">
+
+    <div id="roleKeyInputDiv" class="justifyContentCenter marginBot5 marginTop5 flexbox width100p" style="display:none; top:0; position:fixed; z-index:1000;">
+        <input id="roleKeyInput" type="text" maxlength="32" class="width100px bgBrightUp" placeholder="Insert 32-character Role Key Here">
     </div>
     <div id="hostToast"></div>
 

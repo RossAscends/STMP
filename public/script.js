@@ -1070,9 +1070,18 @@ async function callCharDefPopup() {
       open() {
         $('.ui-widget-overlay').hide().fadeIn(250);
 
+        /*
         $("#charDefsName").val(parsedDefs?.data?.name || parsedDefs.name || 'No name found??');
         $("#charDefsDesc").val(parsedDefs?.data?.description || parsedDefs.description || '');
         $("#charDefsFirstMessage").val(parsedDefs?.data?.first_mes || parsedDefs.first_mes || '');
+        */
+
+
+        //this is not a fix. We are only writing to the base level of tExt, so we must read from it as well
+        //need to figure out how to write into the data level
+        $("#charDefsName").val(parsedDefs.name || 'No name found??');
+        $("#charDefsDesc").val(parsedDefs.description || '');
+        $("#charDefsFirstMessage").val(parsedDefs.first_mes || '');
 
         $(".ui-button").trigger("blur");
       },

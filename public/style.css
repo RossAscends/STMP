@@ -606,6 +606,7 @@ pre {
     max-height: 50vh;
     overflow-y: auto;
     line-height: 1.4em;
+    resize: none;
 }
 
 #userRole {

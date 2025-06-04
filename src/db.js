@@ -6,6 +6,15 @@ import { dbLogger as logger } from './log.js';
 const dbPromise = open({
     filename: './stmp.db',
     driver: sqlite3.Database
+}).then(async (db) => {
+    await db.exec(`
+        PRAGMA journal_mode = WAL;
+        PRAGMA synchronous = NORMAL;
+        PRAGMA cache_size = 1000;
+        PRAGMA temp_store = MEMORY;
+        PRAGMA mmap_size = 268435456;
+    `);
+    return db;
 });
 
 const schemaDictionary = {

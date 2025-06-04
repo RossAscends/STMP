@@ -233,14 +233,6 @@ hr {
     border-right: 1px dashed #444;
 }
 
-body.soloChatView #bodyWrap {
-    width: 50vw
-}
-
-body.soloChatView #controlPanel,
-body.soloChatView #userListsWrap {
-    /* width: 25vw; */
-}
 
 .width25vw {
     width: 25vw !important;
@@ -1208,7 +1200,7 @@ body.disableGuestInput #AIInputBlock * {
 
 /*MARK: @mobile
 */
-@media (max-width: 1000px) {
+@media (max-width: 1000px) and (orientation: portrait) {
 
     #controlPanel,
     #userListsWrap,
@@ -1238,7 +1230,17 @@ body.disableGuestInput #AIInputBlock * {
     #chatWrap,
     #appWrap {
         flex-direction: column;
-        /* width: 100vw; */
+
+    }
+
+    body,
+    #bodyWrap,
+    #appWrap {
+        width: 100vw;
+    }
+
+    #chatWrap {
+        width: 97%;
     }
 
     body {
@@ -1300,14 +1302,6 @@ body.disableGuestInput #AIInputBlock * {
     #OOCChatWrapper {
         width: 100%;
         padding: 5px;
-    }
-
-    body.soloChatView #bodyWrap,
-    body.soloChatView #chatWrap,
-    body.soloChatView #appWrap,
-    body.soloChatView #userListsWrap,
-    body.soloChatView #controlPanel {
-        width: unset;
     }
 
     .chatHeader {
@@ -1382,12 +1376,29 @@ body.disableGuestInput #AIInputBlock * {
     }
 
     #controlPanelContents>div,
-    #userListsWrap>div {
+    #userListsWrap>div,
+    #lists>div {
         flex: 1;
     }
 
+    #userListsWrap>div {
+        height: 98%;
+        max-height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    #userListsWrap hr {
+        display: none;
+    }
+
+    #pastChatsBlock {
+        max-height: 100%;
+        overflow-y: auto;
+    }
+
     #controlPanelContents> :first-child {
-        flex: 0
+        flex: 0.5
     }
 
     #controlPanelContents {
@@ -1403,23 +1414,47 @@ body.disableGuestInput #AIInputBlock * {
     }
 
     body,
-    html,
     #appWrap,
     #bodyWrap,
     #contentWrap {
         height: calc(100dvh - 25px);
     }
 
+    body {
+        padding-right: calc(env(safe-area-inset-right)/3);
+        padding-left: env(safe-area-inset-left);
+        width: calc(100dvw);
+        /* border: 1px solid red; */
+        justify-self: center;
+    }
 
+
+    #appWrap,
     #bodyWrap,
-    body.soloChatView #bodyWrap,
+    #chatwrap {
+        width: 100%;
+        /* calc(100dvw - env(safe-area-inset-left) - env(safe-area-inset-right)); */
+    }
+
     #controlPanel,
     #userListsWrap {
-        padding-right: max(env(safe-area-inset-right), 0px);
-        padding-left: max(env(safe-area-inset-left), 0px);
-        width: 100dvw;
-
+        top: 3em;
+        position: fixed;
+        z-index: 11;
+        height: calc(100dvh - 3em - env(safe-area-inset-bottom));
+        width: calc(100dvw - env(safe-area-inset-left) - calc(env(safe-area-inset-right))/3);
     }
+
+    #cardList {
+        width: 100px;
+    }
+
+    .chatHeader,
+    .AIChatHeaderCenterCluster {
+        flex-wrap: nowrap;
+    }
+
+
 
 }
 

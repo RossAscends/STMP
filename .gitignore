@@ -142,6 +142,8 @@ public/instructFormats/
 cloudflared.exe
 config.json
 lockfile.lock
+stmp.db-wal
+stmp.db-shm
 
 #Don't ignore the following files
 !public/api-presets/Tabby-Deterministic.json

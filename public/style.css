@@ -796,6 +796,26 @@ pre {
     margin: 5px;
 }
 
+.margin0 {
+    margin: 0 !important;
+}
+
+.marginBot0 {
+    margin-bottom: 0 !important;
+}
+
+.marginTop0 {
+    margin-top: 0 !important;
+}
+
+.paddingTop0 {
+    padding-top: 0 !important;
+}
+
+.paddingBot0 {
+    padding-bottom: 0 !important;
+}
+
 .flexbox {
     display: flex;
     flex-wrap: wrap;

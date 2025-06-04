@@ -343,29 +343,27 @@ function appendMessages(messages, elementSelector, sessionID) {
 
     let dataEntityTypeString = "";
     let isAI = entity === "AI" ? true : false;
-    let usernameToShow = isAI ? `${username}` : username;
+    let usernameToShow = username;
     const usernameDecorator = isAI ? ` 🤖` : role === "host" ? ` 👑` : null;
     //usernameHTML = role === "host" ? `${usernameToShow} 👑` : usernameToShow;
     const usernameHTML = usernameDecorator === null ? usernameToShow : `<span>${usernameToShow}<span class="usernameDecorator">${usernameDecorator}</span></span>`;
     userColor = isAI ? "white" : userColor;
-    elementSelector === "#AIChat" ? dataEntityTypeString = `data-entityType="${entity}"` : dataEntityTypeString = "";
+    let inferredEntity = elementSelector === "#AIChat" ? entity : "user";
+    elementSelector === "#AIChat" ? dataEntityTypeString = `data-entityType="${entity}"` : dataEntityTypeString = `data-entityType="user"`;
     let containerTypeClass = elementSelector === "#AIChat" ? "forAIChat" : "forUserChat"; //this is used as an identifier for message deletion/editing
-
-    //let rawtimestamp = new Date(timestamp);
-    //console.warn('rawtimestamp: ', rawtimestamp, 'timestamp: ', timestamp, 'type: ', typeof rawtimestamp, typeof timestamp);
-
+    let entityAndNameVal = `${usernameToShow}-${inferredEntity}`;
+    let entityAndNameString = `data-name-and-entity="${entityAndNameVal}"`;
 
     let formattedTimestamp = new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + " " + new Date(timestamp).toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' });
 
     let newDiv = $(`
-    <div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}" ${dataEntityTypeString}>
+    <div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}" ${dataEntityTypeString} ${entityAndNameString}>
       <div class="messageHeader flexbox justifySpaceBetween width100p">
-        <span style="color:${userColor}" class="flexbox alignItemsCenter chatUserName">${usernameHTML}</span>
-        <span class="flexbox">
-          
+        <span style="color:${userColor}" class="msgUserName flexbox alignItemsCenter chatUserName">${usernameHTML}</span>
+        <span class="flexbox msgControlsAndTimeBlock">
           <div class="messageControls transition250">
-              <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="messageEdit ${containerTypeClass} messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
-              <i data-messageid="${messageID}" data-sessionid="${sessionID}" data-entity-type="${entity}" class="messageDelete ${containerTypeClass} messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+              <i data-messageid="${messageID}" data-sessionid="${sessionID}" ${dataEntityTypeString} class="messageEdit ${containerTypeClass} messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+              <i data-messageid="${messageID}" data-sessionid="${sessionID}" ${dataEntityTypeString} class="messageDelete ${containerTypeClass} messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
           </div>
           <small class="messageTime">${formattedTimestamp}</small>
         </span>
@@ -376,10 +374,31 @@ function appendMessages(messages, elementSelector, sessionID) {
     </div>
     `);
 
+    //console.warn(newDiv.find('.messageHeader').html())
     if (!isHost) newDiv.find('.messageControls').remove();
     if (elementSelector == "#userChat") newDiv.find('.messageEdit').remove();
     //console.debug('newDiv content: ', content, 'elementSelector: ', elementSelector);
-    $(elementSelector).append(newDiv);
+
+    //check if the last message in the relevant chat contains the same header information for name and entity
+    const lastMessageNameandEntityString = $(elementSelector).children().last().data('name-and-entity');
+    const same = lastMessageNameandEntityString === entityAndNameVal;
+    //console.warn(`same: ${same}, prev: "${lastMessageNameandEntityString}", inc: "${usernameToShow}-${inferredEntity}"`);
+
+    if (same) {
+      const newControlsAndTime = newDiv.find('.msgControlsAndTimeBlock');
+      newDiv.find('.messageContent').parent().append(newControlsAndTime);
+
+      newDiv.find('.messageHeader').remove();
+      $(elementSelector).children().last().addClass('marginBot0 paddingBot0');
+      $(elementSelector).append(newDiv);
+      $(elementSelector).children().last().addClass('justifySpaceBetween flexbox marginTop0 paddingTop0');
+
+    } else {
+
+      $(elementSelector).append(newDiv);
+
+    }
+
     addMessageEditListeners(newDiv);
 
   });

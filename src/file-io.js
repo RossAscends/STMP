@@ -318,30 +318,34 @@ async function tryReadImage(img_url) {
 }
 
 async function getCardList() {
-    logger.info('Gathering character card list..')
-    const path = 'public/characters'
+    logger.info('Gathering character card list..');
+    const path = 'public/characters';
     const files = (await fs.promises.readdir(path)).filter(file => file.endsWith('.png'));
-    var cards = []
-    var i = 0
-    logger.trace('Files in character directory:');
+    const cards = [];
+    let i = 0;
+    logger.trace('Files in character directory:', files);
+
     for (const file of files) {
         try {
-            let fullPath = `${path}/${file}`
+            const fullPath = `${path}/${file}`;
             const cardData = await charaRead(fullPath);
-            var jsonData = JSON.parse(cardData);
-            jsonData.filename = fullPath
+            const jsonData = JSON.parse(cardData);
+            jsonData.filename = fullPath;
             cards[i] = {
                 name: jsonData.name,
                 value: jsonData.filename
-            }
-            let thisCharColor = charnameColors[Math.floor(Math.random() * charnameColors.length)];
-            db.upsertChar(jsonData.filename, jsonData.name, thisCharColor)
+            };
+            const thisCharColor = charnameColors[Math.floor(Math.random() * charnameColors.length)];
+            await db.upsertChar(jsonData.filename, jsonData.name, thisCharColor);
+            logger.debug(`Processed character ${jsonData.name} (${jsonData.filename})`);
         } catch (error) {
-            logger.error(`Error reading file ${file}:`, error);
+            logger.error(`Error processing file ${file}:`, error);
+            // Continue processing other files instead of failing
         }
-        i++
+        i++;
     }
-    logger.trace(cards)
+
+    logger.trace('Character cards:', cards);
     return cards;
 }
 

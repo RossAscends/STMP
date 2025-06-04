@@ -328,7 +328,8 @@ const unloggedMessageTypes = [ // These message types will not be logged. Add mo
     'chatUpdate',
     'userChatUpdate',
     'heartbeat',
-    'pastChatToLoad'
+    'pastChatToLoad',
+    'userList',
 ];
 
 export async function broadcast(message, role = 'all') {
@@ -507,10 +508,10 @@ async function getValueFromConfigFile(key) {
 export let purifier = converter.createConverter((await getValueFromConfigFile('crowdControl.allowImages')));
 
 watch('config.json', async (eventType, filename) => {
+
+    const allowImages = await getValueFromConfigFile('crowdControl.allowImages');
     if (eventType === 'change') {
-        //logger.info('config.json changed, updating purifier');
         try {
-            const allowImages = await getValueFromConfigFile('crowdControl.allowImages');
             //logger.debug('allowImages for purifier:', allowImages);
             purifier = converter.createConverter(allowImages ?? true); // Fallback to true if null
         } catch (err) {
@@ -521,8 +522,27 @@ watch('config.json', async (eventType, filename) => {
 
 const activeClearChatTimers = {}; // key = target, value = timeout ID
 
+// Track connections per IP
+const ipConnectionMap = new Map();
+const MAX_CONNECTIONS_PER_IP = 5; // Adjust this limit as needed
+
 //MARK: handleConnections()
 async function handleConnections(ws, type, request) {
+
+    const clientIP = request.headers['x-forwarded-for']?.split(',')[0]?.trim() || request.socket.remoteAddress;
+    logger.info(`Connection attempt from IP: ${clientIP}`);
+
+    // Check IP connection limit
+    const currentConnections = ipConnectionMap.get(clientIP) || 0;
+    if (currentConnections >= MAX_CONNECTIONS_PER_IP) {
+        logger.warn(`Connection rejected: IP ${clientIP} exceeded ${MAX_CONNECTIONS_PER_IP} connections`);
+        ws.close(1008, `Too many connections from this IP. Maximum allowed: ${MAX_CONNECTIONS_PER_IP}`);
+        return;
+    }
+
+    // Increment connection count for this IP
+    ipConnectionMap.set(clientIP, currentConnections + 1);
+    logger.info(`IP ${clientIP} now has ${currentConnections + 1} active connections`);
 
     const urlParams = new URLSearchParams(request.url.split('?')[1]);
     const encodedUsername = urlParams.get('username');
@@ -618,8 +638,8 @@ async function handleConnections(ws, type, request) {
         cardList = await fio.getCardList() //get a fresh card list on each new host connection
 
         const [apis, APIConfig] = await Promise.all([
-            db.getAPIs().then(duplicateNameToValue),
-            db.getAPI(liveConfig.promptConfig.selectedAPI)
+            await db.getAPIs().then(duplicateNameToValue),
+            await db.getAPI(liveConfig.promptConfig.selectedAPI)
         ]);
 
         baseMessage.liveConfig = {
@@ -662,6 +682,7 @@ async function handleConnections(ws, type, request) {
             let shouldReport = !unloggedMessageTypes.includes(parsedMessage.type);
             if (shouldReport) {
                 logger.info(`Received ${parsedMessage.type} message from ${thisUserUsername}`);
+                logger.debug(parsedMessage);
             }
 
             const senderUUID = parsedMessage.UUID
@@ -1268,12 +1289,22 @@ async function handleConnections(ws, type, request) {
         }
     });
 
+    // Handle WebSocket close
     ws.on('close', async () => {
         // Remove the disconnected client from the clientsObject
         logger.info(`Client ${uuid} disconnected..removing from clientsObject`);
         delete clientsObject[uuid];
-        updateConnectedUsers()
+        updateConnectedUsers();
         await broadcastUserList();
+
+        // Decrement IP connection count
+        const updatedConnections = (ipConnectionMap.get(clientIP) || 1) - 1;
+        if (updatedConnections <= 0) {
+            ipConnectionMap.delete(clientIP);
+        } else {
+            ipConnectionMap.set(clientIP, updatedConnections);
+        }
+        logger.info(`Connection closed. IP ${clientIP} now has ${updatedConnections} active connections`);
     });
 
 };

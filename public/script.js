@@ -1818,6 +1818,10 @@ $(async function () {
     //$("#AIChatDropOverlay").css('opacity', '0');
   });
 
+  // Declare lastUploadTime outside the event listener to persist across events
+  let lastUploadTime = null;
+  const COOLDOWN_MS = 60 * 1000; // 1 minute in milliseconds
+
   $aiChatDropZone.on("drop", function (e) {
     e.preventDefault();
     e.stopPropagation();
@@ -1826,14 +1830,25 @@ $(async function () {
     //$overlay.css('opacity', '0');
     //setTimeout(() => $overlay.remove(), 250);
 
+    // Cooldown check
+    if (lastUploadTime && Date.now() - lastUploadTime < COOLDOWN_MS) {
+      hostToast.showHostToast("Please wait a minute before uploading again.", 'System');
+      return;
+    }
+
     const files = e.originalEvent.dataTransfer.files;
+    if (files.length > 1) {
+      hostToast.showHostToast("Upload one card at a time please!", 'System');
+      return;
+    }
+
     for (let file of files) {
       if (file.type !== "image/png") {
-        alert("Only PNG files allowed.");
+        hostToast.showHostToast(`${file.name} failed: Only PNG files allowed.`, 'System');
         continue;
       }
       if (file.size > 1024 * 1024) {
-        alert("File too large (max 1MB).");
+        hostToast.showHostToast(`${file.name} failed: File too large (max 1MB).`, 'System');
         continue;
       }
 
@@ -1848,6 +1863,8 @@ $(async function () {
           content: event.target.result.split(',')[1]
         };
         socket.send(JSON.stringify(uploadMessage));
+        // Update last upload time after successful processing
+        lastUploadTime = Date.now();
       };
       reader.readAsDataURL(file);
     }

@@ -1066,28 +1066,7 @@ async function handleConnections(ws, type, request) {
                     await broadcast(cardListResponse, 'host')
                     return
                 }
-                else if (parsedMessage.type === "fileUpload") {
-                    const result = await fio.validateAndAcceptPNGUploads(parsedMessage);
-                    logger.info('file upload result: ', (result))
-                    if (result.status === 'error') {
-                        const response = {
-                            type: "fileUploadError",
-                            message: result.response
-                        }
-                        await broadcast(response, 'host')
-                        return
-                    }
-                    if (result.status === 'ok') {
-                        const response = {
-                            type: "fileUploadSuccess",
-                            message: result.response,
-                        }
-                        //console.warn('file upload response: ', response)
-                        await broadcast(response, 'host')
-                        return
 
-                    }
-                }
                 else if (parsedMessage.type === 'disableGuestInput') {
                     //logger.info('saw disableGuestInput request from host')
                     liveConfig.crowdControl.guestInputPermissionState = false
@@ -1125,6 +1104,29 @@ async function handleConnections(ws, type, request) {
                 logger.debug('sending notification of username change')
                 await broadcast(nameChangeNotification);
                 await broadcastUserList()
+            }
+            else if (parsedMessage.type === "fileUpload") {
+                const result = await fio.validateAndAcceptPNGUploads(parsedMessage);
+                logger.info('file upload result: ', (result))
+                if (result.status === 'error') {
+                    const response = {
+                        type: "fileUploadError",
+                        message: result.response
+                    }
+                    await broadcast(response, 'host')
+                    return
+                }
+                if (result.status === 'ok') {
+                    const response = {
+                        type: "fileUploadSuccess",
+                        message: result.response,
+                    }
+                    //console.warn('file upload response: ', response)
+                    await ws.send(JSON.stringify(response))
+                    await broadcast(response, 'host')
+                    return
+
+                }
             }
             else if (parsedMessage.type === 'heartbeat') {
                 let heartbeatResponse = {

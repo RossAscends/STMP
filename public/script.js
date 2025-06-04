@@ -298,16 +298,18 @@ async function processConfirmedConnection(parsedMessage) {
     //hide control panel and host controls for guests
     $(".guestSpacing").css('display', 'block')
     $(".hostControls").remove();
-    $("#leftSpanner").show()
 
 
     control.disableAPIEdit();
-    if (isPhone) {
+    if (isPhone || isMobileViewport) {
       // $("#universalControls").css('height', 'unset');
       $("#userListsWrap").addClass('hidden').addClass('opacityZero')
       $("#roleKeyInputDiv")
         .removeClass("positionAbsolute")
         .css('width', '95%')
+    } else {
+      $("#leftSpanner").show()
+      $("#userListsWrap").removeClass('opacityZero')//.addClass('opacityZero').show()
     }
   }
 
@@ -1575,34 +1577,36 @@ $(async function () {
   var chatsToggleState = 0;
   const $LLMChatWrapper = $("#LLMChatWrapper");
   const $OOCChatWrapper = $("#OOCChatWrapper");
-  const $contentWrap = $("#contentWrap");
+  const $contentWrapBodyWrap = $("#contentWrap, #bodyWrap");
   const $body = $("body");
   //MARK: chatsToggle
   $("#chatsToggle").off("click").on("click", async function () {
-    let soloWidth = isMobileViewport ? "widthFull" : "widthNarrow";
+
+    let isDesktop = !util.isPhone() && !isMobileViewport;
     chatsToggleState = (chatsToggleState + 1) % 3;
 
     if (chatsToggleState === 0) {
       // Dual chat view
-      $body.removeClass('soloChatView');
-      if (isMobileViewport) $contentWrap.removeClass("widthNarrow").addClass("widthFull");
+      if (isDesktop) $("#controlPanel, #userListsWrap").removeClass("width25vw");
       $LLMChatWrapper.removeClass("hidden");
       await util.delay(1);
       $LLMChatWrapper.css({ flex: "1" });
       await util.delay(251);
+      if (isDesktop) $contentWrapBodyWrap.css('width', '70vw')
+
       $LLMChatWrapper.css({ opacity: "1" });
     } else if (chatsToggleState === 1) {
       // AI chat only
-      $body.addClass('soloChatView');
-      if (isMobileViewport) $contentWrap.removeClass("widthFull").addClass(soloWidth);
+      if (isDesktop) $contentWrapBodyWrap.css('width', '50vw')
       $OOCChatWrapper.css({ flex: "0", opacity: "0" });
       $LLMChatWrapper.css({ flex: "1", opacity: "1" });
+
       await util.delay(251);
+      if (isDesktop) $("#controlPanel, #userListsWrap").addClass("width25vw");
       $OOCChatWrapper.addClass("hidden").css({ flex: "1" }); //preload flex for next switch
 
     } else if (chatsToggleState === 2) {
       // OOC chat only
-      if (isMobileViewport) $contentWrap.removeClass("widthFull").addClass(soloWidth);
       $LLMChatWrapper.css({ opacity: "0" });
       await util.delay(251);
       $OOCChatWrapper.removeClass("hidden");

@@ -30,7 +30,7 @@
     <audio id="keepAliveAudioElement" src="cup-of-cohee.ogg" preload="auto" loop muted></audio>
 
 
-    <div id="appWrap" class="flexbox noGap Hcentered Vcentered alignContentCenter">
+    <div id="appWrap" class="flexbox noGap Hcentered Vcentered alignContentCenter justifySpaceBetween">
         <div id="controlPanel" class="hostControls initialState padding5 flexbox flexFlowCol overflowYHidden transition250 opacityZero ">
             <div id="controlPanelContents" class="flexbox flexFlowCol noGap height100p">
                 <div class="flexFlowCol flexbox">
@@ -217,7 +217,7 @@
         <div id="leftSpanner" class="spanner15vw" hidden></div>
         <div id="bodyWrap" class="flexbox noWrap noGap flexFlowCol">
             <div id="contentWrap" class="flexbox transition250 justifyContentCenter flexFlowCol alignSelfCenter noGap paddingLR5  ">
-                <div id="universalControls" class="flexbox transition250  heightFitContent Hcentered justifySpaceBetween alignSelfCenter">
+                <div id="universalControls" class="flexbox transition250  heightFitContent Vcentered Hcentered justifySpaceBetween alignSelfCenter">
                     <div id="NOOP_universalControlsSpacer" class="guestSpacing fontSize1p25em square1p5em"></div>
                     <button id="controlPanelToggle" class="opacityHalf hostControls Vcentered bgTransparent fontSize1p25em square1p5em greyscale textshadow" title="Toggle Control Panel">🎛️</button>
                     <div class="universalCentralControls flexbox noWrap heightFitcontent transition250">
@@ -240,7 +240,7 @@
                             <!-- <div> -->
                             <button id="emptyAIChatDisplay" class="transition250 chatSweep bgTransparent square1p5em fontSize1p25em greyscale textshadow" title="Empty AI Chat\n(Affects Your Display Only)">🧹</button>
                             <!-- </div> -->
-                            <div class="flexbox alignItemsCenter ">
+                            <div class="flexbox alignItemsCenter AIChatHeaderCenterCluster">
                                 Chat as
                                 <span id="AIChatUserNameHolder" hidden></span>
                                 <label for="usernameInput" class="alignItemsCenter alignSelfCenter flexFlowCol flexbox noTextWrap noWrap widthFitContent">
@@ -252,7 +252,6 @@
                                     <select id="cardList" class="hostControls flex1 dynamicSelector"></select>
                                 </div>
                                 <button id="charListRefresh" class="hostControls bgTransparent mutedColor fontSize1p25em square1p5em" title="Refresh Character List">🔄</button>
-                                <button id="charDefsPopupButton" class="hostControls bgTransparent mutedColor fontSize1p25em square1p5em" title="Open Character Definitions Edit Panel">🧠</button>
                                 <span id="charName"></span>
                             </div>
                             <div id="NOOP_AIChatHeaderSpacer" class="guestSpacing square1p5em fontSize1p25em" style="opacity: 0;"> </div>
@@ -272,6 +271,7 @@
                                 <input type="text" id="AIChatAutoClearCadence" data-for-config-array="crowdControl" class="numbersOnlyTextInput hostControls flexbox Vcentered" value="2">
                             </label>
                             <button id="deleteLastMessageButton" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Remove last message from chat">✂️</button>
+                            <button id="charDefsPopupButton" class="hostControls bgTransparent mutedColor fontSize1p25em square1p5em" title="Open Character Definitions Edit Panel">🧠</button>
                             <label for="AIResponseCadence" class="flexbox noWrap square1p5em  textshadow Vcentered" title="Trigger AI Response every X User messages (max 999)">
                                 <button id="triggerAIResponse" class="fontSize1p5em square1p5em bgTransparent greyscale textshadow" title="Click to Request Immediate AI Response">🤖</button>
                                 <div class="unavailable-overlay">

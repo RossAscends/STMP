@@ -264,41 +264,82 @@ async function releaseLock() {
 }
 
 async function charaRead(img_url, input_format) {
-    return characterCardParser(img_url, input_format);
+    const embeddedData = await characterCardParser(img_url, input_format);
+    //console.warn(embeddedData)
+    return embeddedData
+
 }
 
 async function charaWrite(img_url, data) {
-    logger.warn(img_url)
-    logger.debug(`Writing character definitions to ${img_url}...`)
+    logger.warn(img_url);
+    logger.debug(`Writing character definitions to ${img_url}...`);
 
-    await acquireLock()
+    await acquireLock();
     try {
-        // Read the image, resize, and save it as a PNG into the buffer
-        const image = await tryReadImage(img_url);
+        // Read the image and extract PNG chunks
+        const pngBuffer = await tryReadImage(img_url);
+        const chunks = extract(pngBuffer);
 
-        // Get the chunks
-        const chunks = extract(image);
-        const tEXtChunks = chunks.filter(chunk => chunk.name === 'tEXt');
+        // Get the embedded character data (returns unparsed JSON string)
+        const embeddedDataString = await characterCardParser(img_url);
 
-        // Remove all existing tEXt chunks
-        for (let tEXtChunk of tEXtChunks) {
-            chunks.splice(chunks.indexOf(tEXtChunk), 1);
+        // Parse the embedded data into an object
+        let embeddedData;
+        try {
+            embeddedData = JSON.parse(embeddedDataString);
+        } catch (err) {
+            throw new Error(`Failed to parse embedded character data: ${err.message}`);
         }
 
-        // Add new chunks before the IEND chunk
+        // Fields to update (v1 and v2)
+        const fieldsToUpdate = ['name', 'description', 'first_mes'];
 
-        //take the charDefsObject, stringify it, put it into a buffer, and then do base64 encoding
-        const base64EncodedData = Buffer.from(JSON.stringify(data), 'utf8').toString('base64');
+        // Update top-level v1 fields
+        for (const field of fieldsToUpdate) {
+            if (data[field] !== undefined) {
+                embeddedData[field] = data[field];
+            }
+        }
+
+        // Update v2 fields in the data sub-object
+        if (embeddedData.data) {
+            for (const field of fieldsToUpdate) {
+                if (data[field] !== undefined) {
+                    embeddedData.data[field] = data[field];
+                }
+            }
+        }
+
+
+        //console.warn(embeddedData);
+
+
+        // Create a clean copy of embeddedData to handle circular references
+        const cleanEmbeddedData = JSON.parse(JSON.stringify(embeddedData, (key, value) => {
+            // Avoid serializing circular references by returning a shallow copy of the object
+            if (typeof value === 'object' && value !== null) {
+                // Check for circularity by comparing object references
+                if (key === 'data' && value === embeddedData) {
+                    return { ...value }; // Shallow copy to break circularity
+                }
+            }
+            return value;
+        }));
+
+        //console.warn(cleanEmbeddedData);
+
+
+        // Take the cleanEmbeddedData object, stringify it, put it into a buffer, and then do base64 encoding
+        const base64EncodedData = Buffer.from(JSON.stringify(cleanEmbeddedData), 'utf8').toString('base64');
         chunks.splice(-1, 0, PNGtext.encode('chara', base64EncodedData));
-        //logger.debug(chunks)
         await writeFileAsync(img_url, Buffer.from(encode(chunks), 'binary'));
-        releaseLock()
-        logger.debug('Done writing character defintions')
+        releaseLock();
+        logger.debug('Done writing character definitions');
         return true;
     } catch (err) {
-        logger.error(`Error writing character defs ${img_url}...`)
+        logger.error(`Error writing character defs ${img_url}...`);
         logger.error(err);
-        releaseLock()
+        releaseLock();
         return false;
     }
 }

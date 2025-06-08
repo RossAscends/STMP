@@ -77,6 +77,8 @@ html {
     background-color: #393a3f;
     padding: 3px 7px;
     resize: none;
+    border: 1px solid #444;
+    border-radius: 10px;
 }
 
 /*MARK:.modal
@@ -325,6 +327,10 @@ textarea {
     resize: none;
     width: 100%;
     box-sizing: border-box;
+}
+
+#controlPanel button.greyscale {
+    background-color: #3a3c45;
 }
 
 #promptConfigTextFields {
@@ -862,6 +868,10 @@ pre {
     flex: 1.5;
 }
 
+.flex2 {
+    flex: 2;
+}
+
 .widthMinContent {
     width: min-content;
 }
@@ -922,8 +932,8 @@ pre {
     filter: saturate(0.3);
 }
 
-#controlPanel button.greyscale {
-    background-color: #3a3c45;
+.greyText {
+    color: #666;
 }
 
 .bgTransparent {
@@ -1000,6 +1010,10 @@ pre {
     height: 100%;
 }
 
+.maxHeight100p {
+    max-height: 100%;
+}
+
 .heightFitContent {
     height: fit-content;
 }
@@ -1016,6 +1030,11 @@ pre {
     filter: saturate(0.5);
     bottom: 0.1em;
     position: relative;
+}
+
+.simpleRoundGrey4Border {
+    border: 1px solid #444;
+    border-radius: 10px;
 }
 
 /*MARK: hostToast

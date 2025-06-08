@@ -1020,7 +1020,7 @@ async function callCharDefPopup() {
     });
   }
 
-  //MARK: chardefPopup (LN:1k)
+  //MARK: showCharDefs
   async function showCharDefs(charDefs, whichChar) {
     const width = isPhone ? $(window).width() - 10 : $("#contentWrap").width();
     const height = isPhone ? $(window).height() - 10 : $("#contentWrap").height();
@@ -1035,25 +1035,56 @@ async function callCharDefPopup() {
       <div class="flexbox flexFlowCol">
         <small>
         Best practice is to only put immutable traits in the description field.<br>
-        Information that might change over the course of a chat should be put in the Control Panel's D4 or D1 'Insertions' boxes.
+        Information that might change over the course of a chat should be put in the Control Panel's D4 or D1 'Insertions' boxes.<br>
+        Legacy data shown for awareness only. If you want to use that info, copy it into the Description box.<br>
+        
         </small>        
+        <span id="rightSideHint"><span class="bgTransparent square1p5em fontSize1p25em greyscale bgBrightUp textshadow transition250 nonButtonButton">👁️</span> Show legacy defs</span>
       </div>
 
-      <div>
-        <div class="flexbox flexFlowCol">
-          Name
-          <textarea id="charDefsName" class="JQUIPopupInput" rows="1"></textarea>
-        </div>
-      </div>
+      <div class="flexbox flex1 marginTop5 ${layoutClass} overflowYHidden">
 
-      <div class="flexbox flex1 marginTop5 ${layoutClass}">
-        <div class="flexbox flexFlowCol flex1">
-          Description
-          <textarea id="charDefsDesc" class="JQUIPopupInput flex1"></textarea>
+        <div id="leftSide" class="flexbox flexFlowCol flex1 transition250 ">
+
+          <div class="flexbox flexFlowCol ">
+            Name
+            <textarea id="charDefsName" class="JQUIPopupInput" rows="1"></textarea>
+          </div>
+
+          <div class="flexbox flexFlowCol flex2 ">
+            Description
+            <textarea id="charDefsDesc" class="JQUIPopupInput flex1"></textarea>
+          </div>
+
+          <div class="flexbox flexFlowCol flex1p5 ">
+            First Message
+            <textarea id="charDefsFirstMessage" class="JQUIPopupInput flex1"></textarea>
+          </div>
+
+          <div class="legacyDef flexbox flexFlowCol flex1 "> 
+            Personality <small>(read-only legacy value, not used by STMP)</small>
+            <textarea id="charDefsPersonality" class="JQUIPopupInput flex1 greyText"></textarea>
+          </div>
+
+          <div class="legacyDef flexbox flexFlowCol flex1 " >
+            Scenario <small>(read-only legacy value, not used by STMP)</small>
+            <textarea id="charDefsScenario" class="JQUIPopupInput flex1 greyText"></textarea>
+          </div>
+
         </div>
-        <div class="flexbox flexFlowCol" style="${firstMesDynamicDimension}: 35%;">
-          First Message
-          <textarea id="charDefsFirstMessage" class="JQUIPopupInput flex1"></textarea>
+
+        <div id="rightSide" class="flexbox flexFlowCol flex1 transition250">
+
+          <div class="flexbox flexFlowCol flex1 ">
+            Embedded Lorebook <small>(read-only, not used by STMP)</small>
+            <textarea id="foundWorldInfo" class="JQUIPopupInput flex1 greyText"></textarea>
+          </div>
+
+          <div class="legacyDef flexFlowCol flexbox flex1 " >
+            Example Messages <small>(read-only legacy value, not used by STMP)</small>
+            <textarea id="charDefsMesExamples" class="JQUIPopupInput flex1 greyText"></textarea>
+          </div>
+          
         </div>
       </div>
     </div>
@@ -1100,9 +1131,46 @@ async function callCharDefPopup() {
 
         //this is not a fix. We are only writing to the base level of tExt, so we must read from it as well
         //need to figure out how to write into the data level
-        $("#charDefsName").val(parsedDefs.name || 'No name found??');
-        $("#charDefsDesc").val(parsedDefs.description || '');
-        $("#charDefsFirstMessage").val(parsedDefs.first_mes || '');
+        $("#charDefsName").val(parsedDefs?.data?.name || 'No name found??');
+        $("#charDefsDesc").val(parsedDefs?.data?.description || '');
+        $("#charDefsFirstMessage").val(parsedDefs.data?.first_mes || '');
+        $("#charDefsPersonality").val(parsedDefs?.data?.personality || '');
+        $("#charDefsScenario").val(parsedDefs?.data?.scenario || '');
+
+        let mesExamples = parsedDefs?.data?.mes_example || '';
+        $("#charDefsMesExamples").html(mesExamples || '');
+
+
+        const foundWorldInfo = parsedDefs?.data?.character_book?.entries;
+        let combinedEntries = '';
+        if (foundWorldInfo) {
+          for (const numberedKey in foundWorldInfo) {
+            console.warn('foundWorldInfo[numberedKey]', foundWorldInfo[numberedKey]);
+            let id = foundWorldInfo[numberedKey].id;
+            let key = foundWorldInfo[numberedKey].keywords;
+            let content = foundWorldInfo[numberedKey].content;
+            let comment = foundWorldInfo[numberedKey].comment;
+            if (!content) {
+              continue;
+            }
+            if (!comment) {
+              comment = 'No Name';
+            }
+            if (!key) {
+              key = 'No Keywords';
+            }
+            combinedEntries += `#${id} ${comment} (${key}) : ${content}\n\n`;
+          }
+          $("#foundWorldInfo").val(combinedEntries);
+        }
+
+        //$("#rightSide").hide();
+        $(".legacyDef").hide();
+
+        $("#rightSideHint").off('click').on('click', async function () {
+          util.betterSlideToggle($(".legacyDef"), 250, "height", true);
+
+        });
 
         $(".ui-button").trigger("blur");
       },

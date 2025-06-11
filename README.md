@@ -274,5 +274,5 @@ Incorporating embedded lorebooks is under consideration.
 
 - Multiple AI characters active at once (group chats)
 - Download chats as text, JSON, or SillyTavern-compatible JSONL?
-- UI themes?
+- ~~UI themes~~
 - Bridge extension for SillyTavern to enable intra-server communication.

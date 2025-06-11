@@ -163,9 +163,14 @@ async function adjust(type, value) {
         const sat = baseSat + saturationOffset;
         const hsl = `hsl(${baseHue}, ${sat}%, ${light}%)`;
         root.style.setProperty(varName, hsl);
+
+
     }
 
     updatePlaceholderColor();
+    //set the HTML meta 'theme-color' attribute to match --themeNeg10
+    const themeNeg10 = root.style.getPropertyValue('--themeNeg10').trim();
+    document.querySelector('meta[name="theme-color"]').setAttribute('content', themeNeg10);
     util.saveLocalStorage('theme', { 'baseHue': baseHue, 'baseSat': baseSat, 'baseLight': baseLight });
     console.info('saved theme: ', { 'baseHue': baseHue, 'baseSat': baseSat, 'baseLight': baseLight });
 

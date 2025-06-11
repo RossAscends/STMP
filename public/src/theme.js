@@ -93,15 +93,15 @@ async function adjust(type, value) {
 
             if (wouldReversingBeUseful) {
                 reversed = base - offset;
-                console.warn(`${varName}: offset ${offset} would result in ${light} (minlight: ${minLight}, maxlight: ${maxLight}), reversing to ${-offset} to get ${reversed} instead.`);
+                console.debug(`${varName}: offset ${offset} would result in ${light} (minlight: ${minLight}, maxlight: ${maxLight}), reversing to ${-offset} to get ${reversed} instead.`);
 
                 if (reversed === baseLight) {
                     //give an adjustment of either +10 or -10 depending on baseLight being above or below 50
                     if (baseLight > 50) {
-                        console.warn(`${varName} same as baseLight, giving -10 for result of ${reversed - 10}`);
+                        console.debug(`${varName} same as baseLight, giving -10 for result of ${reversed - 10}`);
                         reversed = reversed - 10;
                     } else {
-                        console.warn(`${varName} same as baseLight, giving +10 for result of ${reversed + 10}`);
+                        console.debug(`${varName} same as baseLight, giving +10 for result of ${reversed + 10}`);
                         reversed = reversed + 10;
                     }
                 }
@@ -111,7 +111,7 @@ async function adjust(type, value) {
             if (reversed) return reversed;
             // If reversing was not useful, thus skipped, try clamping instead
 
-            console.warn(`${varName}: Could not reverse, trying Clamp`)
+            console.debug(`${varName}: Could not reverse, trying Clamp`)
 
             const lightDiffToMax = maxLight - light;
             const lightDiffToMin = minLight - light;
@@ -126,7 +126,7 @@ async function adjust(type, value) {
             const isMinTooContrasty = Math.abs(baseDiffToMin) > 50;
 
             const isMaxCloserToOriginalCalc = Math.abs(lightDiffToMax) < Math.abs(lightDiffToMin);
-            console.warn(`${varName}: 
+            console.debug(`${varName}: 
                 light: ${light}
                 base: ${base}
                 reversed: ${reversed}
@@ -146,15 +146,15 @@ async function adjust(type, value) {
                 `);
 
 
-            //if (!doesMaxContrastMoreToBase) { console.warn(`${varName}: setting to minLight: ${minLight}`); return minLight; }
-            if (doesMaxContrastMoreToBase && !isMaxTooContrasty) { console.warn(`${varName}: setting to maxLight: ${maxLight}`); return maxLight; }
-            else if (!isMinTooContrasty) { console.warn(`${varName}: setting to minLight: ${minLight}`); return minLight; }
-            else if (!isMaxTooContrasty) { console.warn(`${varName}: setting to maxLight: ${maxLight}`); return maxLight; }
-            else if (isMaxTooContrasty && isMinTooContrasty) { console.warn(`${varName}: both Min/Max are too contrasty, setting to light: ${light}`); return light; }
+            //if (!doesMaxContrastMoreToBase) { console.debug(`${varName}: setting to minLight: ${minLight}`); return minLight; }
+            if (doesMaxContrastMoreToBase && !isMaxTooContrasty) { console.debug(`${varName}: setting to maxLight: ${maxLight}`); return maxLight; }
+            else if (!isMinTooContrasty) { console.debug(`${varName}: setting to minLight: ${minLight}`); return minLight; }
+            else if (!isMaxTooContrasty) { console.debug(`${varName}: setting to maxLight: ${maxLight}`); return maxLight; }
+            else if (isMaxTooContrasty && isMinTooContrasty) { console.debug(`${varName}: both Min/Max are too contrasty, setting to light: ${light}`); return light; }
 
         }
         // If within range, just return it
-        console.warn(` ${varName}: base: ${base}, offset: ${offset}, minLight: ${minLight}, maxLight: ${maxLight}, RESULT: ${light}`);
+        console.debug(` ${varName}: base: ${base}, offset: ${offset}, minLight: ${minLight}, maxLight: ${maxLight}, RESULT: ${light}`);
         return light;
     }
 
@@ -167,7 +167,7 @@ async function adjust(type, value) {
 
     updatePlaceholderColor();
     util.saveLocalStorage('theme', { 'baseHue': baseHue, 'baseSat': baseSat, 'baseLight': baseLight });
-    console.warn('saved theme: ', { 'baseHue': baseHue, 'baseSat': baseSat, 'baseLight': baseLight });
+    console.info('saved theme: ', { 'baseHue': baseHue, 'baseSat': baseSat, 'baseLight': baseLight });
 
 }
 

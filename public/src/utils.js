@@ -8,12 +8,40 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function debounceWithArgs(func, wait) {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
 function debounce(func, delay) {
     let timeoutId;
     return function () {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(func, delay);
     };
+}
+
+// Throttle utility
+async function throttle(func, wait) {
+    let lastCall = 0;
+    return function (...args) {
+        const now = Date.now();
+        if (now - lastCall >= wait) {
+            lastCall = now;
+            return func.apply(this, args);
+        }
+    };
+}
+
+function saveLocalStorage(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
+}
+
+function getLocalStorage(key) {
+    return JSON.parse(localStorage.getItem(key));
 }
 
 function isValidURL(url) {
@@ -458,5 +486,9 @@ export default {
     minMax,
     isPhone,
     fadeSwap,
-    showUploadSuccessOverlay
+    showUploadSuccessOverlay,
+    debounceWithArgs,
+    throttle,
+    saveLocalStorage,
+    getLocalStorage
 }    

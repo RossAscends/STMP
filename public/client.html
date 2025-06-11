@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
     <base href="/">
@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.1/themes/base/jquery-ui.css">
     <script type="module" src="script.js"></script>
     <script type="module" src="src/keepAliveAudio.js"></script>
+    <script type="module" src="src/theme.js"></script>
     <link rel="stylesheet" type="text/css" href="style.css">
     <link href="css/fontawesome.css" rel="stylesheet">
     <link href="css/solid.css" rel="stylesheet">
@@ -190,11 +191,11 @@
                     </div>
                     <div id="insertionsBlock" class="flexbox flexFlowCol ">
                         <div id="promptConfigTextFields" class="transition250 flexbox flexFlowCol">
-                            <div id="systemPromptBlock" class="flexbox flexFlowCol Hcentered dummyBG">
+                            <div id="systemPromptBlock" class="flexbox flexFlowCol Hcentered ">
                                 <span class="widthFitContent alignSelfCenter">System Prompt</span>
-                                <textarea class="bgBrightUp" id="systemPrompt" placeholder="Text in this box will be inserted at the top of the prompt before anything else."></textarea>
+                                <textarea class="" id="systemPrompt" placeholder="Text in this box will be inserted at the top of the prompt before anything else."></textarea>
                             </div>
-                            <div id="authorsNoteBlock" class="flexbox flexFlowCol Hcentered dummyBG ">
+                            <div id="authorsNoteBlock" class="flexbox flexFlowCol Hcentered">
                                 <div class="flexbox Hcentered">
                                     <span class="widthFitContent alignSelfCenter">D4 Insertion</span>
                                     <label for="D4CharDefs" class="checkbox_label flexbox Vcentered">
@@ -203,11 +204,11 @@
                                     </label>
                                 </div>
 
-                                <textarea class="bgBrightUp" id="D4AN" placeholder="Useful place to put character definitions, World Info, or other constantly relevant information."></textarea>
+                                <textarea class="" id="D4AN" placeholder="Useful place to put character definitions, World Info, or other constantly relevant information."></textarea>
                             </div>
-                            <div id="finalInstructionBlock" class="flexbox flexFlowCol Hcentered dummyBG ">
+                            <div id="finalInstructionBlock" class="flexbox flexFlowCol Hcentered  ">
                                 <span class="widthFitContent alignSelfCenter">D1 Insertion "JB"</span>
-                                <textarea class="bgBrightUp" id="D1JB" placeholder="A very powerful override instruction. Mostly useful as a jailbreak for CC APIs. For TC, it is usually too strong and will override the D4 insertion"></textarea>
+                                <textarea class="" id="D1JB" placeholder="A very powerful override instruction. Mostly useful as a jailbreak for CC APIs. For TC, it is usually too strong and will override the D4 insertion"></textarea>
                             </div>
                         </div>
                     </div>
@@ -283,7 +284,7 @@
                         </div>
                         <div id="AIInputBlock" class="flexbox noWrap">
                             <div class="inputAndIconsWrapper flexbox transition250 positionRelative">
-                                <textarea id="AIMessageInput" class="flex1" maxlength="1000" placeholder="Message the AI Chat"></textarea>
+                                <textarea id="AIMessageInput" class="transition0" maxlength="1000" placeholder="Message the AI Chat"></textarea>
                                 <div class="flexbox">
                                     <button id="AISendButton" class="bgTransparent greyscale fontSize1p5em square1p5em textshadow" title="Send a message">✏️</button>
                                 </div>
@@ -321,7 +322,7 @@
                         </div>
                         <div id="inputBlock" class="flexbox noWrap">
                             <div class="inputAndIconsWrapper flexbox transition250 positionRelative">
-                                <textarea id="messageInput" class="" maxlength="1000" placeholder="Message the User Chat"></textarea>
+                                <textarea id="messageInput" class="transition0" maxlength="1000" placeholder="Message the User Chat"></textarea>
                                 <div id="userChatInputButtons" class="flexbox">
                                     <button id="sendButton" class="bgTransparent greyscale fontSize1p5em square1p5em textshadow" title="Send a Message to User Chat">✏️</button>
                                 </div>
@@ -350,18 +351,38 @@
             </div>
             <div class="flexFlowCol flexbox flex1">
                 <div id="crowdControl" class=" isArrayType flexbox flexFlowCol heightFitContent justifyContentEnd Vcentered">
-                    <div class="flexbox">
-                        <button id="keepAliveAudio" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Play silent background audio to keep remote connections alive">🔊</button>
-                        <button id="showHostToast" class="hostControls flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Send a Host Toast to all Users">📢</button>
-                        <button id="disableGuestInput" class="hostControls flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable Guest Input">🤐</button>
-                        <button id="turnBasedMode" class="hostControls unavailable-overlay flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔢</button>
-                        <label for="allowImages" class="hostControls Vcentered checkbox_label flexbox noWrap fontSize1p25em mutedColor textshadow" title="Allow Image Embeds in Chat Messages">
-                            🖌️
-                            <input type="checkbox" id="allowImages" class="flexbox Vcentered width50px" title="Allow Image Embeds in Chat Messages">
-                        </label>
+                    <div class="alignItemsCenter flexbox flexFlowCol">
+
+                        <div class="flexbox alignItemsCenter flexFlowCol">
+
+                            <div class="flexbox alignItemsCenter">
+                                <span class="mutedColor flexbox Vcentered bgTransparent fontSize1p25em alignSelfFlexEnd textshadow" title="Adjust STMP UI Theme">🎨: </span>
+                                <div class="flexbox alignItemsCenter flexFlowCol">
+
+                                    H <input id="themeHue" class="width3p5em" data-for="hue" type="number" min="0" max="360" title="Hue 0 to 360">
+                                </div>
+                                <div class="flexbox alignItemsCenter flexFlowCol">
+                                    S <input id="themeSaturation" class="width3p5em" data-for="saturation" type="number" min="0" max="100" title="Saturation 0 to 100">
+                                </div>
+                                <div class="flexbox alignItemsCenter flexFlowCol">
+                                    L <input id="themeLightness" class="width3p5em" data-for="lightness" type="number" min="0" max="100" title="Lightness 0 to 100">
+                                </div>
+                            </div>
+                            <button id="keepAliveAudio" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Play silent background audio to keep remote connections alive">🔊</button>
+                        </div>
+
+                        <div class="flexbox alignItemsCenter">
+                            <button id="showHostToast" class="hostControls flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Send a Host Toast to all Users">📢</button>
+                            <button id="disableGuestInput" class="hostControls flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable Guest Input">🤐</button>
+                            <button id="turnBasedMode" class="hostControls unavailable-overlay flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔢</button>
+                            <label for="allowImages" class="hostControls Vcentered checkbox_label flexbox noWrap" title="Allow Image Embeds in Chat Messages">
+                                <span class="mutedColor textshadow fontSize1p25em">🖌️</span>
+                                <input type="checkbox" id="allowImages" class="flexbox Vcentered width50px" title="Allow Image Embeds in Chat Messages">
+                            </label>
+                        </div>
                     </div>
                 </div>
-                <div id="lists" class="flexbox flex1">
+                <div id="lists" class="flexbox flex1 justifyContentCenter">
                     <div id="userList" class="flexbox transition250 flexFlowCol ">
                         <small class="alignSelfCenter">Users</small>
                         <ul></ul>

@@ -362,8 +362,8 @@ function appendMessages(messages, elementSelector, sessionID) {
         <span style="color:${userColor}" class="msgUserName flexbox alignItemsCenter chatUserName">${usernameHTML}</span>
         <span class="flexbox msgControlsAndTimeBlock">
           <div class="messageControls transition250">
-              <i data-messageid="${messageID}" data-sessionid="${sessionID}" ${dataEntityTypeString} class="messageEdit ${containerTypeClass} messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
-              <i data-messageid="${messageID}" data-sessionid="${sessionID}" ${dataEntityTypeString} class="messageDelete ${containerTypeClass} messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+              <i data-messageid="${messageID}" data-sessionid="${sessionID}" ${dataEntityTypeString} class="messageEdit ${containerTypeClass} messageButton fa-solid fa-edit bgTransparent  textshadow textBrightUp transition250"></i>
+              <i data-messageid="${messageID}" data-sessionid="${sessionID}" ${dataEntityTypeString} class="messageDelete ${containerTypeClass} messageButton fa-solid fa-trash bgTransparent  textshadow textBrightUp transition250"></i>
           </div>
           <small class="messageTime">${formattedTimestamp}</small>
         </span>
@@ -462,6 +462,8 @@ function addMessageEditListeners(newDiv) {
           `<textarea id="mesEditText"></textarea>`
         )
         .dialog({
+          show: { effect: 'fade', duration: 250 },
+          hide: false, // we handle fade out ourselves
           width: widthToUse,
           height: heightToUse,
           draggable: false,
@@ -474,7 +476,7 @@ function addMessageEditListeners(newDiv) {
               console.debug('new content for edited message: ', $("#mesEditText").val())
               $(this).dialog("close");
               const newMessageContent = $("#mesEditText").val()
-              $(this).remove()
+              //$(this).remove()
 
               const mesEditRequest = {
                 type: 'messageEdit',
@@ -490,15 +492,36 @@ function addMessageEditListeners(newDiv) {
             },
             Cancel: function () {
               $(this).dialog("close");
-              $(this).remove()
+              //$(this).remove()
             },
           },
           open: function () {
+            $('.ui-widget-overlay').hide().fadeIn(250);
             console.log(message)
             $("#mesEditText").val(message)
             $(".ui-button").trigger("blur");
           },
-          close: function () { },
+          beforeClose(event, ui) {
+            const $content = $(this); // #charDefPopup
+            const $dialogWrapper = $content.closest('.ui-dialog'); // includes title bar, buttons
+            const $overlay = $('.ui-widget-overlay');
+
+            if ($dialogWrapper.is(':visible')) {
+              event.preventDefault(); // prevent jQuery UI from closing immediately
+
+              // Run both fadeOuts in parallel, then destroy dialog after both finish
+              $.when(
+                $dialogWrapper.fadeOut(250),
+                $overlay.fadeOut(250)
+              ).done(() => {
+                $content.dialog("destroy").remove();
+              });
+
+              return false; // still required to block default close
+            }
+          },
+          close() { } // Required to avoid default behavior interfering
+
         })
 
     }
@@ -1578,41 +1601,6 @@ $(async function () {
       );
   });
 
-  /*   if (
-      window.matchMedia("(orientation: landscape)").matches &&
-      /Mobile/.test(navigator.userAgent)
-    ) {
-      if (isIOS) {
-        $("body").css({
-          "padding-left": "0px",
-          "padding-right": "0px",
-          width: "100sfw",
-          height: "calc(100svh - 5px)",
-        });
-        $(".bodyWrap").css({
-          gap: "5px",
-        });
-        $(".fontSize1p5em")
-          .addClass("fontSize1p25em")
-          .removeClass("fontSize1p5em");
-        $(".fontSize1p25em")
-          .css("width", "2em")
-          .css("height", "2em")
-          .css("line-height", "2em")
-          .css("padding", "0");
-      }
-    }
-  
-    if (util.isPhone() && isIOS) {
-      $("body").css({
-        "padding-left": "0px",
-        "padding-right": "0px",
-        width: "100sfw",
-        height: "calc(100svh - 15px)",
-      });
-    } */
-
-
   $("#messageInput").on("keypress", function (event) {
     util.enterToSendChat(event, "#sendButton");
   });
@@ -1704,7 +1692,7 @@ $(async function () {
   });
 
   //this auto resizes the chat input box as the input gets longer
-  $("#AIMessageInput, #messageInput").on("input", function () {
+  $("#AIMessageInput, #messageInput").on("input", async function () {
     const activeInputboxID = this.id;
     const isAIMessageInput = activeInputboxID === "AIMessageInput";
     const chatBlock = isAIMessageInput ? $LLMChatWrapper : $OOCChatWrapper;

@@ -241,6 +241,10 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
             `\n ${entity.username}:`
         );
     }
+
+    //remove any empty items in targetObj
+    targetObj = targetObj.filter(item => item !== '');
+
     //logger.info(APICallParams)
     //logger.info(targetObj)
     //   logger.debug(liveAPI)

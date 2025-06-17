@@ -1216,7 +1216,7 @@ async function handleConnections(ws, type, request) {
                     let userTryingToContinue = parsedMessage.userInput.length == 0 ? true : false
                     let [currentChat, sessionID] = await db.readAIChat()
                     let messageHistory = JSON.parse(currentChat)
-                    let lastMessageEntity = messageHistory[messageHistory.length - 1].entity
+                    let lastMessageEntity = messageHistory[messageHistory.length - 1]?.entity || 'Unknown' //in the case of message sent in empty chat
                     let shouldContinue = userTryingToContinue && lastMessageEntity === 'AI' ? true : false
                     //if the message isn't empty (i.e. not a forced AI trigger), then add it to AIChat
                     //this can be the case when a previous chat is wiped, and we need to force send

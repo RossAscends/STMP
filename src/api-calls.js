@@ -53,11 +53,17 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
         const [fullPrompt, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, formattedCharName, parsedMessage.username, liveAPI, shouldContinue);
         const samplerData = await fio.readFile(liveConfig.promptConfig.selectedSamplerPreset);
         const samplers = JSON.parse(samplerData);
+        //logger.info('[getAIResponse] >> samplers:', samplerData)
 
+        if (isCCSelected) apiCallParams = {}
+        //logger.info('apiCallParams samplers cleared')
+        //logger.info('PROOF: ', apiCallParams.params)
         Object.entries(samplers).forEach(([key, value]) => {
+
             if (engineMode === 'horde') {
                 apiCallParams.params[key] = value;
             } else {
+                //logger.info(`[getAIResponse] >> key: ${key}, value: ${value}`)
                 apiCallParams[key] = value;
             }
         });
@@ -75,7 +81,7 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
         }
         const [finalApiCallParams, entitiesList] = await setStopStrings(liveConfig, apiCallParams, includedChatObjects, liveAPI);
 
-        //logger.info('[getAIResponse] >> finalApiCallParams:', finalApiCallParams);
+        logger.info('[getAIResponse] >> finalApiCallParams after SetStopStrings:', finalApiCallParams.params);
 
         let AIChatUserList, AIResponse = '';
         if (engineMode === 'horde') { //if horde...
@@ -247,13 +253,12 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
         APICallParams.stop = targetObj
     } else { //for horde
         logger.info('setting horde stop strings')
-        //logger.info(APICallParams)
-        //logger.info(APICallParams.params)
-        //logger.info(targetObj)
-
         APICallParams.params.stop_sequence = targetObj
 
     }
+    //logger.info(APICallParams)
+    //logger.info(APICallParams.params)
+    //logger.info(targetObj)
     return [APICallParams, usernames]
 }
 
@@ -891,6 +896,7 @@ async function tryLoadModel(api, liveConfig, liveAPI) {
 //MARK: requestToTCorCC
 async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, includedChatObjects, isTest, liveConfig, parsedMessage, charName) {
     logger.info('[requestToTCorCC] >> GO')
+    //logger.info('finalApiCallParams: ', finalApiCallParams)
     const TCEndpoint = liveAPI.endpoint
     const TCAPIKey = liveAPI.key
     const key = TCAPIKey.trim()
@@ -977,8 +983,8 @@ async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, include
 
         //logger.debug('HEADERS')
         //logger.info(headers)
-        //logger.info('PAYLOAD')
-        //logger.debug(finalApiCallParams)
+        logger.info('PAYLOAD')
+        logger.info(finalApiCallParams)
 
         const body = JSON.stringify(finalApiCallParams);
         //logger.info(body)

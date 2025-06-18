@@ -637,10 +637,14 @@ async function handleConnections(ws, type, request) {
 
         cardList = await fio.getCardList() //get a fresh card list on each new host connection
 
-        const [apis, APIConfig] = await Promise.all([
+        let [apis, APIConfig] = await Promise.all([
             await db.getAPIs().then(duplicateNameToValue),
             await db.getAPI(liveConfig.promptConfig.selectedAPI)
         ]);
+
+        if (APIConfig.name = 'Default') liveConfig.promptConfig.selectedAPI = 'Default'; //fallback to default if stored selected API not found
+
+        await fio.writeConfig(liveConfig);
 
         baseMessage.liveConfig = {
             promptConfig: {

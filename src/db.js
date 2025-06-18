@@ -1,6 +1,7 @@
 import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import { dbLogger as logger } from './log.js';
+import apiCalls from './api-calls.js';
 
 // Connect to the SQLite database
 const dbPromise = open({
@@ -850,8 +851,10 @@ async function getAPI(name) {
             gotAPI.claude == 1 ? gotAPI.claude = true : gotAPI.claude = false
             return gotAPI;
         } else {
-            logger.error('API not found:', name);
-            return null; // or handle the absence of the API in a different way
+            logger.error('API not found: "', name, '",returning Default instead.');
+            let defaultAPI = await db.get('SELECT * FROM apis WHERE name = ?', ['Default']);
+            console.warn(defaultAPI)
+            return defaultAPI; // or handle the absence of the API in a different way
         }
     } catch (err) {
         logger.error('Error getting API:', err);

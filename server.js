@@ -1250,7 +1250,13 @@ async function handleConnections(ws, type, request) {
                         await broadcast(userPrompt)
                     }
 
-                    if (liveConfig.promptConfig.isAutoResponse || shouldContinue) {
+                    if (
+                        //normal user typing into chat with autoAI on
+                        (liveConfig.promptConfig.isAutoResponse) ||
+                        //autoAI off, and user hasn't typed anything, but user is last in chat so no continuing
+                        (!liveConfig.promptConfig.isAutoResponse && (!userInput || userInput.length == 0)) ||
+                        shouldContinue //AI is last in chat, and user wants to continue
+                    ) {
                         //normal user typing into AIChart, or forced trigger
                         await stream.handleResponse(
                             parsedMessage, selectedAPI, hordeKey,

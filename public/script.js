@@ -724,7 +724,7 @@ async function connectWebSocket(username) {
         await util.flashElement("roleKeyInput", "bad");
         break;
       case 'modelListError':
-        await util.flashElement($("#modelList"), 'bad')
+        await util.flashElement("modelList", 'bad')
         alert('Could not get a model list')
         break;
       case "pastChatsList":
@@ -1003,7 +1003,8 @@ async function sendMessageToAIChat(type) {
     username: username,
     userInput: content,
   };
-  localStorage.setItem("AIChatUsername", username);
+  console.warn(websocketRequest)
+  //localStorage.setItem("AIChatUsername", username);
   util.messageServer(websocketRequest);
   messageInput.val("").trigger("focus");
 }

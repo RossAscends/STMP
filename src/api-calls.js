@@ -28,7 +28,7 @@ async function getAPIDefaults(shouldReturn = null) {
         }
 
     } catch (error) {
-        logger.error('Error reading or parsing the default API Param JSON file:', error);
+        logger.error('Error reading or parsing default-API-Parameters.json:', error);
     }
 }
 
@@ -157,7 +157,7 @@ async function makeAIChatUserList(entitiesList, chatHistoryFromPrompt) {
 function countTokens(str) {
     let chars = str.length
     let tokens = Math.ceil(chars / 3)
-    logger.trace(`estimated tokens: ${tokens}`)
+    logger.debug(`Estimated tokens: ${tokens}`)
     return tokens
 }
 
@@ -178,7 +178,7 @@ function trimIncompleteSentences(input, include_newline = false) {
         }
     }
     if (last === -1) {
-        logger.trace(input.trimEnd())
+        logger.debug(input.trimEnd())
         return input.trimEnd();
     }
     let trimmedString = input.substring(0, last + 1).trimEnd();
@@ -194,7 +194,7 @@ async function ObjectifyChatHistory() {
             let chatHistory = JSON.parse(data);
             resolve(chatHistory);
         } catch (parseError) {
-            logger.error('An error occurred while parsing the JSON:', parseError);
+            logger.error('An error occurred while parsing the Chat History JSON:', parseError);
             reject(parseError);
         }
     });
@@ -682,11 +682,11 @@ async function requestToHorde(hordeKey, stringToSend) {
         var CHECK_INTERVAL = 5000;
         var task_id = data.id;
         if (task_id === undefined) {
-            logger.warn('no task ID, aborting')
+            logger.warn('No Horde Task ID: Aborting.')
             return ['Horde Error: No taskID', null, null, null]
         }
 
-        logger.info(`horde task ID ${task_id}`)
+        logger.info(`Horde task ID ${task_id}`)
 
         for (var retryNumber = 0; retryNumber < MAX_RETRIES; retryNumber++) {
 
@@ -715,14 +715,13 @@ async function requestToHorde(hordeKey, stringToSend) {
                 var hordeModel = statusResponse.generations[0].model;
                 var text = statusResponse.generations[0].text;
                 var kudosCost = statusResponse.kudos + 2
-                logger.debug('Raw Horde response: ' + text);
+                logger.info('Raw Horde response: ' + text);
                 logger.info(`Worker: ${workerName}, Model:${hordeModel}`)
                 return [text, workerName, hordeModel, kudosCost]
             }
         }
     } else {
-        logger.error('Error while requesting Horde');
-        logger.error(response)
+        logger.error('Error while requesting Horde', response);
         return response
     };
 }
@@ -822,7 +821,7 @@ async function getModelList(api, liveConfig = null) {
         return modelNames
         //return responseJSON.data;
     } else {
-        logger.error(`Error getting models. Code ${response.status}`)
+        logger.error(`Error accessing /models endpoint: ${response}`)
     }
 }
 

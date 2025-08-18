@@ -80,8 +80,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configuration
-const apiKey = "_YOUR_API_KEY_HERE_";
-const authString = "_STUsername_:_STPassword_";
 const secretsPath = path.join(__dirname, 'secrets.json');
 let engineMode = 'TC'
 
@@ -300,21 +298,19 @@ async function initFiles() {
     logger.info(`${color.yellow(`Mod Key: ${modKey}`)}`);
 }
 
-// Create directories
+// Create default directories
 fio.createDirectoryIfNotExist("./public/api-presets");
 fio.createDirectoryIfNotExist("./public/characters");
 fio.createDirectoryIfNotExist("./public/instruct");
 
-// Call the function to initialize the files
-
 await initFiles();
 
-// Handle incoming WebSocket connections for wsServer
+// Handle incoming WebSocket connections for Host Server
 wsServer.on('connection', (ws, request) => {
     handleConnections(ws, 'host', request);
 });
 
-// Handle incoming WebSocket connections for wssServer
+// Handle incoming WebSocket connections for Guest Server
 wssServer.on('connection', (ws, request) => {
     handleConnections(ws, 'guest', request);
 });
@@ -414,8 +410,8 @@ async function broadcastUserList() {
         userList: connectedUsers
     };
     broadcast(userListMessage);
-    logger.trace(`[UserList BroadCast]:`)
-    logger.trace(connectedUsers)
+    logger.debug(`[UserList BroadCast]:`);
+    logger.debug(connectedUsers);
 }
 
 //MARK: removeLastAIChatMsg
@@ -475,7 +471,7 @@ async function saveAndClearChat(type) {
         await db.newUserChatSession();
     }
     else {
-        logger.warn('Unknown chat type, not saving chat history...')
+        logger.warn('Unknown chat type. Not saving chat history. This should never happen.');
     }
 }
 
@@ -693,7 +689,7 @@ async function handleConnections(ws, type, request) {
             let userColor = await db.getUserColor(senderUUID)
             let thisClientObj = clientsObject[parsedMessage.UUID];
 
-            //If there is no UUID, then this is a new client and we need to add it to the clientsObject
+            //If there is no UUID, then this is a new client and we need to add it to clientsObject
             if (!thisClientObj) {
                 thisClientObj = {
                     username: '',
@@ -960,7 +956,7 @@ async function handleConnections(ws, type, request) {
                         );
                         return
                     } catch (parseError) {
-                        logger.error('An error occurred while parsing the JSON:', parseError);
+                        logger.error('JSON parse error during AI Retry:', parseError);
                         return;
                     }
                 }
@@ -1005,7 +1001,7 @@ async function handleConnections(ws, type, request) {
                 else if (parsedMessage.type === 'pastChatDelete') {
                     const sessionID = parsedMessage.sessionID
                     let [result, wasActive] = await db.deletePastChat(sessionID)
-                    logger.debug(result, wasActive)
+                    logger.debug('Past Chat Deletion: ', result, wasActive)
                     if (result === 'ok') {
                         const pastChatsDeleteConfirmation = {
                             type: 'pastChatDeleted',
@@ -1126,7 +1122,7 @@ async function handleConnections(ws, type, request) {
                     type: 'userChangedName',
                     content: `[System]: ${parsedMessage.oldName} >>> ${parsedMessage.newName} (@AI: ${parsedMessage.AIChatUsername})`
                 }
-                logger.debug('sending notification of username change')
+                logger.debug('Broadcasting username change notification.')
                 await broadcast(nameChangeNotification);
                 await broadcastUserList()
             }
@@ -1291,7 +1287,7 @@ async function handleConnections(ws, type, request) {
                 }
 
             } else {
-                logger.warn(`unknown message type received (${parsedMessage.type})...ignoring...`)
+                logger.warn(`Unknown message type received (${parsedMessage.type}). Ignoring.`)
             }
         } catch (error) {
             logger.error('Error parsing message:', error);
@@ -1449,7 +1445,7 @@ function isAPIEqual(api1, api2) {
 
 // Handle server shutdown via ctrl+c
 process.on('SIGINT', async () => {
-    logger.warn('Server shutting down...');
+    logger.info('Server shutting down...');
 
     // Send a message to all connected clients
     const serverShutdownMessage = {
@@ -1462,13 +1458,13 @@ process.on('SIGINT', async () => {
 
     // Close the WebSocket server
     wsServer.close(() => {
-        logger.debug('Host websocket closed.');
+        logger.info('Host websocket closed.');
     });
     wssServer.close(() => {
-        logger.debug('Guest websocket closed.');
+        logger.info('Guest websocket closed.');
     });
     process.exit(0);
-})
+});
 
 export default {
     broadcast

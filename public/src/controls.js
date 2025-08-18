@@ -38,36 +38,36 @@ function submitKey(myUUID) {
 
 function showAddNewAPIDiv() {
     //console.debug('showing div for adding new API')
-    $("#APIConfig").show()
-    $("#addNewAPIButton").show()
-    $("#editAPIButton").hide()
-    $("#selectedAPI").val('')
-    $("#endpoint").val('')
-    $("#key").val('')
-    $("#type").val('TC')
-    $("#type").prop('disabled', false)
-    $("#selectedAPI").prop('readonly', false)
-    $("#endpoint").prop('readonly', false)
-    $("#key").prop('readonly', false)
-    $("#apiTitle").text('New API Info')
-    $("#saveAPIButton").show()
+    $("#APIConfig").show();
+    $("#addNewAPIButton").show();
+    $("#editAPIButton").hide();
+    $("#selectedAPI").val('');
+    $("#endpoint").val('');
+    $("#key").val('');
+    $("#type").val('TC');
+    $("#type").prop('disabled', false);
+    $("#selectedAPI").prop('readonly', false);
+    $("#endpoint").prop('readonly', false);
+    $("#key").prop('readonly', false);
+    $("#apiTitle").text('New API Info');
+    $("#saveAPIButton").show();
 }
 
 function hideAddNewAPIDiv() {
-    console.debug('[hideAddNewAPIDiv()] >> GO')
-    $("#addNewAPIButton").hide()
-    $("#editAPIButton").show()
-    $("#APIConfig").hide()
-    $("#saveAPIButton").hide()
+    console.debug('[hideAddNewAPIDiv()] >> GO');
+    $("#addNewAPIButton").hide();
+    $("#editAPIButton").show();
+    $("#APIConfig").hide();
+    $("#saveAPIButton").hide();
 }
 
 function enableAPIEdit() {
-    console.warn('[enableAPIEdit()] >> GO')
-    $("#selectedAPI").prop('readonly', false)
-    $("#endpoint").prop('readonly', false)
-    $("#key").prop('readonly', false)
-    $("#type").prop('disabled', false)
-    $("#saveAPIButton").show()
+    console.warn('[enableAPIEdit()] >> GO');
+    $("#selectedAPI").prop('readonly', false);
+    $("#endpoint").prop('readonly', false);
+    $("#key").prop('readonly', false);
+    $("#type").prop('disabled', false);
+    $("#saveAPIButton").show();
     //Set the title 
     $("#apiTitle").text('Edit API Info')
 }
@@ -84,13 +84,12 @@ function disableAPIEdit() {
 }
 
 async function testNewAPI() {
-    let name = $("#selectedAPI").val()
-    let endpoint = $("#endpoint").val()
-    let key = $("#key").val()
-    let type = $("#type").val()
-    let claude = $("#claude").prop('checked')
-    let model = $("#modelList").val()
-
+    let name = $("#selectedAPI").val();
+    let endpoint = $("#endpoint").val();
+    let key = $("#key").val();
+    let type = $("#type").val();
+    let claude = $("#claude").prop('checked');
+    let model = $("#modelList").val();
     if (endpoint.includes('localhost:')) {
         await util.flashElement('endpoint', 'bad')
         alert('For local connections use 127.0.0.1, not localhost')

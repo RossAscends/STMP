@@ -716,14 +716,14 @@ async function getCharacterColor(charName) {
         const row = await db.get('SELECT display_color FROM characters WHERE char_id = ?', [charName]);
         if (row) {
             const charColor = row.display_color;
-            logger.debug(`User color: ${charColor}`);
+            logger.debug(`Character color: ${charColor}`);
             return charColor;
         } else {
-            logger.warn(`Character not found for: ${charName}`);
+            logger.warn(`Character '${charName}' not found.`);
             return null;
         }
     } catch (err) {
-        logger.error('Error getting user color:', err);
+        logger.error(`Error getting color for ${charName}: ${err}`);
         throw err;
     }
 }
@@ -746,7 +746,7 @@ async function getMessage(messageID, sessionID) {
         return result.message
 
     } catch (err) {
-        logger.error('Error getting message:', err);
+        logger.error('Error getting AI chat message:', err);
         throw err;
     }
 }
@@ -815,7 +815,7 @@ async function upsertAPI(apiData) {
 }
 
 async function getAPIs() {
-    logger.debug('Getting APIs...');
+    logger.debug('Getting API list.');
     const db = await dbPromise;
     try {
         const rows = await db.all('SELECT * FROM apis');
@@ -837,7 +837,6 @@ async function getAPIs() {
 }
 
 async function getAPI(name) {
-    logger.debug('Getting API...' + name);
     const db = await dbPromise;
     try {
         let gotAPI = await db.get('SELECT * FROM apis WHERE name = ?', [name]);
@@ -903,7 +902,6 @@ async function exportSession(sessionID) {
 
 ensureDatabaseSchema(schemaDictionary);
 
-
 export default {
     writeUserChatMessage,
     writeAIChatMessage,
@@ -933,4 +931,4 @@ export default {
     setActiveChat,
     getActiveChat,
     exportSession
-};
+}

@@ -262,7 +262,7 @@ Incorporating embedded lorebooks is under consideration.
 
 ### Quality of Life
 
-- make control for guests to clear DISPLAY of either chat (without affecting the chat database) to prevent browser lag
+- ~~make control for guests to clear DISPLAY of either chat (without affecting the chat database) to prevent browser lag~~
 - highlight exact username matches in AI response with their color
 - fade out users in user chat list who havent chatted in X minutes (add a css class with opacity 50%)
 - fade out users in ai chat list who are no longer connected, or are faded out in user list (same)

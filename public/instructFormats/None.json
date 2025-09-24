@@ -1,9 +1,9 @@
 {
     "name": "None",
-    "system_sequence": "\n",
-    "input_sequence": "\n",
-    "output_sequence": "\n",
-    "end_sequence": "\n",
+    "system_sequence": "",
+    "input_sequence": "",
+    "output_sequence": "",
+    "end_sequence": "",
     "first_output_sequence": "",
     "last_output_sequence": "",
     "system_sequence_suffix": ""

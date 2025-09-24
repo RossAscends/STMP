@@ -229,7 +229,12 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
     }
     let targetObj = []
 
-    targetObj.push(inputSequence, outputSequence, systemSequence, endSequence, ...extraStops)
+    let items = [inputSequence, outputSequence, systemSequence, endSequence, ...extraStops];
+    for (let item of items) {
+        if (item !== null && item !== '') {
+            targetObj.push(item);
+        }
+    }
 
     // Generate permutations for each unique username
     //TODO: find a sensible way to optimize this. 4 strings per entity is a lot..

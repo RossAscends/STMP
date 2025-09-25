@@ -86,6 +86,7 @@ This must be done AFTER completing all installation steps above.
 - Chatting can be done in either chat windows by typing into the appropriate box and then either pressing the Send button (✏️), or pressing Enter.
 - `Shift+Enter` can be used to add newlines to the input.
 - [Markdown formatting](https://github.com/showdownjs/showdown/wiki/Showdown%27s-Markdown-syntax) is respected.
+- Some limited HTML styling is also possible inside user messages.
 - Users with the Host role can hover over any chat message in either chats to see editing and deletion buttons.
 
 ## Hosting
@@ -114,7 +115,7 @@ Insertions Section
 
 - `System Prompt` defines what will be placed at the very top of the prompt.
 - `Author Note(D4)` defines what will be inserted as a system message at Depth 4 in the prompt.
-- `Final Instruction(D1, "JB")` defines what to send as a system message at Depth 1 in the prompt. Not needed for TC APIs, but useful as a 'JB prompt' for CC APIs.
+- `Final Instruction(D1, "JB")` defines what to send as a system message at Depth 1 in the prompt.
 
 ### Adding/Editing APIs
 
@@ -146,7 +147,7 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
   i. `Delete` - removes the APi from the database.
 3. When all of the fields are filled out, press `Save` to return to the main Control panel display.
 
-#### Past Chats
+### Past Chats
 
 - A list of past AI Chats, click one to load it.
 - Information listed with each past session item:
@@ -161,7 +162,7 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 - Users with the Host role will have a 👑 next to their name.
 - The AI Characters will have a 🤖 next to their names in the AI Chat User List.
 
-#### Crowd Controls
+### Crowd Controls
 
 - (🎶) is a toggle that will play/stop a looping background audio track ("Cup of COhee" be Deffcolony). This helps mobile keep their websocket connection active when they minimize the app.
 - (🤐) is a toggle to completely disable guest inputs for both chats.
@@ -208,19 +209,18 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 ### Managing Characters
 
 - Place any SillyTavern compatible character card into the `/characters/` folder and restart the server.
-  - We will add a way to add characters without restarting the server soon.
-- Characters can be selected at the top of the AI Chat panel.
-- Characters can be swapped at any time without resetting the chat, allowing you to manually simulate a group chat.
 - Drag-drop a v2 card spec character card over the chat to import.
+- Characters can be added, removed, edited, or swapped out inside the 📜 panel.
+- **Changing the character roster does not require restting the chat.**
 
 #### Editing Characters
 
 - Hosts will see a (🧠) next to Character Selectors. This will open a popup with the character definitions.
-- STMP only handles three types of character definitions:
+- STMP handles three types of character definitions:
   - `Name` - What is displayed as the character's name in the chat.
   - `Description` - What goes into the prompt at either the top, or at D4 if 'D4 Char Defs' box is checked.
   - `First Message` - What gets auto-inserted into a new chat with that character.
-  - `Embedded Lorebook` - This is currently not used by STMP, but is visible for user reference.
+- `Embedded Lorebook` - is currently not used by STMP, but is visible for user reference.
 - (👁️) at the top of the character definition panel will show Legacy Fields
   - Legacy Fields are **read-only**. STMP does not use them.
   - Legacy fields = Personality, Example Messages, and Scenario.

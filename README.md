@@ -192,18 +192,19 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 - Personality and Scenario are outdated distinctions without a meaningful purpose, and should be incorporated into the Description.
 - Example Message can also be incorporated into the Description. We recommend doing so in the form of [AliChat](https://discord.com/channels/553948136629075968/1137875580457590884/1198559176935354508).
 
+### Crowd Controls
+
+- (🎨) (all users) Three inputs for Hue, Saturation, and Lightness to define the base color for STMP UI theming.
+- (🎶) (all users) is a toggle that will play/stop a looping background audio track ("Cup of COhee" be Deffcolony). This helps mobile keep their websocket connection active when they minimize the app.
+- (🤐) is a toggle to completely disable guest inputs for both chats.
+- (🖌️) is a toggle to allow or deny markdown image display.
+- (📢) lets the Host send a large notification to all connected users.
+
 ### User List
 
 - The right side of the screen contains two users lists, one for each chat.
 - Users with the Host role will have a 👑 next to their name.
 - The AI Characters will have a 🤖 next to their names in the AI Chat User List.
-
-### Crowd Controls
-
-- (🎶) is a toggle that will play/stop a looping background audio track ("Cup of COhee" be Deffcolony). This helps mobile keep their websocket connection active when they minimize the app.
-- (🤐) is a toggle to completely disable guest inputs for both chats.
-- (🖌️) is a toggle to allow or deny markdown image display.
-- (📢) lets the Host send a large notification to all connected users.
 
 ## Top Bar Controls
 

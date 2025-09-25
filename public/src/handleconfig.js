@@ -83,7 +83,8 @@ const messageTypes = {
 
 import util from "./utils.js";
 import control from "./controls.js";
-import { myUUID } from "../script.js";
+import { myUUID, callCharDefPopup } from "../script.js";
+import { getMuteButtonForIndex, applyMuteButtonStates, bindMuteButtonEvents, ensureMuteButtonInitialState, isMutedButton } from './muteCharButtons.js';
 
 var APIConfig, liveAPI, promptConfig, crowdControl, selectedModelForGuestDisplay
 var initialLoad = true
@@ -123,8 +124,66 @@ async function processLiveConfig(configArray) {
 
 
   await setEngineMode(engineMode);
+  // Multi-character population (overrides legacy single-character selectors)
+  if (!promptConfig.selectedCharacters || !Array.isArray(promptConfig.selectedCharacters)) {
+    promptConfig.selectedCharacters = [];
+    if (selectedCharacter) {
+      promptConfig.selectedCharacters.push({ value: selectedCharacter, displayName: liveConfig.promptConfig.selectedCharacterDisplayName || selectedCharacter, isMuted: false });
+    }
+  }
+  // --- Dynamic multi-character slot reconstruction on load/refresh ---
+  // Ensure the number of visible selector slots matches the length of promptConfig.selectedCharacters.
+  // (Previously only the first slot would render after a hard refresh, causing UI/server desync.)
+  try {
+    let desiredCount = promptConfig.selectedCharacters.length;
+    if (desiredCount === 0) {
+      // Always keep at least one slot present in the UI.
+      promptConfig.selectedCharacters = [{ value: 'None', displayName: '[None]', isMuted: false }];
+      desiredCount = 1;
+    }
+    let $currentSelectors = $("[id^='cardList']");
+    const existingCount = $currentSelectors.length;
 
-  await populateSelector(cardList, "cardList", selectedCharacter);
+    // Add missing slots without triggering rebuildSelectedCharactersFromUI (to preserve server state)
+    if (desiredCount > existingCount) {
+      for (let i = existingCount; i < desiredCount; i++) {
+        addCharacterSlot(true); // skipRebuild=true
+      }
+    } else if (desiredCount < existingCount) {
+      // Remove extra trailing slots (never remove the base first slot)
+      for (let j = existingCount; j > desiredCount; j--) {
+        const id = j === 1 ? 'cardList' : `cardList${j}`; // j is 1-based relative to count when looping downward
+        if (id === 'cardList') break; // keep base
+        const $sel = $(`#${id}`);
+        if ($sel.length) {
+          const $wrap = $sel.closest('.custom-select');
+            $wrap.remove();
+        }
+      }
+    }
+    // Refresh selector cache after possible DOM mutations
+    $currentSelectors = $("[id^='cardList']");
+    // Re-bind events for any new slots
+    bindDynamicCharacterEvents();
+  } catch (e) {
+    console.warn('Character slot reconstruction error:', e);
+  }
+  // --- End reconstruction block ---
+  const baseList = Array.isArray(cardList) ? cardList : [];
+  const masterCardList = [{ name: '[None]', value: 'None' }, ...baseList];
+  const $charSelectors = $("[id^='cardList']");
+  const populatePromises = [];
+  $charSelectors.each(function (idx) {
+    const selID = this.id;
+    const entry = promptConfig.selectedCharacters[idx];
+    const valueToSet = entry ? entry.value : 'None';
+    populatePromises.push(populateSelector(masterCardList, selID, valueToSet));
+  });
+  // Wait until all selectors populated before adjusting buttons
+  await Promise.all(populatePromises);
+  enforceUniqueCharacterOptions();
+  applyMuteButtonStates(liveConfig);
+  updateAllSlotActionButtons();
   await populateSelector(APIList, "APIList", selectedAPI);
   await populateSelector(samplerPresetList, "samplerPresetList", selectedSamplerPreset);
   await populateSelector(instructList, "instructList", selectedInstruct);
@@ -148,7 +207,8 @@ async function processLiveConfig(configArray) {
 
   await populateInput(userChatDelay, "userChatDelay");
   await populateInput(AIChatDelay, "AIChatDelay");
-  await toggleCheckbox(allowImages, "allowImages");
+  // allowImages now a button toggle (not checkbox)
+  setButtonToggleState('#allowImages', allowImages);
 
 
   if (!APIConfig.modelList) {
@@ -497,10 +557,10 @@ async function updateConfigState(element) {
     value = $element.val()
   }
 
-  if (elementID === 'cardList') {
+  if (/^cardList\d*$/.test(elementID)) {
     arrayName = 'promptConfig'
     propName = 'selectedCharacter'
-    liveConfig['promptConfig']['cardList'] = getCardListArrayFromSelectorContents()
+    liveConfig['promptConfig'][elementID] = getCardListArrayFromSelectorContents(elementID)
     liveConfig['promptConfig']['selectedCharacterDisplayName'] = $element.find('option:selected').text()
   }
   else if ($element.is('select') && $element.hasClass('dynamicSelector')) {
@@ -545,15 +605,25 @@ async function updateConfigState(element) {
 const $cardList = $("#cardList");
 async function refreshCardList(cardList) {
   //console.warn('old cardList', liveConfig.promptConfig.cardList)
-  await populateSelector(cardList, "cardList", liveConfig.promptConfig.selectedCharacter);
-  await updateConfigState($cardList);
-  //console.warn('new cardList', liveConfig.promptConfig.cardList)
+  //do a for loop for each dom element that has 'cardlist' as the ID prefix
+  //first find all elements with id starting with 'cardList'
+  let numLists = $("[id^='cardList']").length
+  console.warn('saw', numLists, 'cardList selectors to refresh')
+  const master = [{ name: '[None]', value: 'None' }, ...(cardList || [])];
+  for (let i = 0; i < numLists; i++) {
+    const whichList = i === 0 ? 'cardList' : `cardList${i + 1}`;
+    const existing = liveConfig.promptConfig.selectedCharacters?.[i];
+    const val = existing ? existing.value : 'None';
+    await populateSelector(master, whichList, val);
+  }
+  enforceUniqueCharacterOptions();
+  rebuildSelectedCharactersFromUI();
 }
 
-function getCardListArrayFromSelectorContents() {
+function getCardListArrayFromSelectorContents(whichCardList = 'cardList') {
   const cardListObj = [];
   let i = 0;
-  $("#cardList option").each(function () {
+  $(`#${whichCardList} option`).each(function () {
     const optionValue = $(this).val();
     const optionText = $(this).text();
     cardListObj[i] = { name: optionText, value: optionValue };
@@ -597,19 +667,211 @@ $("#APIList").on("change", async function () {
     UUID: myUUID,
     type: 'clientStateChange',
     value: liveConfig
-  }
+  } 
 
   util.messageServer(stateChangeMessage);
   util.flashElement("apiList", "good");
 });
 
-$("#promptConfig input, #promptConfig select:not(#APIList, #modelList), #cardList, #hordeWorkerList").on('change', function () {
+$("#promptConfig input, #promptConfig select:not(#APIList, #modelList), [id^='cardList'], #hordeWorkerList").on('change', function () {
   updateConfigState($(this))
 })
 
 $("#systemPrompt, #D4AN, #D4CharDefs, #D1JB, #crowdControl input, #AIChatHostControls input, #userChatHostControls input").on('change', function () {
   updateConfigState($(this))
 })
+
+// allowImages toggle now handled in standalone module (allowImages.js) similar to disableGuestInput.
+
+// ================= Multi-Character Additions (helpers) =================
+function rebuildSelectedCharactersFromUI() {
+  const arr = [];
+  const $selectors = $("[id^='cardList']");
+  $selectors.each(function (idx) {
+    const val = $(this).val();
+    const text = $(this).find('option:selected').text();
+    const muted = isMutedButton(getMuteButtonForIndex(idx));
+    if (!val || val === 'None') {
+      arr.push({ value: 'None', displayName: '[None]', isMuted: false });
+    } else {
+      arr.push({ value: val, displayName: text, isMuted: muted });
+    }
+  });
+  if (!liveConfig.promptConfig) liveConfig.promptConfig = {};
+  liveConfig.promptConfig.selectedCharacters = arr;
+  const firstActive = arr.find(c => c.value !== 'None' && !c.isMuted) || arr.find(c => c.value !== 'None');
+  if (firstActive) {
+    liveConfig.promptConfig.selectedCharacter = firstActive.value;
+    liveConfig.promptConfig.selectedCharacterDisplayName = firstActive.displayName;
+  }
+  sendConfigStateUpdate('cardList');
+}
+
+function setButtonToggleState(selector, isOn) {
+  const $btn = $(selector);
+  if (!$btn.length) return;
+  $btn.toggleClass('toggleButtonOn', !!isOn);
+  $btn.attr('aria-pressed', !!isOn);
+}
+
+// (mute button helpers moved to muteCharButtons.js)
+
+function sendConfigStateUpdate(elementID) {
+  let stateChangeMessage = {
+    UUID: myUUID,
+    type: 'clientStateChange',
+    value: liveConfig
+  }
+  util.messageServer(stateChangeMessage);
+  util.flashElement(elementID, 'good');
+}
+
+function enforceUniqueCharacterOptions() {
+  const chosen = new Set();
+  const $selectors = $("[id^='cardList']");
+  $selectors.each(function () {
+    const v = $(this).val();
+    if (v && v !== 'None') chosen.add(v);
+  });
+  $selectors.each(function () {
+    const selfVal = $(this).val();
+    $(this).find('option').each(function () {
+      const optVal = $(this).val();
+      if (optVal === 'None' || optVal === selfVal) { $(this).prop('disabled', false).show(); return; }
+      if (chosen.has(optVal)) {
+        $(this).prop('disabled', true).hide();
+      } else {
+        $(this).prop('disabled', false).show();
+      }
+    });
+  });
+}
+
+function bindDynamicCharacterEvents() {
+  $("[id^='cardList']").off('change.multiChar').on('change.multiChar', function () {
+    const $sel = $(this);
+    const val = $sel.val();
+    const isBase = this.id === 'cardList';
+    // If non-base selector changed to None -> remove its whole slot
+    if (val === 'None' && !isBase) {
+      const $slot = $sel.closest('.custom-select');
+      if ($slot.length) {
+        $slot.remove();
+        // Re-index remaining dynamic slots to keep IDs compact & event assumptions intact
+        reindexCharacterSlots();
+      }
+    } else {
+      // Toggle action buttons visibility for this slot
+      toggleSlotActionButtons($sel);
+    }
+    enforceUniqueCharacterOptions();
+    rebuildSelectedCharactersFromUI();
+  });
+  // Re-bind mute button events via extracted module
+  bindMuteButtonEvents(rebuildSelectedCharactersFromUI);
+  $("[id^='forceCharReply']").off('click.multiChar').on('click.multiChar', function () {
+    const idx = $("[id^='forceCharReply']").index(this);
+    const sel = liveConfig?.promptConfig?.selectedCharacters?.[idx];
+    if (!sel || sel.value === 'None') return;
+    const username = $('#usernameInput').val() || $('#AIUsernameInput').val() || null;
+    util.messageServer({
+      type: 'requestAIResponse',
+      trigger: 'force',
+      UUID: myUUID,
+      character: { value: sel.value, displayName: sel.displayName },
+      username
+    });
+  });
+  $("[id^='charDefsPopupButton']").off('click.multiChar').on('click.multiChar', async function () {
+    const idx = $("[id^='charDefsPopupButton']").index(this);
+    const sel = liveConfig?.promptConfig?.selectedCharacters?.[idx];
+    if (!sel || sel.value === 'None') return;
+    if (typeof callCharDefPopup === 'function') {
+      callCharDefPopup(sel.value);
+    } else {
+      util.messageServer({ type: 'displayCharDefs', value: sel.value, UUID: myUUID });
+    }
+  });
+}
+
+function addCharacterSlot(skipRebuild = false) {
+  const base = $('#cardList').closest('.custom-select').first();
+  if (!base.length) return;
+  const count = $("[id^='cardList']").length;
+  const nextIndex = count + 1;
+  const clone = base.clone(true, true);
+  // Update IDs
+  clone.find('#charDefsPopupButton').attr('id', `charDefsPopupButton${nextIndex}`);
+  clone.find('#cardList').attr('id', `cardList${nextIndex}`).val('None');
+  clone.find('#forceCharReply').attr('id', `forceCharReply${nextIndex}`);
+  const $newMute = clone.find('#muteChar').attr('id', `muteChar${nextIndex}`).removeClass('greyscale');
+  ensureMuteButtonInitialState($newMute);
+  // Insert before the Add button container
+  $('#addCharacterSlot').parent().before(clone);
+  // Ensure newly added slot starts with hidden action buttons (since value is None)
+  toggleSlotActionButtons(clone.find('#cardList'));
+  updateAllSlotActionButtons();
+  bindDynamicCharacterEvents();
+  bindMuteButtonEvents(rebuildSelectedCharactersFromUI);
+  enforceUniqueCharacterOptions();
+  if (!skipRebuild) {
+    rebuildSelectedCharactersFromUI();
+  }
+}
+
+// Hide/show the three action buttons inside the same slot depending on value
+function toggleSlotActionButtons($selector) {
+  if (!$selector || !$selector.length) return;
+  const val = $selector.val();
+  const $slot = $selector.closest('.custom-select');
+  if (!$slot.length) return;
+  const hide = (val === 'None');
+  const $buttons = $slot.find('.charSlotActionButton');
+  if (hide) {
+    $buttons.addClass('isHiddenForNone');
+  } else {
+    $buttons.removeClass('isHiddenForNone');
+  }
+}
+
+function updateAllSlotActionButtons() {
+  $("[id^='cardList']").each(function(){
+    toggleSlotActionButtons($(this));
+  });
+}
+
+// Re-index dynamic character slots after a removal so indices stay contiguous
+function reindexCharacterSlots() {
+  const $slots = $('#addCharacterSlot').parent().parent().find('.custom-select');
+  // First slot keeps base IDs
+  $slots.each(function (i) {
+    const $slot = $(this);
+    const isBase = (i === 0);
+    const $sel = $slot.find('[id^="cardList"]');
+    const $defs = $slot.find('[id^="charDefsPopupButton"]');
+    const $force = $slot.find('[id^="forceCharReply"]');
+    const $mute = $slot.find('[id^="muteChar"]');
+    if (isBase) {
+      $sel.attr('id', 'cardList');
+      $defs.attr('id', 'charDefsPopupButton');
+      $force.attr('id', 'forceCharReply');
+      $mute.attr('id', 'muteChar');
+    } else {
+      const idx = i + 1; // 2nd slot -> index 2 etc
+      $sel.attr('id', `cardList${idx}`);
+      $defs.attr('id', `charDefsPopupButton${idx}`);
+      $force.attr('id', `forceCharReply${idx}`);
+      $mute.attr('id', `muteChar${idx}`);
+    }
+    toggleSlotActionButtons($sel);
+  });
+  bindDynamicCharacterEvents();
+}
+
+$(document).ready(function () {
+  bindDynamicCharacterEvents();
+  $('#addCharacterSlot').off('click.multiAdd').on('click.multiAdd', function () { addCharacterSlot(); });
+});
 
 $(".numbersOnlyTextInput").on("input", function () {
   const original = $(this).val();
@@ -676,10 +938,6 @@ $(".numbersOnlyTextInput").on("keydown", function (e) {
     $(this).val(String(newVal)).trigger("input").trigger("change");
   }
 });
-
-
-
-
 
 async function addNewAPI() {
   //check each field for validity, flashElement if invalid
@@ -756,7 +1014,8 @@ export default {
   processLiveConfig,
   updateConfigState,
   refreshCardList,
-  liveConfig,
+  // Direct liveConfig reference is a snapshot; use getLiveConfig() for current object
+  getLiveConfig: () => liveConfig,
   populateSelector,
   setEngineMode,
   addNewAPI,

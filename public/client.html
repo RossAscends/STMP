@@ -58,6 +58,11 @@
                                                     <option value="8192">8k</option>
                                                     <option value="16384">16k</option>
                                                     <option value="32768">32k</option>
+                                                    <option value="65536">64k</option>
+                                                    <option value="131072">128k</option>
+                                                    <option value="262144">256k</option>
+                                                    <option value="524288">512k</option>
+                                                    <option value="1048576">1M</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -73,6 +78,10 @@
                                                     <option value="600">600</option>
                                                     <option value="800">800</option>
                                                     <option value="1000">1000</option>
+                                                    <option value="1500">1500</option>
+                                                    <option value="2000">2000</option>
+                                                    <option value="2500">2500</option>
+                                                    <option value="3000">3000</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -242,18 +251,16 @@
                             <button id="emptyAIChatDisplay" class="transition250 chatSweep bgTransparent square1p5em fontSize1p25em greyscale textshadow" title="Empty AI Chat\n(Affects Your Display Only)">🧹</button>
                             <!-- </div> -->
                             <div class="flexbox alignItemsCenter AIChatHeaderCenterCluster">
-                                Chat as
+                                AI Chat name:
                                 <span id="AIChatUserNameHolder" hidden></span>
                                 <label for="AIUsernameInput" class="alignItemsCenter alignSelfCenter flexFlowCol flexbox noTextWrap noWrap widthFitContent">
                                     <input type="text" maxlength="12" id="AIUsernameInput" class="width100px bgBrightUp" placeholder="Username">
                                 </label>
-
-                                with
-                                <div class="custom-select hostControls">
+                                <!--<div class="custom-select hostControls">
                                     <select id="cardList" class="hostControls flex1 dynamicSelector"></select>
                                 </div>
                                 <button id="charListRefresh" class="hostControls bgTransparent mutedColor fontSize1p25em square1p5em" title="Refresh Character List">🔄</button>
-                                <span id="charName"></span>
+                                <span id="charName"></span> -->
                             </div>
                             <div id="NOOP_AIChatHeaderSpacer" class="guestSpacing square1p5em fontSize1p25em" style="opacity: 0;"> </div>
                             <button id="clearAIChat" class="hostControls bgTransparent square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear AI Chat History\n(Ends current chat session and starts a new one with selected character.)">🗑️</button>
@@ -272,7 +279,7 @@
                                 <input type="text" id="AIChatAutoClearCadence" data-for-config-array="crowdControl" class="numbersOnlyTextInput hostControls flexbox Vcentered" value="2">
                             </label>
                             <button id="deleteLastMessageButton" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Remove last message from chat">✂️</button>
-                            <button id="charDefsPopupButton" class="hostControls bgTransparent mutedColor fontSize1p25em square1p5em" title="Open Character Definitions Edit Panel">🧠</button>
+                            <!-- <button id="charDefsPopupButton" class="hostControls bgTransparent mutedColor fontSize1p25em square1p5em" title="Open Character Definitions Edit Panel">🧠</button> -->
                             <label for="AIResponseCadence" class="flexbox noWrap square1p5em  textshadow Vcentered" title="Trigger AI Response every X User messages (max 999)">
                                 <button id="triggerAIResponse" class="fontSize1p5em square1p5em bgTransparent greyscale textshadow" title="Click to Request Immediate AI Response">🤖</button>
                                 <div class="unavailable-overlay">
@@ -296,12 +303,11 @@
                         <div class="Hcentered Vcentered chatHeader flexbox justifySpaceBetween positionRelative">
                             <button id="emptyUserChatDisplay" class="transition250 chatSweep bgTransparent square1p5em fontSize1p25em greyscale textshadow" title="Empty  Chat\n(Affects Your Display Only)">🧹</button>
                             <div class="flexbox alignItemsCenter ">
-                                Chat as
+                                User-only chat name:
                                 <span id="userChatUserNameHolder" hidden></span>
                                 <label for="usernameInput" class="alignItemsCenter alignSelfCenter flexFlowCol flexbox noTextWrap noWrap widthFitContent">
                                     <input type="text" maxlength="12" id="usernameInput" class="width100px bgBrightUp" placeholder="Username">
                                 </label>
-                                with Other Users
                             </div>
                             <div>
                                 <div id="NOOP_UserChatHeaderSpacer" class="guestSpacing square1p5em fontSize1p25em" style="opacity: 0;"> </div>
@@ -349,8 +355,22 @@
                 </div>
                 <hr class="width100p">
             </div>
+            <div class="flexFlowCol flexbox hostControls justifyContentCenter alignContentCenter alignItemsCenter">
+                Active Characters
+                <div class="custom-select hostControls">
+                    <button id="charDefsPopupButton" class="hostControls charSlotActionButton bgTransparent mutedColor fontSize1p25em square1p5em" title="Open Character Definitions Edit Panel">🧠</button>
+                    <select id="cardList" class="hostControls flex1 dynamicSelector"></select>
+                    <button id="forceCharReply" class="hostControls charSlotActionButton charForceResponseButton flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Trigger single response from this character">💬</button>
+                    <button id="muteChar" class="hostControls toggleButton charMuteButton charSlotActionButton flexbox Vcentered bgTransparent fontSize1p25em greyscale dimmed textshadow" title="Exclude this character from automated response chains">🚫</button>
+                </div>
+                <div class="width100p flexbox justifyContentCenter marginTop5">
+                    <button id="addCharacterSlot" class="hostControls bgTransparent mutedColor" title="Add another character slot">➕ Add Character</button>
+                </div>
+                <hr class="width100p">
+            </div>
             <div class="flexFlowCol flexbox flex1">
                 <div id="crowdControl" class=" isArrayType flexbox flexFlowCol heightFitContent justifyContentEnd Vcentered">
+
                     <div class="alignItemsCenter flexbox flexFlowCol">
 
                         <div class="flexbox alignItemsCenter flexFlowCol">
@@ -368,21 +388,20 @@
                                     L <input id="themeLightness" class="width3p5em" data-for="lightness" type="number" min="0" max="100" title="Lightness 0 to 100">
                                 </div>
                             </div>
-                            <button id="keepAliveAudio" class="Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Play silent background audio to keep remote connections alive">🔊</button>
+
                         </div>
 
                         <div class="flexbox alignItemsCenter">
+                            <button id="keepAliveAudio" class="Vcentered toggleButton bgTransparent fontSize1p25em mutedColor textshadow" title="Play silent background audio to keep remote connections alive">🎶</button>
                             <button id="showHostToast" class="hostControls flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Send a Host Toast to all Users">📢</button>
-                            <button id="disableGuestInput" class="hostControls flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable Guest Input">🤐</button>
+                            <button id="disableGuestInput" class="hostControls toggleButton flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="disable Guest Input" aria-pressed="false">🤐</button>
                             <button id="turnBasedMode" class="hostControls unavailable-overlay flexbox Hcentered Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Turn-based Mode">🔢</button>
-                            <label for="allowImages" class="hostControls Vcentered checkbox_label flexbox noWrap" title="Allow Image Embeds in Chat Messages">
-                                <span class="mutedColor textshadow fontSize1p25em">🖌️</span>
-                                <input type="checkbox" id="allowImages" class="flexbox Vcentered width50px" title="Allow Image Embeds in Chat Messages">
-                            </label>
+                            <button id="allowImages" class="hostControls toggleButton flexbox Vcentered bgTransparent fontSize1p25em mutedColor textshadow" title="Allow Image Embeds in Chat Messages (toggle)" aria-pressed="false">🖌️</button>
                         </div>
                     </div>
                 </div>
-                <div id="lists" class="flexbox flex1 justifyContentCenter">
+                <hr class="width100p">
+                <div id="lists" class="flexbox flex1 justifyContentCenter noGap">
                     <div id="userList" class="flexbox transition250 flexFlowCol ">
                         <small class="alignSelfCenter">Users</small>
                         <ul></ul>

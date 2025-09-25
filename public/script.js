@@ -13,6 +13,7 @@ import handleconfig from './src/handleconfig.js'
 import { streamUpdater } from "./src/streamUpdater.js";
 import hostToast from "./src/hostToast.js";
 import disableGuestInput from "./src/disableGuestInput.js";
+import allowImagesModule from "./src/allowImages.js";
 
 export var username,
   isAutoResponse,
@@ -250,7 +251,7 @@ async function processConfirmedConnection(parsedMessage) {
   isHost = role === "host" ? true : false;
   //console.debug(`my UUID is: ${myUUID}`);
   var userRole = isHost ? "Host" : "Guest";
-  disableGuestInput.toggleState(guestInputPermissionState);
+  // (Moved) disableGuestInput state will be applied after UI config processing for consistent animation timing.
   $("#userRole").text(userRole);
   $("#charName").text(selectedCharacterDisplayName);
   $("#charName").parent().prop('title', `Powered by ${parsedMessage.selectedModelForGuestDisplay}`);
@@ -312,6 +313,9 @@ async function processConfirmedConnection(parsedMessage) {
       $("#userListsWrap").removeClass('opacityZero')//.addClass('opacityZero').show()
     }
   }
+
+  // Apply disableGuestInput state AFTER control panel / config population so its visual transition matches other toggles
+  disableGuestInput.toggleState(guestInputPermissionState);
 
   updateUserList("userList", userList);
 
@@ -665,8 +669,10 @@ async function connectWebSocket(username) {
       case "guestConnectionConfirmed":
       case "connectionConfirmed":
         //console.info(parsedMessage.liveConfig)
-        allowImages = handleconfig.allowImages() || parsedMessage.crowdControl.allowImages
+  allowImages = handleconfig.allowImages() || parsedMessage.crowdControl.allowImages
         //console.warn('allowImages upon connection: ', allowImages)
+  // Sync allowImages button visual now that liveConfig is available
+  allowImagesModule.syncFromLiveConfig();
         processConfirmedConnection(parsedMessage);
         break;
       case "hostStateChange":
@@ -1018,8 +1024,9 @@ window.addEventListener("beforeunload", () => {
   }
 });
 
-async function callCharDefPopup() {
-  const whichChar = $("#cardList").val()
+export async function callCharDefPopup(whichCharOverride = null) {
+  const whichChar = whichCharOverride || $("#cardList").val();
+  if (!whichChar || whichChar === 'None') return;
   let charDefs = await getCharDefs(whichChar)
   await showCharDefs(charDefs, whichChar)
 
@@ -1221,6 +1228,10 @@ async function callCharDefPopup() {
     });
   }
 
+}
+// Expose for non-module references
+if (typeof window !== 'undefined') {
+  window.callCharDefPopup = callCharDefPopup;
 }
 
 //MARK: disableButtons
@@ -1870,7 +1881,7 @@ $(async function () {
   //close the past chats on page load
   //util.toggleControlPanelBlocks($("#pastChatsToggle"), "single");
   $(".unavailable-overlay").attr("title", "This feature is not yet available.");
-  $("#charDefsPopupButton").on('click', function () { callCharDefPopup() })
+  // Legacy single-character charDefs button binding removed; per-slot bindings now handled in handleconfig.js
 
   const $aiChatDropZone = $("#AIChat");
 

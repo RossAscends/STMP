@@ -1,61 +1,50 @@
 import util from './utils.js';
-import { myUUID, isPhone, isLandscape, isHost } from '../script.js';
+import { myUUID, isHost } from '../script.js';
 
-const $button = $("#disableGuestInput");
-const $body = $("body");
-//console.warn($button.prop('title'))
+const $button = $('#disableGuestInput');
+const $body = $('body');
 
-async function requestDisable() {
-    if (myUUID) {
-        const disableGuestInputMessage = {
-            type: "disableGuestInput",
-            UUID: myUUID,
-        };
-        util.messageServer(disableGuestInputMessage);
-    }
+function setHostButtonState(allowed) {
+    // allowed === true means guests CAN type (host would show option to disable)
+    const isPressed = !allowed; // pressed visually when guest input is disabled
+    $button.toggleClass('toggleButtonOn', isPressed);
+    $button.attr('aria-pressed', isPressed ? 'true' : 'false');
+    $button.prop('title', isPressed ? 'Allow Guest Input' : 'Disable Guest Input');
 }
 
-async function requestAllow() {
-    if (myUUID) {
-        const allowGuestInputMessage = {
-            type: "allowGuestInput",
-            UUID: myUUID,
-        };
-        util.messageServer(allowGuestInputMessage);
-    }
+async function sendToggleRequest(nextAllowed) {
+    if (!myUUID) return;
+    const type = nextAllowed ? 'allowGuestInput' : 'disableGuestInput';
+    util.messageServer({ type, UUID: myUUID });
 }
 
 function toggleState(allowed) {
-    console.debug("[disableGuestInput.toggleState] called with allowed:", allowed);
+    // allowed: boolean - whether guests are allowed to input
+    console.debug('[disableGuestInput.toggleState] allowed:', allowed);
     if (!isHost) {
         if (!allowed) {
-            $body.addClass("disableGuestInput");
-            $(".inputAndIconsWrapper ").prop('title', "Guest Input Disabled by Host");
+            $body.addClass('disableGuestInput');
+            $('.inputAndIconsWrapper ').prop('title', 'Guest Input Disabled by Host');
         } else {
-            $body.removeClass("disableGuestInput");
-            $(".inputAndIconsWrapper ").prop('title', "");
+            $body.removeClass('disableGuestInput');
+            $('.inputAndIconsWrapper ').prop('title', '');
         }
-    }
-    else if (isHost) {
-        if (allowed) {
-            $button.prop('title', "Disable Guest Input").removeClass('toggledOnCrowdControl');
-
-        } else {
-            $button.prop('title', "Allow Guest Input").addClass('toggledOnCrowdControl');
-
-        }
+    } else {
+        setHostButtonState(allowed);
     }
 }
 
-export default { requestDisable, requestAllow, toggleState };
+export default { toggleState };
 
-$(async function () {
-    $button.on("click", async () => {
-        //send either function depending on the title value of the button
-        if ($button.prop('title') === "Allow Guest Input") {
-            await requestAllow()
-        } else {
-            await requestDisable();
-        }
+$(function () {
+    if (!$button.length) return;
+    $button.on('click', function () {
+        if (!isHost) return; // guests shouldn't trigger
+        // Derive next state from aria-pressed (pressed means currently disabled)
+    const isPressed = $button.attr('aria-pressed') === 'true';
+        const nextAllowed = isPressed; // if pressed (disabled), clicking will allow
+        // Optimistically update UI for snappier feel
+        setHostButtonState(nextAllowed);
+        sendToggleRequest(nextAllowed);
     });
 });

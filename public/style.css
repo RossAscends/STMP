@@ -273,7 +273,7 @@ hr {
 
 #userList,
 #AIChatUserList {
-    width: 7vw;
+    width: 50%;
     overflow-y: auto;
     max-height: 100%;
     overflow-x: hidden;
@@ -782,7 +782,7 @@ pre {
  */
 
 #pastChatsBlock {
-    max-height: 50vh;
+    max-height: 40vh;
     flex-shrink: 0;
     overflow-y: auto;
     overflow-x: hidden;
@@ -1033,6 +1033,10 @@ pre {
     filter: saturate(0);
 }
 
+.greyscale.dimmed {
+    filter: saturate(0) brightness(0.5);
+}
+
 .mutedColor {
     filter: saturate(0.3);
 }
@@ -1235,10 +1239,33 @@ body:not(.noShadow) .textshadow {
     opacity: 0.5;
 }
 
-.toggledOnCrowdControl {
-    border: 5px solid #2b9b3d;
+.toggleButton {
+    /* Base (off) state: square & transparent */
+    background-color: transparent;
+    border-radius: 6px; /* small square-ish corners */
+    /* Transition both radius & color simultaneously */
+    transition: border-radius 220ms ease, background-color 220ms ease, filter 220ms ease;
+}
+.toggleButton.toggleButtonOn {
+    background-color: #12591d;
     border-radius: 50%;
     filter: unset;
+}
+/* Explicit override to avoid inherited transition: all jitter */
+.hostControls.toggleButton { transition: border-radius 220ms ease, background-color 220ms ease, filter 220ms ease; }
+
+/* Accessibility focus ring */
+.toggleButton:focus-visible { outline: 2px solid #2fa04c; outline-offset: 3px; }
+
+/* Character slot action buttons fade-in support */
+.charSlotActionButton {
+    opacity: 1;
+    transition: opacity 180ms ease-in;
+}
+.charSlotActionButton.isHiddenForNone {
+    visibility: hidden; /* retains layout */
+    opacity: 0;
+    pointer-events: none;
 }
 
 body.disableGuestInput #inputBlock *,

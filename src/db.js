@@ -742,7 +742,7 @@ async function getMessage(messageID, sessionID) {
             logger.error(`Message not found for messageID ${messageID} and sessionID ${sessionID}. this is result: ${result}`);
             return null;
         }
-        if (result) logger.debug(`Message found, returning to user.`); //: ${result.message}`);
+        if (result) logger.debug(`Message found, returning message text.`); //: ${result.message}`);
         return result.message
 
     } catch (err) {
@@ -900,6 +900,21 @@ async function exportSession(sessionID) {
     }
 }
 
+async function getAIChatMessageRow(messageID, sessionID) {
+    const db = await dbPromise;
+    try {
+        const row = await db.get('SELECT * FROM aichats WHERE message_id = ? AND session_id = ?', [messageID, sessionID]);
+        if (!row) {
+            dbLogger.warn(`getAIChatMessageRow: No row for message_id ${messageID}, session ${sessionID}`);
+        }
+        return row || null;
+    } catch (err) {
+        dbLogger.error('getAIChatMessageRow error:', err);
+        return null;
+    }
+}
+    // return full AI chat message row (including username, entity, etc)}
+
 ensureDatabaseSchema(schemaDictionary);
 
 export default {
@@ -916,6 +931,7 @@ export default {
     deleteAIChatMessage,
     deleteUserChatMessage,
     getMessage,
+    getAIChatMessageRow,
     deletePastChat,
     getUserColor,
     upsertUserRole,

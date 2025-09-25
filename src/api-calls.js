@@ -315,6 +315,13 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
     //logger.debug(`addCharDefsToPrompt: ${username}`)
     return new Promise(async function (resolve, reject) {
         try {
+            // Guard: only allow definition load if character is currently active
+            const activeEntries = (liveConfig?.promptConfig?.selectedCharacters || []).filter(c => c.value && c.value !== 'None');
+            const isActive = activeEntries.some(c => c.value === charFile);
+            if (!isActive) {
+                logger.warn(`[CharDefs] Attempt to load defs for non-active character: ${charFile}. Skipping.`);
+                return resolve(['', []]);
+            }
 
             let charData = await fio.charaRead(charFile, 'png')
             let chatHistory = await ObjectifyChatHistory()

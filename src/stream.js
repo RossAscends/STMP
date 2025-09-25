@@ -8,7 +8,10 @@ import { EventEmitter } from 'events';
 import iconv from 'iconv-lite';
 import purify from './purify.js';
 
+// Emits incremental text tokens for streaming responses
 const textEmitter = new EventEmitter();
+// Emits 'responseComplete' when an AI response (streamed or non-streamed) has fully finished
+export const responseLifecycleEmitter = new EventEmitter();
 
 var isStreaming = true
 let accumulatedStreamOutput = ''
@@ -48,6 +51,13 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
         };
         //logger.warn('sending stream end')
         broadcast(streamEndToken); // Emit the event to clients
+        // Notify queue manager / server that this character's response is complete
+        responseLifecycleEmitter.emit('responseComplete', {
+            characterDisplayName: liveConfig.promptConfig.selectedCharacterDisplayName,
+            characterValue: liveConfig.promptConfig.selectedCharacter,
+            chatID: parsedMessage.chatID,
+            streamed: true
+        });
         //}
     };
 
@@ -154,6 +164,13 @@ async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, 
             liveConfig.promptConfig.selectedCharacterDisplayName, 'AI', trimmed, 'AI'
         );
         await broadcast(AIResponseMessage);
+        // Non-streamed completion notification
+        responseLifecycleEmitter.emit('responseComplete', {
+            characterDisplayName: liveConfig.promptConfig.selectedCharacterDisplayName,
+            characterValue: liveConfig.promptConfig.selectedCharacter,
+            chatID: parsedMessage.chatID,
+            streamed: false
+        });
     }
 }
 
@@ -311,5 +328,5 @@ async function readStreamChunks(readableStream) {
 }
 
 export default {
-    handleResponse, createTextListener, readStreamChunks, processStreamedResponse
+    handleResponse, createTextListener, readStreamChunks, processStreamedResponse, responseLifecycleEmitter
 }

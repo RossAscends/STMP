@@ -162,7 +162,7 @@ $(() => {
         }
         didHandleKeepAliveTap = true;
 
-        $("#keepAliveAudio").toggleClass("toggledOnCrowdControl");
+    $("#keepAliveAudio").toggleClass("toggleButtonOn");
         doKeepAliveAudio = !doKeepAliveAudio;
 
         if (doKeepAliveAudio) {

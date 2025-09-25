@@ -14,7 +14,7 @@ import db from './src/db.js';
 import fio from './src/file-io.js';
 import api from './src/api-calls.js';
 import converter from './src/purify.js';
-import stream from './src/stream.js';
+import stream, { responseLifecycleEmitter } from './src/stream.js';
 import { logger } from './src/log.js';
 //import $ from 'jquery';
 
@@ -82,6 +82,300 @@ const __dirname = path.dirname(__filename);
 // Configuration
 const secretsPath = path.join(__dirname, 'secrets.json');
 let engineMode = 'TC'
+
+// ================= Multi-Character Queue State (New) =================
+// In-memory queue of pending character responses; elements: { value, displayName }
+let responseQueue = [];
+let queueActive = false; // indicates queue processing in progress
+let currentResponder = null; // the character currently generating a response
+
+function broadcastQueueState() {
+    const payload = {
+        type: 'responseQueueUpdate',
+        active: queueActive,
+        current: currentResponder ? { value: currentResponder.value, displayName: currentResponder.displayName } : null,
+        remaining: responseQueue.map(c => ({ value: c.value, displayName: c.displayName }))
+    };
+    logger.info(`[Queue] Broadcast state: active=${payload.active} current=${payload.current?.displayName || 'none'} remaining=${payload.remaining.map(r=>r.displayName).join(', ')}`);
+    broadcast(payload);
+}
+
+function migrateSelectedCharactersIfNeeded(liveConfig) {
+    if (!liveConfig?.promptConfig) return;
+    const pc = liveConfig.promptConfig;
+    if (!pc.selectedCharacters || !Array.isArray(pc.selectedCharacters) || pc.selectedCharacters.length === 0) {
+        // Build from legacy single selection
+        const value = pc.selectedCharacter;
+        if (value) {
+            const displayName = pc.selectedCharacterDisplayName || value;
+            pc.selectedCharacters = [{ value, displayName, isMuted: false }];
+        } else {
+            pc.selectedCharacters = [];
+        }
+    }
+    // Ensure legacy fields mirror first non-muted character (or first if all muted)
+    const first = pc.selectedCharacters.find(c => !c.isMuted) || pc.selectedCharacters[0];
+    if (first) {
+        pc.selectedCharacter = first.value;
+        pc.selectedCharacterDisplayName = first.displayName;
+    }
+}
+
+// Build ordered queue based on latest user message content & mute states
+function buildResponseQueue(trigger, context, liveConfig) {
+    const pc = liveConfig.promptConfig;
+    migrateSelectedCharactersIfNeeded(liveConfig);
+    const chars = Array.isArray(pc.selectedCharacters) ? pc.selectedCharacters : [];
+
+    if (trigger === 'force' || trigger === 'regenerate') {
+        if (context?.character) return [context.character];
+        return [];
+    }
+
+    // Filter out muted
+    const active = chars.filter(c => !c.isMuted && c.value && c.value !== 'None');
+    if (active.length === 0) return [];
+
+    const rawMessage = (context?.latestUserMessageText || '').trim();
+    // Active character display names (lowercase) for fast membership tests
+    const activeDisplaySet = new Set(active.map(c => (c.displayName || '').toLowerCase()));
+    const message = rawMessage.toLowerCase();
+    if (!message) {
+        logger.info('[Queue] No latestUserMessageText provided; falling back to pure shuffle.');
+        return shuffle(active.slice());
+    }
+    logger.info(`[Queue] Building ordered queue from message: "${rawMessage}"`);
+
+    // Match ordering: characters whose names appear first (by regex word-ish match), others random
+    const matched = [];
+    const unmatched = [];
+    active.forEach(c => {
+        const name = (c.displayName || '').trim();
+        if (!name) { unmatched.push(c); return; }
+        const escaped = name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Allow exact word or simple possessive (Bob or Bob's)
+        const pattern = new RegExp(`(^|[^a-z0-9_])(${escaped})(?:'s)?(?=$|[^a-z0-9_])`, 'i');
+        const match = message.match(pattern);
+        if (match) {
+            const idx = match.index + (match[1] ? match[1].length : 0); // account for leading boundary capture
+            matched.push({ idx, c });
+            logger.info(`[Queue][Match] ${name} at index ${idx}`);
+        } else {
+            unmatched.push(c);
+        }
+    });
+    matched.sort((a, b) => a.idx - b.idx);
+    const ordered = matched.map(m => m.c);
+    const shuffledUnmatched = shuffle(unmatched);
+    const finalOrder = ordered.concat(shuffledUnmatched);
+    logger.info(`[Queue] Ordered result: ${finalOrder.map(c=>c.displayName).join(' -> ')}`);
+    return finalOrder;
+}
+
+function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+async function startQueueProcessing(parsedMessage, user, selectedAPI, hordeKey, engineMode, liveConfig) {
+    if (queueActive) return; // already processing
+    queueActive = true;
+    logger.info(`[Queue] Starting queue with ${responseQueue.length} characters.`);
+    broadcastQueueState();
+    processNextInQueue(parsedMessage, user, selectedAPI, hordeKey, engineMode, liveConfig);
+}
+
+async function processNextInQueue(parsedMessage, user, selectedAPI, hordeKey, engineMode, liveConfig) {
+    if (responseQueue.length === 0) {
+        queueActive = false;
+        currentResponder = null;
+        logger.info('[Queue] Queue exhausted.');
+        broadcastQueueState();
+        return;
+    }
+    currentResponder = responseQueue.shift();
+    logger.info(`[Queue] Processing next responder: ${currentResponder.displayName}. Remaining after this: ${responseQueue.length}`);
+    broadcastQueueState();
+    // Apply legacy single-character fields for downstream API functions (with validation)
+    liveConfig.promptConfig.selectedCharacter = currentResponder.value;
+    liveConfig.promptConfig.selectedCharacterDisplayName = currentResponder.displayName;
+    const stillActive = (liveConfig.promptConfig.selectedCharacters||[]).some(c => c.value === currentResponder.value);
+    if (!stillActive) {
+        const fallback = (liveConfig.promptConfig.selectedCharacters||[]).find(c => c.value && c.value !== 'None');
+        logger.warn(`[Queue] Current responder ${currentResponder.displayName} no longer active; falling back to ${fallback?.displayName || 'NONE'}`);
+        if (fallback) {
+            liveConfig.promptConfig.selectedCharacter = fallback.value;
+            liveConfig.promptConfig.selectedCharacterDisplayName = fallback.displayName;
+            currentResponder = fallback; // keep consistency
+        } else {
+            logger.warn('[Queue] No fallback available; aborting queue processing.');
+            queueActive = false;
+            currentResponder = null;
+            broadcastQueueState();
+            return;
+        }
+    }
+    // Ensure username for macro replacement (no silent generic fallback)
+    if (!parsedMessage.username) {
+        parsedMessage.username = await resolveUsernameHint(parsedMessage, user) || null;
+        if (!parsedMessage.username) logger.warn('[UsernameResolve] Queue step: unable to resolve username; {{user}} macros may be blank.');
+    }
+
+    // Trigger existing single-character pipeline
+    await stream.handleResponse(
+        { ...parsedMessage, chatID: 'AIChat' }, selectedAPI, hordeKey,
+        engineMode, user, liveConfig, false
+    );
+}
+
+// Listen for completion from stream.js to continue queue
+responseLifecycleEmitter.on('responseComplete', async () => {
+    if (!queueActive) return;
+    // slight delay to avoid tight loop
+    setTimeout(() => {
+        processNextInQueue(lastParsedMessageForQueue, lastUserForQueue, lastSelectedAPIForQueue, lastHordeKeyForQueue, lastEngineModeForQueue, lastLiveConfigForQueue);
+    }, 25);
+});
+
+// Keep last context to reuse between queue steps
+let lastParsedMessageForQueue = null;
+let lastUserForQueue = null;
+let lastSelectedAPIForQueue = null;
+let lastHordeKeyForQueue = null;
+let lastEngineModeForQueue = null;
+let lastLiveConfigForQueue = null;
+
+function captureQueueContext(parsedMessage, user, selectedAPI, hordeKey, engineMode, liveConfig) {
+    lastParsedMessageForQueue = parsedMessage;
+    lastUserForQueue = user;
+    lastSelectedAPIForQueue = selectedAPI;
+    lastHordeKeyForQueue = hordeKey;
+    lastEngineModeForQueue = engineMode;
+    lastLiveConfigForQueue = liveConfig;
+}
+
+async function handleRequestAIResponse(parsedMessage, user, selectedAPI, hordeKey, engineMode, liveConfig, ws) {
+    migrateSelectedCharactersIfNeeded(liveConfig);
+    const trigger = parsedMessage.trigger || 'auto';
+    // Ensure username present for macro replacement (no generic fallback)
+    if (!parsedMessage.username) {
+        parsedMessage.username = await resolveUsernameHint(parsedMessage, user) || null;
+        if (!parsedMessage.username) logger.warn('[UsernameResolve] Initial request: username unresolved for trigger', trigger);
+    }
+    const context = {
+        character: parsedMessage.character,
+        latestUserMessageText: parsedMessage.latestUserMessageText || '',
+        latestUserMessageID: parsedMessage.latestUserMessageID || parsedMessage.mesID
+    };
+
+    // Fallback: if no latestUserMessageText provided (e.g., trigger came from userChat or system), attempt retrieval
+    if (!context.latestUserMessageText) {
+        context.latestUserMessageText = await getMostRecentUserMessageText();
+        if (context.latestUserMessageText) {
+            logger.info('[Queue] Fallback populated latestUserMessageText from history.');
+        }
+    }
+
+    if (queueActive && trigger !== 'force' && trigger !== 'regenerate') {
+        ws && ws.send && ws.send(JSON.stringify({ type: 'queueSuppressed', reason: 'queue_active' }));
+        logger.info('[Queue] Suppressed new trigger while queue active.');
+        return;
+    }
+
+    const allMuted = (liveConfig.promptConfig.selectedCharacters || []).filter(c => c.value && c.value !== 'None').every(c => c.isMuted);
+    if ((trigger !== 'force' && trigger !== 'regenerate') && allMuted) {
+        logger.info('[Queue] All characters muted; ignoring requestAIResponse.');
+        return;
+    }
+
+    if (trigger === 'force' || trigger === 'regenerate') {
+        const ch = context.character;
+        if (!ch || !ch.value) {
+            logger.warn('[Queue] Force/regenerate request missing character');
+            return;
+        }
+        liveConfig.promptConfig.selectedCharacter = ch.value;
+        liveConfig.promptConfig.selectedCharacterDisplayName = ch.displayName;
+        captureQueueContext(parsedMessage, user, selectedAPI, hordeKey, engineMode, liveConfig);
+        logger.info(`[Queue] Direct ${trigger} response for ${ch.displayName}`);
+        await stream.handleResponse(
+            { ...parsedMessage, chatID: 'AIChat' }, selectedAPI, hordeKey,
+            engineMode, user, liveConfig, false
+        );
+        return;
+    }
+
+    responseQueue = buildResponseQueue(trigger, context, liveConfig);
+    if (responseQueue.length === 0) {
+        logger.info('[Queue] No characters to enqueue (none selected or all muted).');
+        return;
+    }
+    captureQueueContext(parsedMessage, user, selectedAPI, hordeKey, engineMode, liveConfig);
+    await startQueueProcessing(parsedMessage, user, selectedAPI, hordeKey, engineMode, liveConfig);
+}
+
+async function getLastUserMessageUsername() {
+    // Scan AIChat (entity === 'user') for last human user entry
+    try {
+        let [data] = await db.readAIChat();
+        const arr = JSON.parse(data);
+        for (let i = arr.length - 1; i >= 0; i--) {
+            if (arr[i].entity === 'user' && arr[i].username && arr[i].username !== 'Unknown') return arr[i].username;
+        }
+    } catch (e) {
+        logger.debug('[UsernameResolve] AIChat scan failed:', e.message);
+    }
+    return null;
+}
+
+async function getMostRecentUserMessageText() {
+    // Try AIChat first (since AI triggers rely on that chain), then userChat
+    try {
+        let [aiData] = await db.readAIChat();
+        const arr = JSON.parse(aiData);
+        for (let i = arr.length - 1; i >= 0; i--) {
+            if (arr[i].entity === 'user' && arr[i].content) return (arr[i].content || '').replace(/<[^>]+>/g,'').trim();
+        }
+    } catch (e) {
+        logger.debug('[Queue] getMostRecentUserMessageText AIChat scan failed:', e.message);
+    }
+    try {
+        let [userData] = await db.readUserChat();
+        const arr2 = JSON.parse(userData);
+        for (let i = arr2.length - 1; i >= 0; i--) {
+            if (arr2[i].content) return (arr2[i].content || '').replace(/<[^>]+>/g,'').trim();
+        }
+    } catch (e) {
+        logger.debug('[Queue] getMostRecentUserMessageText userChat scan failed:', e.message);
+    }
+    return '';
+}
+
+async function getLastUserChatUsername() {
+    // Scan userChat history for last message username
+    try {
+        let [data] = await db.readUserChat();
+        const arr = JSON.parse(data);
+        for (let i = arr.length - 1; i >= 0; i--) {
+            if (arr[i].username && arr[i].username !== 'Unknown') return arr[i].username;
+        }
+    } catch (e) {
+        logger.debug('[UsernameResolve] userChat scan failed:', e.message);
+    }
+    return null;
+}
+
+async function resolveUsernameHint(parsedMessage, user) {
+    if (parsedMessage?.username) return parsedMessage.username;
+    if (user?.username) return user.username;
+    const uc = await getLastUserChatUsername();
+    if (uc) return uc;
+    const ai = await getLastUserMessageUsername();
+    return ai;
+}
 
 //MARK: Routes
 localApp.get('/', async (req, res) => {
@@ -638,7 +932,20 @@ async function handleConnections(ws, type, request) {
             await db.getAPI(liveConfig.promptConfig.selectedAPI)
         ]);
 
-        if (APIConfig.name = 'Default') liveConfig.promptConfig.selectedAPI = 'Default'; //fallback to default if stored selected API not found
+        // Correct fallback logic: only set to Default if APIConfig is missing or the named API doesn't exist
+        if (!APIConfig || APIConfig.name === undefined) {
+            liveConfig.promptConfig.selectedAPI = 'Default';
+            APIConfig = await db.getAPI('Default');
+        } else if (APIConfig.name !== liveConfig.promptConfig.selectedAPI) {
+            // If the retrieved APIConfig does not match the stored selectedAPI, verify existence
+            const maybe = await db.getAPI(liveConfig.promptConfig.selectedAPI);
+            if (!maybe) {
+                liveConfig.promptConfig.selectedAPI = 'Default';
+                APIConfig = await db.getAPI('Default');
+            } else {
+                APIConfig = maybe; // realign to requested one
+            }
+        }
 
         await fio.writeConfig(liveConfig);
 
@@ -709,6 +1016,8 @@ async function handleConnections(ws, type, request) {
 
                     logger.info('writing liveConfig to file')
                     liveConfig = parsedMessage.value
+                    // Migrate / validate multi-character schema
+                    migrateSelectedCharactersIfNeeded(liveConfig)
                     await fio.writeConfig(liveConfig)
                     logger.info('broadcasting new liveconfig to all hosts')
                     let hostStateChangeMessage = {
@@ -730,6 +1039,10 @@ async function handleConnections(ws, type, request) {
                     }
                     await broadcast(guestStateMessage, 'guest');
                     return
+                }
+                else if (parsedMessage.type === 'requestAIResponse') {
+                    await handleRequestAIResponse(parsedMessage, user, selectedAPI, hordeKey, engineMode, liveConfig, ws);
+                    return;
                 }
                 else if (parsedMessage.type === 'modelSelect') {
                     const selectedModel = parsedMessage.value;
@@ -837,38 +1150,52 @@ async function handleConnections(ws, type, request) {
 
                         if (target === '#AIChat') {
                             logger.warn('Saving and clearing AIChat...');
-                            await saveAndClearChat('AIChat');
+                            const newSessionID = await saveAndClearChat('AIChat');
+                            await broadcast({ type: 'clearAIChat', sessionID: newSessionID });
 
-                            await broadcast({ type: 'clearAIChat' });
+                            migrateSelectedCharactersIfNeeded(liveConfig);
+                            const scArr = (liveConfig.promptConfig.selectedCharacters || [])
+                                .filter(c => c.value && c.value !== 'None' && !c.isMuted);
+                            if (scArr.length === 0) {
+                                logger.warn('[ClearAIChat] No active characters to seed first messages.');
+                            }
 
-                            const charFile = liveConfig.promptConfig.selectedCharacter;
-                            logger.warn(`selected character: ${charFile}`);
-                            const cardData = await fio.charaRead(charFile, 'png');
-                            const cardJSON = JSON.parse(cardData);
-                            const firstMes = api.replaceMacros(cardJSON.first_mes, thisUserUsername, cardJSON.name);
-                            const charName = cardJSON.name;
-                            const sessionID = await db.getActiveChat('AIChat');
-                            const messageID = await db.getNextMessageID();
+                            for (const charEntry of scArr) {
+                                try {
+                                    const charFile = charEntry.value;
+                                    const cardData = await fio.charaRead(charFile, 'png');
+                                    const cardJSON = JSON.parse(cardData);
+                                    const charName = cardJSON.name || charEntry.displayName || 'AI';
+                                    const firstMesRaw = cardJSON.first_mes || '';
+                                    const firstMes = api.replaceMacros(firstMesRaw, thisUserUsername, charName);
 
-                            const newAIChatFirstMessage = {
-                                type: 'chatMessage',
-                                chatID: 'AIChat',
-                                sessionID: sessionID,
-                                messageID: messageID,
-                                content: purifier.makeHtml(firstMes), //firstMes,
-                                username: charName,
-                                entity: 'AI',
-                                AIChatUserList: [{ username: charName, color: 'white', entity: 'AI', role: 'AI' }],
-                            };
+                                    // Persist message (DB assigns timestamp & message_id)
+                                    await db.writeAIChatMessage(charName, charName, firstMes, 'AI');
 
-                            logger.warn('Adding the first message to the chat file');
-                            await db.writeAIChatMessage(charName, charName, firstMes, 'AI');
-                            logger.warn(`Sending ${charName}'s first message to AI Chat`);
-                            let newChat = await db.readAIChat();
-                            let lastMessage = newChat[0][newChat[0].length - 1];
-                            let newTimestamp = lastMessage.timestamp;
-                            newAIChatFirstMessage.timestamp = newTimestamp;
-                            await broadcast(newAIChatFirstMessage);
+                                    // Query just-inserted row (fast lookup)
+                                    const dbRow = await (async () => {
+                                        const [rowsJSON] = await db.readAIChat(newSessionID); // returns [json, sessionID]
+                                        const rows = JSON.parse(rowsJSON);
+                                        return rows[rows.length - 1];
+                                    })();
+
+                                    const outMessage = {
+                                        type: 'chatMessage',
+                                        chatID: 'AIChat',
+                                        sessionID: dbRow?.sessionID || newSessionID,
+                                        messageID: dbRow?.messageID || null,
+                                        content: purifier.makeHtml(firstMes),
+                                        username: charName,
+                                        entity: 'AI',
+                                        timestamp: dbRow?.timestamp || new Date().toISOString(),
+                                        AIChatUserList: [{ username: charName, color: 'white', entity: 'AI', role: 'AI' }],
+                                    };
+                                    await broadcast(outMessage);
+                                    logger.warn(`[ClearAIChat] Seeded first message for ${charName} (session ${outMessage.sessionID}, messageID ${outMessage.messageID})`);
+                                } catch (seedErr) {
+                                    logger.error('[ClearAIChat] Error seeding first message for character slot:', charEntry, seedErr);
+                                }
+                            }
                         }
 
                         if (target === '#userChat') {
@@ -949,11 +1276,44 @@ async function handleConnections(ws, type, request) {
                     //MARK: AIRetry
                     // Read the AIChat file
                     try {
-                        let activeSessionID = await removeLastAIChatMessage()
-                        await stream.handleResponse(
-                            parsedMessage, selectedAPI, hordeKey,
-                            engineMode, user, liveConfig, false, activeSessionID
-                        );
+                        // Fetch the original message BEFORE removal so we have its metadata
+                        const originalRow = await db.getAIChatMessageRow(parsedMessage.mesID, parsedMessage.sessionID);
+                        let activeSessionID = await removeLastAIChatMessage();
+
+                        migrateSelectedCharactersIfNeeded(liveConfig);
+                        const scArr = liveConfig.promptConfig.selectedCharacters || [];
+
+                        let targetCharEntry = null;
+                        if (originalRow) {
+                            const uname = (originalRow.username || '').toLowerCase();
+                            // 1. Direct displayName match
+                            targetCharEntry = scArr.find(c => (c.displayName || '').toLowerCase() === uname) || null;
+                            // 2. If no match, attempt match by stripping extension from value path
+                            if (!targetCharEntry && uname) {
+                                targetCharEntry = scArr.find(c => (c.value || '').toLowerCase().includes(uname));
+                            }
+                        }
+                        // 3. Fallback: use first non-[None] entry
+                        if (!targetCharEntry) {
+                            targetCharEntry = scArr.find(c => c.value !== 'None') || scArr[0] || null;
+                        }
+
+                        if (!targetCharEntry) {
+                            logger.warn('[AIRetry] Could not resolve character entry; aborting regenerate.');
+                            return;
+                        }
+
+                        const originatingUser = originalRow?.originalSender || await getLastUserMessageUsername() || null;
+                        if (!originatingUser) logger.warn('[UsernameResolve] AIRetry: could not resolve originating user; {{user}} may be blank.');
+                        logger.info(`[AIRetry] Regenerating for character ${targetCharEntry.displayName} (${targetCharEntry.value}) triggered by user ${originatingUser}`);
+                        await handleRequestAIResponse({
+                            type: 'requestAIResponse',
+                            trigger: 'regenerate',
+                            character: { value: targetCharEntry.value, displayName: targetCharEntry.displayName },
+                            mesID: parsedMessage.mesID,
+                            latestUserMessageID: parsedMessage.mesID,
+                            username: originatingUser
+                        }, user, selectedAPI, hordeKey, engineMode, liveConfig, ws);
                         return
                     } catch (parseError) {
                         logger.error('JSON parse error during AI Retry:', parseError);
@@ -1247,17 +1607,20 @@ async function handleConnections(ws, type, request) {
                     }
 
                     if (
-                        //normal user typing into chat with autoAI on
                         (liveConfig.promptConfig.isAutoResponse) ||
-                        //autoAI off, and user hasn't typed anything, but user is last in chat so no continuing
                         (!liveConfig.promptConfig.isAutoResponse && (!userInput || userInput.length == 0)) ||
-                        shouldContinue //AI is last in chat, and user wants to continue
+                        shouldContinue
                     ) {
-                        //normal user typing into AIChart, or forced trigger
-                        await stream.handleResponse(
-                            parsedMessage, selectedAPI, hordeKey,
-                            engineMode, user, liveConfig, shouldContinue
-                        );
+                        // Multi-character aware auto trigger: treat as 'auto'
+                        const aiTriggerMsg = {
+                            type: 'requestAIResponse',
+                            trigger: shouldContinue ? 'manual' : 'auto',
+                            latestUserMessageText: parsedMessage.userInput || '',
+                            latestUserMessageID: userPrompt?.messageID,
+                            mesID: userPrompt?.messageID,
+                            username: username // preserve user name for macro replacement
+                        };
+                        await handleRequestAIResponse(aiTriggerMsg, user, selectedAPI, hordeKey, engineMode, liveConfig, ws);
                     }
                 }
                 //read the current userChat file
@@ -1288,6 +1651,12 @@ async function handleConnections(ws, type, request) {
 
             } else {
                 logger.warn(`Unknown message type received (${parsedMessage.type}). Ignoring.`)
+            }
+
+            // Global (non-host) direct requestAIResponse support (e.g., future mod actions) - only if host not already processed
+            if (parsedMessage.type === 'requestAIResponse' && thisUserRole !== 'host') {
+                logger.info('[Queue] Non-host requestAIResponse received; forwarding to handler (permissions may be restricted in future).');
+                await handleRequestAIResponse(parsedMessage, user, selectedAPI, hordeKey, engineMode, liveConfig, ws);
             }
         } catch (error) {
             logger.error('Error parsing message:', error);

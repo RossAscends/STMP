@@ -30,10 +30,9 @@ For tech support or to contact RossAscends directly, join the [SillyTavern Disco
 
 1. Make sure [Node JS](https://nodejs.org/) is installed on your system and has access through your firewall.
 2. Clone this github repo into a new folder NOT the main SillyTavern folder. (`git clone https://github.com/RossAscends/STMP/` in a command line, or use a Github GUI like Github Desktop)
-3. Setup the API (see below).
-4. Run `STMP.bat` to install the required Node modules and start the server.
-5. On the first run, the server will create an empty `secrets.json` and a default `config.json`, as well as the `/api-presets/` and `/chats/` folders.
-6. Open `http://localhost:8181/` in your web browser.
+3. Run `STMP.bat` to install the required Node modules and start the server.
+4. On the first run, the server will create an empty `secrets.json` and a default `config.json`, as well as the `/api-presets/` and `/chats/` folders.
+5. Open `http://localhost:8181/` in your web browser.
 
 ### Docker
 

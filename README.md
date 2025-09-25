@@ -51,7 +51,7 @@ For tech support or to contact RossAscends directly, join the [SillyTavern Disco
 
 ### Using Horde
 
-You can use Horde as an anonymous user, but that generally leads to slower queue times.
+You can use Horde as an anonymous user, but that generally leads to slower response times.
 
 To use your Horde API key in STMP, add it to `secrets.json` like this (server should run at least once):
 
@@ -63,7 +63,7 @@ To use your Horde API key in STMP, add it to `secrets.json` like this (server sh
 }
 ```
 
-Don't have one? Register [here](https://horde.koboldai.net/register) (it's free).
+Don't have one? [Registering a HordeAI account is free and easy](https://horde.koboldai.net/register).
 
 ### Multiuser Setup
 
@@ -73,11 +73,9 @@ This must be done AFTER completing all installation steps above.
 1. Run `Remote-Link.cmd` to download `cloudflared.exe` (only one time, 57MB).
 2. the Cloudflared server will auto-start and generate a random tunnel URL for your STMP server.
 3. Copy the URL displayed in the middle of the large box in the center of the console window.
-
-> ***DO NOT CLOSE THE CLOUDFLARE CONSOLE WINDOW***
-
-4. Share the generated cloudflared URL with the guest users.
-5. User will be able to directly and securely connect to your PC by opening the URL in their browser.
+4. **DO NOT CLOSE THE CLOUDFLARE CONSOLE WINDOW**
+5. Share the generated cloudflared URL with the guest users.
+6. User will be able to directly and securely connect to your PC by opening the URL in their browser.
 
 ## Play
 
@@ -121,30 +119,32 @@ Insertions Section
 
 ### Adding/Editing APIs
 
-Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeAI via SillyTavern.
+Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeAI.
 
-> External Text Completion and Chat Completion connections are currently a Work in Progress!
-> We have tested connecting to OpenAI compatible APIs, as well as Anthropic's Claude.
-> Most other LLM backends that provide an API in the same format should be compatible with STMP.
+> STMP has been tested with the following APIs:
+>
+> - [TabbyAPI](https://github.com/theroyallab/tabbyAPI)
+> - [YALS](https://github.com/theroyallab/YALS)
+> - [KoboldCPP](https://github.com/LostRuins/koboldcpp)
+> - [Aphrodite](https://github.com/PygmalionAI/aphrodite-engine)
+> - [Oobabooga Textgeneration Webui](https://github.com/PygmalionAI/aphrodite-engine) (OpenAI compatible mode)
+> - [OpenRouter](https://openrouter.ai) is supported in CC mode.
+> - OpenAI official API
+> - Anthropic's Claude
+>
+> Other LLM backends that provide an Open AI compatible API should wotk with STMP.
 
-- [TabbyAPI](https://github.com/theroyallab/tabbyAPI) and [KoboldCPP](https://github.com/LostRuins/koboldcpp) are confirmed to work with STMP's TC API mode.
-- [Oobabooga Textgeneration Webui](https://github.com/PygmalionAI/aphrodite-engine) works with their OpenAI-compatible CC API mode.
-- [OpenRouter](https://openrouter.ai) is supported in CC mode.
-- We suspect [Aphrodite](https://github.com/PygmalionAI/aphrodite-engine) should be compatible as well, but have not tested it yet.
-
-1. select `Add new API` from the `API` selector to open the API Editing panel.
+1. Select `Add new API` from the `API` selector to open the API Editing panel.
 2. A new panel will be displayed with new inputs:
-
-- `Name` - the label you want to remember the API as
-- `Endpoint URL` - this is the base server URL for the LLM API. If the usual URL does not work, try adding `v1/` to the end.
-- `Key` - If your API requires a key, put it in here.
-- `Endpoint Type` - select from Text Completions or Chat Completions as appropriate for the API endpoint.
-- `Claude` - select this if the API is based on Anthropic's Claude model, because it needs special prompt formatting.
-- `Close` button will cancel the API editing/creating process and return you to the main AI Config panel.
-- `Test` button sends a simple test message to the API to get a response. This may not work on all APIs.
-- `Save` confirms the API addition/edit and saves it to the database.
-- `Delete` removes the APi from the database.
-
+  a. `Name` - the label you want to remember the API as
+  b. `Endpoint URL` - this is the base server URL for the LLM API. If the usual URL does not work, try adding `v1/` to the end.
+  c. `Key` - If your API requires a key, put it in here.
+  d. `Endpoint Type` - select from Text Completions or Chat Completions as appropriate for the API endpoint.
+  e. `Claude` - select this if the API is based on Anthropic's Claude model, because it needs special prompt formatting.
+  f. `Close` - will cancel the API editing/creating process and return you to the main AI Config panel.
+  g. `Test` - sends a simple test message to the API to get a response. This may not work on all APIs.
+  h. `Save` - confirms the API addition/edit and saves it to the database.
+  i. `Delete` - removes the APi from the database.
 3. When all of the fields are filled out, press `Save` to return to the main Control panel display.
 
 #### Past Chats
@@ -152,53 +152,56 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 - A list of past AI Chats, click one to load it.
 - Information listed with each past session item:
   - AI characters in the chat history
-  - number of messages in AI Chat
-  - timestamp for the last message
-- the list is ordered in reverse chronological (newest chats first)
+  - Number of messages in AI Chat
+  - Timestamp for the last message
+- The list is ordered in reverse chronological (newest chats first)
 
 ### User List
 
-- The right side of the screen contains two users lists, one for each of the chats.
-- Users with the Host role will have a 🔑 next to their name.
+- The right side of the screen contains two users lists, one for each chat.
+- Users with the Host role will have a 👑 next to their name.
 - The AI Characters will have a 🤖 next to their names in the AI Chat User List.
 
 #### Crowd Controls
 
-- (🤖⏳) sets the number of seconds delay between inputs to the AI Chat.
-- (🧑⏳) does the same, but for the User-to-User chat.
-- During the delay period the (✏️) for that chat will become (🚫), and no input will be possible.
+- (🎶) is a toggle that will play/stop a looping background audio track ("Cup of COhee" be Deffcolony). This helps mobile keep their websocket connection active when they minimize the app.
+- (🤐) is a toggle to completely disable guest inputs for both chats.
+- (🖌️) is a toggle to allow or deny markdown image display.
+- (📢) lets the Host send a large notification to all connected users.
 
 ### Top Bar Controls
 
 #### Left
 
 - (🎛️) toggles visibility of the Host Control Panel.
+
+#### Center
+
 - (🖼️) toggles the chat windows between three modes: maximize AI chat >> maximize User Chat >> return to normal dual display.
-  - **this is very helpful for mobile users!**
-- (📜) toggles display of both User lists.
+- (🔃) forces a page refresh.
+- (▶️/⏸️) allows for manual disconnect/reconnect to the server.
+- (🔑) opens a text box for input of the Host key in order to gain the Host role.
+  - Once a vlid key has been entered, the page will automatically refresh to show the host controls.
+  - **The Host key can be found in the server console at startup.**
+  - After the user enters the key and presses Enter, their page will refresh and they will see the Host controls.
+- (⛔) clears the saved Usernames and UniqueID from localStorage.
+  - If you are not the primary Host you will lose any roles you were given.
+  - You will be asked to register a new username next time you sign in on the same browser.
 
 #### Right
 
-- (▶️/⏸️) allows for manual disconnect/reconnect to the server.
-- (🛠️) opens a Profile management menu which contains:
-  - Two text fields to change your displayed username in either the User Chat or AI Chat.
-  - (🔑) opens a text box for input of the Host key in order to gain the Host role.
-    - Once a vlid key has been entered, the page will automatically refresh to show the host controls.
-    - **The Host key can be found in the server console at startup.**
-    - After the user enters the key and presses Enter, their page will refresh and they will see the Host controls.
-  - (⛔) clears the saved Usernames and UniqueID from localStorage.
-    - If you are not the primary Host you will lose any roles you were given.
-    - You will be asked to register a new username next time you sign in on the same browser.
-  - (🔊) (only on mobile) will cause a 10 minute silent audio to play when you minimize the browser window, preventing the websocket from being disconnected while the window is minimized. This is played each time you minimize the app.
+- (📜) toggles display of both User lists.
 
 ### In the Chat Windows
 
-- AI Chat: a selector to set the active AI character
-- Both chats: (🗑️) to clear either chat.
+- (🗑️) Host only, Clears either chat.
   - clearing the AI Chat will automatically create a new chat with the selected Character.
+- (🧹) All users, visually clears the chat to reduce UI lag, but does not actually destroy anything.
 
 #### Above the AI Chat Input Bar
 
+- (⏳) Host only. Sets the chat 'cooldown' for regular members.
+  - During the delay period the (✏️) for that chat will become (🚫), and no input will be possible.
 - (🤖) Manually triggering an AI response without user Input
 - (✂️) Deleting the last message in the AI Chat
 - (🔄) Retry, i.e. Remove the last chat message and prompt the AI character to give a new response.
@@ -209,29 +212,26 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
   - We will add a way to add characters without restarting the server soon.
 - Characters can be selected at the top of the AI Chat panel.
 - Characters can be swapped at any time without resetting the chat, allowing you to manually simulate a group chat.
+- Drag-drop a v2 card spec character card over the chat to import.
 
 #### Editing Characters
 
-- Hosts will see a (🧠) next to the Character Selector. This will open a popup with the character definitions.
+- Hosts will see a (🧠) next to Character Selectors. This will open a popup with the character definitions.
 - STMP only handles three types of character definitions:
   - `Name` - What is displayed as the character's name in the chat.
   - `Description` - What goes into the prompt at either the top, or at D4 if 'D4 Char Defs' box is checked.
   - `First Message` - What gets auto-inserted into a new chat with that character.
+  - `Embedded Lorebook` - This is currently not used by STMP, but is visible for user reference.
+- (👁️) at the top of the character definition panel will show Legacy Fields
+  - Legacy Fields are **read-only**. STMP does not use them.
+  - Legacy fields = Personality, Example Messages, and Scenario.
 - `Save` will update the character definitions.
 - `Close` will close the popup with no changes.
 
->What about Personality, Scenario, and Example Messages?
+>Why are Personality, Scenario, and Example Messages considered 'Legacy'?
 
 - Personality and Scenario are outdated distinctions without a meaningful purpose, and should be incorporated into the Description.
 - Example Message can also be incorporated into the Description. We recommend doing so in the form of [AliChat](https://discord.com/channels/553948136629075968/1137875580457590884/1198559176935354508).
-
->What about v2 Card Spec values?
-
-STMP will read from the v2 spec values if they are present, but will only write to the v1 card spec space.
-
->What about embedded lorebooks?
-
-Incorporating embedded lorebooks is under consideration.
 
 ### Adding Presets
 
@@ -239,7 +239,7 @@ Incorporating embedded lorebooks is under consideration.
 - Samplers go in `/public/api-presets/`
 - Instruct formats go in`/public/instructFormats/`
 - **It's highly reccomended to review the structure of the default STMP preset files.**
-- SillyTavern preset files may not work, or may have unintended effects!
+- **SillyTavern preset files will not work.**
 
 ## Planned Features
 
@@ -250,7 +250,7 @@ Incorporating embedded lorebooks is under consideration.
 ### Host Controls
 
 - ~~Toggle for locking AI chat for users? (this is already kind of done with AutoResponse off)~~
-- Drag-sort list to set User Turn Order for AI chatting?
+- Turn-based Mode with Drag-sort list to set input Order
 - Ability to rename chats.
 - ability for Host to edit a User's role from the UI
 - ability to change the max length of chat inputs (currently 1000 characters)
@@ -259,20 +259,27 @@ Incorporating embedded lorebooks is under consideration.
 - ~~disallow names that are only spaces, punctuations, or non ASCII (non-Latin?) characters~~
   - ~~require at least 3? A-Za-z characters~~
 - disallow registering of names that are already in the DB
+- character creation in-app
+- create instruct preset types in-app
+- I/O for full app setup presets (includes: single API without key, )
+- basic use of character-embedded lorebooks
 
 ### Quality of Life
 
 - ~~make control for guests to clear DISPLAY of either chat (without affecting the chat database) to prevent browser lag~~
+- auto-parse reasoning into a collapsable container
 - highlight exact username matches in AI response with their color
 - fade out users in user chat list who havent chatted in X minutes (add a css class with opacity 50%)
 - fade out users in ai chat list who are no longer connected, or are faded out in user list (same)
 - show which users in the User Chat are using which name in the AI Chat
 - add a link to the User message that the AI is responding to at the top of each AI message.
 - When an AI resposne is triggered by UserX's input, UserX sees that response highlighted in the chat
+- add external folder selector to source characters from.
 
 ### Low-priority but Nice-to-have Features
 
-- Multiple AI characters active at once (group chats)
-- Download chats as text, JSON, or SillyTavern-compatible JSONL?
+- ~~Multiple AI characters active at once (group chats)~~
+- export chats as text, JSON, or SillyTavern-compatible JSONL?
 - ~~UI themes~~
-- Bridge extension for SillyTavern to enable intra-server communication.
+- Bridge extension for SillyTavern to enable intra-server communication?
+- send images from local drive to user-only chat

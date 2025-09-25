@@ -93,7 +93,7 @@ This must be done AFTER completing all installation steps above.
 
 The host will see the following controls:
 
-### Control Panel (left side)
+### Control Panel (🎛️)
 
 #### AI Controls
 
@@ -117,7 +117,7 @@ Insertions Section
 - `Author Note(D4)` defines what will be inserted as a system message at Depth 4 in the prompt.
 - `Final Instruction(D1, "JB")` defines what to send as a system message at Depth 1 in the prompt.
 
-### Adding/Editing APIs
+#### Adding/Editing APIs
 
 Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeAI.
 
@@ -147,6 +147,16 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
   i. `Delete` - removes the APi from the database.
 3. When all of the fields are filled out, press `Save` to return to the main Control panel display.
 
+### Adding Presets
+
+- If you want to add more presets for Instruct formats or hyperparameter Samplers, put the JSON file into the appropriate folder:
+- Samplers go in `/public/api-presets/`
+- Instruct formats go in`/public/instructFormats/`
+- **It's highly reccomended to review the structure of the default STMP preset files.**
+- **SillyTavern preset files will not work.**
+
+## Chats, Characters, and Crowd Controls (📜)
+
 ### Past Chats
 
 - A list of past AI Chats, click one to load it.
@@ -155,56 +165,6 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
   - Number of messages in AI Chat
   - Timestamp for the last message
 - The list is ordered in reverse chronological (newest chats first)
-
-### User List
-
-- The right side of the screen contains two users lists, one for each chat.
-- Users with the Host role will have a 👑 next to their name.
-- The AI Characters will have a 🤖 next to their names in the AI Chat User List.
-
-### Crowd Controls
-
-- (🎶) is a toggle that will play/stop a looping background audio track ("Cup of COhee" be Deffcolony). This helps mobile keep their websocket connection active when they minimize the app.
-- (🤐) is a toggle to completely disable guest inputs for both chats.
-- (🖌️) is a toggle to allow or deny markdown image display.
-- (📢) lets the Host send a large notification to all connected users.
-
-### Top Bar Controls
-
-#### Left
-
-- (🎛️) toggles visibility of the Host Control Panel.
-
-#### Center
-
-- (🖼️) toggles the chat windows between three modes: maximize AI chat >> maximize User Chat >> return to normal dual display.
-- (🔃) forces a page refresh.
-- (▶️/⏸️) allows for manual disconnect/reconnect to the server.
-- (🔑) opens a text box for input of the Host key in order to gain the Host role.
-  - Once a vlid key has been entered, the page will automatically refresh to show the host controls.
-  - **The Host key can be found in the server console at startup.**
-  - After the user enters the key and presses Enter, their page will refresh and they will see the Host controls.
-- (⛔) clears the saved Usernames and UniqueID from localStorage.
-  - If you are not the primary Host you will lose any roles you were given.
-  - You will be asked to register a new username next time you sign in on the same browser.
-
-#### Right
-
-- (📜) toggles display of both User lists.
-
-### In the Chat Windows
-
-- (🗑️) Host only, Clears either chat.
-  - clearing the AI Chat will automatically create a new chat with the selected Character.
-- (🧹) All users, visually clears the chat to reduce UI lag, but does not actually destroy anything.
-
-#### Above the AI Chat Input Bar
-
-- (⏳) Host only. Sets the chat 'cooldown' for regular members.
-  - During the delay period the (✏️) for that chat will become (🚫), and no input will be possible.
-- (🤖) Manually triggering an AI response without user Input
-- (✂️) Deleting the last message in the AI Chat
-- (🔄) Retry, i.e. Remove the last chat message and prompt the AI character to give a new response.
 
 ### Managing Characters
 
@@ -232,13 +192,47 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 - Personality and Scenario are outdated distinctions without a meaningful purpose, and should be incorporated into the Description.
 - Example Message can also be incorporated into the Description. We recommend doing so in the form of [AliChat](https://discord.com/channels/553948136629075968/1137875580457590884/1198559176935354508).
 
-### Adding Presets
+### User List
 
-- If you want to add more presets for Instruct formats or hyperparameter Samplers, put the JSON file into the appropriate folder:
-- Samplers go in `/public/api-presets/`
-- Instruct formats go in`/public/instructFormats/`
-- **It's highly reccomended to review the structure of the default STMP preset files.**
-- **SillyTavern preset files will not work.**
+- The right side of the screen contains two users lists, one for each chat.
+- Users with the Host role will have a 👑 next to their name.
+- The AI Characters will have a 🤖 next to their names in the AI Chat User List.
+
+### Crowd Controls
+
+- (🎶) is a toggle that will play/stop a looping background audio track ("Cup of COhee" be Deffcolony). This helps mobile keep their websocket connection active when they minimize the app.
+- (🤐) is a toggle to completely disable guest inputs for both chats.
+- (🖌️) is a toggle to allow or deny markdown image display.
+- (📢) lets the Host send a large notification to all connected users.
+
+## Top Bar Controls
+
+- (🖼️) toggles the chat windows between three modes: maximize AI chat >> maximize User Chat >> return to normal dual display.
+- (🔃) forces a page refresh.
+- (▶️/⏸️) allows for manual disconnect/reconnect to the server.
+- (🔑) opens a text box for input of the Host key in order to gain the Host role.
+  - Once a vlid key has been entered, the page will automatically refresh to show the host controls.
+  - **The Host key can be found in the server console at startup.**
+  - After the user enters the key and presses Enter, their page will refresh and they will see the Host controls.
+- (⛔) clears the saved Usernames and UniqueID from localStorage.
+  - If you are not the primary Host you will lose any roles you were given.
+  - You will be asked to register a new username next time you sign in on the same browser.
+
+## In-Chat Controls
+
+### Top of Each Chat
+
+- (🗑️) Host only, Clears either chat.
+  - clearing the AI Chat will automatically create a new chat with the selected Character.
+- (🧹) All users, visually clears the chat to reduce UI lag, but does not actually destroy anything.
+
+### Above the AI Chat Input Bar (Host Only)
+
+- (⏳) Sets the chat 'cooldown' for regular members.
+  - During the delay period the (✏️) for that chat will become (🚫), and no input will be possible.
+- (🤖) Manually triggering an AI response without user Input
+- (✂️) Deleting the last message in the AI Chat
+- (🔄) Retry, i.e. Remove the last chat message and prompt the AI character to give a new response.
 
 ## Planned Features
 

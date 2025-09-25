@@ -89,13 +89,11 @@ This must be done AFTER completing all installation steps above.
 - Some limited HTML styling is also possible inside user messages.
 - Users with the Host role can hover over any chat message in either chats to see editing and deletion buttons.
 
-## Hosting
-
 The host will see the following controls:
 
-### Control Panel (🎛️)
+## Control Panel (🎛️)
 
-#### AI Controls
+### AI Controls
 
 AI Config Section
 

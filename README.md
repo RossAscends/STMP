@@ -9,18 +9,10 @@ Created by RossAscends
 
 If this software brings you and your friend's joy, donations to Ross can be made via:
 
-<table style="width:500px">
-  <tr>
-    <td>
-  <a href="https://ko-fi.com/rossascends" target="_blank"><img src="https://files.catbox.moe/ktbc70.png" style="height:3em;"></a><br>
-<a href="https://ko-fi.com/rossascends" target="_blank">Ko-fi</a>
-    </td>
-    <td>
-  <a href="https://www.patreon.com/RossAscends" target="_blank"><img src="https://files.catbox.moe/qqncsx.png" style="height:3em;"></a><br>
-      <a href="https://www.patreon.com/RossAscends" target="_blank">Patreon</a>
-    </td>
-  </tr>
-</table>
+| Ko-fi | Patreon |
+|-------|---------|
+| [![Ko-fi](https://files.catbox.moe/ktbc70.png)](https://ko-fi.com/rossascends) | [![Patreon](https://files.catbox.moe/qqncsx.png)](https://www.patreon.com/RossAscends) |
+| [Ko-fi](https://ko-fi.com/rossascends) | [Patreon](https://www.patreon.com/RossAscends) |
 
 For tech support or to contact RossAscends directly, join the [SillyTavern Discord](https://discord.gg/sillytavern).
 

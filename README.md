@@ -9,10 +9,9 @@ Created by RossAscends
 
 If this software brings you and your friend's joy, donations to Ross can be made via:
 
-| Ko-fi | Patreon |
+| [Ko-fi](https://ko-fi.com/rossascends) | [Patreon](https://www.patreon.com/RossAscends) |
 |-------|---------|
 | [![Ko-fi](https://files.catbox.moe/ktbc70.png)](https://ko-fi.com/rossascends) | [![Patreon](https://files.catbox.moe/qqncsx.png)](https://www.patreon.com/RossAscends) |
-| [Ko-fi](https://ko-fi.com/rossascends) | [Patreon](https://www.patreon.com/RossAscends) |
 
 For tech support or to contact RossAscends directly, join the [SillyTavern Discord](https://discord.gg/sillytavern).
 

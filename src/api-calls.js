@@ -173,46 +173,56 @@ function countTokens(str) {
 function trimIncompleteSentences(input, include_newline = false) {
     if (input === undefined) { return 'Error processing response (could not trim sentences).' }
 
-    const punctuation = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit
-    let last = -1;
-    let stoppedAt = null; // 'punct' | 'newline'
-    for (let i = input.length - 1; i >= 0; i--) {
-        const char = input[i];
-        if (punctuation.has(char)) {
-            last = i;
-            stoppedAt = 'punct';
-            break;
-        }
-        if (include_newline && char === '\n') {
-            last = i;
-            stoppedAt = 'newline';
-            break;
-        }
-    }
-    if (last === -1) {
-        logger.debug(input.trimEnd())
-        return input.trimEnd();
-    }
-    let trimmedString = input.substring(0, last + 1).trimEnd();
+    // Define true sentence terminators and trailing closers we may include after them
+    const sentenceEnders = new Set(['.', '!', '?', '。', '！', '？']);
+    const trailingClosers = new Set(['"', "'", '”', '’', ')', '}', ']', '`', '»', '」', '】']);
 
-    // If we stopped at punctuation and the last retained line contains only
-    // punctuation and whitespace (e.g., a dangling quote on its own line),
-    // remove that line as well.
-    if (stoppedAt === 'punct') {
-        const lastNewline = trimmedString.lastIndexOf('\n');
-        const tail = lastNewline === -1 ? trimmedString : trimmedString.slice(lastNewline + 1);
+    const s = String(input);
+    let lastGood = -1; // index of last confirmed sentence ending (including any immediate closers)
+
+    // Scan forward to find the last complete sentence end
+    for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (sentenceEnders.has(ch)) {
+            let j = i + 1;
+            // Allow repeated enders like '!!' or '...'
+            while (j < s.length && sentenceEnders.has(s[j])) j++;
+            // Include immediate closing quotes/brackets after the ender(s)
+            while (j < s.length && trailingClosers.has(s[j])) j++;
+            lastGood = j - 1;
+            i = j - 1; // continue after what we consumed
+        }
+    }
+
+    // If we found a valid sentence termination, cut there
+    if (lastGood !== -1) {
+        let trimmed = s.slice(0, lastGood + 1).trimEnd();
+
+        // If the final retained line contains only punctuation/quotes, drop that line
+        const punctuationForTail = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '’', '」', '】', "'", '»']);
+        const lastNewline = trimmed.lastIndexOf('\n');
+        const tail = lastNewline === -1 ? trimmed : trimmed.slice(lastNewline + 1);
         const tailNoWS = tail.replace(/[ \t\r]+/g, '');
         if (tailNoWS.length > 0) {
             let onlyPunct = true;
             for (const c of tailNoWS) {
-                if (!punctuation.has(c)) { onlyPunct = false; break; }
+                if (!punctuationForTail.has(c)) { onlyPunct = false; break; }
             }
             if (onlyPunct) {
-                trimmedString = (lastNewline === -1 ? '' : trimmedString.slice(0, lastNewline)).trimEnd();
+                trimmed = (lastNewline === -1 ? '' : trimmed.slice(0, lastNewline)).trimEnd();
             }
         }
+        return trimmed;
     }
-    return trimmedString;
+
+    // Optionally, trim back to the last newline if no sentence enders found
+    if (include_newline) {
+        const idx = s.lastIndexOf('\n');
+        if (idx !== -1) return s.slice(0, idx).trimEnd();
+    }
+
+    // Fallback: right-trim only
+    return s.trimEnd();
 }
 
 async function ObjectifyChatHistory() {

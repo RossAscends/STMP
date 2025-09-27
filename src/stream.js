@@ -16,6 +16,63 @@ export const responseLifecycleEmitter = new EventEmitter();
 var isStreaming = true
 let accumulatedStreamOutput = ''
 
+// Heuristic fixer: if final text ends with unmatched quotes or markdown
+// delimiters, append the closing counterpart(s) at the end. This runs on the
+// final response only; we don't attempt full parsing—just minimal balancing.
+function autoMendMarkdown(text) {
+    if (typeof text !== 'string') return text;
+    let out = text;
+
+    // Helper counters
+    const countMatches = (re) => ((out.match(re)) || []).length;
+
+    // 1) Double quotes: if odd number of \" present, append closing \"
+    const dqCount = countMatches(/"/g);
+    if (dqCount % 2 === 1) out += '"';
+
+    // 2) Inline code: single backticks. If odd number, append one more
+    const backtickCount = countMatches(/`/g);
+    if (backtickCount % 2 === 1) out += '`';
+
+    // 3) Bold: ** delimiter pairs
+    const boldPairCount = countMatches(/\*\*/g);
+    if (boldPairCount % 2 === 1) out += '**';
+
+    // 4) Strikethrough: ~~ delimiter pairs
+    const strikePairCount = countMatches(/~~/g);
+    if (strikePairCount % 2 === 1) out += '~~';
+
+    // 5) Italic: single * (exclude ** and list bullets "* ")
+    // Only mend if there are unmatched OPENING italic markers ("*word" or "word*" logic favors closing when possible)
+    const s = out;
+    let openItalics = 0, closeItalics = 0;
+    for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (ch !== '*') continue;
+        // Skip bold ** sequences
+        if (i + 1 < s.length && s[i + 1] === '*') { i++; continue; }
+        // Skip list bullets: start of line (or after newline) followed by space
+        const atLineStart = (i === 0) || s[i - 1] === '\n';
+        const nextChar = s[i + 1];
+        if (atLineStart && (nextChar === ' ' || nextChar === '\t')) continue;
+        // Determine adjacency
+        const prevChar = i > 0 ? s[i - 1] : '';
+        const prevNonWS = prevChar && !/\s/.test(prevChar);
+        const nextNonWS = nextChar && !/\s/.test(nextChar);
+        if (!prevNonWS && !nextNonWS) continue; // ignore decorative or isolated *
+        // Prefer closing when there is an open unmatched run and closing is plausible
+        if (openItalics > closeItalics && prevNonWS) {
+            closeItalics++;
+        } else if (nextNonWS) {
+            openItalics++;
+        }
+    }
+    const unmatchedOpens = Math.max(0, openItalics - closeItalics);
+    if (unmatchedOpens > 0) out += '*'.repeat(unmatchedOpens);
+
+    return out;
+}
+
 const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, user, sessionID, messageID, shouldContinue) => {
     //logger.warn('createTextListener activated');
     let currentlyStreaming
@@ -49,7 +106,11 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
             //send the final markdown version at the end, replacing 
             rawResponse: accumulatedStreamOutput,
             consoleSeperator: '------------------', //this only exists to make the output easier to read
-            content: purifier.makeHtml(await api.trimIncompleteSentences(accumulatedStreamOutput)),
+            content: purifier.makeHtml(
+                autoMendMarkdown(
+                    await api.trimIncompleteSentences(accumulatedStreamOutput)
+                )
+            ),
             type: 'streamedAIResponseEnd',
                 // preserve targeting so client can finalize the correct node
                 sessionID: parsedMessage?.continueTarget?.sessionID || sessionID,

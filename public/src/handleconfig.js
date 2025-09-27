@@ -776,13 +776,42 @@ function bindDynamicCharacterEvents() {
     const sel = liveConfig?.promptConfig?.selectedCharacters?.[idx];
     if (!sel || sel.value === 'None') return;
     const username = $('#usernameInput').val() || $('#AIUsernameInput').val() || null;
-    util.messageServer({
-      type: 'requestAIResponse',
-      trigger: 'force',
-      UUID: myUUID,
-      character: { value: sel.value, displayName: sel.displayName },
-      username
-    });
+
+    // If currently streaming, ignore to avoid overlapping operations
+    if ($('body').hasClass('currentlyStreaming')) return;
+
+    // Detect if the last AI message author matches this slot's character display name
+    const $lastAI = $("#AIChat").find("div[data-entitytype='AI']").last();
+    const isLastFromAI = $lastAI && $lastAI.length > 0;
+    let lastAuthor = null;
+    if (isLastFromAI) {
+      const nae = String($lastAI.attr('data-name-and-entity') || '');
+      const dashIdx = nae.lastIndexOf('-');
+      lastAuthor = dashIdx >= 0 ? nae.substring(0, dashIdx) : nae;
+    }
+
+    if (isLastFromAI && lastAuthor && sel.displayName && lastAuthor === sel.displayName) {
+      // Treat as a continuation of the last AI message from this character
+      const mesID = $lastAI.data('messageid');
+      const sessionID = $lastAI.data('sessionid');
+      // Remove inline continue icon pre-send so it doesn't enter the prompt
+      $lastAI.find('i.inlineContinue').remove();
+      util.messageServer({
+        type: 'continueFromMessage',
+        UUID: myUUID,
+        mesID,
+        sessionID
+      });
+    } else {
+      // Fallback: single, immediate response from this character only (no full queue)
+      util.messageServer({
+        type: 'requestAIResponse',
+        trigger: 'force',
+        UUID: myUUID,
+        character: { value: sel.value, displayName: sel.displayName },
+        username
+      });
+    }
   });
   $("[id^='charDefsPopupButton']").off('click.multiChar').on('click.multiChar', async function () {
     const idx = $("[id^='charDefsPopupButton']").index(this);

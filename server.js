@@ -122,7 +122,7 @@ function migrateSelectedCharactersIfNeeded(liveConfig) {
 }
 
 // Build ordered queue based on latest user message content & mute states
-function buildResponseQueue(trigger, context, liveConfig) {
+function buildResponseQueue(trigger, context, liveConfig, options = {}) {
     const pc = liveConfig.promptConfig;
     migrateSelectedCharactersIfNeeded(liveConfig);
     const chars = Array.isArray(pc.selectedCharacters) ? pc.selectedCharacters : [];
@@ -140,6 +140,16 @@ function buildResponseQueue(trigger, context, liveConfig) {
     // Active character display names (lowercase) for fast membership tests
     const activeDisplaySet = new Set(active.map(c => (c.displayName || '').toLowerCase()));
     const message = rawMessage.toLowerCase();
+    // If instructed to force a specific character to the front (e.g., continuation), do so
+    const forceFirstDisplayName = options.forceFirstDisplayName?.trim();
+    if (forceFirstDisplayName) {
+        const first = active.find(c => (c.displayName || '').trim() === forceFirstDisplayName);
+        const rest = active.filter(c => (c.displayName || '').trim() !== forceFirstDisplayName);
+        const ordered = first ? [first].concat(shuffle(rest)) : shuffle(active.slice());
+        logger.info(`[Queue] Forced first responder: ${forceFirstDisplayName}. Order: ${ordered.map(c=>c.displayName).join(' -> ')}`);
+        return ordered;
+    }
+
     if (!message) {
         logger.info('[Queue] No latestUserMessageText provided; falling back to pure shuffle.');
         return shuffle(active.slice());
@@ -225,9 +235,12 @@ async function processNextInQueue(parsedMessage, user, selectedAPI, hordeKey, en
     }
 
     // Trigger existing single-character pipeline
+    // shouldContinue should only apply to the very first character in a continuation chain
+    const shouldContinueForThis = !!parsedMessage.__continueFirstOnly;
+    parsedMessage.__continueFirstOnly = false; // clear for subsequent responders
     await stream.handleResponse(
         { ...parsedMessage, chatID: 'AIChat' }, selectedAPI, hordeKey,
-        engineMode, user, liveConfig, false
+        engineMode, user, liveConfig, shouldContinueForThis
     );
 }
 
@@ -260,6 +273,7 @@ function captureQueueContext(parsedMessage, user, selectedAPI, hordeKey, engineM
 async function handleRequestAIResponse(parsedMessage, user, selectedAPI, hordeKey, engineMode, liveConfig, ws) {
     migrateSelectedCharactersIfNeeded(liveConfig);
     const trigger = parsedMessage.trigger || 'auto';
+    const isManualOrContinue = trigger === 'manual';
     // Ensure username present for macro replacement (no generic fallback)
     if (!parsedMessage.username) {
         parsedMessage.username = await resolveUsernameHint(parsedMessage, user) || null;
@@ -308,7 +322,34 @@ async function handleRequestAIResponse(parsedMessage, user, selectedAPI, hordeKe
         return;
     }
 
-    responseQueue = buildResponseQueue(trigger, context, liveConfig);
+    // Continuation behavior: if last chat message was by a specific active AI character, force them first
+    if (isManualOrContinue) {
+        try {
+            let [aiData] = await db.readAIChat();
+            const arr = JSON.parse(aiData);
+            const last = arr[arr.length - 1];
+            if (last?.entity === 'AI' && last?.username) {
+                const aiName = last.username; // displayName stored in chat history
+                // only force if that character is currently active and not muted
+                const active = (liveConfig.promptConfig.selectedCharacters||[]).filter(c => !c.isMuted && c.value && c.value !== 'None');
+                const found = active.find(c => (c.displayName||'').trim() === aiName.trim());
+                if (found) {
+                    responseQueue = buildResponseQueue(trigger, context, liveConfig, { forceFirstDisplayName: aiName });
+                    // Mark that only the first responder should continue
+                    parsedMessage.__continueFirstOnly = true;
+                } else {
+                    responseQueue = buildResponseQueue(trigger, context, liveConfig);
+                }
+            } else {
+                responseQueue = buildResponseQueue(trigger, context, liveConfig);
+            }
+        } catch (e) {
+            logger.debug('[Queue] Continue inspection failed, defaulting queue:', e.message);
+            responseQueue = buildResponseQueue(trigger, context, liveConfig);
+        }
+    } else {
+        responseQueue = buildResponseQueue(trigger, context, liveConfig);
+    }
     if (responseQueue.length === 0) {
         logger.info('[Queue] No characters to enqueue (none selected or all muted).');
         return;
@@ -1321,6 +1362,115 @@ async function handleConnections(ws, type, request) {
                     }
                 }
 
+                else if (parsedMessage.type === 'continueFromMessage') {
+                    // Explicit continuation of a specific AI message
+                    if (thisUserRole !== 'host') {
+                        logger.warn('Non-host attempted continueFromMessage; ignoring.');
+                        return;
+                    }
+                    const targetMesID = parsedMessage.mesID;
+                    const sessionID = parsedMessage.sessionID;
+                    if (!targetMesID || !sessionID) {
+                        logger.warn('[Continue] Missing mesID or sessionID');
+                        return;
+                    }
+
+                    // Load target message to identify character and validate it's AI
+                    const targetRow = await db.getAIChatMessageRow(targetMesID, sessionID);
+                    if (!targetRow || targetRow.entity !== 'AI') {
+                        logger.warn('[Continue] Target row not found or not AI; aborting.');
+                        return;
+                    }
+
+                    // Identify character entry by displayName
+                    migrateSelectedCharactersIfNeeded(liveConfig);
+                    const scArr = liveConfig.promptConfig.selectedCharacters || [];
+                    const targetDisplay = (targetRow.username || '').trim();
+                    let targetEntry = scArr.find(c => (c.displayName || '').trim() === targetDisplay);
+                    // If not found among active selections, search the full card list on disk
+                    if (!targetEntry) {
+                        try {
+                            const cardList = await fio.getCardList();
+                            const found = (cardList || []).find(c => (c.name || '').trim() === targetDisplay);
+                            if (found) {
+                                targetEntry = { value: found.value, displayName: found.name, isMuted: false };
+                            }
+                        } catch (e) {
+                            logger.warn('[Continue] Failed to load card list while resolving character:', e.message);
+                        }
+                    }
+                    if (!targetEntry) {
+                        // Send a targeted prompt to the requesting host to allow continuation without defs
+                        ws.send(JSON.stringify({
+                            type: 'continueMissingCharDefs',
+                            targetDisplay,
+                            mesID: targetMesID,
+                            sessionID
+                        }));
+                        return;
+                    }
+
+                    // Restrict the effective chat context to messages up to (and including) target message
+                    // We'll pass a special flag and target ID through parsedMessage so downstream can adjust
+                    const originatingUser = await getLastUserMessageUsername() || null;
+                    const continueMsg = {
+                        type: 'requestAIResponse',
+                        trigger: 'manual',
+                        character: { value: targetEntry.value, displayName: targetEntry.displayName },
+                        username: originatingUser,
+                        // Special continuation targeting metadata
+                        continueTarget: { sessionID, mesID: targetMesID }
+                    };
+
+                    // Bypass full queue; directly invoke single-character pipeline with shouldContinue true
+                    liveConfig.promptConfig.selectedCharacter = targetEntry.value;
+                    liveConfig.promptConfig.selectedCharacterDisplayName = targetEntry.displayName;
+                    await stream.handleResponse(
+                        { ...continueMsg, chatID: 'AIChat' }, selectedAPI, hordeKey,
+                        engineMode, user, liveConfig, true, sessionID
+                    );
+                    return;
+                }
+
+                else if (parsedMessage.type === 'continueFromMessageNoDefs') {
+                    if (thisUserRole !== 'host') {
+                        logger.warn('Non-host attempted continueFromMessageNoDefs; ignoring.');
+                        return;
+                    }
+                    const targetMesID = parsedMessage.mesID;
+                    const sessionID = parsedMessage.sessionID;
+                    if (!targetMesID || !sessionID) {
+                        logger.warn('[ContinueNoDefs] Missing mesID or sessionID');
+                        return;
+                    }
+                    const targetRow = await db.getAIChatMessageRow(targetMesID, sessionID);
+                    if (!targetRow || targetRow.entity !== 'AI') {
+                        logger.warn('[ContinueNoDefs] Target row not found or not AI; aborting.');
+                        return;
+                    }
+                    const targetDisplay = (targetRow.username || '').trim();
+
+                    // Proceed without definitions: we still need a char display name for macros
+                    liveConfig.promptConfig.selectedCharacter = 'None';
+                    liveConfig.promptConfig.selectedCharacterDisplayName = targetDisplay;
+                    const originatingUser = await getLastUserMessageUsername() || null;
+
+                    const continueMsg = {
+                        type: 'requestAIResponse',
+                        trigger: 'manual',
+                        character: { value: 'None', displayName: targetDisplay },
+                        username: originatingUser,
+                        continueTarget: { sessionID, mesID: targetMesID },
+                        skipCharDefs: true,
+                        overrideCharName: targetDisplay
+                    };
+                    await stream.handleResponse(
+                        { ...continueMsg, chatID: 'AIChat' }, selectedAPI, hordeKey,
+                        engineMode, user, liveConfig, true, sessionID
+                    );
+                    return;
+                }
+
                 //TODO: merge this into clientStateChange
                 else if (parsedMessage.type === 'modeChange') {
                     let hordeWorkerList
@@ -1574,6 +1724,9 @@ async function handleConnections(ws, type, request) {
                 //setup the userPrompt array in order to send the input into the AIChat box
                 if (chatID === 'AIChat') {
                     let userTryingToContinue = parsedMessage.userInput.length == 0 ? true : false
+                    if (userTryingToContinue) {
+                        logger.info('User is trying to continue the AI response...');
+                    }
                     let [currentChat, sessionID] = await db.readAIChat()
                     let messageHistory = JSON.parse(currentChat)
                     let lastMessageEntity = messageHistory[messageHistory.length - 1]?.entity || 'Unknown' //in the case of message sent in empty chat

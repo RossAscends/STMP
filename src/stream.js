@@ -23,7 +23,10 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
     let contentBeforeContinue
 
     if (shouldContinue) {
-        contentBeforeContinue = await db.getMessage(messageID - 1, sessionID);
+        // Use explicit target when provided; fallback to previous message id convention
+        const targetSessionID = parsedMessage?.continueTarget?.sessionID || sessionID;
+        const targetMessageID = parsedMessage?.continueTarget?.mesID || (messageID - 1);
+        contentBeforeContinue = await db.getMessage(targetMessageID, targetSessionID);
     }
 
     const endResponse = async () => {
@@ -38,7 +41,7 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
         //if (!responseEnded) {
         //    responseEnded = true;
         textEmitter.removeAllListeners('text');
-        const streamEndToken = {
+            const streamEndToken = {
             chatID: parsedMessage.chatID,
             AIChatUserList: AIChatUserList,
             userColor: parsedMessage.userColor || parsedMessage.color || 'white',
@@ -48,6 +51,9 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
             consoleSeperator: '------------------', //this only exists to make the output easier to read
             content: purifier.makeHtml(await api.trimIncompleteSentences(accumulatedStreamOutput)),
             type: 'streamedAIResponseEnd',
+                // preserve targeting so client can finalize the correct node
+                sessionID: parsedMessage?.continueTarget?.sessionID || sessionID,
+                messageID: parsedMessage?.continueTarget?.mesID || messageID,
         };
         //logger.warn('sending stream end')
         broadcast(streamEndToken); // Emit the event to clients
@@ -87,8 +93,8 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
             type: 'streamedAIResponse',
             isContinue: shouldContinue,
             color: user?.color || 'red', //if red, then we have a problem somewhere. AI dont have colors atm, defaulting to white in frontend.
-            sessionID: sessionID,
-            messageID: messageID,
+            sessionID: parsedMessage?.continueTarget?.sessionID || sessionID,
+            messageID: parsedMessage?.continueTarget?.mesID || messageID,
         };
         await broadcast(streamedTokenMessage);
         currentlyStreaming = true;
@@ -131,7 +137,9 @@ async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, 
             textListener('END_OF_RESPONSE');
             const trimmed = await api.trimIncompleteSentences(accumulatedStreamOutput);
             if (shouldContinue) {
-                await db.editMessage(sessionID, newMessageID - 1, trimmed)
+                const targetSessionID = parsedMessage?.continueTarget?.sessionID || sessionID;
+                const targetMessageID = parsedMessage?.continueTarget?.mesID || (newMessageID - 1);
+                await db.editMessage(targetSessionID, targetMessageID, trimmed)
             } else {
                 await db.writeAIChatMessage(liveConfig.promptConfig.selectedCharacterDisplayName, 'AI', trimmed, 'AI');
             }

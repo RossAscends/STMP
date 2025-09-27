@@ -50,7 +50,16 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
         const charName = cardJSON.name;
         const formattedCharName = JSON.parse(JSON.stringify(`\n${charName}:`).replace(/<[^>]+>/g, ''));
 
-        const [fullPrompt, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, formattedCharName, parsedMessage.username, liveAPI, shouldContinue);
+    // If a continuation target is specified, limit chat history up to that message when crafting the prompt
+        const continueTarget = parsedMessage?.continueTarget || null;
+        if (parsedMessage?.skipCharDefs) {
+            // annotate the continueTarget so addCharDefsToPrompt can behave without card data
+            if (continueTarget) continueTarget.skipCharDefs = true;
+            if (parsedMessage.overrideCharName) {
+                liveConfig.promptConfig.selectedCharacterDisplayName = parsedMessage.overrideCharName;
+            }
+        }
+        const [fullPrompt, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, formattedCharName, parsedMessage.username, liveAPI, shouldContinue, continueTarget);
         const samplerData = await fio.readFile(liveConfig.promptConfig.selectedSamplerPreset);
         const samplers = JSON.parse(samplerData);
         //logger.info('[getAIResponse] >> samplers:', samplerData)
@@ -324,7 +333,7 @@ function postProcessText(text) {
 }
 
 //MARK: addCharDefsToPrompt
-async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharName, username, liveAPI, shouldContinue) {
+async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharName, username, liveAPI, shouldContinue, continueTarget = null) {
     //logger.debug(`[addCharDefsToPrompt] >> GO`)
     //logger.debug(liveAPI)
     let isClaude = liveAPI.claude
@@ -344,8 +353,31 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 return resolve(['', []]);
             }
 
-            let charData = await fio.charaRead(charFile, 'png')
+            let charData = null;
+            const skipDefs = !!(typeof continueTarget === 'object' && continueTarget && continueTarget.skipCharDefs);
+            if (!skipDefs) {
+                charData = await fio.charaRead(charFile, 'png')
+            } else {
+                // Minimal stub to allow macro replacement without pulling defs
+                charData = JSON.stringify({ name: liveConfig.promptConfig.selectedCharacterDisplayName || 'Character', description: '', data: { name: liveConfig.promptConfig.selectedCharacterDisplayName || 'Character', description: '', first_mes: '' } });
+            }
             let chatHistory = await ObjectifyChatHistory()
+            if (continueTarget && continueTarget.sessionID) {
+                // Truncate chat history to include only messages up to and including the target mesID
+                try {
+                    const targetId = Number(continueTarget.mesID);
+                    if (!Number.isNaN(targetId)) {
+                        const truncated = [];
+                        for (const m of chatHistory) {
+                            truncated.push(m);
+                            if (m.messageID === targetId) break;
+                        }
+                        if (truncated.length > 0) chatHistory = truncated;
+                    }
+                } catch (e) {
+                    logger.debug('[Continue] Failed to truncate chat history:', e.message);
+                }
+            }
             let ChatObjsInPrompt = []
 
             //replace {{user}} and {{char}} for character definitions

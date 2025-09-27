@@ -724,6 +724,27 @@ pre {
     color: var(--themeAccentBold);
 }
 
+ /* existing styles... */
+
+/* Inline continue button visibility: host-only hover */
+.inlineContinue {
+    opacity: 0;
+    transition: opacity 150ms ease;
+    margin-left: 0.25em;
+    font-size: 1em;
+}
+
+/* Show on hover of the message container (AI messages only) */
+div[data-entitytype="AI"]:hover .inlineContinue {
+    opacity: 1;
+}
+
+/* While streaming, hide any inline continue to avoid accidental clicks */
+body.currentlyStreaming .inlineContinue {
+    pointer-events: none;
+    opacity: 0.2;
+}
+
 /*MARK:chat Inputs
 */
 #AIMessageInput,

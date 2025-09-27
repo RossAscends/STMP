@@ -14,6 +14,7 @@ import { streamUpdater } from "./src/streamUpdater.js";
 import hostToast from "./src/hostToast.js";
 import disableGuestInput from "./src/disableGuestInput.js";
 import allowImagesModule from "./src/allowImages.js";
+import { initHotkeys } from "./src/hotkeys.js";
 
 export var username,
   isAutoResponse,
@@ -381,6 +382,7 @@ function appendMessages(messages, elementSelector, sessionID) {
     //console.warn(newDiv.find('.messageHeader').html())
     if (!isHost) newDiv.find('.messageControls').remove();
     if (elementSelector == "#userChat") newDiv.find('.messageEdit').remove();
+  if (elementSelector == "#userChat") newDiv.find('.messageContinue').remove();
     //console.debug('newDiv content: ', content, 'elementSelector: ', elementSelector);
 
     //check if the last message in the relevant chat contains the same header information for name and entity
@@ -403,10 +405,50 @@ function appendMessages(messages, elementSelector, sessionID) {
 
     }
 
+    // Append inline Continue button at end of message content for AI messages (Host only)
+    if (isHost && isAI && elementSelector === "#AIChat") {
+      insertInlineContinueButton($(newDiv));
+    }
+
     addMessageEditListeners(newDiv);
 
   });
 
+}
+
+// Helper: insert inline Continue button at end of final <p> (or content) of a message div
+function insertInlineContinueButton($messageDiv) {
+  try {
+    const isAI = $messageDiv.attr('data-entitytype') === 'AI';
+    if (!isAI) return;
+    const msgId = $messageDiv.data('messageid');
+    const sessId = $messageDiv.data('sessionid');
+    const $content = $messageDiv.find('.messageContent');
+    if (!$content.length) return;
+
+    const $lastP = $content.find('p:last');
+    const $btn = $(`
+      <i data-messageid="${msgId}" data-sessionid="${sessId}" data-entitytype="AI" class="messageContinue inlineContinue messageButton fa-solid fa-angles-right bgTransparent textshadow textBrightUp transition250" title="Continue this message"></i>
+    `);
+
+    // Remove any existing inline continue to avoid duplicates
+    $content.find('i.messageContinue.inlineContinue').remove();
+
+    if ($lastP.length) {
+      // Ensure a small spacer
+      if ($lastP.contents().length) $lastP.append(document.createTextNode(' '));
+      $lastP.append($btn);
+    } else {
+      // No paragraph tags, append directly
+      if ($content.contents().length) $content.append(document.createTextNode(' '));
+      $content.append($btn);
+    }
+
+    // Bind click handler to the new button
+    addMessageEditListeners($messageDiv);
+  } catch (e) {
+    console.warn('Failed to insert inline continue button:', e);
+  }
 }
 
 function addMessageEditListeners(newDiv) {
@@ -556,6 +598,34 @@ function addMessageEditListeners(newDiv) {
     }
     util.messageServer(mesDelRequest)
   })
+
+  // Continue button handler (Host only, AI messages)
+  $newdiv.find(`.messageContinue`).off('click').on('click', async function () {
+    if (!isHost) return;
+    if (currentlyStreaming) {
+      alert('Cannot continue while a response is currently streaming.');
+      return;
+    }
+    // Remove the inline button immediately so it isn't considered part of message content
+    // and to prevent double-click triggering while request is in-flight
+    const $btn = $(this);
+    const $messageDiv = $btn.closest('div[data-messageid]');
+    $btn.remove();
+    const mesID = $(this).data('messageid');
+    const sessionID = $(this).data('sessionid');
+    const entityType = $(this).attr('data-entitytype');
+    if (entityType !== 'AI') {
+      alert('Continuation is only available for AI messages.');
+      return;
+    }
+    const continueRequest = {
+      type: 'continueFromMessage',
+      UUID: myUUID,
+      mesID: mesID,
+      sessionID: sessionID
+    };
+    util.messageServer(continueRequest);
+  });
 }
 
 
@@ -646,6 +716,23 @@ async function connectWebSocket(username) {
         let resetChatHistory = parsedMessage.chatHistory;
         appendMessages(resetChatHistory, "#AIChat", resetChatHistory[0].sessionID,)
         break;
+      case "continueMissingCharDefs": {
+        // Prompt host: proceed without character definitions?
+        const { targetDisplay, mesID, sessionID } = parsedMessage;
+        const proceed = confirm(`Character definitions for "${targetDisplay}" could not be found. Continue the generation without character definitions?`);
+        if (proceed) {
+          // Remove inline continue from target message to avoid it leaking into prompt
+          const $target = $("#AIChat").find(`div[data-messageid='${mesID}'][data-entitytype='AI']`);
+          $target.find('i.inlineContinue').remove();
+          util.messageServer({
+            type: 'continueFromMessageNoDefs',
+            UUID: myUUID,
+            mesID,
+            sessionID
+          });
+        }
+        break;
+      }
       case "userChatUpdate": //when last message in user char is deleted
         console.debug("saw user chat update instruction");
         $("#userChat").empty();
@@ -669,10 +756,10 @@ async function connectWebSocket(username) {
       case "guestConnectionConfirmed":
       case "connectionConfirmed":
         //console.info(parsedMessage.liveConfig)
-  allowImages = handleconfig.allowImages() || parsedMessage.crowdControl.allowImages
+        allowImages = handleconfig.allowImages() || parsedMessage.crowdControl.allowImages
         //console.warn('allowImages upon connection: ', allowImages)
-  // Sync allowImages button visual now that liveConfig is available
-  allowImagesModule.syncFromLiveConfig();
+        // Sync allowImages button visual now that liveConfig is available
+        allowImagesModule.syncFromLiveConfig();
         processConfirmedConnection(parsedMessage);
         break;
       case "hostStateChange":
@@ -784,28 +871,37 @@ async function connectWebSocket(username) {
         let isContinue = parsedMessage.isContinue;
         accumulatedContent += parsedMessage.content;
         let $incomingDiv = $("#AIChat .incomingStreamDiv");
+        const targetMesID = parsedMessage.messageID; // server now always sends these for both continue and non-continue
+        const targetSessionID = parsedMessage.sessionID;
+        // Hide inline continue buttons for all older AI messages while streaming
+        $("#AIChat i.inlineContinue").addClass("hidden");
         if (isContinue) {
-          //console.warn('saw shouldContinue');
+          // Attach streaming to the specific target message; if not found, fall back to last AI message
           if (!$incomingDiv.length) {
-            //console.warn('no incomingStreamDiv, so finding the last one and making it continue');
-            $incomingDiv = $("#AIChat").find("div[data-entitytype='AI']").last()
-            $incomingDiv.addClass("incomingStreamDiv")
-            $incomingDiv.find(".messageContent p:last-child").append('<span></span>');
-            //console.warn($incomingDiv)
-          } else {
-            //console.warn('found an incomingStreamDiv, so continuing it');
-            //console.warn($incomingDiv)
+            $incomingDiv = targetMesID ? $("#AIChat").find(`div[data-messageid='${targetMesID}'][data-entitytype='AI']`) : $();
+            if (!$incomingDiv.length) {
+              $incomingDiv = $("#AIChat").find("div[data-entitytype='AI']").last();
+            }
+            $incomingDiv.addClass("incomingStreamDiv");
+            // Ensure a span exists to stream into
+            if (!$incomingDiv.find(".messageContent p:last-child span:last-child").length) {
+              $incomingDiv.find(".messageContent p:last-child").append('<span></span>');
+            }
+          }
+          // Keep the current (incoming) message's icon exempt if present
+          if ($incomingDiv && $incomingDiv.length) {
+            $incomingDiv.find("i.inlineContinue").removeClass("hidden");
           }
         } else {
           //console.warn('not a continue, so add a new message div')
           if (!$incomingDiv.length) {
-            const newStreamDivSpan = $(`
+          const newStreamDivSpan = $(`
             <div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}" data-entityType="AI">
                 <div class="messageHeader flexbox justifySpaceBetween">
                     <span style="color:white" class="chatUserName">${parsedMessage.username} 🤖</span>
                     <div class="messageControls transition250">
-                        <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
-                        <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+            <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+            <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
                     </div>
                 </div>
                 <div class="messageContent"><span></span></div>
@@ -813,6 +909,12 @@ async function connectWebSocket(username) {
         `);
             if (!isHost) newStreamDivSpan.find('.messageControls').remove();
             $("#AIChat").append(newStreamDivSpan);
+            // Refresh reference to the just-created streaming div
+            $incomingDiv = $("#AIChat .incomingStreamDiv");
+          }
+          // Keep only the new streaming message's icon exempt if present
+          if ($incomingDiv && $incomingDiv.length) {
+            $incomingDiv.find("i.inlineContinue").removeClass("hidden");
           }
         }
 
@@ -827,10 +929,22 @@ async function connectWebSocket(username) {
       case "streamedAIResponseEnd":
         console.debug("saw stream end");
         const newDivElement = $("<p>").html(parsedMessage.content);
+        // Ensure we finalize the correct message when continuation targeted a specific historic message
+        const endTargetMesID = parsedMessage.messageID;
+        const endTarget = endTargetMesID ? $("#AIChat").find(`div[data-messageid='${endTargetMesID}'][data-entitytype='AI']`) : $(".incomingStreamDiv");
+        if (endTarget && endTarget.length) {
+          endTarget.addClass('incomingStreamDiv');
+        }
         const elementsToRemove = $(".incomingStreamDiv .messageContent").children();
         elementsToRemove.remove();
         if (isHost) addMessageEditListeners('.incomingStreamDiv');
         $(".incomingStreamDiv .messageContent").html(newDivElement.html());
+        // After stream end, re-add inline Continue button at end of final paragraph (Host only)
+        if (isHost) {
+          insertInlineContinueButton($(".incomingStreamDiv"));
+        }
+        // Restore visibility for all inline continue buttons after streaming finishes
+        $("#AIChat i.inlineContinue").removeClass("hidden");
         accumulatedContent = "";
         $(".incomingStreamDiv").removeClass("incomingStreamDiv");
         updateUserList("AIChatUserList", parsedMessage.AIChatUserList);
@@ -1009,6 +1123,12 @@ async function sendMessageToAIChat(type) {
     username: username,
     userInput: content,
   };
+  // If this is effectively a continuation (forced or Enter on empty input), remove inline Continue on the last AI message
+  const isContinueTrigger = (type === 'forced') || (String(messageInput.val() || '').trim() === '');
+  if (isContinueTrigger) {
+    const $lastAI = $("#AIChat").find("div[data-entitytype='AI']").last();
+    $lastAI.find('i.inlineContinue').remove();
+  }
   console.warn(websocketRequest)
   //localStorage.setItem("AIChatUsername", username);
   util.messageServer(websocketRequest);
@@ -1458,6 +1578,9 @@ $(async function () {
 
   $("#triggerAIResponse").off("click").on("click", function () {
     console.debug('saw force trigger for AI response click')
+    // Forced trigger continues last AI message: remove its inline Continue button first
+    const $lastAI = $("#AIChat").find("div[data-entitytype='AI']").last();
+    $lastAI.find('i.inlineContinue').remove();
     sendMessageToAIChat("forced");
 
   });
@@ -1958,6 +2081,33 @@ $(async function () {
         lastUploadTime = Date.now();
       };
       reader.readAsDataURL(file);
+    }
+  });
+
+  // Initialize global hotkeys: Right Arrow => AIRetry, Shift+Right Arrow => Continue last AI message
+  initHotkeys({
+    onAIRetry: () => {
+      const $btn = $("#AIRetry");
+      if ($btn.length && !$btn.prop('disabled')) {
+        $btn.trigger('click');
+      } else {
+        try { if (typeof doAIRetry === 'function') doAIRetry(); } catch { /* noop */ }
+      }
+    },
+    onContinue: () => {
+      const $lastAI = $("#AIChat").find("div[data-entitytype='AI']").last();
+      if (!$lastAI.length) return;
+      // remove inlineContinue pre-send to avoid leaking into prompt
+      $lastAI.find('i.inlineContinue').remove();
+      const mesID = $lastAI.data('messageid');
+      const sessionID = $lastAI.data('sessionid');
+      if (!mesID || !sessionID) return;
+      util.messageServer({
+        type: 'continueFromMessage',
+        UUID: myUUID,
+        mesID,
+        sessionID
+      });
     }
   });
 });

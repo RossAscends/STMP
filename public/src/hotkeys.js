@@ -2,9 +2,19 @@
 // Usage: initHotkeys({ onAIRetry: fn, onContinue: fn })
 
 export function initHotkeys({ onAIRetry, onContinue, isHost } = {}) {
-  // Guard: only initialize for Host role
-  const hostFlag = typeof isHost === 'boolean' ? isHost : (typeof window !== 'undefined' && window.isHost === true);
-  if (!hostFlag) return;
+  // Install once; host check is performed dynamically on keypress
+  try {
+    if (typeof window !== 'undefined') {
+      if (window.__stmpHotkeysInstalled) return;
+      window.__stmpHotkeysInstalled = true;
+    }
+  } catch (_) { /* ignore */ }
+
+  // Dynamic host check so we work even if role is learned later
+  const isHostNow = () => {
+    if (typeof isHost === 'boolean') return isHost;
+    return (typeof window !== 'undefined' && window.isHost === true);
+  };
   // Helper: is any popup/modal currently visible?
   function isPopupOrModalOpen() {
     try {
@@ -46,6 +56,8 @@ export function initHotkeys({ onAIRetry, onContinue, isHost } = {}) {
   }
 
   document.addEventListener('keydown', (e) => {
+    // Only hosts can trigger these hotkeys
+    if (!isHostNow()) return;
     if (e.key !== 'ArrowRight') return;
     // Only allow Shift as optional modifier
     if (e.altKey || e.ctrlKey || e.metaKey) return;

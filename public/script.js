@@ -250,6 +250,7 @@ async function processConfirmedConnection(parsedMessage) {
   $("#userChatUserNameHolder").css('color', myUserColor).text(myUsername);
   localStorage.setItem("UUID", myUUID);
   isHost = role === "host" ? true : false;
+  try { window.isHost = isHost; } catch (_) { /* noop */ }
   //console.debug(`my UUID is: ${myUUID}`);
   var userRole = isHost ? "Host" : "Guest";
   // (Moved) disableGuestInput state will be applied after UI config processing for consistent animation timing.
@@ -1147,6 +1148,7 @@ function disconnectWebSocket() {
       .prop("disabled", true)
       .prop("placeholder", "DISCONNECTED")
       .addClass("disconnected");
+    try { window.isHost = false; } catch (_) { /* noop */ }
     socket.close();
   }
 }

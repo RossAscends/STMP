@@ -30,19 +30,35 @@ function autoMendMarkdown(text) {
     const dqCount = countMatches(/"/g);
     if (dqCount % 2 === 1) out += '"';
 
-    // 2) Inline code: single backticks. If odd number, append one more
-    const backtickCount = countMatches(/`/g);
-    if (backtickCount % 2 === 1) out += '`';
+    // 2) Fenced code blocks (triple backticks): if odd number of fences, append a closing fence
+    //    We treat any line-start ``` (optionally indented) as a fence. Language labels are allowed on opening.
+    //    Appending on a new line preserves fence semantics.
+    const fenceRegex = /(^|\n)[ \t]*```/g;
+    const fenceCount = countMatches(fenceRegex);
+    if (fenceCount % 2 === 1) {
+        if (!out.endsWith('\n')) out += '\n';
+        out += '```';
+    }
 
-    // 3) Bold: ** delimiter pairs
+    // 3) Inline code: single backticks. If odd number outside fenced blocks, append one more
+    //    Remove balanced fenced sections first; if an opening fence remains unmatched, also remove from that fence to end
+    let tmp = out;
+    // Remove balanced ```...``` sections lazily
+    //tmp = tmp.replace(/```[\s\S]*?```/g, '');
+    // If any opening fence without a closing remains, remove from that fence to end so we don't count backticks within
+    //tmp = tmp.replace(/```[\s\S]*$/, '');
+    const singleBacktickCount = ((tmp.match(/(?<!`)`(?!`)/g)) || []).length;
+    if (singleBacktickCount % 2 === 1) out += '`';
+
+    // 4) Bold: ** delimiter pairs
     const boldPairCount = countMatches(/\*\*/g);
     if (boldPairCount % 2 === 1) out += '**';
 
-    // 4) Strikethrough: ~~ delimiter pairs
+    // 5) Strikethrough: ~~ delimiter pairs
     const strikePairCount = countMatches(/~~/g);
     if (strikePairCount % 2 === 1) out += '~~';
 
-    // 5) Italic: single * (exclude ** and list bullets "* ")
+    // 6) Italic: single * (exclude ** and list bullets "* ")
     // Only mend if there are unmatched OPENING italic markers ("*word" or "word*" logic favors closing when possible)
     const s = out;
     let openItalics = 0, closeItalics = 0;
@@ -78,6 +94,21 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
     let currentlyStreaming
     //logger.warn(parsedMessage)
     let contentBeforeContinue
+    // Track mid-stream fenced code block state for stable rendering
+    let streamIsInsideFencedCodeblock = false;
+
+    // Produce a markdown string for rendering that appends a temporary closing
+    // fence when the current content has an unmatched opening ``` fence.
+    const withTemporaryFenceIfNeeded = (md) => {
+        if (typeof md !== 'string' || md.length === 0) return md;
+        const fenceCount = (md.match(/```/g) || []).length;
+        const inside = (fenceCount % 2) === 1;
+        streamIsInsideFencedCodeblock = inside;
+        if (!inside) return md;
+        // Append a temporary closing fence to stabilize rendering (do not mutate raw output)
+        // Keep it on a new line to avoid gluing to code content
+        return md.endsWith('\n') ? md + '```' : md + '\n```';
+    };
 
     if (shouldContinue) {
         // Use explicit target when provided; fallback to previous message id convention
@@ -95,8 +126,9 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
             //logger.warn('shouldContinue is true, so we will append the content before continue to the accumulated output')
             accumulatedStreamOutput = contentBeforeContinue + accumulatedStreamOutput;
         }
-        //if (!responseEnded) {
-        //    responseEnded = true;
+        // If we end while a temporary fence was being used, do nothing special here; the
+        // accumulatedStreamOutput already contains the true raw content without the temp fence.
+        // The purifier will render correctly based on the true final fences.
         textEmitter.removeAllListeners('text');
             const streamEndToken = {
             chatID: parsedMessage.chatID,
@@ -149,7 +181,11 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
 
         const streamedTokenMessage = {
             chatID: parsedMessage.chatID,
-            content: purify.partialMarkdownToHTML(purifier.makeHtml((accumulatedStreamOutput))),
+            content: purify.partialMarkdownToHTML(
+                purifier.makeHtml(
+                    withTemporaryFenceIfNeeded(accumulatedStreamOutput)
+                )
+            ),
             username: liveConfig.promptConfig.selectedCharacterDisplayName,
             type: 'streamedAIResponse',
             isContinue: shouldContinue,

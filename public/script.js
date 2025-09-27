@@ -416,6 +416,85 @@ function appendMessages(messages, elementSelector, sessionID) {
 
 }
 
+// Heuristic: determine if a line ends with a complete sentence terminator
+function isCompleteSentence(text, inList = false) {
+  if (!text) return false;
+  let s = String(text);
+  // trim trailing whitespace
+  s = s.replace(/[\s\u00A0]+$/g, '');
+  if (!s) return false;
+  // strip trailing closers (quotes/brackets) repeatedly
+  const closerRe = /["'”’\)\}\]\`»」】）]+$/;
+  while (closerRe.test(s)) {
+    s = s.replace(closerRe, '');
+  }
+  if (!s) return false;
+  const last = s[s.length - 1];
+  return /[\.!?。！？]/.test(last);
+}
+
+// Helper: find the correct end-of-message container where a continuation should start
+function getStreamContainer($messageDiv) {
+  const $content = $messageDiv.find('.messageContent');
+  if (!$content.length) return $messageDiv;
+  // Prefer last block element
+  const $lastUL = $content.children('ul:last-child');
+  const $lastOL = $content.children('ol:last-child');
+  const $lastP = $content.children('p:last-child');
+  const $lastPre = $content.children('pre:last-child');
+  const $lastBlockquote = $content.children('blockquote:last-child');
+
+  let $container = null;
+  if ($lastUL.length || $lastOL.length) {
+    const $list = $lastUL.length ? $lastUL : $lastOL;
+    const $li = $list.children('li:last-child');
+    if ($li.length) {
+      const $liP = $li.children('p:last-child');
+      // Decide whether to continue inside the li (if incomplete) or after the list (if complete)
+      const liText = ($liP.length ? $liP : $li).text();
+      const lastLiComplete = isCompleteSentence(liText, true);
+      if (lastLiComplete) {
+        // Place at top-level, after the list, to avoid nested list continuation
+        $container = $content;
+      } else {
+        // Continue inside the current li (or its trailing paragraph)
+        $container = $liP.length ? $liP : $li;
+      }
+    }
+  } else if ($lastP.length) {
+    $container = $lastP;
+  } else if ($lastPre.length) {
+    const $code = $lastPre.children('code:last-child');
+    $container = $code.length ? $code : $lastPre;
+  } else if ($lastBlockquote.length) {
+    $container = $lastBlockquote;
+  }
+
+  if ($container && $container.length) return $container;
+  return $content; // fallback to content wrapper
+}
+
+// Ensure a single span.streamTarget exists at the correct location; return it
+function ensureStreamTarget($messageDiv) {
+  const $container = getStreamContainer($messageDiv);
+  // Reuse if already present in the chosen container
+  let $target = $container.children('span.streamTarget:last-child');
+  if (!$target.length) {
+    $target = $('<span class="streamTarget"></span>');
+    // add a spacer if container already has text/content
+    const needsSpace = $container.contents().length > 0;
+    // If appending at the content level (top-level after a list), prefer a newline for clean Markdown
+    const isTopLevelContent = $container.hasClass('messageContent');
+    if (needsSpace) {
+      $container.append(document.createTextNode(isTopLevelContent ? '\n' : ' '));
+    }
+    $container.append($target);
+  }
+  // Remove stray streamTargets elsewhere inside this message (keep only one)
+  $messageDiv.find('.messageContent span.streamTarget').not($target).remove();
+  return $target;
+}
+
 // Helper: insert inline Continue button at end of final <p> (or content) of a message div
 function insertInlineContinueButton($messageDiv) {
   try {
@@ -426,7 +505,8 @@ function insertInlineContinueButton($messageDiv) {
     const $content = $messageDiv.find('.messageContent');
     if (!$content.length) return;
 
-    const $lastP = $content.find('p:last');
+    // Compute the exact continuation start location and place the icon there
+    const $container = getStreamContainer($messageDiv);
     const $btn = $(`
       <i data-messageid="${msgId}" data-sessionid="${sessId}" data-entitytype="AI" class="messageContinue inlineContinue messageButton fa-solid fa-angles-right bgTransparent textshadow textBrightUp transition250" title="Continue this message"></i>
     `);
@@ -434,15 +514,12 @@ function insertInlineContinueButton($messageDiv) {
     // Remove any existing inline continue to avoid duplicates
     $content.find('i.messageContinue.inlineContinue').remove();
 
-    if ($lastP.length) {
-      // Ensure a small spacer
-      if ($lastP.contents().length) $lastP.append(document.createTextNode(' '));
-      $lastP.append($btn);
-    } else {
-      // No paragraph tags, append directly
-      if ($content.contents().length) $content.append(document.createTextNode(' '));
-      $content.append($btn);
+    // Ensure a small spacer then append
+    if ($container.contents().length) {
+      const isTopLevelContent = $container.hasClass('messageContent');
+      $container.append(document.createTextNode(isTopLevelContent ? '\n' : ' '));
     }
+    $container.append($btn);
 
     // Bind click handler to the new button
     addMessageEditListeners($messageDiv);
@@ -875,7 +952,7 @@ async function connectWebSocket(username) {
         const targetSessionID = parsedMessage.sessionID;
         // Hide inline continue buttons for all older AI messages while streaming
         $("#AIChat i.inlineContinue").addClass("hidden");
-        if (isContinue) {
+  if (isContinue) {
           // Attach streaming to the specific target message; if not found, fall back to last AI message
           if (!$incomingDiv.length) {
             $incomingDiv = targetMesID ? $("#AIChat").find(`div[data-messageid='${targetMesID}'][data-entitytype='AI']`) : $();
@@ -883,10 +960,8 @@ async function connectWebSocket(username) {
               $incomingDiv = $("#AIChat").find("div[data-entitytype='AI']").last();
             }
             $incomingDiv.addClass("incomingStreamDiv");
-            // Ensure a span exists to stream into
-            if (!$incomingDiv.find(".messageContent p:last-child span:last-child").length) {
-              $incomingDiv.find(".messageContent p:last-child").append('<span></span>');
-            }
+            // Ensure a unique stream target exists at the correct location
+            ensureStreamTarget($incomingDiv);
           }
           // Keep the current (incoming) message's icon exempt if present
           if ($incomingDiv && $incomingDiv.length) {
@@ -895,7 +970,7 @@ async function connectWebSocket(username) {
         } else {
           //console.warn('not a continue, so add a new message div')
           if (!$incomingDiv.length) {
-          const newStreamDivSpan = $(`
+      const newStreamDivSpan = $(`
             <div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}" data-entityType="AI">
                 <div class="messageHeader flexbox justifySpaceBetween">
                     <span style="color:white" class="chatUserName">${parsedMessage.username} 🤖</span>
@@ -904,7 +979,7 @@ async function connectWebSocket(username) {
             <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
                     </div>
                 </div>
-                <div class="messageContent"><span></span></div>
+        <div class="messageContent"><span class="streamTarget"></span></div>
             </div>
         `);
             if (!isHost) newStreamDivSpan.find('.messageControls').remove();
@@ -920,7 +995,7 @@ async function connectWebSocket(username) {
 
 
 
-        pendingHTML = mendHTML(parsedMessage.content);
+  pendingHTML = mendHTML(parsedMessage.content);
         streamUpdater.go(pendingHTML, isContinue);
         //requestAnimationFrame(updateStreamedMessageHTML);
 
@@ -931,15 +1006,16 @@ async function connectWebSocket(username) {
         const newDivElement = $("<p>").html(parsedMessage.content);
         // Ensure we finalize the correct message when continuation targeted a specific historic message
         const endTargetMesID = parsedMessage.messageID;
-        const endTarget = endTargetMesID ? $("#AIChat").find(`div[data-messageid='${endTargetMesID}'][data-entitytype='AI']`) : $(".incomingStreamDiv");
-        if (endTarget && endTarget.length) {
-          endTarget.addClass('incomingStreamDiv');
+        const $endDiv = endTargetMesID ? $("#AIChat").find(`div[data-messageid='${endTargetMesID}'][data-entitytype='AI']`) : $(".incomingStreamDiv");
+        if ($endDiv && $endDiv.length) {
+          $endDiv.addClass('incomingStreamDiv');
         }
-        const elementsToRemove = $(".incomingStreamDiv .messageContent").children();
-        elementsToRemove.remove();
+        const $endContent = $(".incomingStreamDiv .messageContent");
+        // Remove any streamed artifacts and fully replace content with server-canonical HTML
+        $endContent.empty();
+        $endContent.html(newDivElement.html());
         if (isHost) addMessageEditListeners('.incomingStreamDiv');
-        $(".incomingStreamDiv .messageContent").html(newDivElement.html());
-        // After stream end, re-add inline Continue button at end of final paragraph (Host only)
+        // After stream end, re-add inline Continue button at correct end location (Host only)
         if (isHost) {
           insertInlineContinueButton($(".incomingStreamDiv"));
         }
@@ -2084,8 +2160,9 @@ $(async function () {
     }
   });
 
-  // Initialize global hotkeys: Right Arrow => AIRetry, Shift+Right Arrow => Continue last AI message
+  // Initialize global hotkeys (Host only): Right Arrow => AIRetry, Shift+Right Arrow => Continue last AI message
   initHotkeys({
+    isHost,
     onAIRetry: () => {
       const $btn = $("#AIRetry");
       if ($btn.length && !$btn.prop('disabled')) {

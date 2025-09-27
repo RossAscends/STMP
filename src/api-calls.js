@@ -116,8 +116,9 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
             if (!finalApiCallParams.stream) { //if not streaming..
                 //logger.warn('no stream, returning rawResponse as a whole chunk');
                 AIResponse = await postProcessText(trimIncompleteSentences(rawResponse));
-                await db.upsertChar(charName, charName, user.color); //why upsert? because it might not exist yet
-                await db.writeAIChatMessage(charName, charName, AIResponse, 'AI');
+                const displayNameForSave = (liveConfig?.promptConfig?.selectedCharacterDisplayName) || charName;
+                await db.upsertChar(charName, displayNameForSave, user.color); // upsert with card id and current display name
+                await db.writeAIChatMessage(displayNameForSave, 'AI', AIResponse, 'AI');
                 return [AIResponse, AIChatUserList];
             } else { //if TC and stream...
                 //logger.info('it was streamed already, no need to return anything..')
@@ -174,7 +175,7 @@ function trimIncompleteSentences(input, include_newline = false) {
     if (input === undefined) { return 'Error processing response (could not trim sentences).' }
 
     // Define true sentence terminators and trailing closers we may include after them
-    const sentenceEnders = new Set(['.', '!', '?', '。', '！', '？']);
+    const sentenceEnders = new Set(['.', '!', '?', '。', '！', '？', '```', '...', '`']);
     const trailingClosers = new Set(['"', "'", '”', '’', ')', '}', ']', '`', '»', '」', '】']);
 
     const s = String(input);
@@ -393,6 +394,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             //replace {{user}} and {{char}} for character definitions
             const charJSON = JSON.parse(charData)
             const charName = charJSON.name
+            const charDisplayName = (liveConfig?.promptConfig?.selectedCharacterDisplayName) || charName;
             const jsonString = JSON.stringify(charJSON);
             let replacedString = postProcessText(replaceMacros(jsonString, username, charJSON.name))
             const replacedData = JSON.parse(replacedString);
@@ -435,12 +437,34 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 let promptTokens = countTokens(stringToReturn)
                 //logger.trace(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
                 let insertedItems = []
-                let lastInsertedEntity
+                let lastInsertedEntity = null
+
+                // Helper to robustly determine if a chat entry is from the assistant
+                const isAssistantMsg = (obj) => {
+                    logger.error('checking isAssistantMsg for:', obj);
+                    const ent = (obj?.entity || '').toLowerCase();
+                    if (ent) {
+                        logger.warn(`isAssistantMsg? ${ent} -- charName: ${charName}, charDisplayName: ${charDisplayName}`);
+                        if (ent === 'assistant' || ent === 'ai' || ent === 'bot') return true;
+                        if (ent === 'user' || ent === 'human') return false;
+                    }
+                    const uname = obj?.username || '';
+                    logger.warn(`isAssistantMsg? ${ent} -- uname: ${uname}, charName: ${charName}, charDisplayName: ${charDisplayName}`);
+                    return uname === charName || uname === charDisplayName;
+                };
+
+                // For continuation, determine the entity of the most recent chat message upfront
+                // so we don't accidentally misclassify due to token budgeting.
+                let forcedLastInsertedEntity = null;
+                if (shouldContinue && chatHistory.length > 0) {
+                    const lastObj = chatHistory[chatHistory.length - 1];
+                    forcedLastInsertedEntity = isAssistantMsg(lastObj) ? 'Assistant' : 'Human';
+                }
 
                 for (let i = chatHistory.length - 1; i >= 0; i--) {
                     let obj = chatHistory[i];
                     let newItem
-                    if (obj.username === charName) {
+                    if (isAssistantMsg(obj)) {
                         if (isClaude) {
                             newItem = `${endSequence}${outputSequence}Assistant: ${postProcessText(obj.content)}`;
                         } else {
@@ -460,9 +484,13 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         ChatObjsInPrompt.push(obj)
                         //logger.trace(`added new item, prompt tokens: ~${promptTokens}`);
                         insertedItems.push(newItem); // Add new item to the array
+                        // Capture the entity type of the most recent included message only once
+                        if (lastInsertedEntity === null) {
+                            lastInsertedEntity = isAssistantMsg(obj) ? 'Assistant' : 'Human';
+                            logger.error('lastInsertedEntity is now:', lastInsertedEntity);
+                        }
                     }
                     //logger.warn(obj.username, obj.user, obj.content)
-                    lastInsertedEntity = obj.username === charName ? 'Assistant' : 'Human'; // Store the last entity type
                 }
                 //reverse to prepare for D4AN insertion
                 insertedItems.reverse()
@@ -498,10 +526,13 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 let insertedChatHistory = insertedItems.join('');
                 stringToReturn += insertedChatHistory
 
-                //logger.warn('lastInsertedEntity:', lastInsertedEntity, 'shouldContinue:', shouldContinue)
+                if (forcedLastInsertedEntity !== null) {
+                    lastInsertedEntity = forcedLastInsertedEntity;
+                }
+                logger.warn('lastInsertedEntity:', lastInsertedEntity, 'shouldContinue:', shouldContinue)
 
                 if (shouldContinue === true && lastInsertedEntity === 'Assistant') {
-                    //logger.info('not adding end sequence because this is a continue for an AI msg')
+                    logger.warn('not adding end sequence because this is a continue for an AI msg')
                 } else {
                     // logger.info('adding end sequence')
                     stringToReturn += `${endSequence}`
@@ -509,7 +540,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
 
                 //add the final mes and userInput        
                 if (shouldContinue === true && lastInsertedEntity === 'Assistant') { //no need to add last user msg and char name if we are continuing
-                    //logger.info('this is a continue for an AI msg, not adding last user Msg and charname')
+                    logger.info('this is a continue for an AI msg, not adding last user Msg and charname')
                     stringToReturn = postProcessText(stringToReturn)
                 } else {
                     //logger.info('adding last user Msg and leading charname as usual')
@@ -595,7 +626,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         }
                     }
 
-                    if (obj.username === charName) {
+                    if (isAssistantMsg(obj)) {
                         newObj = {
                             role: 'assistant',
                             content: postProcessText(obj.content)

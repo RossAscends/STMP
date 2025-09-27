@@ -1,7 +1,10 @@
 // Keyboard hotkeys for AIRetry and Continue-last-AI
 // Usage: initHotkeys({ onAIRetry: fn, onContinue: fn })
 
-export function initHotkeys({ onAIRetry, onContinue } = {}) {
+export function initHotkeys({ onAIRetry, onContinue, isHost } = {}) {
+  // Guard: only initialize for Host role
+  const hostFlag = typeof isHost === 'boolean' ? isHost : (typeof window !== 'undefined' && window.isHost === true);
+  if (!hostFlag) return;
   // Helper: is any popup/modal currently visible?
   function isPopupOrModalOpen() {
     try {

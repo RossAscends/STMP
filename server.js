@@ -1315,6 +1315,10 @@ async function handleConnections(ws, type, request) {
 
                 else if (parsedMessage.type === 'AIRetry') {
                     //MARK: AIRetry
+                    if (thisUserRole !== 'host') {
+                        logger.warn('Non-host attempted AIRetry; ignoring.');
+                        return;
+                    }
                     // Read the AIChat file
                     try {
                         // Fetch the original message BEFORE removal so we have its metadata

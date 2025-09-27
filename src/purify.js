@@ -103,22 +103,29 @@ function partialMarkdownToHTML(html) {
     const blockTagMatch = html.match(/^<(\w+)[^>]*>([\s\S]*?)<\/\1>$/);
 
     if (!blockTagMatch) {
-        // Fallback: no wrapping tag found
-        return applyInlineMarkdown(html);
+        // If it's not a single wrapper element, do not attempt inline transforms on HTML
+        // to avoid corrupting multi-root/mixed HTML during streaming.
+        return html;
     }
 
     const tag = blockTagMatch[1];      // e.g., "p"
     const innerContent = blockTagMatch[2];  // content between tags
 
+    // Only process if inner content is plain text (no HTML tags). If it contains any
+    // tags, return as-is to prevent treating HTML as markdown.
+    if (/[<]/.test(innerContent)) {
+        return html;
+    }
+
     const processedInner = applyInlineMarkdown(innerContent);
     let result = `<${tag}>${processedInner}</${tag}>`
 
-    /*
-        logger.info(`partial markdown comparison:
-    ${html}
-    vs
-    ${result}`)
-    */
+
+    //logger.info(`partial markdown comparison:
+    //${html}
+    //vs
+    //${result}`)
+
 
     return `<${tag}>${processedInner}</${tag}>`;
 }
@@ -152,12 +159,6 @@ function applyInlineMarkdown(text) {
 
                 return text.replace(tail, wrapped);
             }
-        }
-
-        // Multiline code block (```...)
-        if (/^```[\s\S]*$/.test(text)) {
-            const codeContent = text.replace(/^```/, '');
-            return `<pre><code>${escapeHtml(codeContent)}</code></pre>`;
         }
 
         return text;

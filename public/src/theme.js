@@ -113,38 +113,11 @@ async function adjust(type, value) {
 
             console.debug(`${varName}: Could not reverse, trying Clamp`)
 
-            //const lightDiffToMax = maxLight - light;
-            //const lightDiffToMin = minLight - light;
             const baseDiffToMax = maxLight - base;
             const baseDiffToMin = minLight - base;
-            //const lightDiffToBase = base - light;
-            //const reversedDiffToBase = base - reversed;
-
-
             const doesMaxContrastMoreToBase = Math.abs(baseDiffToMax) > Math.abs(baseDiffToMin);
             const isMaxTooContrasty = Math.abs(baseDiffToMax) > 50;
             const isMinTooContrasty = Math.abs(baseDiffToMin) > 50;
-
-            //const isMaxCloserToOriginalCalc = Math.abs(lightDiffToMax) < Math.abs(lightDiffToMin);
-            /*             console.debug(`${varName}: 
-                            light: ${light}
-                            base: ${base}
-                            reversed: ${reversed}
-                            light/Base contrast: ${lightDiffToBase}
-                            reversed/Base contrast: ${reversedDiffToBase}
-                            max/base contrast: ${baseDiffToMax}
-                            min/base contrast: ${baseDiffToMin}
-                            minLight: ${minLight}
-                            maxLight: ${maxLight}
-                            isMaxCloserToOriginalCalc: ${isMaxCloserToOriginalCalc}
-                            doesMaxContrastMoreToBase: ${doesMaxContrastMoreToBase}
-                            isMaxTooContrasty: ${isMaxTooContrasty}
-                            isMinTooContrasty: ${isMinTooContrasty}
-                            lightDiffToMax: ${lightDiffToMax}
-                            lightDiffToMin: ${lightDiffToMin}
-            
-                            `); */
-
 
             //if (!doesMaxContrastMoreToBase) { console.debug(`${varName}: setting to minLight: ${minLight}`); return minLight; }
             if (doesMaxContrastMoreToBase && !isMaxTooContrasty) { console.debug(`${varName}: setting to maxLight: ${maxLight}`); return maxLight; }

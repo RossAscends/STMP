@@ -3,7 +3,7 @@ Based on the following array sent from server:
 
   liveConfig = [
       promptConfig: {
-          selectedCharacter,         //selector value, matches an item from the cardList below
+          selectedCharacters,         //array representing character selector values, matches an item from the cardList below
           cardList: {                //selector value array list
               {value: './filepath/', name: 'string'},
           },                
@@ -540,6 +540,14 @@ async function updateConfigState(element) {
   let $element = element
   let elementID = $element.prop('id')
 
+  // Character selector changes are handled by the multi-character logic
+  // (rebuildSelectedCharactersFromUI -> sendConfigStateUpdate). Avoid
+  // duplicative writes and prevent saving per-slot option lists to config.
+  if (/^cardList\d*$/.test(elementID)) {
+    enforceUniqueCharacterOptions();
+    return; // no-op here; dedicated handlers will broadcast the proper state
+  }
+
   let arrayName, propName, value
 
   if ($element.is('input[type=checkbox]')) {
@@ -557,13 +565,7 @@ async function updateConfigState(element) {
     value = $element.val()
   }
 
-  if (/^cardList\d*$/.test(elementID)) {
-    arrayName = 'promptConfig'
-    propName = 'selectedCharacter'
-    liveConfig['promptConfig'][elementID] = getCardListArrayFromSelectorContents(elementID)
-    liveConfig['promptConfig']['selectedCharacterDisplayName'] = $element.find('option:selected').text()
-  }
-  else if ($element.is('select') && $element.hasClass('dynamicSelector')) {
+  if ($element.is('select') && $element.hasClass('dynamicSelector')) {
     //console.log('dynamic selector')
     arrayName = elementID.replace('List', '');
     let arrayNameForParse = arrayName.charAt(0).toUpperCase() + arrayName.slice(1);

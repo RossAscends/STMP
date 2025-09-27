@@ -166,14 +166,17 @@ function trimIncompleteSentences(input, include_newline = false) {
 
     const punctuation = new Set(['.', '!', '?', '*', '"', ')', '}', '`', ']', '$', '。', '！', '？', '”', '）', '】', '】', '’', '」', '】']); // extend this as you see fit
     let last = -1;
+    let stoppedAt = null; // 'punct' | 'newline'
     for (let i = input.length - 1; i >= 0; i--) {
         const char = input[i];
         if (punctuation.has(char)) {
             last = i;
+            stoppedAt = 'punct';
             break;
         }
         if (include_newline && char === '\n') {
             last = i;
+            stoppedAt = 'newline';
             break;
         }
     }
@@ -182,6 +185,24 @@ function trimIncompleteSentences(input, include_newline = false) {
         return input.trimEnd();
     }
     let trimmedString = input.substring(0, last + 1).trimEnd();
+
+    // If we stopped at punctuation and the last retained line contains only
+    // punctuation and whitespace (e.g., a dangling quote on its own line),
+    // remove that line as well.
+    if (stoppedAt === 'punct') {
+        const lastNewline = trimmedString.lastIndexOf('\n');
+        const tail = lastNewline === -1 ? trimmedString : trimmedString.slice(lastNewline + 1);
+        const tailNoWS = tail.replace(/[ \t\r]+/g, '');
+        if (tailNoWS.length > 0) {
+            let onlyPunct = true;
+            for (const c of tailNoWS) {
+                if (!punctuation.has(c)) { onlyPunct = false; break; }
+            }
+            if (onlyPunct) {
+                trimmedString = (lastNewline === -1 ? '' : trimmedString.slice(0, lastNewline)).trimEnd();
+            }
+        }
+    }
     return trimmedString;
 }
 

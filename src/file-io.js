@@ -189,8 +189,35 @@ async function writeConfig(configObj, key = null, value = null) {
 
         logger.info(`Config updated: ${key}, ${value}`);
     }
-    //logger.warn('WRITE configObj: ', configObj.crowdControl)
-    const writableConfig = JSON.stringify(configObj, null, 2);
+    // Build a sanitized copy for persistence so we don't save UI-only or legacy artifacts
+    const configToWrite = JSON.parse(JSON.stringify(configObj));
+
+    try {
+        if (configToWrite && configToWrite.promptConfig) {
+            const pc = configToWrite.promptConfig;
+
+            // 1) Remove any legacy per-slot card lists (cardList, cardList2..6) from the file.
+            //    The live options are rebuilt at runtime from public/characters and sent to clients.
+            Object.keys(pc)
+                .filter(k => k === 'cardList' || /^cardList\d+$/.test(k))
+                .forEach(k => { delete pc[k]; });
+
+            // 2) If some older configs still embedded a '[None]' option inside any list arrays,
+            //    scrub those values. We do this defensively for known lists.
+            const scrubList = (arr) => Array.isArray(arr)
+                ? arr.filter(item => !(item && item.value === 'None' && item.name === '[None]'))
+                : arr;
+
+            if (Array.isArray(pc.samplerPresetList)) pc.samplerPresetList = scrubList(pc.samplerPresetList);
+            if (Array.isArray(pc.instructList)) pc.instructList = scrubList(pc.instructList);
+            if (Array.isArray(pc.APIList)) pc.APIList = scrubList(pc.APIList);
+        }
+    } catch (sanErr) {
+        // If anything goes wrong during sanitization, log and proceed with unsanitized config to avoid data loss.
+        logger.warn('Config sanitization warning:', sanErr);
+    }
+
+    const writableConfig = JSON.stringify(configToWrite, null, 2);
     fs.writeFile("./config.json", writableConfig, "utf8", writeErr => {
         if (writeErr) {
             logger.error("An error occurred while writing to the file:", writeErr);

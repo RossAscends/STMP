@@ -421,11 +421,22 @@ textarea {
     transition: all 250ms ease-in-out;
 }
 
-#finalInstructionBlock,
-#systemPromptBlock,
-#authorsNoteBlock {
+.insertionPromptBlock {
     flex-grow: 1;
     min-height: 0;
+    transition: all 250ms ease-in-out;
+}
+
+/*Dynamic focus-based sizing for Insertion Blocks*/
+/*Shrinks unfocused insertion blocks when one is focused*/
+:has(+ .insertionPromptBlock + .insertionPromptBlock + .insertionPromptBlock + .insertionPromptBlock:focus-within), /*block 4 spaces before focused block*/
+:has(+ .insertionPromptBlock + .insertionPromptBlock + .insertionPromptBlock:focus-within), /*block 3 spaces before focused block*/
+:has(+ .insertionPromptBlock + .insertionPromptBlock:focus-within), /*block 2 spaces before focused block*/
+:has(+ .insertionPromptBlock:focus-within), /*block 1 space before focused block*/
+.insertionPromptBlock:focus-within ~ .insertionPromptBlock /*for all blocks after focused block*/
+{
+    flex-grow: 0;
+    opacity: 0.6;
 }
 
 #controlPanel textarea {

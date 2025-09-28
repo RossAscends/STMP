@@ -96,6 +96,7 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
     let contentBeforeContinue
     // Track mid-stream fenced code block state for stable rendering
     let streamIsInsideFencedCodeblock = false;
+    let haveInsertedPrefillForDisplayYet = false;
 
     // Produce a markdown string for rendering that appends a temporary closing
     // fence when the current content has an unmatched opening ``` fence.
@@ -175,6 +176,12 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
             return
         }
 
+        if (haveInsertedPrefillForDisplayYet === false && liveConfig.promptConfig.responsePrefill.length > 0) {
+            logger.error('TEXTLISTENER: inserting prefill for display:', liveConfig.promptConfig.responsePrefill)
+            accumulatedStreamOutput += liveConfig.promptConfig.responsePrefill;
+            haveInsertedPrefillForDisplayYet = true;
+        }
+
         accumulatedStreamOutput += text
         //logger.warn(accumulatedStreamOutput)
         // logger.warn(purify.partialMarkdownToHTML(purifier.makeHtml((accumulatedStreamOutput))))
@@ -214,6 +221,7 @@ async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, 
         const newMessageID = await db.getNextMessageID();
 
         //this is a dry run to get the AIChatUserList, so we can create the listener EARLY.
+        logger.warn('>>> DRY RUN <<<')
         const AIChatUserList = await api.getAIResponse(
             isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, true, parsedMessage, false
         );
@@ -224,6 +232,7 @@ async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, 
         textEmitter.on('text', textListener); // 🔁 NOW the emitter is hooked
 
         //this is the actual call to the API, which will start streaming.
+        logger.warn('>>> REAL RUN <<<')
         const [AIResponse, uselessAIChatUserList] = await api.getAIResponse(
             isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage, shouldContinue
         );

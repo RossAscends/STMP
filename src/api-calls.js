@@ -281,9 +281,7 @@ async function setStopStrings(liveConfig, APICallParams, includedChatObjects, li
     //TODO: find a sensible way to optimize this. 4 strings per entity is a lot..
     for (const entity of usernames) {
         targetObj.push(
-            `${entity.username}:`,
             `\n${entity.username}:`,
-            ` ${entity.username}:`,
             `\n ${entity.username}:`
         );
     }
@@ -328,6 +326,7 @@ function collapseNewlines(x) {
 }
 
 function postProcessText(text) {
+    //logger.error('postProcessText input: ', text);
     // Collapse multiple newlines into one
     //text = collapseNewlines(text);
     // Trim leading and trailing whitespace, and remove empty lines
@@ -339,7 +338,8 @@ function postProcessText(text) {
     // Collapse multiple spaces into one (except for newlines)
     text = text.replace(/ {2,}/g, ' ');
     // Remove leading and trailing spaces
-    text = text.trim();
+    //text = text.trim();
+    //logger.error('postProcessText output: ', text);
     return text;
 }
 
@@ -406,6 +406,8 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             //replace {{user}} and {{char}} for D1JB
             var D1JB = postProcessText(replaceMacros(liveConfig.promptConfig.D1JB, username, charJSON.name)) || ''
             var D4AN = postProcessText(replaceMacros(liveConfig.promptConfig.D4AN, username, charJSON.name)) || ''
+            var D0PostHistory = postProcessText(replaceMacros(liveConfig.promptConfig.D0PostHistory, username, charJSON.name)) || ''
+            var responsePrefill = postProcessText(replaceMacros(liveConfig.promptConfig.responsePrefill, username, charJSON.name)) || ''
             if (doD4CharDefs) {
                 D4AN = `${descToAdd}\n${D4AN}`
             }
@@ -441,15 +443,15 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
 
                 // Helper to robustly determine if a chat entry is from the assistant
                 const isAssistantMsg = (obj) => {
-                    logger.error('checking isAssistantMsg for:', obj);
+                    //logger.error('checking isAssistantMsg for:', obj);
                     const ent = (obj?.entity || '').toLowerCase();
                     if (ent) {
-                        logger.warn(`isAssistantMsg? ${ent} -- charName: ${charName}, charDisplayName: ${charDisplayName}`);
+                        //logger.warn(`isAssistantMsg? ${ent} -- charName: ${charName}, charDisplayName: ${charDisplayName}`);
                         if (ent === 'assistant' || ent === 'ai' || ent === 'bot') return true;
                         if (ent === 'user' || ent === 'human') return false;
                     }
                     const uname = obj?.username || '';
-                    logger.warn(`isAssistantMsg? ${ent} -- uname: ${uname}, charName: ${charName}, charDisplayName: ${charDisplayName}`);
+                    //logger.warn(`isAssistantMsg? ${ent} -- uname: ${uname}, charName: ${charName}, charDisplayName: ${charDisplayName}`);
                     return uname === charName || uname === charDisplayName;
                 };
 
@@ -487,7 +489,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         // Capture the entity type of the most recent included message only once
                         if (lastInsertedEntity === null) {
                             lastInsertedEntity = isAssistantMsg(obj) ? 'Assistant' : 'Human';
-                            logger.error('lastInsertedEntity is now:', lastInsertedEntity);
+                            //logger.error('lastInsertedEntity is now:', lastInsertedEntity);
                         }
                     }
                     //logger.warn(obj.username, obj.user, obj.content)
@@ -497,6 +499,8 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 let numOfObjects = insertedItems.length
                 let positionForD4AN = numOfObjects - 4
                 let positionForD1JB = numOfObjects - 1
+                let positionForD0PostHistory = numOfObjects
+                
                 //logger.warn(`D4AN will be inserted at position ${positionForD4AN} of ${numOfObjects}`)
                 D4AN = D4AN.trim()
                 if (D4AN.length !== 0 && D4AN !== '' && D4AN !== undefined && D4AN !== null) {
@@ -508,6 +512,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         insertedItems.splice(positionForD4AN, 0, `${endSequence}${systemSequence}${D4AN}`)
                         numOfObjects = insertedItems.length
                         positionForD1JB = numOfObjects - 1
+                        positionForD0PostHistory = numOfObjects
                     }
                 }
                 D1JB = D1JB.trim()
@@ -518,8 +523,16 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     } else {
                         //logger.warn('adding D1JB at depth', positionForD1JB)
                         insertedItems.splice(positionForD1JB, 0, `${endSequence}${systemSequence}${D1JB}`)
+                        numOfObjects = insertedItems.length
+                        positionForD0PostHistory = numOfObjects
                     }
                 }
+                D0PostHistory = D0PostHistory.trim()
+                if (!shouldContinue && D0PostHistory.length !== 0 && D0PostHistory !== '' && D0PostHistory !== undefined && D0PostHistory !== null) {
+                    //logger.warn(`adding D0PostHistory (${D0PostHistory}) at bottom of prompt, position ${positionForD0PostHistory}, total items now ${insertedItems.length + 1}`)
+                    insertedItems.splice(positionForD0PostHistory, 0, `${endSequence}${systemSequence}${D0PostHistory}`)
+                }
+
                 // Reverse the array before appending to insertedChatHistory
                 //let reversedItems = insertedItems.reverse();
                 //let insertedChatHistory = reversedItems.join('');
@@ -548,7 +561,13 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     if (isClaude) {
                         stringToReturn += `Assistant:` //toggle for claude    
                     } else {
+                        //logger.warn(`adding prefill (${responsePrefill}) and last user message and charname (${lastUserMesageAndCharName})`)
                         stringToReturn += lastUserMesageAndCharName.trim();
+                        if (responsePrefill.length !== 0 && responsePrefill !== '' && responsePrefill !== undefined && responsePrefill !== null) { 
+                            stringToReturn += ` ${responsePrefill}`; //add the response prefill
+                        }
+                        
+                        
                     }
                 }
 
@@ -558,31 +577,40 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 // logger.info('adding Chat Completion style message objects into prompt')
                 var CCMessageObj = []
 
-                var D4ANObj, D1JBObj, systemPromptObject, promptTokens = 0
+                var D4ANObj, D1JBObj, D0PHObj, responsePrefillObj, systemPromptObject, promptTokens = 0
 
                 if (!isClaude) { // OAI can get a system role message, but Claude can't. It goes to a top-level param.
                     systemPromptObject = { role: 'system', content: systemPromptforCC }
                     D1JBObj = { role: 'system', content: D1JB }
                     D4ANObj = { role: 'system', content: D4AN }
+                    D0PHObj = { role: 'system', content: D0PostHistory }
+                    responsePrefillObj = { role: 'system', content: responsePrefill }
                     promptTokens = countTokens(systemPromptObject['content'])
                 } else {
                     D1JBObj = { role: 'user', content: D1JB }
                     D4ANObj = { role: 'user', content: D4AN }
+                    D0PHObj = { role: 'user', content: D0PostHistory }
+                    responsePrefillObj = { role: 'user', content: responsePrefill }
+                    promptTokens = countTokens(systemPromptforCC)
                 }
 
                 // logger.info(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
 
                 let D4Added = false,
-                    D1Added = false
+                    D1Added = false,
+                    D0PHAdded = false
                 let shouldAddD4 = false
                 let shouldAddD1 = false
-                let D4Loc, D1Loc
+                let shouldAddD0PH = false
+                let D4Loc, D1Loc, D0PHLoc
                 if (isClaude) {
                     D4Loc = 3
                     D1Loc = 1
+                    D0PHLoc = 0
                 } else {
                     D4Loc = 4
                     D1Loc = 2
+                    D0PHLoc = 1
                 }
 
                 for (let i = chatHistory.length - 1; i >= 0; i--) {
@@ -596,6 +624,10 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         if (obj.entity === 'user' && D1JBObj.content.length > 0 && D1Added === false) {
                             obj.content = `${D1JBObj.content}\n` + obj.content
                             D1Added = true
+                        }
+                        if (obj.entity === 'user' && D0PHObj.content.length > 0 && D0PHAdded === false) {
+                            obj.content = `${D0PHObj.content}\n` + obj.content
+                            D0PHAdded = true
                         }
                     }
 
@@ -623,6 +655,18 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                             shouldAddD1 = false
                             let D1Tokens = countTokens(D1JBObj?.content);
                             promptTokens = + D1Tokens
+                        }
+                    }
+                    if (i === chatHistory.length - D0PHLoc && D0PHObj.content.length > 0 && D0PHAdded === false) {
+                        // logger.warn('saw D0PH incoming')
+                        shouldAddD0PH = true
+                        if (!isClaude) {
+                            // logger.warn('adding D0PH')
+                            CCMessageObj.push(D0PHObj)
+                            D0PHAdded = true
+                            shouldAddD0PH = false
+                            let D0PHTokens = countTokens(D0PHObj?.content);
+                            promptTokens = + D0PHTokens
                         }
                     }
 
@@ -653,6 +697,12 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                                 obj.content = D1JBObj.content + `\n` + obj.content
                                 D1Added = true
                                 shouldAddD1 = false
+                            }
+                            if (shouldAddD0PH === true) {
+                                logger.info('added D0PH')
+                                obj.content = D0PHObj.content + `\n` + obj.content
+                                D0PHAdded = true
+                                shouldAddD0PH = false
                             }
                             if (chatHistory[i - 1].role === obj.entity) { // if prev and current are both 'user'
                                 chatHistory[i - 1].content = chatHistory[i - 1].content + `\n` + obj.content //just combine the content
@@ -832,6 +882,7 @@ async function requestToHorde(hordeKey, stringToSend) {
     };
 }
 
+//MARK: testAPI
 async function testAPI(api, liveConfig) {
     logger.debug(`[testAPI] >> GO`)
     logger.info('Test Message API Info:')
@@ -871,6 +922,7 @@ async function testAPI(api, liveConfig) {
 
 }
 
+//MARK: getModelList
 async function getModelList(api, liveConfig = null) {
     if (liveConfig.promptConfig.engineMode === 'horde') {
         logger.info('aborting model list request because horde is active')
@@ -931,6 +983,7 @@ async function getModelList(api, liveConfig = null) {
     }
 }
 
+//MARK: tryLoadModel
 async function tryLoadModel(api, liveConfig, liveAPI) {
     logger.info(`[tryLoadModel] >> GO`)
 

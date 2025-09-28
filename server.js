@@ -270,6 +270,7 @@ function captureQueueContext(parsedMessage, user, selectedAPI, hordeKey, engineM
     lastLiveConfigForQueue = liveConfig;
 }
 
+//MARK: requestAIResponse
 async function handleRequestAIResponse(parsedMessage, user, selectedAPI, hordeKey, engineMode, liveConfig, ws) {
     migrateSelectedCharactersIfNeeded(liveConfig);
     const trigger = parsedMessage.trigger || 'auto';
@@ -523,6 +524,8 @@ async function initFiles() {
             D4AN: '',
             D4CharDefs: false,
             D1JB: '',
+            D0PostHistory: '',
+            responsePrefill: '',
             APIList: {},
             selectedAPI: "Default",
         },

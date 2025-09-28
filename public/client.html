@@ -190,7 +190,6 @@
                             </div>
                         </div>
                     </div>
-
                     <hr>
                 </div>
                 <div class="flex1 flexFlowCol flexbox">
@@ -200,13 +199,13 @@
                     </div>
                     <div id="insertionsBlock" class="flexbox flexFlowCol ">
                         <div id="promptConfigTextFields" class="transition250 flexbox flexFlowCol">
-                            <div id="systemPromptBlock" class="flexbox flexFlowCol Hcentered ">
+                            <div id="systemPromptBlock" class="insertionPromptBlock flexbox flexFlowCol Hcentered ">
                                 <span class="widthFitContent alignSelfCenter">System Prompt</span>
                                 <textarea class="" id="systemPrompt" placeholder="Text in this box will be inserted at the top of the prompt before anything else."></textarea>
                             </div>
-                            <div id="authorsNoteBlock" class="flexbox flexFlowCol Hcentered">
+                            <div id="authorsNoteBlock" class="insertionPromptBlock flexbox flexFlowCol Hcentered">
                                 <div class="flexbox Hcentered">
-                                    <span class="widthFitContent alignSelfCenter">D4 Insertion "AN"</span>
+                                    <span class="widthFitContent alignSelfCenter">D4 "Author's Note"</span>
                                     <label for="D4CharDefs" class="checkbox_label flexbox Vcentered">
                                         <input type="checkbox" class="alignSelfCenter margin0" id="D4CharDefs">
                                         <small>Add Char Defs</small>
@@ -215,9 +214,17 @@
 
                                 <textarea class="" id="D4AN" placeholder="The 'Author's Note' slot. A useful place to put character definitions, World Info, or other constantly relevant information."></textarea>
                             </div>
-                            <div id="finalInstructionBlock" class="flexbox flexFlowCol Hcentered  ">
-                                <span class="widthFitContent alignSelfCenter">D1 Insertion "JB"</span>
+                            <div id="finalInstructionBlock" class="insertionPromptBlock flexbox flexFlowCol Hcentered  ">
+                                <span class="widthFitContent alignSelfCenter">D1 "Jailbreak"</span>
                                 <textarea class="" id="D1JB" placeholder="A very powerful override instruction. This will usually override the D4 insertion."></textarea>
+                            </div>
+                            <div id="D0InstructionBlock" class="insertionPromptBlock flexbox flexFlowCol Hcentered  ">
+                                <span class="widthFitContent alignSelfCenter">D0 "Post-History Instruction"</span>
+                                <textarea class="" id="D0PostHistory" placeholder="Inserted after all pre-existing chat messages."></textarea>
+                            </div>
+                            <div id="responsePrefillBlock" class="insertionPromptBlock flexbox flexFlowCol Hcentered  ">
+                                <span class="widthFitContent alignSelfCenter">Response Prefill</span>
+                                <textarea class="" id="responsePrefill" placeholder="Inserted at the front of the AI response."></textarea>
                             </div>
                         </div>
                     </div>
@@ -247,20 +254,13 @@
 
                     <div id="LLMChatWrapper" class="flexbox flexFlowCol transition250 flex1 noGap">
                         <div class="chatHeader Hcentered Vcentered flexbox positionRelative justifySpaceBetween width100p">
-                            <!-- <div> -->
                             <button id="emptyAIChatDisplay" class="transition250 chatSweep bgTransparent square1p5em fontSize1p25em greyscale textshadow" title="Empty AI Chat\n(Affects Your Display Only)">🧹</button>
-                            <!-- </div> -->
                             <div class="flexbox alignItemsCenter AIChatHeaderCenterCluster">
                                 AI Chat name:
                                 <span id="AIChatUserNameHolder" hidden></span>
                                 <label for="AIUsernameInput" class="alignItemsCenter alignSelfCenter flexFlowCol flexbox noTextWrap noWrap widthFitContent">
                                     <input type="text" maxlength="12" id="AIUsernameInput" class="width100px bgBrightUp" placeholder="Username">
                                 </label>
-                                <!--<div class="custom-select hostControls">
-                                    <select id="cardList" class="hostControls flex1 dynamicSelector"></select>
-                                </div>
-                                <button id="charListRefresh" class="hostControls bgTransparent mutedColor fontSize1p25em square1p5em" title="Refresh Character List">🔄</button>
-                                <span id="charName"></span> -->
                             </div>
                             <div id="NOOP_AIChatHeaderSpacer" class="guestSpacing square1p5em fontSize1p25em" style="opacity: 0;"> </div>
                             <button id="clearAIChat" class="hostControls bgTransparent square1p5em fontSize1p25em greyscale bgBrightUp textshadow" title="Clear AI Chat History\n(Ends current chat session and starts a new one with selected character.)">🗑️</button>
@@ -279,7 +279,6 @@
                                 <input type="text" id="AIChatAutoClearCadence" data-for-config-array="crowdControl" class="numbersOnlyTextInput hostControls flexbox Vcentered" value="2">
                             </label>
                             <button id="deleteLastMessageButton" class="fontSize1p5em square1p5em bgTransparent  greyscale textshadow" title="Remove last message from chat">✂️</button>
-                            <!-- <button id="charDefsPopupButton" class="hostControls bgTransparent mutedColor fontSize1p25em square1p5em" title="Open Character Definitions Edit Panel">🧠</button> -->
                             <label for="AIResponseCadence" class="flexbox noWrap square1p5em  textshadow Vcentered" title="Trigger AI Response every X User messages (max 999)">
                                 <button id="triggerAIResponse" class="fontSize1p5em square1p5em bgTransparent greyscale textshadow" title="Click to Request Immediate AI Response">🤖</button>
                                 <div class="unavailable-overlay">

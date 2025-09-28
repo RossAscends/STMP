@@ -22,6 +22,8 @@ Based on the following array sent from server:
           D4AN,                   //text field value
           D4CharDefs,             //checkbox boolean
           D1JB,                   //text field value
+          D0PostHistory,         //text field value
+          responsePrefill,       //text field value
           APIList: {
               name,
               endpoint,
@@ -105,7 +107,7 @@ async function processLiveConfig(configArray) {
     selectedSamplerPreset, samplerPresetList,
     APIList, selectedAPI,
     responseLength, contextSize, isStreaming, isAutoResponse, engineMode,
-    systemPrompt, D4AN, D4CharDefs, D1JB,
+    systemPrompt, D4AN, D4CharDefs, D1JB, D0PostHistory, responsePrefill
   } = liveConfig.promptConfig
 
   //Process APIConfig
@@ -204,6 +206,8 @@ async function processLiveConfig(configArray) {
   await populateInput(D4AN, "D4AN");
   await toggleCheckbox(D4CharDefs, "D4CharDefs");
   await populateInput(D1JB, "D1JB");
+  await populateInput(D0PostHistory, "D0PostHistory");
+  await populateInput(responsePrefill, "responsePrefill");
 
   await populateInput(userChatDelay, "userChatDelay");
   await populateInput(AIChatDelay, "AIChatDelay");
@@ -679,7 +683,7 @@ $("#promptConfig input, #promptConfig select:not(#APIList, #modelList), [id^='ca
   updateConfigState($(this))
 })
 
-$("#systemPrompt, #D4AN, #D4CharDefs, #D1JB, #crowdControl input, #AIChatHostControls input, #userChatHostControls input").on('change', function () {
+$("#systemPrompt, #D4AN, #D4CharDefs, #D1JB, #D0PostHistory, #responsePrefill, #crowdControl input, #AIChatHostControls input, #userChatHostControls input").on('change', function () {
   updateConfigState($(this))
 })
 

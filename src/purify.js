@@ -15,6 +15,20 @@ const sanitizeExtension = (allowImages) => ({
             "style", "audio", "script", "iframe", "object", "embed", "form",
             "input", "select", "button", "marquee", "blink", "font"
         ];
+        const thinkReasoningTags = ["think", "reasoning"];
+        const reasoningRegex = /<\/?(think|reasoning)[^>]*>/gi;
+        const hasReasoning = reasoningRegex.test(text);
+
+        if (hasReasoning) {
+            logger.debug('Found <think> or <reasoning> tags, allowing them through sanitizer.');
+            forbiddenTags = forbiddenTags.filter(tag => !thinkReasoningTags.includes(tag));
+            //replace those tags with plaintext literal equivalents
+            text = text.replace(/<think>/gi, '&lt;think&gt;');
+            text = text.replace(/<\/think>/gi, '&lt;/think&gt;');
+            text = text.replace(/<reasoning>/gi, '&lt;reasoning&gt;');
+            text = text.replace(/<\/reasoning>/gi, '&lt;/reasoning&gt;');
+        }
+
         //logger.warn('sanitize init - allowImages: ', allowImages);
         if (allowImages === false) {
             logger.debug('checking for images...');

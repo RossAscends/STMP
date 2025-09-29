@@ -1,8 +1,0 @@
-{
-    "temp": 2,
-    "top_k": 0,
-    "min_p": 0.02,
-    "smoothing_factor": 0.3,
-    "temperature_last": true,
-    "seed": -1
-}

@@ -176,8 +176,9 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
             return
         }
 
-        if (haveInsertedPrefillForDisplayYet === false && liveConfig.promptConfig.responsePrefill.length > 0) {
+        if (haveInsertedPrefillForDisplayYet === false && !shouldContinue && liveConfig.promptConfig.responsePrefill.length > 0) {
             //logger.error('TEXTLISTENER: inserting prefill for display:', liveConfig.promptConfig.responsePrefill)
+            //this just adds the prefill into the displayed output.
             accumulatedStreamOutput += liveConfig.promptConfig.responsePrefill;
             haveInsertedPrefillForDisplayYet = true;
         }

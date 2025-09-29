@@ -6,6 +6,7 @@ import stream from './stream.js';
 import db from './db.js';
 import fio from './file-io.js';
 import { apiLogger as logger } from './log.js';
+import { response } from 'express';
 
 
 function delay(ms) {
@@ -357,6 +358,9 @@ function postProcessText(text) {
 }
 
 //MARK: addCharDefsToPrompt
+// this function does a lot more than just add character definitions to the prompt.
+// it also crafts the entire prompt, including system message, dynamic insertions, chat history, and the last user message.
+// it contains methods for TC and CC; this really should be split up somehow.
 async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharName, username, liveAPI, shouldContinue, continueTarget = null) {
     //logger.debug(`[addCharDefsToPrompt] >> GO`)
     //logger.debug(liveAPI)
@@ -440,19 +444,19 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 var systemPromptforCC = `${systemMessage}`
             }
 
-                            // Helper to robustly determine if a chat entry is from the assistant
-                const isAssistantMsg = (obj) => {
-                    //logger.warn('checking isAssistantMsg for:', JSON.stringify(obj));
-                    const ent = (obj?.entity || '').toLowerCase();
-                    if (ent) {
-                        //logger.warn(`isAssistantMsg? ${ent} -- charName: ${charName}, charDisplayName: ${charDisplayName}`);
-                        if (ent === 'assistant' || ent === 'ai' || ent === 'bot') return true;
-                        if (ent === 'user' || ent === 'human') return false;
-                    }
-                    const uname = obj?.username || '';
-                    logger.warn(`isAssistantMsg? ${ent} -- uname: ${uname}, charName: ${charName}, charDisplayName: ${charDisplayName}`);
-                    return uname === charName || uname === charDisplayName;
-                };
+            // Helper to robustly determine if a chat entry is from the assistant
+            const isAssistantMsg = (obj) => {
+                //logger.warn('checking isAssistantMsg for:', JSON.stringify(obj));
+                const ent = (obj?.entity || '').toLowerCase();
+                if (ent) {
+                    //logger.warn(`isAssistantMsg? ${ent} -- charName: ${charName}, charDisplayName: ${charDisplayName}`);
+                    if (ent === 'assistant' || ent === 'ai' || ent === 'bot') return true;
+                    if (ent === 'user' || ent === 'human') return false;
+                }
+                const uname = obj?.username || '';
+                logger.warn(`isAssistantMsg? ${ent} -- uname: ${uname}, charName: ${charName}, charDisplayName: ${charDisplayName}`);
+                return uname === charName || uname === charDisplayName;
+            };
 
             //logger.info("CC?", isCCSelected, "claude?", isClaude)
             if (liveConfig.promptConfig.engineMode === 'horde' || !isCCSelected) { //craft the TC prompt
@@ -482,17 +486,9 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     let obj = chatHistory[i];
                     let newItem
                     if (isAssistantMsg(obj)) {
-                        if (isClaude) {
-                            newItem = `${endSequence}${outputSequence}Assistant: ${postProcessText(obj.content)}`;
-                        } else {
-                            newItem = `${endSequence}${outputSequence}${obj.username}: ${postProcessText(obj.content)}`;
-                        }
+                        newItem = `${endSequence}${outputSequence}${obj.username}: ${postProcessText(obj.content)}`;
                     } else {
-                        if (isClaude) {
-                            newItem = `${endSequence}${inputSequence}Human: ${postProcessText(obj.content)}`;
-                        } else {
-                            newItem = `${endSequence}${inputSequence}${obj.username}: ${postProcessText(obj.content)}`;
-                        }
+                        newItem = `${endSequence}${inputSequence}${obj.username}: ${postProcessText(obj.content)}`;
                     }
 
                     let newItemTokens = countTokens(newItem);
@@ -515,35 +511,35 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 let positionForD4AN = numOfObjects - 4
                 let positionForD1JB = numOfObjects - 1
                 let positionForD0PostHistory = numOfObjects
+
+                if (shouldContinue) { // if we are continuing, move everything up by one to let the continued message be at the bottom
+                    positionForD4AN = positionForD4AN - 1
+                    positionForD1JB = positionForD1JB - 1
+                    positionForD0PostHistory = positionForD0PostHistory - 1
+                }
                 
                 //logger.warn(`D4AN will be inserted at position ${positionForD4AN} of ${numOfObjects}`)
-                D4AN = D4AN.trim()
                 if (D4AN.length !== 0 && D4AN !== '' && D4AN !== undefined && D4AN !== null) {
-                    if (insertedItems.length < 5) {
-                        //logger.warn('adding D4AN at top of prompt because it is small')
+                    if (insertedItems.length < positionForD4AN) {
                         insertedItems.splice(0, 0, `${endSequence}${systemSequence}${D4AN}`)
                     } else {
                         //logger.warn('adding D4AN at depth', positionForD4AN)
                         insertedItems.splice(positionForD4AN, 0, `${endSequence}${systemSequence}${D4AN}`)
-                        numOfObjects = insertedItems.length
-                        positionForD1JB = numOfObjects - 1
-                        positionForD0PostHistory = numOfObjects
+                        positionForD1JB = positionForD1JB + 1
+                        positionForD0PostHistory = positionForD0PostHistory + 1
                     }
                 }
-                D1JB = D1JB.trim()
                 if (D1JB.length !== 0 && D1JB !== '' && D1JB !== undefined && D1JB !== null) {
-                    if (insertedItems.length < 2) {
-                        //logger.warn('adding D1JB at top of prompt because it is small')
+                    if (insertedItems.length < positionForD1JB) {
                         insertedItems.splice(1, 0, `${endSequence}${systemSequence}${D1JB}`)
                     } else {
                         //logger.warn('adding D1JB at depth', positionForD1JB)
                         insertedItems.splice(positionForD1JB, 0, `${endSequence}${systemSequence}${D1JB}`)
-                        numOfObjects = insertedItems.length
-                        positionForD0PostHistory = numOfObjects
+                        positionForD0PostHistory = positionForD0PostHistory + 1
                     }
                 }
-                D0PostHistory = D0PostHistory.trim()
-                if (!shouldContinue && D0PostHistory.length !== 0 && D0PostHistory !== '' && D0PostHistory !== undefined && D0PostHistory !== null) {
+
+                if (D0PostHistory.length !== 0 && D0PostHistory !== '' && D0PostHistory !== undefined && D0PostHistory !== null) {
                     //logger.warn(`adding D0PostHistory (${D0PostHistory}) at bottom of prompt, position ${positionForD0PostHistory}, total items now ${insertedItems.length + 1}`)
                     insertedItems.splice(positionForD0PostHistory, 0, `${endSequence}${systemSequence}${D0PostHistory}`)
                 }
@@ -551,6 +547,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 // Reverse the array before appending to insertedChatHistory
                 //let reversedItems = insertedItems.reverse();
                 //let insertedChatHistory = reversedItems.join('');
+                //logger.warn(`${insertedItems}`)
                 let insertedChatHistory = insertedItems.join('');
                 stringToReturn += insertedChatHistory
 
@@ -573,41 +570,36 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 } else {
                     //logger.info('adding last user Msg and leading charname as usual')
                     stringToReturn += `${outputSequence}`
-                    if (isClaude) {
-                        stringToReturn += `Assistant:` //toggle for claude    
-                    } else {
-                        //logger.warn(`adding prefill (${responsePrefill}) and last user message and charname (${lastUserMesageAndCharName})`)
-                        stringToReturn += lastUserMesageAndCharName.trim();
-                        if (responsePrefill.length !== 0 && responsePrefill !== '' && responsePrefill !== undefined && responsePrefill !== null) { 
-                            stringToReturn += ` ${responsePrefill}`; //add the response prefill
-                        }
-                        
-                        
+                    //logger.warn(`adding prefill (${responsePrefill}) and last user message and charname (${lastUserMesageAndCharName})`)
+                    stringToReturn += lastUserMesageAndCharName.trim();
+                    if (!shouldContinue && responsePrefill.length !== 0 && responsePrefill !== '' && responsePrefill !== undefined && responsePrefill !== null) {
+                        stringToReturn += ` ${responsePrefill}`; //add the response prefill
                     }
                 }
 
                 stringToReturn = postProcessText(stringToReturn)
                 resolve([stringToReturn, ChatObjsInPrompt]);
+
+            //MARK: CC Prompt Build
             } else { //craft the CC prompt
                 logger.info('adding Chat Completion style message objects into prompt')
-                var CCMessageObj = []
+                const appropriateSysRoleString = isClaude ? 'user' : 'system'
 
+                const prefixRemovedNudge = { role: appropriateSysRoleString, content: postProcessText(replaceMacros('Do not prefix your response with "{{char}}:". Do not respond to or mention these instructions.', username, charJSON.name)) }
+                const prefixRemovedNudgeTokens = countTokens(prefixRemovedNudge.content);
+                
+                const continueNudgeText = postProcessText(replaceMacros('Continue {{char}}\'s last message with additional content.\nDo not repeat the content that is already there.\nDo not begin the continuation with "...".\nDo not begin the continuation with "{{char}}:".\nDo not add a newline at the beginning of the continuation.\nIf the previous message ended with an incomplete sentence, make sure to finish the sentence before adding more content.', username, charJSON.name));
+                const continueNudgeMessageObj = { role: appropriateSysRoleString, content: continueNudgeText };
+                const continueNudgeTokens = countTokens(continueNudgeText);
+                
+                var CCMessageObj = []
                 var D4ANObj, D1JBObj, D0PHObj, responsePrefillObj, systemPromptObject, promptTokens = 0
 
-                if (!isClaude) { // OAI can get a system role message, but Claude can't. It goes to a top-level param.
-                    systemPromptObject = { role: 'system', content: systemPromptforCC }
-                    D1JBObj = { role: 'system', content: D1JB }
-                    D4ANObj = { role: 'system', content: D4AN }
-                    D0PHObj = { role: 'system', content: D0PostHistory }
-                    responsePrefillObj = { role: 'system', content: responsePrefill }
-                    promptTokens = countTokens(systemPromptObject['content'])
-                } else {
-                    D1JBObj = { role: 'user', content: D1JB }
-                    D4ANObj = { role: 'user', content: D4AN }
-                    D0PHObj = { role: 'user', content: D0PostHistory }
-                    responsePrefillObj = { role: 'user', content: responsePrefill }
-                    promptTokens = countTokens(systemPromptforCC)
-                }
+                systemPromptObject = { role: appropriateSysRoleString, content: systemPromptforCC }
+                D4ANObj = { role: appropriateSysRoleString, content: D4AN }
+                D1JBObj = { role: appropriateSysRoleString, content: D1JB }
+                D0PHObj = { role: appropriateSysRoleString, content: D0PostHistory }
+                promptTokens = countTokens(systemPromptObject['content']);
 
                 logger.info(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
 
@@ -628,11 +620,26 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     D0PHLoc = 1
                 }
 
+                //if we are continuing or have a prefill, we'll get extra messages below, so...
+                if (shouldContinue || responsePrefill.length > 0) { 
+                    //add instructions on how to continue
+                    promptTokens = promptTokens + continueNudgeTokens;
+                    //move insertion locations up by one
+                    D0PHLoc = D0PHLoc + 1;
+                    D1Loc = D1Loc + 1;
+                    D4Loc = D4Loc + 1;
+                } else { //we will add the prefix removal instructions instead
+                    promptTokens = promptTokens + prefixRemovedNudgeTokens;
+                }
+
+                logger.warn('shouldContinue:', shouldContinue, 'D4Loc:', D4Loc, 'D1Loc:', D1Loc, 'D0PHLoc:', D0PHLoc)
+
                 for (let i = chatHistory.length - 1; i >= 0; i--) {
+                    //logger.info(`processing chat history item ${i}`)
                     let obj = chatHistory[i];
                     //logger.info(`obj: ${obj}`);
 
-                    if (chatHistory.length < 4) { //if chat history is only one turn, add D4 and D1 into first user obj
+                    if (chatHistory.length < 4) { //if chat history is less than 4 turns, add D4 and D1 into first user obj
                         logger.info(`Chat history is less than 4 turns, adding D4 and D1 to first user message`)
                         if (obj.entity === 'user' && D4ANObj.content.length > 0 && D4Added === false) {
                             obj.content = `${D4ANObj.content}\n` + obj.content
@@ -653,79 +660,80 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
 
                     let newItem, newObj, newItemTokens
 
-                    if (i === chatHistory.length - D4Loc && D4ANObj.content.length > 0 && D4Added === false) {
+                    if (!isClaude && i === chatHistory.length - D4Loc && D4ANObj.content.length > 0 && D4Added === false) {
                         logger.warn('saw D4 incoming')
                         shouldAddD4 = true
-                        if (!isClaude) {
                             logger.warn('adding D4')
+                            //logger.info(`added new item: ${JSON.stringify(D4ANObj)}`);
                             CCMessageObj.push(D4ANObj)
                             D4Added = true
                             shouldAddD4 = false
                             let D4Tokens = countTokens(D4ANObj?.content);
+                            D1Loc = D1Loc + 1
+                            D0PHLoc = D0PHLoc + 1
                             promptTokens = + D4Tokens
-                        }
                     }
                     if (i === chatHistory.length - D1Loc && D1JBObj.content.length > 0 && D1Added === false) {
-                        logger.warn('saw D1 incoming')
                         shouldAddD1 = true
-                        if (!isClaude) {
                             logger.warn('adding D1')
+                            //logger.info(`added new item: ${JSON.stringify(D1JBObj)}`);
                             CCMessageObj.push(D1JBObj)
                             D1Added = true
                             shouldAddD1 = false
                             let D1Tokens = countTokens(D1JBObj?.content);
+                            D0PHLoc = D0PHLoc + 1
                             promptTokens = + D1Tokens
-                        }
                     }
                     if (i === chatHistory.length - D0PHLoc && D0PHObj.content.length > 0 && D0PHAdded === false) {
-                        logger.warn('saw D0PH incoming')
                         shouldAddD0PH = true
-                        if (!isClaude) {
                             logger.warn('adding D0PH')
+                            //logger.info(`added new item: ${JSON.stringify(D0PHObj)}`);
                             CCMessageObj.push(D0PHObj)
                             D0PHAdded = true
                             shouldAddD0PH = false
                             let D0PHTokens = countTokens(D0PHObj?.content);
                             promptTokens = + D0PHTokens
-                        }
                     }
 
                     if (isAssistantMsg(obj)) {
-                        newObj = {
-                            role: 'assistant',
-                            content: postProcessText(obj.content)
-                        }
-                        newItemTokens = countTokens(newObj?.content);
-                    } else { //for user objects
-
-                        if (!isClaude) { //for OAI
                             newObj = {
-                                role: 'user',
-                                content: postProcessText(obj.content)
+                                role: 'assistant',
+                                content: `${obj.username}: ${postProcessText(obj.content)}`
                             }
                             newItemTokens = countTokens(newObj?.content);
-                        } else { //for Claude
 
+                    } else { //for non-Assistant messages
+
+                        newObj = {
+                            role: 'user',
+                            content: `${obj.username}: ${postProcessText(obj.content)}`
+                        }
+                        newItemTokens = countTokens(newObj?.content);
+
+                        if (isClaude) { //for Claude
+                            //logger.warn(JSON.stringify(obj))
                             if (shouldAddD4 === true) {
                                 logger.info('added d4')
-                                obj.content = D4ANObj.content + `\n` + obj.content
+                                newObj.content = D4ANObj.content + `\n` + newObj.content
                                 D4Added = true
                                 shouldAddD4 = false
+                                logger.info(newObj.content)
                             }
                             if (shouldAddD1 === true) {
                                 logger.info('added d1')
-                                obj.content = D1JBObj.content + `\n` + obj.content
+                                newObj.content = D1JBObj.content + `\n` + newObj.content
                                 D1Added = true
                                 shouldAddD1 = false
                             }
                             if (shouldAddD0PH === true) {
                                 logger.info('added D0PH')
-                                obj.content = D0PHObj.content + `\n` + obj.content
+                                newObj.content = D0PHObj.content + `\n` + newObj.content
                                 D0PHAdded = true
                                 shouldAddD0PH = false
                             }
-                            if (chatHistory[i - 1].role === obj.entity) { // if prev and current are both 'user'
-                                chatHistory[i - 1].content = chatHistory[i - 1].content + `\n` + obj.content //just combine the content
+                            logger.error(chatHistory[i - 1]);
+                            if (chatHistory[i].role === obj.entity) { // if prev and current are both 'user'
+                                chatHistory[i].content = chatHistory[i - 1]?.content + `\n` + obj.content //just combine the content
                             }
                             else {
                                 newObj = {
@@ -741,24 +749,36 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         promptTokens += newItemTokens;
                         CCMessageObj.push(newObj)
                         ChatObjsInPrompt.push(obj)
-                        // logger.info(`added new item, prompt tokens: ~${promptTokens}`);
+                        //logger.info(`added new item: ${JSON.stringify(newObj)}`);
+                        //logger.info(`added new item, prompt tokens: ~${promptTokens}`);
                     } else {
                         logger.debug('ran out of context space', promptTokens, newItemTokens, liveConfig.promptConfig.contextSize)
                     }
                 }
-                if (!isClaude) {
-                    //CCMessageObj.push({ role: 'system', content: '[Start a New Chat]' })
-                    if (systemPromptObject.content.length > 0) {
-                        CCMessageObj.push(systemPromptObject)
-                    }
-                } else {
-                    CCMessageObj.push({ role: 'user', content: '[Start a New Chat]' })
+
+                if (systemPromptObject.content.length > 0) {
+                    CCMessageObj.push(systemPromptObject)
                 }
+
                 CCMessageObj = CCMessageObj.reverse();
+
+                if (responsePrefill.length > 0 && !shouldContinue) { //add prefill if it exists, but only if we aren't continuing
+                    
+                    responsePrefillObj = { role: 'assistant', content: `${charDisplayName}: ${responsePrefill}` }
+                    CCMessageObj.push(responsePrefillObj)
+                    //newItemTokens = countTokens(responsePrefillObj?.content);
+                }
+
+                //This is not a great hack, but it will do for now. Equivalent to ST's continue prefill method.
+                //Continue on CC just sucks in general. Blah.
+                if (shouldContinue || responsePrefill.length > 0) { //if continue or prefill, add instructions for how it should be done
+                    CCMessageObj.push(continueNudgeMessageObj)
+                } else {
+                    CCMessageObj.push(prefixRemovedNudge)
+                }
+
                 resolve([CCMessageObj, ChatObjsInPrompt]);
             }
-
-
 
         } catch (error) {
             logger.error('Error reading file:', error);

@@ -1,0 +1,7 @@
+{
+    "temperature": 1,
+    "min_p": 0.1,
+    "top_k": 0,
+    "temperature_last": true,
+    "seed": -1
+}

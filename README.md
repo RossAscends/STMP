@@ -127,7 +127,7 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 2. A new panel will be displayed with new inputs:
   a. `Name` - the label you want to remember the API as
   b. `Endpoint URL` - this is the base server URL for the LLM API. If the usual URL does not work, try adding `v1/` to the end.
-  c. `Key` - If your API requires a key, put it in here.
+  c. `Key` - If your API requires a key, put it in here. `API Keys are saved in config.json. Do not share this file!`
   d. `Endpoint Type` - select from Text Completions or Chat Completions as appropriate for the API endpoint.
   e. `Claude` - select this if the API is based on Anthropic's Claude model, because it needs special prompt formatting.
   f. `Close` - will cancel the API editing/creating process and return you to the main AI Config panel.
@@ -136,12 +136,21 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
   i. `Delete` - removes the APi from the database.
 3. When all of the fields are filled out, press `Save` to return to the main Control panel display.
 
-### Adding Presets
+#### Prompt Insertions
+
+- **System Prompt**: Inserted into the top-level system prompt.
+- **D4 "Author's Note"**: inserted above the 4 most-recent pre-existing chat history messages.
+  - Optional checkbox to insert the Description of the next-responding character here as well.
+- **D1 "Jailbreak"**: inserted above the most recent pre-existing chat history message.
+- **D0 "Post-history Instructions"**: inserted after all pre-existing chat history messages.
+- **Response Prefill**: Prefixes the upcoming AI response.
+
+### Adding Instruct/Sampler Presets
 
 - If you want to add more presets for Instruct formats or hyperparameter Samplers, put the JSON file into the appropriate folder:
 - Samplers go in `/public/api-presets/`
 - Instruct formats go in`/public/instructFormats/`
-- **It's highly reccomended to review the structure of the default STMP preset files.**
+- **It's strongly recommended to look at the structure of STMP's default preset files.**
 - **SillyTavern preset files will not work.**
 
 ## Chats, Characters, and Crowd Controls (📜)
@@ -172,7 +181,7 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 - `Embedded Lorebook` - is currently not used by STMP, but is visible for user reference.
 - (👁️) at the top of the character definition panel will show Legacy Fields
   - Legacy Fields are **read-only**. STMP does not use them.
-  - Legacy fields = Personality, Example Messages, and Scenario.
+  - Legacy fields = **Personality, Example Messages, and Scenario.**
 - `Save` will update the character definitions.
 - `Close` will close the popup with no changes.
 
@@ -223,6 +232,12 @@ Currently STMP supports Text Completions (TC), Chat Completions (CC), and HordeA
 - (🤖) Manually triggering an AI response without user Input
 - (✂️) Deleting the last message in the AI Chat
 - (🔄) Retry, i.e. Remove the last chat message and prompt the AI character to give a new response.
+
+### In Each Message on Hover (Host Only)
+
+- Edit button to edit the message. (AI Chat only, at the top right of the message)
+- Delete button to delete the message. (at the top right of the message)
+- Continue button (AI Chat only, AI message only, at the end of the message contents)
 
 ## Planned Features
 

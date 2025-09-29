@@ -99,8 +99,14 @@ const BRTagsToParagraphTags = () => {
 };
 
 // Create the Showdown converter
+let oldAllowImages = null;
 const createConverter = (allowImages = true) => {
-    logger.warn('Purifier initialized - allowImages: ', allowImages);
+
+    if (oldAllowImages !== allowImages) {
+        logger.info('allowImages updated: ', allowImages);
+        oldAllowImages = allowImages;
+    }
+    
     return new showdown.Converter({
         simpleLineBreaks: true,
         openLinksInNewWindow: true,

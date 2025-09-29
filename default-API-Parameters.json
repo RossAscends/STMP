@@ -2,25 +2,7 @@
     {
         "TCAPICallParams": {
             "prompt": "",
-            "stream": false,
-            "truncation_length": 4096,
-            "max_tokens": 200,
-            "temperature": 2,
-            "top_k": 0,
-            "top_p": 1,
-            "min_p": 0.2,
-            "typical_p": 1,
-            "tfs": 1,
-            "repetition_penalty": 1.1,
-            "repetition_penalty_range": 400,
-            "seed": -1,
-            "skip_special_tokens": true,
-            "mirostat_mode": 0,
-            "mirostat_tau": 5,
-            "mirostat_eta": 0.1,
-            "grammar_string": "",
-            "custom_token_bans": "",
-            "stop": []
+            "seed": -1
         },
         "HordeAPICallParams": {
             "prompt": "",

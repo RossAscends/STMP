@@ -85,12 +85,25 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
             apiCallParams.messages = fullPrompt;
         }
 
-        if (engineMode !== 'horde' && !isCCSelected) {
+        if (engineMode !== 'horde' && !isCCSelected) { // add max_tokens for TC (others handled differently below)
             apiCallParams.max_tokens = Number(liveConfig.promptConfig.responseLength);
         }
+
+        if (isCCSelected) {
+            logger.warn(`endpoint: ${liveAPI.endpoint}`)
+            if (liveAPI.endpoint.includes('openai.com')) { //max_output_tokens for OAI CC
+                apiCallParams.max_output_tokens = Number(liveConfig.promptConfig.responseLength);
+            }
+            if (!liveAPI.endpoint.includes('anthropic.com')) { //max_tokens for non-OAI CC
+                apiCallParams.max_tokens = Number(liveConfig.promptConfig.responseLength);
+            }
+
+        } 
+
+        
         const [finalApiCallParams, entitiesList] = await setStopStrings(liveConfig, apiCallParams, includedChatObjects, liveAPI);
 
-        logger.info('[getAIResponse] >> finalApiCallParams after SetStopStrings:', finalApiCallParams.params);
+        //logger.info(`[getAIResponse] >> finalApiCallParams after SetStopStrings: ${JSON.stringify(finalApiCallParams)}`);
 
         let AIChatUserList, AIResponse = '';
         if (engineMode === 'horde') { //if horde...
@@ -160,7 +173,7 @@ async function makeAIChatUserList(entitiesList, chatHistoryFromPrompt) {
             }
         }
     }
-    logger.warn(`AIChatUserList result: ${JSON.stringify(AIChatUserList)}`);
+    //logger.warn(`AIChatUserList result: ${JSON.stringify(AIChatUserList)}`);
     return AIChatUserList;
 }
 
@@ -408,7 +421,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             var D4AN = postProcessText(replaceMacros(liveConfig.promptConfig.D4AN, username, charJSON.name)) || ''
             var D0PostHistory = postProcessText(replaceMacros(liveConfig.promptConfig.D0PostHistory, username, charJSON.name)) || ''
             var responsePrefill = postProcessText(replaceMacros(liveConfig.promptConfig.responsePrefill, username, charJSON.name)) || ''
-            if (doD4CharDefs) {
+            if (doD4CharDefs && descToAdd.length > 0) {
                 D4AN = `${descToAdd}\n${D4AN}`
             }
             var systemMessage = postProcessText(replaceMacros(liveConfig.promptConfig.systemPrompt, username, charJSON.name)) || `You are ${charName}. Write ${charName}'s next response to interact with ${username}.`
@@ -427,6 +440,20 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 var systemPromptforCC = `${systemMessage}`
             }
 
+                            // Helper to robustly determine if a chat entry is from the assistant
+                const isAssistantMsg = (obj) => {
+                    //logger.warn('checking isAssistantMsg for:', JSON.stringify(obj));
+                    const ent = (obj?.entity || '').toLowerCase();
+                    if (ent) {
+                        //logger.warn(`isAssistantMsg? ${ent} -- charName: ${charName}, charDisplayName: ${charDisplayName}`);
+                        if (ent === 'assistant' || ent === 'ai' || ent === 'bot') return true;
+                        if (ent === 'user' || ent === 'human') return false;
+                    }
+                    const uname = obj?.username || '';
+                    logger.warn(`isAssistantMsg? ${ent} -- uname: ${uname}, charName: ${charName}, charDisplayName: ${charDisplayName}`);
+                    return uname === charName || uname === charDisplayName;
+                };
+
             //logger.info("CC?", isCCSelected, "claude?", isClaude)
             if (liveConfig.promptConfig.engineMode === 'horde' || !isCCSelected) { //craft the TC prompt
                 logger.trace('adding Text Completion style message objects into prompt')
@@ -441,19 +468,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 let insertedItems = []
                 let lastInsertedEntity = null
 
-                // Helper to robustly determine if a chat entry is from the assistant
-                const isAssistantMsg = (obj) => {
-                    //logger.error('checking isAssistantMsg for:', obj);
-                    const ent = (obj?.entity || '').toLowerCase();
-                    if (ent) {
-                        //logger.warn(`isAssistantMsg? ${ent} -- charName: ${charName}, charDisplayName: ${charDisplayName}`);
-                        if (ent === 'assistant' || ent === 'ai' || ent === 'bot') return true;
-                        if (ent === 'user' || ent === 'human') return false;
-                    }
-                    const uname = obj?.username || '';
-                    //logger.warn(`isAssistantMsg? ${ent} -- uname: ${uname}, charName: ${charName}, charDisplayName: ${charDisplayName}`);
-                    return uname === charName || uname === charDisplayName;
-                };
+
 
                 // For continuation, determine the entity of the most recent chat message upfront
                 // so we don't accidentally misclassify due to token budgeting.
@@ -542,10 +557,10 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 if (forcedLastInsertedEntity !== null) {
                     lastInsertedEntity = forcedLastInsertedEntity;
                 }
-                logger.warn('lastInsertedEntity:', lastInsertedEntity, 'shouldContinue:', shouldContinue)
+                //logger.warn('lastInsertedEntity:', lastInsertedEntity, 'shouldContinue:', shouldContinue)
 
                 if (shouldContinue === true && lastInsertedEntity === 'Assistant') {
-                    logger.warn('not adding end sequence because this is a continue for an AI msg')
+                    //logger.warn('not adding end sequence because this is a continue for an AI msg')
                 } else {
                     // logger.info('adding end sequence')
                     stringToReturn += `${endSequence}`
@@ -553,7 +568,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
 
                 //add the final mes and userInput        
                 if (shouldContinue === true && lastInsertedEntity === 'Assistant') { //no need to add last user msg and char name if we are continuing
-                    logger.info('this is a continue for an AI msg, not adding last user Msg and charname')
+                    //logger.info('this is a continue for an AI msg, not adding last user Msg and charname')
                     stringToReturn = postProcessText(stringToReturn)
                 } else {
                     //logger.info('adding last user Msg and leading charname as usual')
@@ -574,7 +589,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 stringToReturn = postProcessText(stringToReturn)
                 resolve([stringToReturn, ChatObjsInPrompt]);
             } else { //craft the CC prompt
-                // logger.info('adding Chat Completion style message objects into prompt')
+                logger.info('adding Chat Completion style message objects into prompt')
                 var CCMessageObj = []
 
                 var D4ANObj, D1JBObj, D0PHObj, responsePrefillObj, systemPromptObject, promptTokens = 0
@@ -594,7 +609,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     promptTokens = countTokens(systemPromptforCC)
                 }
 
-                // logger.info(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
+                logger.info(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
 
                 let D4Added = false,
                     D1Added = false,
@@ -615,29 +630,34 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
 
                 for (let i = chatHistory.length - 1; i >= 0; i--) {
                     let obj = chatHistory[i];
+                    //logger.info(`obj: ${obj}`);
 
                     if (chatHistory.length < 4) { //if chat history is only one turn, add D4 and D1 into first user obj
+                        logger.info(`Chat history is less than 4 turns, adding D4 and D1 to first user message`)
                         if (obj.entity === 'user' && D4ANObj.content.length > 0 && D4Added === false) {
-                            obj.content = `${D4ANObj.content} \n` + obj.content
+                            obj.content = `${D4ANObj.content}\n` + obj.content
                             D4Added = true
+                            logger.info(`Added D4 content to user message: ${obj.content}`)
                         }
                         if (obj.entity === 'user' && D1JBObj.content.length > 0 && D1Added === false) {
                             obj.content = `${D1JBObj.content}\n` + obj.content
                             D1Added = true
+                            logger.info(`Added D1 content to user message: ${obj.content}`)
                         }
                         if (obj.entity === 'user' && D0PHObj.content.length > 0 && D0PHAdded === false) {
                             obj.content = `${D0PHObj.content}\n` + obj.content
                             D0PHAdded = true
+                            logger.info(`Added D0PH content to user message: ${obj.content}`)
                         }
                     }
 
                     let newItem, newObj, newItemTokens
 
                     if (i === chatHistory.length - D4Loc && D4ANObj.content.length > 0 && D4Added === false) {
-                        //logger.warn('saw D4 incoming')
+                        logger.warn('saw D4 incoming')
                         shouldAddD4 = true
                         if (!isClaude) {
-                            //logger.warn('adding D4')
+                            logger.warn('adding D4')
                             CCMessageObj.push(D4ANObj)
                             D4Added = true
                             shouldAddD4 = false
@@ -646,10 +666,10 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         }
                     }
                     if (i === chatHistory.length - D1Loc && D1JBObj.content.length > 0 && D1Added === false) {
-                        // logger.warn('saw D1 incoming')
+                        logger.warn('saw D1 incoming')
                         shouldAddD1 = true
                         if (!isClaude) {
-                            // logger.warn('adding D1')
+                            logger.warn('adding D1')
                             CCMessageObj.push(D1JBObj)
                             D1Added = true
                             shouldAddD1 = false
@@ -658,10 +678,10 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                         }
                     }
                     if (i === chatHistory.length - D0PHLoc && D0PHObj.content.length > 0 && D0PHAdded === false) {
-                        // logger.warn('saw D0PH incoming')
+                        logger.warn('saw D0PH incoming')
                         shouldAddD0PH = true
                         if (!isClaude) {
-                            // logger.warn('adding D0PH')
+                            logger.warn('adding D0PH')
                             CCMessageObj.push(D0PHObj)
                             D0PHAdded = true
                             shouldAddD0PH = false
@@ -1057,7 +1077,7 @@ async function tryLoadModel(api, liveConfig, liveAPI) {
 
 //MARK: requestToTCorCC
 async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, includedChatObjects, isTest, liveConfig, parsedMessage, charName) {
-    logger.info('[requestToTCorCC] >> GO')
+    //logger.info('[requestToTCorCC] >> GO')
     //logger.info('finalApiCallParams: ', finalApiCallParams)
     const TCEndpoint = liveAPI.endpoint
     const TCAPIKey = liveAPI.key
@@ -1071,7 +1091,7 @@ async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, include
 
     //this is brought in from the sampler preset, but we don't use it yet.
     //better to not show it in the API gen call response, would be confusing.
-    delete finalApiCallParams.system_prompt
+    //delete finalApiCallParams.system_prompt
 
     let baseURL = TCEndpoint.trim()
 
@@ -1145,8 +1165,9 @@ async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, include
 
         //logger.debug('HEADERS')
         //logger.info(headers)
-        logger.info('PAYLOAD')
-        logger.info(finalApiCallParams)
+        logger.info(`PAYLOAD
+${JSON.stringify(finalApiCallParams, null, 2)}`)
+        //logger.info(finalApiCallParams)
 
         const body = JSON.stringify(finalApiCallParams);
         //logger.info(body)
@@ -1154,7 +1175,7 @@ async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, include
         let streamingReportText = finalApiCallParams.stream ? 'streamed' : 'non-streamed'
         //let modelReportText = finalApiCallParams.model ? `model ${finalApiCallParams.model}` : 'no model specified'
         // logger.info('finalApiCallParams.stream (inside requestToTCorCC): ' + finalApiCallParams.stream);
-        logger.info(`Sending ${streamingReportText} ${liveAPI.type} API request to ${chatURL}..`);
+        logger.info(`Sending ${streamingReportText} ${liveAPI.type} request to ${chatURL}..`);
         //logger.debug(`API KEY: ${key}`)
 
         let args = {

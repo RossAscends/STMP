@@ -1007,7 +1007,7 @@ async function handleConnections(ws, type, request) {
     }
 
     await broadcastUserList();
-    logger.warn('Sending initial message to client:', thisUserUsername);
+    logger.info('Sending initial message to client:', thisUserUsername);
     ws.send(JSON.stringify(baseMessage));
 
     function updateConnectedUsers() {

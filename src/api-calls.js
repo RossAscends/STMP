@@ -566,7 +566,7 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 //add the final mes and userInput        
                 if (shouldContinue === true && lastInsertedEntity === 'Assistant') { //no need to add last user msg and char name if we are continuing
                     //logger.info('this is a continue for an AI msg, not adding last user Msg and charname')
-                    stringToReturn = postProcessText(stringToReturn)
+                    stringToReturn = postProcessText(stringToReturn) + ' ';
                 } else {
                     //logger.info('adding last user Msg and leading charname as usual')
                     stringToReturn += `${outputSequence}`

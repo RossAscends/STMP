@@ -429,14 +429,23 @@ textarea {
 
 /*Dynamic focus-based sizing for Insertion Blocks*/
 /*Shrinks unfocused insertion blocks when one is focused*/
-:has(+ .insertionPromptBlock + .insertionPromptBlock + .insertionPromptBlock + .insertionPromptBlock:focus-within), /*block 4 spaces before focused block*/
-:has(+ .insertionPromptBlock + .insertionPromptBlock + .insertionPromptBlock:focus-within), /*block 3 spaces before focused block*/
-:has(+ .insertionPromptBlock + .insertionPromptBlock:focus-within), /*block 2 spaces before focused block*/
-:has(+ .insertionPromptBlock:focus-within), /*block 1 space before focused block*/
-.insertionPromptBlock:focus-within ~ .insertionPromptBlock /*for all blocks after focused block*/
+:has(+ .insertionPromptBlock + .insertionPromptBlock + .insertionPromptBlock + .insertionPromptBlock textarea:focus-within), /*block 4 spaces before focused block*/
+:has(+ .insertionPromptBlock + .insertionPromptBlock + .insertionPromptBlock textarea:focus-within), /*block 3 spaces before focused block*/
+:has(+ .insertionPromptBlock + .insertionPromptBlock textarea:focus-within), /*block 2 spaces before focused block*/
+:has(+ .insertionPromptBlock textarea:focus-within), /*block 1 space before focused block*/
+.insertionPromptBlock:has(textarea:focus-within) ~ .insertionPromptBlock /*for all blocks after focused block*/
 {
     flex-grow: 0;
     opacity: 0.6;
+}
+
+:has(+ .insertionPromptBlock + .insertionPromptBlock + .insertionPromptBlock + .insertionPromptBlock textarea:focus-within) textarea, /*block 4 spaces before focused block*/
+:has(+ .insertionPromptBlock + .insertionPromptBlock + .insertionPromptBlock textarea:focus-within) textarea, /*block 3 spaces before focused block*/
+:has(+ .insertionPromptBlock + .insertionPromptBlock textarea:focus-within) textarea, /*block 2 spaces before focused block*/
+:has(+ .insertionPromptBlock textarea:focus-within) textarea, /*block 1 space before focused block*/
+.insertionPromptBlock:has(textarea:focus-within) ~ .insertionPromptBlock textarea /*for all blocks after focused block*/
+{
+    height: 2em;
 }
 
 #controlPanel textarea {
@@ -653,9 +662,6 @@ code {
     color: var(--themePlus35);
     border-radius: 5px;
     padding: 2px 4px;
-    margin: 5px;
-    line-height: 1.4em;
-    font-size: 1.1em;
     text-wrap: wrap;
 }
 
@@ -676,6 +682,13 @@ pre {
 
 /*MARK:chatMessages
 */
+
+.contextLine {
+    border-top: 3px dotted var(--themeAccentBold);
+}
+
+
+
 #userChat>div,
 #AIChat>div {
     padding: 5px;
@@ -1069,6 +1082,10 @@ body.currentlyStreaming .inlineContinue {
     filter: saturate(0) brightness(0.5);
 }
 
+.opacity30:not(:hover) {
+    filter: opacity(0.3);
+}
+
 .mutedColor {
     filter: saturate(0.3);
 }
@@ -1278,6 +1295,16 @@ body:not(.noShadow) .textshadow {
     /* Transition both radius & color simultaneously */
     transition: border-radius 220ms ease, background-color 220ms ease, filter 220ms ease;
 }
+
+.transparent1pxBorder {
+    border: 1px solid transparent;
+}
+.nonButtonButton.toggleButtonOn {
+    border-color: #12591d;
+    filter: unset;
+}
+
+
 .toggleButton.toggleButtonOn {
     background-color: #12591d;
     border-radius: 50%;

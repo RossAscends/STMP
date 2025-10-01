@@ -174,6 +174,12 @@
                                                 <input type="checkbox" class="alignSelfCenter margin0" id="claude">
                                             </label>
                                         </div>
+                                        <div class="flexbox flexFlowCol ">
+                                            <small class="alignSelfCenter">API tokenization</small>
+                                            <label for="useTokenizer" class="checkbox_label flexbox flexFlowCol" title="When enabled, the active API's tokenization endpoint will be used to count prompt tokens and fit the context budget.">
+                                                <input type="checkbox" class="alignSelfCenter margin0" id="useTokenizer">
+                                            </label>
+                                        </div>
                                     </div>
 
                                     <div class="flexbox flexFlowCol Hcentered marginTop5">
@@ -200,30 +206,55 @@
                     <div id="insertionsBlock" class="flexbox flexFlowCol ">
                         <div id="promptConfigTextFields" class="transition250 flexbox flexFlowCol">
                             <div id="systemPromptBlock" class="insertionPromptBlock flexbox flexFlowCol Hcentered ">
-                                <span class="widthFitContent alignSelfCenter">System Prompt</span>
+
+                                <span class="alignSelfCenter flexbox justifySpaceBetween width100p">
+                                    <i id="toggleSystemPrompt" class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow transition250 textBrightUp insertionKillswitch" title="Enable/Disable System Prompt"></i>
+                                    System Prompt
+                                    <div class="square1p25em"></div><!--spacer-->
+                                </span>
                                 <textarea class="" id="systemPrompt" placeholder="Text in this box will be inserted at the top of the prompt before anything else."></textarea>
                             </div>
                             <div id="authorsNoteBlock" class="insertionPromptBlock flexbox flexFlowCol Hcentered">
+
                                 <div class="flexbox Hcentered">
-                                    <span class="widthFitContent alignSelfCenter">D4 "Author's Note"</span>
-                                    <label for="D4CharDefs" class="checkbox_label flexbox Vcentered">
-                                        <input type="checkbox" class="alignSelfCenter margin0" id="D4CharDefs">
-                                        <small>Add Char Defs</small>
-                                    </label>
+                                    <span class="alignItemsCenter alignSelfCenter flexbox justifySpaceBetween width100p">
+                                        <i id="toggleD4AN" class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow textBrightUp transition250 insertionKillswitch" title="Enable/Disable D4 Author's Note"></i>
+                                        D4 "Author's Note"
+                                        <label id="D4charDefsLabel" for="D4CharDefs" class="transparent1pxBorder mutedColor nonButtonButton checkbox_label flexbox Vcentered" title="Toggle addition of Character Definitions to D4 Author's Note Insertion">
+                                            +🧠
+                                        </label>
+                                        <input type="checkbox" class="alignSelfCenter margin0" id="D4CharDefs" style="display:none;">
+                                        <!-- <div class="square1p25em"></div> -->
+                                    </span>
+
                                 </div>
 
                                 <textarea class="" id="D4AN" placeholder="The 'Author's Note' slot. A useful place to put character definitions, World Info, or other constantly relevant information."></textarea>
                             </div>
                             <div id="finalInstructionBlock" class="insertionPromptBlock flexbox flexFlowCol Hcentered  ">
-                                <span class="widthFitContent alignSelfCenter">D1 "Jailbreak"</span>
+
+                                <span class="alignSelfCenter flexbox justifySpaceBetween width100p">
+                                    <i id="toggleD1JB" class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow textBrightUp transition250 insertionKillswitch" title="Enable/Disable D1 Jailbreak"></i>
+                                    D1 "Jailbreak"
+                                    <div class="square1p25em"></div><!--spacer-->
+                                </span>
                                 <textarea class="" id="D1JB" placeholder="A very powerful override instruction. This will usually override the D4 insertion."></textarea>
                             </div>
                             <div id="D0InstructionBlock" class="insertionPromptBlock flexbox flexFlowCol Hcentered  ">
-                                <span class="widthFitContent alignSelfCenter">D0 "Post-History Instruction"</span>
+                                <span class="alignSelfCenter flexbox justifySpaceBetween width100p">
+                                    <i id="toggleD0PH" class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow textBrightUp transition250 insertionKillswitch" title="Enable/Disable D0 Post-History Instruction"></i>
+                                    D0 "Post-History Instruction"
+                                    <div class="square1p25em"></div><!--spacer-->
+                                </span>
                                 <textarea class="" id="D0PostHistory" placeholder="Inserted after all pre-existing chat messages."></textarea>
                             </div>
                             <div id="responsePrefillBlock" class="insertionPromptBlock flexbox flexFlowCol Hcentered  ">
-                                <span class="widthFitContent alignSelfCenter">Response Prefill</span>
+
+                                <span class="alignSelfCenter flexbox justifySpaceBetween width100p">
+                                    <i id="toggleResponsePrefill" class="fa-solid fa-toggle-on bgTransparent fontSize1p25em textshadow textBrightUp transition250 insertionKillswitch" title="Enable/Disable Response Prefill"></i>
+                                    Response Prefill
+                                    <div class="square1p25em"></div><!--spacer-->
+                                </span>
                                 <textarea class="" id="responsePrefill" placeholder="Inserted at the front of the AI response."></textarea>
                             </div>
                         </div>

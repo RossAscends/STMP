@@ -15,6 +15,7 @@ import hostToast from "./src/hostToast.js";
 import disableGuestInput from "./src/disableGuestInput.js";
 import allowImagesModule from "./src/allowImages.js";
 import { initHotkeys } from "./src/hotkeys.js";
+import promptInsertionKillswitches from "./src/promptInsertionKillswitches.js";
 
 export var username,
   isAutoResponse,
@@ -262,6 +263,10 @@ async function processConfirmedConnection(parsedMessage) {
     //process all control and selector values for hosts
     await handleconfig.processLiveConfig(parsedMessage)
 
+    // Apply prompt insertion killswitch states from liveConfig and bind listeners (host only)
+    try { promptInsertionKillswitches.applyConfigToDOM(parsedMessage.liveConfig || parsedMessage.value || {}); } catch (_) { /* noop */ }
+    try { promptInsertionKillswitches.bindListeners(); } catch (_) { /* noop */ }
+
     $("#charName").hide();
     $("#leftSpanner").remove()
     $(".hostControls").removeClass('hostControls'); //stop them from being hidden by CSS
@@ -360,7 +365,11 @@ function appendMessages(messages, elementSelector, sessionID) {
     let entityAndNameVal = `${usernameToShow}-${inferredEntity}`;
     let entityAndNameString = `data-name-and-entity="${entityAndNameVal}"`;
 
-    let formattedTimestamp = new Date(timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + " " + new Date(timestamp).toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' });
+    // Robust timestamp handling: prefer server-provided ISO strings; fallback to now if invalid/missing
+    let ts = (timestamp && !isNaN(Date.parse(timestamp))) ? timestamp : new Date().toISOString();
+    let formattedTimestamp = (typeof util?.formatSQLTimestamp === 'function')
+      ? util.formatSQLTimestamp(ts)
+      : (new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + " " + new Date(ts).toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' }));
 
     let newDiv = $(`
     <div class="transition250" data-sessionid="${sessionID}" data-messageid="${messageID}" ${dataEntityTypeString} ${entityAndNameString}>
@@ -383,7 +392,7 @@ function appendMessages(messages, elementSelector, sessionID) {
     //console.warn(newDiv.find('.messageHeader').html())
     if (!isHost) newDiv.find('.messageControls').remove();
     if (elementSelector == "#userChat") newDiv.find('.messageEdit').remove();
-  if (elementSelector == "#userChat") newDiv.find('.messageContinue').remove();
+    if (elementSelector == "#userChat") newDiv.find('.messageContinue').remove();
     //console.debug('newDiv content: ', content, 'elementSelector: ', elementSelector);
 
     //check if the last message in the relevant chat contains the same header information for name and entity
@@ -793,6 +802,8 @@ async function connectWebSocket(username) {
         $("#AIChat").empty();
         let resetChatHistory = parsedMessage.chatHistory;
         appendMessages(resetChatHistory, "#AIChat", resetChatHistory[0].sessionID,)
+        // After rebuilding AIChat from server, clear any previous context/fade state
+        try { streamUpdater.resetContextBoundary(); } catch (_) { /* noop */ }
         break;
       case "continueMissingCharDefs": {
         // Prompt host: proceed without character definitions?
@@ -842,7 +853,14 @@ async function connectWebSocket(username) {
         break;
       case "hostStateChange":
         handleconfig.processLiveConfig(parsedMessage);
+        // Update killswitch icons when config changes
+        try { promptInsertionKillswitches.applyConfigToDOM(parsedMessage.value || {}); } catch (_) { /* noop */ }
         break;
+      case "promptInsertionToggleState": {
+        const flags = parsedMessage.flags || {};
+        try { promptInsertionKillswitches.applyConfigToDOM({ promptConfig: flags }); } catch (_) { /* noop */ }
+        break;
+      }
       case "guestStateChange":
         let state = parsedMessage.state
         let selectedCharacter
@@ -947,13 +965,20 @@ async function connectWebSocket(username) {
         currentlyStreaming = true;
         disableButtons()
         let isContinue = parsedMessage.isContinue;
+        const lastInContextMessageID = parsedMessage.lastInContextMessageID;
+        // Reset context boundary guard at the start of a fresh streaming session
+        try {
+          if (!$("#AIChat .incomingStreamDiv").length) {
+            streamUpdater.resetContextBoundary();
+          }
+        } catch (_) { /* noop */ }
         accumulatedContent += parsedMessage.content;
         let $incomingDiv = $("#AIChat .incomingStreamDiv");
         const targetMesID = parsedMessage.messageID; // server now always sends these for both continue and non-continue
         const targetSessionID = parsedMessage.sessionID;
         // Hide inline continue buttons for all older AI messages while streaming
         $("#AIChat i.inlineContinue").addClass("hidden");
-  if (isContinue) {
+        if (isContinue) {
           // Attach streaming to the specific target message; if not found, fall back to last AI message
           if (!$incomingDiv.length) {
             $incomingDiv = targetMesID ? $("#AIChat").find(`div[data-messageid='${targetMesID}'][data-entitytype='AI']`) : $();
@@ -970,23 +995,36 @@ async function connectWebSocket(username) {
           }
         } else {
           //console.warn('not a continue, so add a new message div')
-          if (!$incomingDiv.length) {
-      const newStreamDivSpan = $(`
+          if (!$incomingDiv.length) { // the div here is a temporary container for the streamed content. it will be replaced on stream end with the final server-canonical HTML
+          const newStreamDivSpan = $(`
             <div class="incomingStreamDiv transition250" data-sessionid="${parsedMessage.sessionID}" data-messageid="${parsedMessage.messageID}" data-entityType="AI">
                 <div class="messageHeader flexbox justifySpaceBetween">
                     <span style="color:white" class="chatUserName">${parsedMessage.username} 🤖</span>
-                    <div class="messageControls transition250">
-            <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
-            <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
-                    </div>
+                    <span class="flexbox msgControlsAndTimeBlock">
+                      <div class="messageControls transition250">
+                        <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageEdit messageButton fa-solid fa-edit bgTransparent greyscale textshadow textBrightUp transition250"></i>
+                        <i data-messageid="${parsedMessage.messageID}" data-sessionid="${parsedMessage.sessionID}" class="fromStreamedResponse messageDelete messageButton fa-solid fa-trash bgTransparent greyscale textshadow textBrightUp transition250"></i>
+                      </div>
+                      <small class="messageTime"></small>
+                    </span>
                 </div>
-        <div class="messageContent"><span class="streamTarget"></span></div>
+                <div class="messageContent">
+                <span class="streamTarget"></span>
+              </div>
             </div>
-        `);
+          `);
             if (!isHost) newStreamDivSpan.find('.messageControls').remove();
             $("#AIChat").append(newStreamDivSpan);
             // Refresh reference to the just-created streaming div
             $incomingDiv = $("#AIChat .incomingStreamDiv");
+            // Set timestamp immediately when the stream starts
+            try {
+              const ts = (parsedMessage.timestamp && !isNaN(Date.parse(parsedMessage.timestamp))) ? parsedMessage.timestamp : new Date().toISOString();
+              const formatted = (typeof util?.formatSQLTimestamp === 'function')
+                ? util.formatSQLTimestamp(ts)
+                : (new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + " " + new Date(ts).toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' }));
+              $incomingDiv.find('.messageHeader .messageTime').text(formatted);
+            } catch (_) { /* noop */ }
           }
           // Keep only the new streaming message's icon exempt if present
           if ($incomingDiv && $incomingDiv.length) {
@@ -994,10 +1032,8 @@ async function connectWebSocket(username) {
           }
         }
 
-
-
-  pendingHTML = mendHTML(parsedMessage.content);
-        streamUpdater.go(pendingHTML, isContinue);
+        pendingHTML = mendHTML(parsedMessage.content);
+        streamUpdater.go(pendingHTML, isContinue, lastInContextMessageID);
         //requestAnimationFrame(updateStreamedMessageHTML);
 
         break;
@@ -1015,6 +1051,15 @@ async function connectWebSocket(username) {
         // Remove any streamed artifacts and fully replace content with server-canonical HTML
         $endContent.empty();
         $endContent.html(newDivElement.html());
+        // Set final timestamp only if not already set (preserve start time and continue edits)
+        try {
+          const $tsEl = $(".incomingStreamDiv .messageHeader .messageTime");
+          if ($tsEl.length && !$tsEl.text()) {
+            const ts = (parsedMessage.timestamp && !isNaN(Date.parse(parsedMessage.timestamp))) ? parsedMessage.timestamp : new Date().toISOString();
+            const formatted = (typeof util?.formatSQLTimestamp === 'function') ? util.formatSQLTimestamp(ts) : (new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + " " + new Date(ts).toLocaleTimeString('en-US', { hour12: true, hour: 'numeric', minute: '2-digit' }));
+            $tsEl.text(formatted);
+          }
+        } catch (_) { /* noop */ }
         if (isHost) addMessageEditListeners('.incomingStreamDiv');
         // After stream end, re-add inline Continue button at correct end location (Host only)
         if (isHost) {
@@ -1045,6 +1090,8 @@ async function connectWebSocket(username) {
         let sessionID = parsedMessage.sessionID
         let entityTypeString = entity === undefined ? isAIResponse === true ? "AI" : "user" : entity;
         //console.warn(entityTypeString)
+        // Normalize timestamp for client rendering
+        const safeTimestamp = (timestamp && !isNaN(Date.parse(timestamp))) ? timestamp : new Date().toISOString();
         let chatMessageObj =
         {
           username: username,
@@ -1053,10 +1100,18 @@ async function connectWebSocket(username) {
           messageID: messageID,
           entity: entityTypeString,
           role: role,
-          timestamp: timestamp
+          timestamp: safeTimestamp
         }
         appendMessages([chatMessageObj], "#" + chatID, sessionID)
         util.kindlyScrollDivToBottom($(`div[data-chat-id="${chatID}"]`));
+
+        // For non-streamed AI responses, update context line (no streaming HTML updates)
+        if (isAIResponse && typeof parsedMessage.lastInContextMessageID !== 'undefined') {
+          const lastInContextMessageID = parsedMessage.lastInContextMessageID;
+          if (lastInContextMessageID !== null) {
+            streamUpdater.markContextBoundary(lastInContextMessageID);
+          }
+        }
 
         if (chatID === "AIChat") {
           $("#showPastChats").trigger("click"); //autoupdate the past chat list with each AI chat message
@@ -1490,26 +1545,6 @@ function enableButtons() {
   });
 
   console.debug('Re-enabled buttons');
-
-  /*   setTimeout(() => {
-      console.debug('Checking button states after delay:', {
-        isStreaming: {
-          disabledProp: $("#isStreaming").prop('disabled'),
-          disabledAttr: $("#isStreaming").attr('disabled'),
-          html: $("#isStreaming")[0]?.outerHTML || 'Not found'
-        },
-        isAutoResponse: {
-          disabledProp: $("#isAutoResponse").prop('disabled'),
-          disabledAttr: $("#isAutoResponse").attr('disabled'),
-          html: $("#isAutoResponse")[0]?.outerHTML || 'Not found'
-        },
-        D4CharDefs: {
-          disabledProp: $("#D4CharDefs").prop('disabled'),
-          disabledAttr: $("#D4CharDefs").attr('disabled'),
-          html: $("#D4CharDefs")[0]?.outerHTML || 'Not found'
-        }
-      });
-    }, 100); */
 }
 
 function verifyCheckboxStates() {
@@ -1518,14 +1553,6 @@ function verifyCheckboxStates() {
   checkboxes.forEach(selector => {
     const $element = $(selector);
     if ($element.length) {
-      /*       console.debug(`State for ${selector}:`, {
-              readonlyProp: $element.prop('readonly'),
-              readonlyAttr: $element.attr('readonly'),
-              disabledProp: $element.prop('disabled'),
-              disabledAttr: $element.attr('disabled'),
-              classes: $element.attr('class'),
-              html: $element[0]?.outerHTML || 'Not found'
-            }); */
     } else {
       console.warn(`Checkbox ${selector} not found in DOM at page load`);
     }

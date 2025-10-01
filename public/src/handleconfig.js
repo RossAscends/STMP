@@ -201,6 +201,7 @@ async function processLiveConfig(configArray) {
   await populateInput(liveAPI.key, "key");
   await selectFromPopulatedSelector(liveAPI.type, "type");
   await toggleCheckbox(liveAPI.claude, "claude");
+  await toggleCheckbox(Boolean(liveAPI.useTokenizer), "useTokenizer");
 
   await populateInput(systemPrompt, "systemPrompt");
   await populateInput(D4AN, "D4AN");
@@ -352,8 +353,11 @@ async function toggleCheckbox(value, elementID) {
       return;
     }
 
-    //console.debug(elementID, '- setting checkbox checked state: ', value);
-    $(`#${elementID}`).prop("checked", Boolean(value));
+  // Programmatic update: mark to suppress broadcast in change handler, then trigger change for UI updates
+  const $el = $(`#${elementID}`);
+  //console.debug(elementID, '- setting checkbox checked state: ', value);
+  $el.data('suppressBroadcast', true);
+  $el.prop("checked", Boolean(value)).trigger('change');
     console.debug(`${elementID} checked state after change:`, $(`#${elementID}`).prop("checked"));
 
     util.flashElement(elementID, "good");
@@ -445,7 +449,8 @@ async function verifyValuesAreTheSame(value, elementID) {
 
   if ($element.is(':checkbox')) {
     elementValue = Boolean($element.prop('checked'));
-    value = value === 'true' || value === true || value === 1; // Normalize to boolean
+    // Normalize incoming truthy values; anything else is false
+    value = (value === true || value === 'true' || value === 1 || value === '1');
   } else if ($element.is('select')) {
     //console.debug('saw selector comparison for:', elementID);
     elementValue = String($element.val() || ''); // Use .val() for select, normalize to string
@@ -539,10 +544,20 @@ function deleteAPI() {
 async function updateConfigState(element) {
   console.warn('updateConfigState', element.prop('id'))
   //console.debug('LOCAL ENGINE MODE = ', liveConfig.promptConfig.engineMode)
-  if (initialLoad) { return }
 
   let $element = element
   let elementID = $element.prop('id')
+
+  // If this change was triggered programmatically (e.g., applying server state),
+  // skip broadcasting back to avoid feedback loops.
+  if ($element.data('suppressBroadcast')) {
+    $element.removeData('suppressBroadcast');
+    return;
+  }
+
+  // If page is still in initial population state and this wasn't explicitly marked
+  // as a programmatic change, we still allow user-driven changes to propagate.
+  // No early return here; rely on same-value guard below.
 
   // Character selector changes are handled by the multi-character logic
   // (rebuildSelectedCharactersFromUI -> sendConfigStateUpdate). Avoid
@@ -556,6 +571,7 @@ async function updateConfigState(element) {
 
   if ($element.is('input[type=checkbox]')) {
     value = $element.prop('checked')
+    // Normalize odd integer values some browsers emit
     if (value === 0) {
       console.warn('saw integer for checkbox value for', elementID, value)
       value = false
@@ -564,6 +580,8 @@ async function updateConfigState(element) {
       console.warn('saw integer for checkbox value for', elementID, value)
       value = true
     }
+    // Debug aid for tricky tri-click issue
+    // console.debug(`Checkbox ${elementID} changed ->`, value, 'prev in liveConfig:', liveConfig?.[($element.closest('.isArrayType').prop('id')||'promptConfig')]?.[elementID])
   }
   else { // selectors and text inputs
     value = $element.val()
@@ -595,7 +613,10 @@ async function updateConfigState(element) {
   }
 
   console.debug(`${arrayName}.${propName}: "${value}"`)
-
+  // Skip if no effective change to prevent redundant broadcasts
+  if (liveConfig && liveConfig[arrayName] && liveConfig[arrayName][propName] === value) {
+    return;
+  }
   liveConfig[arrayName][propName] = value
 
   let stateChangeMessage = {
@@ -683,11 +704,14 @@ $("#promptConfig input, #promptConfig select:not(#APIList, #modelList), [id^='ca
   updateConfigState($(this))
 })
 
-$("#systemPrompt, #D4AN, #D4CharDefs, #D1JB, #D0PostHistory, #responsePrefill, #crowdControl input, #AIChatHostControls input, #userChatHostControls input").on('change', function () {
+$("#systemPrompt, #D4AN, #D1JB, #D0PostHistory, #responsePrefill, #crowdControl input, #AIChatHostControls input, #userChatHostControls input").on('change', function () {
   updateConfigState($(this))
 })
 
-// allowImages toggle now handled in standalone module (allowImages.js) similar to disableGuestInput.
+$("#D4CharDefs").on('change', function () {
+  updateConfigState($(this))
+  $("#D4charDefsLabel").toggleClass('toggleButtonOn', $(this).prop('checked'));
+})
 
 // ================= Multi-Character Additions (helpers) =================
 function rebuildSelectedCharactersFromUI() {
@@ -982,6 +1006,7 @@ async function addNewAPI() {
   let key = $("#key").val()
   let type = $("#type").val()
   let claude = $("#claude").prop('checked')
+  let useTokenizer = $("#useTokenizer").prop('checked')
 
   if (name === '' || name === 'Default' || name === 'Add New API') {
     await util.flashElement('selectedAPI', 'bad')
@@ -1007,6 +1032,7 @@ async function addNewAPI() {
     key: key,
     type: type,
     claude: claude,
+    useTokenizer: useTokenizer,
   }
 
   let matchingAPI = liveConfig.promptConfig.APIList.findIndex(obj => obj.name === newAPI.name);

@@ -7,6 +7,21 @@ import db from './db.js';
 import fio from './file-io.js';
 import { apiLogger as logger } from './log.js';
 import { response } from 'express';
+import {
+    estimateCCTokensByRender,
+    computeCCBudget,
+    getTemplateNameFromInstructFile,
+    estimateCCMessageTokensByRender,
+    estimateCCSystemTokensByRender,
+    estimateCCAssistantPrimerTokensByRender,
+    approxTokensFromChars,
+    compressSpecialMarkersForEstimation,
+    estimateMessageTokens_CC,
+    estimateSystemTokens_CC,
+    estimateNudgeTokens_CC,
+    buildRenderedCCPrompt,
+} from './localTokenizer.js';
+import { calibrateFactor, tryRemoteTokenize } from './remoteTokenizer.js';
 
 
 function delay(ms) {
@@ -34,7 +49,10 @@ async function getAPIDefaults(shouldReturn = null) {
 }
 
 //MARK: getAIResponse
-async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig, liveAPI, onlyUserList, parsedMessage, shouldContinue) {
+// preInitCallback: optional function invoked after building the prompt, stop strings,
+// and AIChatUserList but BEFORE sending the network request. Enables single-pass
+// streaming setup (initialize listeners early) without a separate dry-run.
+async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig, liveAPI, preInitCallback, parsedMessage, shouldContinue) {
     // logger.warn('getAIResponse liveAPI:', liveAPI)
     // logger.warn(`liveConfig: ${JSON.stringify(liveConfig)}`);
     const isCCSelected = liveAPI.type === 'CC';
@@ -60,12 +78,32 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
                 liveConfig.promptConfig.selectedCharacterDisplayName = parsedMessage.overrideCharName;
             }
         }
-        const [fullPrompt, includedChatObjects] = await addCharDefsToPrompt(liveConfig, charFile, formattedCharName, parsedMessage.username, liveAPI, shouldContinue, continueTarget);
+        // Ensure useTokenizer is defined on liveAPI; if missing, derive from liveConfig
+        try {
+            if (typeof liveAPI?.useTokenizer !== 'boolean') {
+                const apiCfg = liveConfig?.APIConfig;
+                const pc = liveConfig?.promptConfig;
+                let resolved = false;
+                if (typeof apiCfg?.useTokenizer === 'boolean') {
+                    resolved = apiCfg.useTokenizer;
+                } else if (Array.isArray(pc?.APIList)) {
+                    const sel = pc.selectedAPI;
+                    const fromList = pc.APIList.find(a => a && a.name === sel);
+                    if (fromList && typeof fromList.useTokenizer === 'boolean') {
+                        resolved = fromList.useTokenizer;
+                    }
+                }
+                liveAPI = { ...(liveAPI || {}), useTokenizer: resolved };
+                logger.debug('[Tokenizer] liveAPI.useTokenizer was undefined; resolved to:', resolved);
+            }
+        } catch (_) { /* noop */ }
+
+        const [fullPrompt, includedChatObjects, lastInContextMessageID] = await addCharDefsToPrompt(liveConfig, charFile, formattedCharName, parsedMessage.username, liveAPI, shouldContinue, continueTarget);
         const samplerData = await fio.readFile(liveConfig.promptConfig.selectedSamplerPreset);
         const samplers = JSON.parse(samplerData);
         //logger.info('[getAIResponse] >> samplers:', samplerData)
 
-        if (isCCSelected) apiCallParams = {}
+    if (isCCSelected) apiCallParams = {}
         //logger.info('apiCallParams samplers cleared')
         //logger.info('PROOF: ', apiCallParams.params)
         Object.entries(samplers).forEach(([key, value]) => {
@@ -102,7 +140,10 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
         } 
 
         
-        const [finalApiCallParams, entitiesList] = await setStopStrings(liveConfig, apiCallParams, includedChatObjects, liveAPI);
+    const [finalApiCallParams, entitiesList] = await setStopStrings(liveConfig, apiCallParams, includedChatObjects, liveAPI);
+
+    // Pre-stream initializer (if provided)
+    const preInit = (typeof preInitCallback === 'function') ? preInitCallback : null;
 
         //logger.info(`[getAIResponse] >> finalApiCallParams after SetStopStrings: ${JSON.stringify(finalApiCallParams)}`);
 
@@ -111,7 +152,9 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
             apiCallParams.params.max_context_length = Number(liveConfig.promptConfig.contextSize);
             apiCallParams.params.max_length = Number(liveConfig.promptConfig.responseLength);
             AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects);
-            if (onlyUserList) return AIChatUserList; //if only User List for horde
+            if (preInit) {
+                try { await preInit({ AIChatUserList, lastInContextMessageID }); } catch (_) { /* ignore */ }
+            }
 
             finalApiCallParams.models = [liveConfig.promptConfig.selectedHordeWorker];
             const [hordeResponse] = await requestToHorde(hordeKey, finalApiCallParams);
@@ -120,9 +163,11 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
             return [AIResponse, AIChatUserList];
         } else { //if TC or CC
             AIChatUserList = await makeAIChatUserList(entitiesList, includedChatObjects);
-            if (onlyUserList) return AIChatUserList; //if only User List for TC/CC
+            if (preInit) {
+                try { await preInit({ AIChatUserList, lastInContextMessageID }); } catch (_) { /* ignore */ }
+            }
             //logger.warn('getting rawResponse for stream')
-            let rawResponse = await requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, includedChatObjects, false, liveConfig, parsedMessage, formattedCharName);
+            let rawResponse = await requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, includedChatObjects, false, liveConfig, parsedMessage, formattedCharName, lastInContextMessageID);
             //logger.warn('finished getting rawResponse..., moving on..');
 
             //logger.warn('finalApiCallParams.stream (after requestToTCorCC):', finalApiCallParams.stream);
@@ -132,8 +177,10 @@ async function getAIResponse(isStreaming, hordeKey, engineMode, user, liveConfig
                 AIResponse = await postProcessText(trimIncompleteSentences(rawResponse));
                 const displayNameForSave = (liveConfig?.promptConfig?.selectedCharacterDisplayName) || charName;
                 await db.upsertChar(charName, displayNameForSave, user.color); // upsert with card id and current display name
-                await db.writeAIChatMessage(displayNameForSave, 'AI', AIResponse, 'AI');
-                return [AIResponse, AIChatUserList];
+                // IMPORTANT: Do not write the AI message here. The orchestrator (stream.js)
+                // will persist the final trimmed message and broadcast with DB metadata
+                // to avoid duplicate messages when streaming is off.
+                return [AIResponse, AIChatUserList, lastInContextMessageID];
             } else { //if TC and stream...
                 //logger.info('it was streamed already, no need to return anything..')
                 //return null;
@@ -180,7 +227,7 @@ async function makeAIChatUserList(entitiesList, chatHistoryFromPrompt) {
 
 function countTokens(str) {
     let chars = str.length
-    let tokens = Math.ceil(chars / 3)
+    let tokens = Math.ceil(chars / 4)
     logger.debug(`Estimated tokens: ${tokens}`)
     return tokens
 }
@@ -357,6 +404,126 @@ function postProcessText(text) {
     return text;
 }
 
+//MARK: buildTCPrompt (extracted helper)
+// Reusable TC prompt builder so both TC (sending) and CC (estimation) can share logic.
+async function buildTCPrompt({
+    liveConfig,
+    systemPrompt,
+    systemSequence,
+    inputSequence,
+    outputSequence,
+    endSequence,
+    D1JB,
+    D4AN,
+    D0PostHistory,
+    responsePrefill,
+    chatHistory,
+    availableContextForHistory,
+    shouldContinue,
+    lastUserMesageAndCharName
+}) {
+    const ks = liveConfig?.promptConfig || {};
+    const killSystemPrompt = !!ks.killSystemPrompt;
+    const killD4AN = !!ks.killD4AN;
+    const killD1JB = !!ks.killD1JB;
+    const killD0PH = !!ks.killD0PH;
+    const killResponsePrefill = !!ks.killResponsePrefill;
+    let stringToReturn = (!killSystemPrompt ? (systemPrompt || '').trim() : '').trim();
+    // Compress special markers before rough token estimate to avoid overcounting
+    let promptTokens = approxTokensFromChars(compressSpecialMarkersForEstimation(stringToReturn));
+    availableContextForHistory = availableContextForHistory - promptTokens;
+
+    let insertedItems = [];
+    let ChatObjsInPrompt = [];
+    let lastInsertedEntity = null;
+    let lastMessageAdded;
+
+    // Helper mirrors isAssistantMsg logic in a compact way
+    const charDisplayName = (liveConfig?.promptConfig?.selectedCharacterDisplayName) || '';
+    const isAssistantLike = (obj) => {
+        const ent = (obj?.entity || '').toLowerCase();
+        if (ent) {
+            if (ent === 'assistant' || ent === 'ai' || ent === 'bot') return true;
+            if (ent === 'user' || ent === 'human') return false;
+        }
+        const uname = obj?.username || '';
+        return uname === charDisplayName;
+    };
+
+    for (let i = chatHistory.length - 1; i >= 0; i--) {
+        let obj = chatHistory[i];
+        let newItem = isAssistantLike(obj)
+            ? `${endSequence}${outputSequence}${obj.username}: ${postProcessText(obj.content)}`
+            : `${endSequence}${inputSequence}${obj.username}: ${postProcessText(obj.content)}`;
+
+    let newItemTokens = approxTokensFromChars(compressSpecialMarkersForEstimation(newItem));
+        if (availableContextForHistory - newItemTokens > 0) {
+            availableContextForHistory -= newItemTokens;
+            lastMessageAdded = obj.messageID;
+            ChatObjsInPrompt.push(obj);
+            insertedItems.push(newItem);
+            if (lastInsertedEntity === null) {
+                lastInsertedEntity = isAssistantLike(obj) ? 'Assistant' : 'Human';
+            }
+        } else {
+            break;
+        }
+    }
+
+    insertedItems.reverse();
+    let numOfObjects = insertedItems.length;
+    let positionForD4AN = numOfObjects - 4;
+    let positionForD1JB = numOfObjects - 1;
+    let positionForD0PostHistory = numOfObjects;
+
+    if (shouldContinue) {
+        positionForD4AN -= 1;
+        positionForD1JB -= 1;
+        positionForD0PostHistory -= 1;
+    }
+
+    if (!killD4AN && D4AN && D4AN.length > 0) {
+        if (insertedItems.length < positionForD4AN) {
+            insertedItems.splice(0, 0, `${endSequence}${systemSequence}${D4AN}`);
+        } else {
+            insertedItems.splice(positionForD4AN, 0, `${endSequence}${systemSequence}${D4AN}`);
+            positionForD1JB += 1;
+            positionForD0PostHistory += 1;
+        }
+    }
+    if (!killD1JB && D1JB && D1JB.length > 0) {
+        if (insertedItems.length < positionForD1JB) {
+            insertedItems.splice(1, 0, `${endSequence}${systemSequence}${D1JB}`);
+        } else {
+            insertedItems.splice(positionForD1JB, 0, `${endSequence}${systemSequence}${D1JB}`);
+            positionForD0PostHistory += 1;
+        }
+    }
+    if (!killD0PH && D0PostHistory && D0PostHistory.length > 0) {
+        insertedItems.splice(positionForD0PostHistory, 0, `${endSequence}${systemSequence}${D0PostHistory}`);
+    }
+
+    let insertedChatHistory = insertedItems.join('');
+    stringToReturn += insertedChatHistory;
+
+    if (!(shouldContinue === true && lastInsertedEntity === 'Assistant')) {
+        stringToReturn += `${endSequence}`;
+    }
+
+    if (shouldContinue === true && lastInsertedEntity === 'Assistant') {
+        stringToReturn = postProcessText(stringToReturn) + ' ';
+    } else {
+        stringToReturn += `${outputSequence}`;
+        stringToReturn += (lastUserMesageAndCharName || '').trim();
+        if (!killResponsePrefill && responsePrefill && responsePrefill.length > 0) {
+            stringToReturn += ` ${responsePrefill}`;
+        }
+    }
+
+    stringToReturn = postProcessText(stringToReturn);
+    return [stringToReturn, ChatObjsInPrompt, lastMessageAdded];
+}
+
 //MARK: addCharDefsToPrompt
 // this function does a lot more than just add character definitions to the prompt.
 // it also crafts the entire prompt, including system message, dynamic insertions, chat history, and the last user message.
@@ -376,9 +543,13 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             // Guard: only allow definition load if character is currently active
             const activeEntries = (liveConfig?.promptConfig?.selectedCharacters || []).filter(c => c.value && c.value !== 'None');
             const isActive = activeEntries.some(c => c.value === charFile);
+            const responseLengthTokens = Number(liveConfig.promptConfig.responseLength);
+            const contextSize = Number(liveConfig.promptConfig.contextSize);
+            let availableContextForHistory = contextSize - responseLengthTokens;
+            let lastMessageAdded; //this will be the marker we pass back to set the context limit style
             if (!isActive) {
                 logger.warn(`[CharDefs] Attempt to load defs for non-active character: ${charFile}. Skipping.`);
-                return resolve(['', []]);
+                return resolve(['', [], null]);
             }
 
             let charData = null;
@@ -421,6 +592,13 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
             //const scenarioToAdd = replacedData.scenario.length > 0 ? `\n${replacedData.scenario.trim()}` : ''
 
             //replace {{user}} and {{char}} for D1JB
+            const ks = liveConfig?.promptConfig || {};
+            const killSystemPrompt = !!ks.killSystemPrompt;
+            const killD4AN = !!ks.killD4AN;
+            const killD1JB = !!ks.killD1JB;
+            const killD0PH = !!ks.killD0PH;
+            const killResponsePrefill = !!ks.killResponsePrefill;
+
             var D1JB = postProcessText(replaceMacros(liveConfig.promptConfig.D1JB, username, charJSON.name)) || ''
             var D4AN = postProcessText(replaceMacros(liveConfig.promptConfig.D4AN, username, charJSON.name)) || ''
             var D0PostHistory = postProcessText(replaceMacros(liveConfig.promptConfig.D0PostHistory, username, charJSON.name)) || ''
@@ -443,6 +621,11 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 var systemPrompt = `${systemSequence}${systemMessage}`
                 var systemPromptforCC = `${systemMessage}`
             }
+            if (killSystemPrompt) { systemPrompt = ''; systemPromptforCC = ''; }
+            if (killD4AN) { D4AN = ''; }
+            if (killD1JB) { D1JB = ''; }
+            if (killD0PH) { D0PostHistory = ''; }
+            if (killResponsePrefill) { responsePrefill = ''; }
 
             // Helper to robustly determine if a chat entry is from the assistant
             const isAssistantMsg = (obj) => {
@@ -458,127 +641,127 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 return uname === charName || uname === charDisplayName;
             };
 
-            //logger.info("CC?", isCCSelected, "claude?", isClaude)
-            if (liveConfig.promptConfig.engineMode === 'horde' || !isCCSelected) { //craft the TC prompt
-                logger.trace('adding Text Completion style message objects into prompt')
-                //this will be what we return to TC as the prompt
-                var stringToReturn = systemPrompt
-
-                //add the chat history
-                stringToReturn = stringToReturn.trim()
-
-                let promptTokens = countTokens(stringToReturn)
-                //logger.trace(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
-                let insertedItems = []
-                let lastInsertedEntity = null
-
-
-
-                // For continuation, determine the entity of the most recent chat message upfront
-                // so we don't accidentally misclassify due to token budgeting.
-                let forcedLastInsertedEntity = null;
-                if (shouldContinue && chatHistory.length > 0) {
-                    const lastObj = chatHistory[chatHistory.length - 1];
-                    forcedLastInsertedEntity = isAssistantMsg(lastObj) ? 'Assistant' : 'Human';
-                }
-
-                for (let i = chatHistory.length - 1; i >= 0; i--) {
-                    let obj = chatHistory[i];
-                    let newItem
-                    if (isAssistantMsg(obj)) {
-                        newItem = `${endSequence}${outputSequence}${obj.username}: ${postProcessText(obj.content)}`;
-                    } else {
-                        newItem = `${endSequence}${inputSequence}${obj.username}: ${postProcessText(obj.content)}`;
-                    }
-
-                    let newItemTokens = countTokens(newItem);
-                    if (promptTokens + newItemTokens < liveConfig.promptConfig.contextSize) {
-                        promptTokens += newItemTokens;
-                        ChatObjsInPrompt.push(obj)
-                        //logger.trace(`added new item, prompt tokens: ~${promptTokens}`);
-                        insertedItems.push(newItem); // Add new item to the array
-                        // Capture the entity type of the most recent included message only once
-                        if (lastInsertedEntity === null) {
-                            lastInsertedEntity = isAssistantMsg(obj) ? 'Assistant' : 'Human';
-                            //logger.error('lastInsertedEntity is now:', lastInsertedEntity);
-                        }
-                    }
-                    //logger.warn(obj.username, obj.user, obj.content)
-                }
-                //reverse to prepare for D4AN insertion
-                insertedItems.reverse()
-                let numOfObjects = insertedItems.length
-                let positionForD4AN = numOfObjects - 4
-                let positionForD1JB = numOfObjects - 1
-                let positionForD0PostHistory = numOfObjects
-
-                if (shouldContinue) { // if we are continuing, move everything up by one to let the continued message be at the bottom
-                    positionForD4AN = positionForD4AN - 1
-                    positionForD1JB = positionForD1JB - 1
-                    positionForD0PostHistory = positionForD0PostHistory - 1
-                }
+            //logger.info("CC?", isCCSelected, "claude?", isClaude, "horde?", liveConfig.promptConfig.engineMode === 'horde');
+            if (liveConfig.promptConfig.engineMode !== 'horde' && !isCCSelected) { //MARK: TC Prompt Build
+                logger.info('Adding Text Completion style message objects into prompt')
+                const [tcString, tcChatObjs, tcLastMsgId] = await buildTCPrompt({
+                    liveConfig,
+                    systemPrompt,
+                    systemSequence,
+                    inputSequence,
+                    outputSequence,
+                    endSequence,
+                    D1JB,
+                    D4AN,
+                    D0PostHistory,
+                    responsePrefill: (!shouldContinue && responsePrefill) ? responsePrefill : '',
+                    chatHistory,
+                    availableContextForHistory,
+                    shouldContinue,
+                    lastUserMesageAndCharName
+                });
+                // Optional: Use API tokenization endpoint to fit within TC budget by culling oldest history via binary search
+                logger.info(`TC prompt built; length ${tcString.length} chars. Estimating tokens...`);
+                //logger.info('isClaude?', isClaude, 'liveAPI?.useTokenizer:', liveAPI?.useTokenizer);
                 
-                //logger.warn(`D4AN will be inserted at position ${positionForD4AN} of ${numOfObjects}`)
-                if (D4AN.length !== 0 && D4AN !== '' && D4AN !== undefined && D4AN !== null) {
-                    if (insertedItems.length < positionForD4AN) {
-                        insertedItems.splice(0, 0, `${endSequence}${systemSequence}${D4AN}`)
-                    } else {
-                        //logger.warn('adding D4AN at depth', positionForD4AN)
-                        insertedItems.splice(positionForD4AN, 0, `${endSequence}${systemSequence}${D4AN}`)
-                        positionForD1JB = positionForD1JB + 1
-                        positionForD0PostHistory = positionForD0PostHistory + 1
+                if (!isClaude && liveAPI?.useTokenizer) {
+                    logger.info('using remote tokenizer for TC prompt culling');
+                    try {
+                        // Calculate TC budget: contextSize - responseLength - small margin
+                        const tcBudget = Math.max(0, Number(liveConfig.promptConfig.contextSize) - Number(liveConfig.promptConfig.responseLength) - 32);
+
+                        async function countTokensTextByAPI(text) {
+                            //logger.info('counting tokens for text:', text);
+                            const count = await tryRemoteTokenize(text, liveAPI);
+                            //logger.info('counted tokens for text:', text, 'count:', count);
+                            if (typeof count === 'number') return count;
+                            throw new Error('Tokenize endpoint returned unexpected result');
+                        }
+
+                        // Helper to rebuild a TC prompt with a drop of the earliest K history messages
+                        async function buildTCWithDrop(dropK) {
+                            const historyTail = (chatHistory || []).slice(dropK);
+                            // Use a huge availableContextForHistory to force inclusion of all history in this candidate
+                            const HUGE = 1e9;
+                            const [candidate, candidateObjs] = await buildTCPrompt({
+                                liveConfig,
+                                systemPrompt,
+                                systemSequence,
+                                inputSequence,
+                                outputSequence,
+                                endSequence,
+                                D1JB,
+                                D4AN,
+                                D0PostHistory,
+                                responsePrefill: (!shouldContinue && responsePrefill) ? responsePrefill : '',
+                                chatHistory: historyTail,
+                                availableContextForHistory: HUGE,
+                                shouldContinue,
+                                lastUserMesageAndCharName
+                            });
+                            return [candidate, candidateObjs];
+                        }
+
+                        // First try the built prompt
+                        let lastCount;
+                        try {
+                            lastCount = await countTokensTextByAPI(tcString);
+                        } catch (e) {
+                            logger.info('[Tokenize-TC] Failed initial count; skipping API tokenization path. Reason:', e.message);
+                            throw e;
+                        }
+                        if (typeof lastCount === 'number') {
+                            logger.info(`[Tokenize-TC] Full prompt tokens via API: ${lastCount}, budget ${tcBudget}`);
+                        }
+                        let finalString = tcString, finalObjs = tcChatObjs, finalLastId = tcLastMsgId;
+                        if (typeof lastCount === 'number' && lastCount > tcBudget) {
+                            // Binary search over how many earliest history messages to drop
+                            let low = 0, high = (chatHistory || []).length, best = null;
+                            while (low <= high) {
+                                const mid = Math.floor((low + high) / 2);
+                                const [candText, candObjs] = await buildTCWithDrop(mid);
+                                let cnt;
+                                try {
+                                    cnt = await countTokensTextByAPI(candText);
+                                } catch (e) {
+                                    logger.debug('[Tokenize-TC] count failed during search, treating as too large:', e.message);
+                                    cnt = Number.POSITIVE_INFINITY;
+                                }
+                                logger.info(`[Tokenize-TC] drop ${mid} history → tokens ${cnt}`);
+                                if (cnt <= tcBudget) {
+                                    best = { drop: mid, count: cnt, candText, candObjs };
+                                    high = mid - 1;
+                                } else {
+                                    low = mid + 1;
+                                }
+                            }
+                            if (best) {
+                                finalString = best.candText;
+                                finalObjs = best.candObjs;
+                                // lastInContextMessageID becomes the last message ID in finalObjs if present
+                                if (Array.isArray(finalObjs) && finalObjs.length > 0) {
+                                    finalLastId = finalObjs[finalObjs.length - 1]?.messageID ?? finalLastId;
+                                }
+                                logger.info(`[Tokenize-TC] Culled ${best.drop} history messages to fit budget (${best.count}/${tcBudget}).`);
+                            } else {
+                                // Keep only system and prompt scaffolding; remove all history
+                                const [candText, candObjs] = await buildTCWithDrop((chatHistory || []).length);
+                                finalString = candText; finalObjs = candObjs; finalLastId = tcLastMsgId;
+                                logger.warn('[Tokenize-TC] Removed all history to fit within context budget.');
+                            }
+                        }
+
+                        resolve([finalString, finalObjs, finalLastId]);
+                        return; // return early because we've resolved
+                    } catch (e) {
+                        logger.info('[Tokenize-TC] API-based culling disabled or failed; using estimator-based selection.');
                     }
-                }
-                if (D1JB.length !== 0 && D1JB !== '' && D1JB !== undefined && D1JB !== null) {
-                    if (insertedItems.length < positionForD1JB) {
-                        insertedItems.splice(1, 0, `${endSequence}${systemSequence}${D1JB}`)
-                    } else {
-                        //logger.warn('adding D1JB at depth', positionForD1JB)
-                        insertedItems.splice(positionForD1JB, 0, `${endSequence}${systemSequence}${D1JB}`)
-                        positionForD0PostHistory = positionForD0PostHistory + 1
-                    }
-                }
-
-                if (D0PostHistory.length !== 0 && D0PostHistory !== '' && D0PostHistory !== undefined && D0PostHistory !== null) {
-                    //logger.warn(`adding D0PostHistory (${D0PostHistory}) at bottom of prompt, position ${positionForD0PostHistory}, total items now ${insertedItems.length + 1}`)
-                    insertedItems.splice(positionForD0PostHistory, 0, `${endSequence}${systemSequence}${D0PostHistory}`)
-                }
-
-                // Reverse the array before appending to insertedChatHistory
-                //let reversedItems = insertedItems.reverse();
-                //let insertedChatHistory = reversedItems.join('');
-                //logger.warn(`${insertedItems}`)
-                let insertedChatHistory = insertedItems.join('');
-                stringToReturn += insertedChatHistory
-
-                if (forcedLastInsertedEntity !== null) {
-                    lastInsertedEntity = forcedLastInsertedEntity;
-                }
-                //logger.warn('lastInsertedEntity:', lastInsertedEntity, 'shouldContinue:', shouldContinue)
-
-                if (shouldContinue === true && lastInsertedEntity === 'Assistant') {
-                    //logger.warn('not adding end sequence because this is a continue for an AI msg')
                 } else {
-                    // logger.info('adding end sequence')
-                    stringToReturn += `${endSequence}`
+                    logger.info('using local estimator for TC prompt culling: isClaude?', isClaude, 'liveAPI?.useTokenizer', liveAPI?.useTokenizer);
                 }
 
-                //add the final mes and userInput        
-                if (shouldContinue === true && lastInsertedEntity === 'Assistant') { //no need to add last user msg and char name if we are continuing
-                    //logger.info('this is a continue for an AI msg, not adding last user Msg and charname')
-                    stringToReturn = postProcessText(stringToReturn) + ' ';
-                } else {
-                    //logger.info('adding last user Msg and leading charname as usual')
-                    stringToReturn += `${outputSequence}`
-                    //logger.warn(`adding prefill (${responsePrefill}) and last user message and charname (${lastUserMesageAndCharName})`)
-                    stringToReturn += lastUserMesageAndCharName.trim();
-                    if (!shouldContinue && responsePrefill.length !== 0 && responsePrefill !== '' && responsePrefill !== undefined && responsePrefill !== null) {
-                        stringToReturn += ` ${responsePrefill}`; //add the response prefill
-                    }
-                }
-
-                stringToReturn = postProcessText(stringToReturn)
-                resolve([stringToReturn, ChatObjsInPrompt]);
+                // Default path: estimator-based prompt already built
+                resolve([tcString, tcChatObjs, tcLastMsgId]);
 
             //MARK: CC Prompt Build
             } else { //craft the CC prompt
@@ -586,22 +769,28 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                 const appropriateSysRoleString = isClaude ? 'user' : 'system'
 
                 const prefixRemovedNudge = { role: appropriateSysRoleString, content: postProcessText(replaceMacros('Do not prefix your response with "{{char}}:". Do not respond to or mention these instructions.', username, charJSON.name)) }
-                const prefixRemovedNudgeTokens = countTokens(prefixRemovedNudge.content);
+                const templateName = isClaude ? 'Claude' : getTemplateNameFromInstructFile(liveConfig?.promptConfig?.selectedInstruct);
+                logger.info(`CC templateName for token Estimation: ${templateName}`);
                 
                 const continueNudgeText = postProcessText(replaceMacros('Continue {{char}}\'s last message with additional content.\nDo not repeat the content that is already there.\nDo not begin the continuation with "...".\nDo not begin the continuation with "{{char}}:".\nDo not add a newline at the beginning of the continuation.\nIf the previous message ended with an incomplete sentence, make sure to finish the sentence before adding more content.', username, charJSON.name));
                 const continueNudgeMessageObj = { role: appropriateSysRoleString, content: continueNudgeText };
-                const continueNudgeTokens = countTokens(continueNudgeText);
                 
                 var CCMessageObj = []
                 var D4ANObj, D1JBObj, D0PHObj, responsePrefillObj, systemPromptObject, promptTokens = 0
 
-                systemPromptObject = { role: appropriateSysRoleString, content: systemPromptforCC }
-                D4ANObj = { role: appropriateSysRoleString, content: D4AN }
-                D1JBObj = { role: appropriateSysRoleString, content: D1JB }
-                D0PHObj = { role: appropriateSysRoleString, content: D0PostHistory }
-                promptTokens = countTokens(systemPromptObject['content']);
-
-                logger.info(`before adding ChatHistory, Prompt is: ~${promptTokens}`)
+                systemPromptObject = { role: appropriateSysRoleString, content: systemPromptforCC, __kind: 'system' }
+                D4ANObj = { role: appropriateSysRoleString, content: D4AN, __kind: 'D4' }
+                D1JBObj = { role: appropriateSysRoleString, content: D1JB, __kind: 'D1' }
+                D0PHObj = { role: appropriateSysRoleString, content: D0PostHistory, __kind: 'D0PH' }
+                // Reserve budget for CC (context minus response and safety margin)
+                const ccBudget = computeCCBudget(liveConfig.promptConfig.contextSize, liveConfig.promptConfig.responseLength, 32);
+                logger.info(`CC context budget: ${ccBudget} tokens (context ${liveConfig.promptConfig.contextSize} - response ${liveConfig.promptConfig.responseLength} - margin 32)`);
+                // In remote tokenizer mode, we skip all local token estimation for system/prefix/prefill
+                if (!(!isClaude && liveAPI?.useTokenizer)) {
+                    // Use per-block render to count only the system block accurately (no ceil in state)
+                    promptTokens = estimateCCSystemTokensByRender(systemPromptforCC, templateName);
+                    logger.info(`Top level system prompt is: ~${promptTokens.toFixed(2)} tokens`)
+                }
 
                 let D4Added = false,
                     D1Added = false,
@@ -620,22 +809,78 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     D0PHLoc = 1
                 }
 
+                const remoteMode = (!isClaude && liveAPI?.useTokenizer);
+
+                // Reserve assistant primer up-front (backend implicitly adds this) — skip estimation in remote mode
+                if (!remoteMode) {
+                    const assistantPrimerUnits = estimateCCAssistantPrimerTokensByRender(templateName);
+                    promptTokens += assistantPrimerUnits;
+                    logger.info(`Reserved assistant primer: ${assistantPrimerUnits.toFixed(2)}; running total ~${promptTokens.toFixed(2)}`);
+                }
+
                 //if we are continuing or have a prefill, we'll get extra messages below, so...
                 if (shouldContinue || responsePrefill.length > 0) { 
-                    //add instructions on how to continue
-                    promptTokens = promptTokens + continueNudgeTokens;
+                    logger.info('Continue or prefill path selected');
+                    // In remote mode, skip local estimation for continue-nudge; still adjust insertion positions
+                    if (!remoteMode) {
+                        const nudgeUnits = estimateCCMessageTokensByRender(continueNudgeMessageObj, templateName);
+                        promptTokens += nudgeUnits;
+                        logger.info(`Reserved ${nudgeUnits.toFixed(2)} tokens for continue-nudge, now at ~${promptTokens.toFixed(2)}`);
+                    }
                     //move insertion locations up by one
                     D0PHLoc = D0PHLoc + 1;
                     D1Loc = D1Loc + 1;
                     D4Loc = D4Loc + 1;
                 } else { //we will add the prefix removal instructions instead
-                    promptTokens = promptTokens + prefixRemovedNudgeTokens;
+                    logger.info('Prefix-removal nudge path selected');
+                    if (!remoteMode) {
+                        const nudgeUnits = estimateCCMessageTokensByRender(prefixRemovedNudge, templateName);
+                        promptTokens += nudgeUnits;
+                        logger.info(`Reserved ${nudgeUnits.toFixed(2)} tokens for prefix-removal nudge, now at ~${promptTokens.toFixed(2)}`);
+                    }
+                }
+
+                // Always reserve tokens for responsePrefill (if present and not continuing)
+                const addPrefill = (responsePrefill && responsePrefill.length > 0 && !shouldContinue);
+                let prefillObjForReserve = null;
+                if (addPrefill) {
+                    prefillObjForReserve = { role: 'assistant', content: `${charDisplayName}: ${responsePrefill}`, __kind: 'prefill' };
+                    if (!remoteMode) {
+                        logger.info('Reserving tokens for response prefill:');
+                        const prefillUnits = estimateCCMessageTokensByRender(prefillObjForReserve, templateName);
+                        promptTokens += prefillUnits;
+                        logger.info(`Reserved ${prefillUnits.toFixed(2)} tokens for response prefill, promptTokens now at ~${promptTokens.toFixed(2)}`);
+                    }
                 }
 
                 logger.warn('shouldContinue:', shouldContinue, 'D4Loc:', D4Loc, 'D1Loc:', D1Loc, 'D0PHLoc:', D0PHLoc)
+                if (!remoteMode) {
+                    logger.info(`after reserving for nudges and prefill, Prompt is: ~${promptTokens}`)
+                }
 
+                // Optional: one-shot calibration with remote tokenizer for this request
+                // Set env STMP_TOKENIZER_URL to enable; gated by STMP_TOKEN_CALIBRATE !== '0'
+                let calibrationFactor = 1.0;
+                const doCalibrate = (!remoteMode && liveAPI?.useTokenizer && (templateName !== 'None' && templateName !== 'Claude'));
+                if (doCalibrate) {
+                    try {
+                        const previewMessages = [];
+                        // Compose a minimal preview prompt: system + nudges + prefill (if any), no history yet
+                        if (systemPromptObject?.content) previewMessages.push({ role: appropriateSysRoleString, content: systemPromptforCC });
+                        if (addPrefill && prefillObjForReserve) previewMessages.push(prefillObjForReserve);
+                        previewMessages.push(shouldContinue || (responsePrefill && responsePrefill.length > 0) ? continueNudgeMessageObj : prefixRemovedNudge);
+                        const renderedPreview = buildRenderedCCPrompt(previewMessages, '', templateName, true);
+                        const estUnitsPreview = promptTokens; // we've already summed these blocks into promptTokens
+                        calibrationFactor = await calibrateFactor(renderedPreview, estUnitsPreview, liveAPI);
+                    } catch (e) {
+                        logger.debug('[CC] calibration failed or skipped:', e.message);
+                        calibrationFactor = 1.0;
+                    }
+                }
+
+                if (!remoteMode) {
                 for (let i = chatHistory.length - 1; i >= 0; i--) {
-                    //logger.info(`processing chat history item ${i}`)
+                    logger.info(`processing chat history item ${i}`)
                     let obj = chatHistory[i];
                     //logger.info(`obj: ${obj}`);
 
@@ -663,52 +908,65 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                     if (!isClaude && i === chatHistory.length - D4Loc && D4ANObj.content.length > 0 && D4Added === false) {
                         logger.warn('saw D4 incoming')
                         shouldAddD4 = true
-                            logger.warn('adding D4')
-                            //logger.info(`added new item: ${JSON.stringify(D4ANObj)}`);
-                            CCMessageObj.push(D4ANObj)
-                            D4Added = true
-                            shouldAddD4 = false
-                            let D4Tokens = countTokens(D4ANObj?.content);
-                            D1Loc = D1Loc + 1
-                            D0PHLoc = D0PHLoc + 1
-                            promptTokens = + D4Tokens
+                        logger.warn('adding D4')
+                        const D4Units = estimateCCMessageTokensByRender(D4ANObj, templateName);
+                        CCMessageObj.push(D4ANObj)
+                        D4Added = true
+                        shouldAddD4 = false
+                        D1Loc = D1Loc + 1
+                        D0PHLoc = D0PHLoc + 1
+                        promptTokens += D4Units
                     }
                     if (i === chatHistory.length - D1Loc && D1JBObj.content.length > 0 && D1Added === false) {
                         shouldAddD1 = true
-                            logger.warn('adding D1')
-                            //logger.info(`added new item: ${JSON.stringify(D1JBObj)}`);
-                            CCMessageObj.push(D1JBObj)
-                            D1Added = true
-                            shouldAddD1 = false
-                            let D1Tokens = countTokens(D1JBObj?.content);
-                            D0PHLoc = D0PHLoc + 1
-                            promptTokens = + D1Tokens
+                        logger.warn('adding D1')
+                        const D1Units = estimateCCMessageTokensByRender(D1JBObj, templateName);
+                        CCMessageObj.push(D1JBObj)
+                        D1Added = true
+                        shouldAddD1 = false
+                        D0PHLoc = D0PHLoc + 1
+                        promptTokens += D1Units
                     }
                     if (i === chatHistory.length - D0PHLoc && D0PHObj.content.length > 0 && D0PHAdded === false) {
                         shouldAddD0PH = true
-                            logger.warn('adding D0PH')
-                            //logger.info(`added new item: ${JSON.stringify(D0PHObj)}`);
-                            CCMessageObj.push(D0PHObj)
-                            D0PHAdded = true
-                            shouldAddD0PH = false
-                            let D0PHTokens = countTokens(D0PHObj?.content);
-                            promptTokens = + D0PHTokens
+                        logger.warn('adding D0PH')
+                        const D0Units = estimateCCMessageTokensByRender(D0PHObj, templateName);
+                        CCMessageObj.push(D0PHObj)
+                        D0PHAdded = true
+                        shouldAddD0PH = false
+                        promptTokens += D0Units
                     }
 
                     if (isAssistantMsg(obj)) {
                             newObj = {
                                 role: 'assistant',
-                                content: `${obj.username}: ${postProcessText(obj.content)}`
+                                content: `${obj.username}: ${postProcessText(obj.content)}`,
+                                __kind: 'history'
                             }
-                            newItemTokens = countTokens(newObj?.content);
+                            if (templateName !== 'None' && templateName !== 'Claude') {
+                                const msgUnits = estimateCCMessageTokensByRender(newObj, templateName) * calibrationFactor;
+                                logger.info('Before adding new item', promptTokens.toFixed(2), 'of', ccBudget);
+                                logger.info('Message units for this object:', msgUnits.toFixed(2));
+                                newItemTokens = msgUnits;
+                            } else {
+                                newItemTokens = estimateMessageTokens_CC(newObj, templateName);
+                            }
 
                     } else { //for non-Assistant messages
 
                         newObj = {
                             role: 'user',
-                            content: `${obj.username}: ${postProcessText(obj.content)}`
+                            content: `${obj.username}: ${postProcessText(obj.content)}`,
+                            __kind: 'history'
                         }
-                        newItemTokens = countTokens(newObj?.content);
+                        if (templateName !== 'None' && templateName !== 'Claude') {
+                            const msgUnits = estimateCCMessageTokensByRender(newObj, templateName) * calibrationFactor;
+                            logger.info('Before adding new item', promptTokens.toFixed(2), 'of', ccBudget);
+                            logger.info('Message units for this object:', msgUnits.toFixed(2));
+                            newItemTokens = msgUnits;
+                        } else {
+                            newItemTokens = estimateMessageTokens_CC(newObj, templateName);
+                        }
 
                         if (isClaude) { //for Claude
                             //logger.warn(JSON.stringify(obj))
@@ -738,46 +996,181 @@ async function addCharDefsToPrompt(liveConfig, charFile, lastUserMesageAndCharNa
                             else {
                                 newObj = {
                                     role: 'user',
-                                    content: postProcessText(obj.content)
+                                    content: postProcessText(obj.content),
+                                    __kind: 'history'
                                 }
-                                newItemTokens = countTokens(newObj?.content);
+                                if (templateName !== 'None' && templateName !== 'Claude') {
+                                    const msgUnits = estimateCCMessageTokensByRender(newObj, templateName) * calibrationFactor;
+                                    logger.info('Message units for this object:', msgUnits.toFixed(2));
+                                    newItemTokens = msgUnits;
+                                } else {
+                                    logger.info(`ESTIMATING CC MESSAGE TOKENS BY CHAR! ---- CC templateName for token Estimation: ${templateName}`);
+                                    newItemTokens = estimateMessageTokens_CC(newObj, templateName);
+                                }
                             }
                         }
                     }
 
-                    if (promptTokens + newItemTokens < liveConfig.promptConfig.contextSize) {
+                    if (promptTokens + newItemTokens <= ccBudget) {
                         promptTokens += newItemTokens;
                         CCMessageObj.push(newObj)
                         ChatObjsInPrompt.push(obj)
-                        //logger.info(`added new item: ${JSON.stringify(newObj)}`);
-                        //logger.info(`added new item, prompt tokens: ~${promptTokens}`);
+                        logger.info(`added new item ${i} of ${chatHistory.length}, tokens ${newItemTokens.toFixed(2)}, prompt tokens: ~${promptTokens.toFixed(2)}`);
+                        logger.info(`--------------------------------`);
                     } else {
-                        logger.debug('ran out of context space', promptTokens, newItemTokens, liveConfig.promptConfig.contextSize)
+                        logger.info('ran out of context space (CC budget)', { promptTokens, newItemTokens, ccBudget })
+                        break;
+                    }
+                }
+                }
+                // In remote mode, skip local assembly; we'll assemble/cull below
+                if (!remoteMode) {
+                    if (systemPromptObject.content.length > 0) {
+                        CCMessageObj.push(systemPromptObject)
+                    }
+                    CCMessageObj = CCMessageObj.reverse();
+                    // Always add prefill if reserved above
+                    if (addPrefill) {
+                        CCMessageObj.push(prefillObjForReserve)
+                    }
+                    // Add appropriate nudge
+                    if (shouldContinue || responsePrefill.length > 0) {
+                        CCMessageObj.push({ ...continueNudgeMessageObj, __kind: 'nudge' })
+                    } else {
+                        CCMessageObj.push({ ...prefixRemovedNudge, __kind: 'nudge' })
                     }
                 }
 
-                if (systemPromptObject.content.length > 0) {
-                    CCMessageObj.push(systemPromptObject)
+                // Optional: Use API tokenization endpoint to fit within ccBudget by culling oldest history via binary search
+                if (!isClaude && liveAPI?.useTokenizer) {
+                    try {
+                        async function countTokensByAPI(messagesArr) {
+                            const msgsForRender = (messagesArr || []).filter(m => m.__kind !== 'system').map(({ role, content }) => ({ role, content }));
+                            const rendered = buildRenderedCCPrompt(msgsForRender, systemPromptforCC, templateName, true);
+                            const count = await tryRemoteTokenize(rendered, liveAPI);
+                            if (typeof count === 'number') return count;
+                            throw new Error('Tokenize endpoint returned unexpected result');
+                        }
+
+                        // Helper to assemble CC messages freshly from a history tail so non-history items are positioned correctly
+                        function assembleCCFromHistoryTail(historyTail) {
+                            let msgs = [];
+                            let D4Added = false, D1Added = false, D0PHAdded = false;
+                            let D4LocA = D4Loc, D1LocA = D1Loc, D0PHLocA = D0PHLoc;
+                            const tailLen = historyTail.length;
+                            const injectedPrefixes = new Map();
+                            // Small history hack: inject D4/D1/D0PH into first user message
+                            if (tailLen < 4) {
+                                for (let j = tailLen - 1; j >= 0; j--) {
+                                    const obj = historyTail[j];
+                                    if ((obj?.entity || '').toLowerCase() === 'user') {
+                                        // We won't mutate historyTail; instead remember an injected prefix for this message index
+                                        const injectedPrefix = [
+                                            (!D4Added && D4ANObj.content.length > 0) ? D4ANObj.content : null,
+                                            (!D1Added && D1JBObj.content.length > 0) ? D1JBObj.content : null,
+                                            (!D0PHAdded && D0PHObj.content.length > 0) ? D0PHObj.content : null,
+                                        ].filter(Boolean).join('\n');
+                                        if (injectedPrefix.length > 0) injectedPrefixes.set(j, injectedPrefix);
+                                        if (!D4Added && D4ANObj.content.length > 0) D4Added = true;
+                                        if (!D1Added && D1JBObj.content.length > 0) D1Added = true;
+                                        if (!D0PHAdded && D0PHObj.content.length > 0) D0PHAdded = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            for (let j = tailLen - 1; j >= 0; j--) {
+                                const obj = historyTail[j];
+                                if (!isClaude && j === tailLen - D4LocA && D4ANObj.content.length > 0 && !D4Added) {
+                                    msgs.push(D4ANObj); D4Added = true; D1LocA += 1; D0PHLocA += 1;
+                                }
+                                if (j === tailLen - D1LocA && D1JBObj.content.length > 0 && !D1Added) {
+                                    msgs.push(D1JBObj); D1Added = true; D0PHLocA += 1;
+                                }
+                                if (j === tailLen - D0PHLocA && D0PHObj.content.length > 0 && !D0PHAdded) {
+                                    msgs.push(D0PHObj); D0PHAdded = true;
+                                }
+                                const ent = (obj?.entity || '').toLowerCase();
+                                const isAssist = ent === 'assistant' || ent === 'ai' || ent === 'bot' || (obj?.username === charDisplayName);
+                                const prefix = injectedPrefixes.get(j);
+                                const injected = (prefix && !isAssist) ? (prefix + '\n') : '';
+                                const contentWithInject = `${injected}${postProcessText(obj.content)}`;
+                                if (isAssist) {
+                                    msgs.push({ role: 'assistant', content: `${obj.username}: ${contentWithInject}`, __kind: 'history' });
+                                } else {
+                                    msgs.push({ role: 'user', content: `${obj.username}: ${contentWithInject}`, __kind: 'history' });
+                                }
+                            }
+                            if (systemPromptObject.content.length > 0) msgs.push(systemPromptObject);
+                            msgs = msgs.reverse();
+                            if (addPrefill) msgs.push(prefillObjForReserve);
+                            msgs.push({ ...(shouldContinue || (responsePrefill && responsePrefill.length > 0) ? continueNudgeMessageObj : prefixRemovedNudge), __kind: 'nudge' });
+                            return msgs;
+                        }
+
+                        // Seed candidate: if we skipped local assembly, build from full history tail; otherwise use current CCMessageObj
+                        if (remoteMode) {
+                            CCMessageObj = assembleCCFromHistoryTail(chatHistory || []);
+                            ChatObjsInPrompt = (chatHistory || []).slice().reverse();
+                        }
+                        // First, try full prompt
+                        let lastCount;
+                        try {
+                            lastCount = await countTokensByAPI(CCMessageObj);
+                        } catch (e) {
+                            logger.info('[Tokenize] Failed initial count; skipping API tokenization path. Reason:', e.message);
+                            throw e;
+                        }
+                        if (typeof lastCount === 'number') {
+                            logger.info(`[Tokenize] Full prompt tokens via API: ${lastCount}, budget ${ccBudget}`);
+                        }
+                        if (typeof lastCount === 'number' && lastCount > ccBudget) {
+                            // Binary search to find minimal drops to fit
+                            let low = 0, high = (chatHistory || []).length, best = null;
+                            while (low <= high) {
+                                const mid = Math.floor((low + high) / 2);
+                                const historyTail = (chatHistory || []).slice(mid);
+                                const candidate = assembleCCFromHistoryTail(historyTail);
+                                let cnt;
+                                try {
+                                    cnt = await countTokensByAPI(candidate);
+                                } catch (e) {
+                                    logger.debug('[Tokenize] count failed during search, treating as too large:', e.message);
+                                    cnt = Number.POSITIVE_INFINITY;
+                                }
+                                logger.info(`[Tokenize] drop ${mid} history → tokens ${cnt}`);
+                                if (cnt <= ccBudget) {
+                                    best = { drop: mid, count: cnt, candidate };
+                                    high = mid - 1; // try to keep more
+                                } else {
+                                    low = mid + 1; // need to drop more
+                                }
+                            }
+                            if (best) {
+                                CCMessageObj = best.candidate;
+                                // Build ChatObjsInPrompt from the selected tail (newest-first to match original behavior)
+                                const selectedTail = (chatHistory || []).slice(best.drop);
+                                ChatObjsInPrompt = selectedTail.slice().reverse();
+                                logger.info(`[Tokenize] Culled ${best.drop} history messages to fit budget (${best.count}/${ccBudget}).`);
+                            } else {
+                                // Could not fit even with all history removed; keep only non-history blocks
+                                CCMessageObj = assembleCCFromHistoryTail([]);
+                                ChatObjsInPrompt = [];
+                                logger.warn('[Tokenize] Removed all history to fit within context budget.');
+                            }
+                        }
+                    } catch (e) {
+                        // If any problem occurs, we keep the estimation-based result
+                        logger.info('[Tokenize] API-based culling disabled or failed; using estimator-based selection.');
+                    }
                 }
 
-                CCMessageObj = CCMessageObj.reverse();
-
-                if (responsePrefill.length > 0 && !shouldContinue) { //add prefill if it exists, but only if we aren't continuing
-                    
-                    responsePrefillObj = { role: 'assistant', content: `${charDisplayName}: ${responsePrefill}` }
-                    CCMessageObj.push(responsePrefillObj)
-                    //newItemTokens = countTokens(responsePrefillObj?.content);
+                // Determine the boundary message (oldest included) for context highlighting
+                let lastInContextMessageID = null;
+                if (Array.isArray(ChatObjsInPrompt) && ChatObjsInPrompt.length > 0) {
+                    const oldestIncluded = ChatObjsInPrompt[ChatObjsInPrompt.length - 1];
+                    lastInContextMessageID = oldestIncluded?.messageID ?? null;
                 }
-
-                //This is not a great hack, but it will do for now. Equivalent to ST's continue prefill method.
-                //Continue on CC just sucks in general. Blah.
-                if (shouldContinue || responsePrefill.length > 0) { //if continue or prefill, add instructions for how it should be done
-                    CCMessageObj.push(continueNudgeMessageObj)
-                } else {
-                    CCMessageObj.push(prefixRemovedNudge)
-                }
-
-                resolve([CCMessageObj, ChatObjsInPrompt]);
+                resolve([CCMessageObj, ChatObjsInPrompt, lastInContextMessageID]);
             }
 
         } catch (error) {
@@ -1096,7 +1489,7 @@ async function tryLoadModel(api, liveConfig, liveAPI) {
 }
 
 //MARK: requestToTCorCC
-async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, includedChatObjects, isTest, liveConfig, parsedMessage, charName) {
+async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, includedChatObjects, isTest, liveConfig, parsedMessage, charName, lastInContextMessageID) {
     //logger.info('[requestToTCorCC] >> GO')
     //logger.info('finalApiCallParams: ', finalApiCallParams)
     const TCEndpoint = liveAPI.endpoint
@@ -1183,10 +1576,9 @@ async function requestToTCorCC(isStreaming, liveAPI, finalApiCallParams, include
         //logger.warn(finalApiCallParams.model)
         finalApiCallParams.stream = isStreaming
 
-        //logger.debug('HEADERS')
+        logger.info('HEADERS')
         //logger.info(headers)
-        logger.info(`PAYLOAD
-${JSON.stringify(finalApiCallParams, null, 2)}`)
+        logger.info(`PAYLOAD`);
         //logger.info(finalApiCallParams)
 
         const body = JSON.stringify(finalApiCallParams);
@@ -1250,7 +1642,7 @@ ${JSON.stringify(finalApiCallParams, null, 2)}`)
 }
 
 //MARK: processResponse
-async function processResponse(response, isCCSelected, isTest, isStreaming, liveAPI) {
+async function processResponse(response, isCCSelected, isTest, isStreaming, liveAPI, lastInContextMessageID = null) {
     logger.info('Processing response..')
     let isClaude = liveAPI.claude
 
@@ -1265,7 +1657,7 @@ async function processResponse(response, isCCSelected, isTest, isStreaming, live
         }
     } else {
         if (response.body) {
-            let chunk = await stream.processStreamedResponse(response, isCCSelected, isTest, isClaude);
+            let chunk = await stream.processStreamedResponse(response, isCCSelected, isTest, isClaude, lastInContextMessageID);
             //logger.info('chunk: ', chunk)
             if (chunk) {
                 return chunk

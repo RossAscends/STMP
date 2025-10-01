@@ -83,6 +83,7 @@ const schemaDictionary = {
         key: "TEXT",
         type: "TEXT",
         claude: "BOOLEAN DEFAULT FALSE", //saves as INTEGER 0 or 1
+        useTokenizer: "BOOLEAN DEFAULT FALSE",
         created_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
         last_used_at: "DATETIME DEFAULT CURRENT_TIMESTAMP",
         modelList: "TEXT",
@@ -505,7 +506,8 @@ async function writeAIChatMessage(username, userId, message, entity) {
             );
             let resultingMessageID = (await db.get('SELECT message_id FROM aichats WHERE session_id = ? ORDER BY message_id DESC LIMIT 1', [sessionId]))?.message_id;
 
-            //logger.debug('Message written into session ' + sessionId + ' with message_id ' + resultingMessageID);
+            // Return details so callers can include metadata in outbound events
+            return { sessionId, message_id: resultingMessageID, timestamp };
         } catch (err) {
             logger.error('Error writing AI chat message:', err);
         }
@@ -769,32 +771,46 @@ async function upsertAPI(apiData) {
     logger.info('Adding/updating API...');
     logger.trace(apiData)
 
-    const { name, endpoint, key, type, claude, modelList, selectedModel } = apiData;
+    const { name, endpoint, key, type } = apiData;
+    let { claude, useTokenizer, modelList, selectedModel } = apiData;
     logger.info('Adding/updating API...' + name);
 
-    if (
-        [name, endpoint, type, claude, modelList, selectedModel].some(
-            (value) => value === undefined
-        )
-    ) {
-        logger.error('New API has undefined datatypes; cannot register.');
+    // Minimal required fields
+    if ([name, endpoint, type].some((v) => v === undefined || v === null || v === '')) {
+        logger.error('API missing required fields (name/endpoint/type); cannot register.');
         logger.error(apiData);
         return;
     }
 
-    //const db = await dbPromise;
     return queueDatabaseWrite(async (db) => {
         try {
+            // Pull existing row to fill defaults for optional fields
+            const existing = await db.get('SELECT * FROM apis WHERE name = ?', [name]);
+            // Normalize booleans
+            const claudeFinal = typeof claude === 'boolean' ? claude : !!(existing && existing.claude);
+            const useTokenizerFinal = typeof useTokenizer === 'boolean' ? useTokenizer : !!(existing && existing.useTokenizer);
+            // Model list and selected model defaults
+            let modelListFinal;
+            if (modelList !== undefined) {
+                modelListFinal = Array.isArray(modelList) ? modelList : []; // client sends array
+            } else if (existing && typeof existing.modelList === 'string') {
+                try { modelListFinal = JSON.parse(existing.modelList) || []; } catch { modelListFinal = []; }
+            } else {
+                modelListFinal = [];
+            }
+            const selectedModelFinal = (selectedModel !== undefined) ? selectedModel : (existing?.selectedModel || '');
+
             await db.run(
-                'INSERT OR REPLACE INTO apis (name, endpoint, key, type, claude, modelList, selectedModel) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                'INSERT OR REPLACE INTO apis (name, endpoint, key, type, claude, useTokenizer, modelList, selectedModel) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                 [
                     name,
                     endpoint,
-                    key,
+                    key || '',
                     type,
-                    claude,
-                    JSON.stringify(modelList),
-                    selectedModel,
+                    claudeFinal ? 1 : 0,
+                    useTokenizerFinal ? 1 : 0,
+                    JSON.stringify(modelListFinal),
+                    selectedModelFinal,
                 ]
             );
             logger.debug('An API was upserted');
@@ -811,7 +827,7 @@ async function upsertAPI(apiData) {
         } catch (err) {
             logger.error('Error writing API:', err);
         }
-    }, [name, endpoint, key, type, claude, modelList, selectedModel])
+    }, [name, endpoint, key, type, claude, modelList, selectedModel]);
 }
 
 async function getAPIs() {
@@ -827,6 +843,7 @@ async function getAPIs() {
                 row.modelList = []; // Assign an empty array as the default value
             }
             row.claude == 1 ? row.claude = true : row.claude = false
+            row.useTokenizer == 1 ? row.useTokenizer = true : row.useTokenizer = false
             return row;
         });
         return apis;
@@ -848,6 +865,7 @@ async function getAPI(name) {
                 gotAPI.modelList = []; // Assign an empty array as the default value
             }
             gotAPI.claude == 1 ? gotAPI.claude = true : gotAPI.claude = false
+            gotAPI.useTokenizer == 1 ? gotAPI.useTokenizer = true : gotAPI.useTokenizer = false
             return gotAPI;
         } else {
             logger.error('API not found: "', name, '",returning Default instead.');

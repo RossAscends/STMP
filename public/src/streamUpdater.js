@@ -1,6 +1,7 @@
 export const streamUpdater = (() => {
     let pendingHTML = null;
     let isContinue;
+    let haveUpdatedContextLine = false;
     let lastUpdateTime = 0;
     let scrollTimeout = null;
     let isScrolling = false;
@@ -11,6 +12,43 @@ export const streamUpdater = (() => {
     const scrollDuration = 100;
     const $aiChat = $("#AIChat");
     const el = $aiChat.get(0);
+
+    // Context line helpers (extracted): add a "contextLine" class to a target message ID
+    // and fade all previous siblings with the "opacity30" class. Safe no-op if not found.
+    function markContextBoundary(lastInContextMessageID) {
+        console.warn('markContextBoundary called with ID:', lastInContextMessageID);
+        if (lastInContextMessageID === null || lastInContextMessageID === undefined) return;
+        const $preExistingContextLine = $aiChat.find('div.contextLine');
+        const $preexistingFadedChatMessages = $aiChat.find('div.opacity30');
+        console.warn('checking for existing fades/lines');
+        if ($preexistingFadedChatMessages.length) {
+            console.warn('removing existing fade on messages');
+            $preexistingFadedChatMessages.removeClass('opacity30');
+        }
+        if ($preExistingContextLine.length) {
+            console.warn('removing existing context line from message');
+            $preExistingContextLine.removeClass('contextLine');
+        }
+        console.warn('finished removing old lines, looking for new target');
+        const $newContextLineTarget = $aiChat.find(`div[data-messageid='${lastInContextMessageID}']`);
+        if ($newContextLineTarget.length) {
+            console.warn('adding new context line to message');
+            $newContextLineTarget.addClass('contextLine');
+            const $prevSiblings = $newContextLineTarget.prevAll('div');
+            if ($prevSiblings.length) {
+                $prevSiblings.addClass('opacity30');
+            }
+        } else {
+            console.warn('no target found for context line with ID:', lastInContextMessageID);
+        }
+    }
+
+    function resetContextBoundary() {
+        console.warn('resetContextBoundary called');
+        $aiChat.find('div.contextLine').removeClass('contextLine');
+        $aiChat.find('div.opacity30').removeClass('opacity30');
+        haveUpdatedContextLine = false;
+    }
 
     // Stable text node helpers to reduce flicker during per-token updates
     function ensureTextNode($el, dataKey = 'streamTextNode') {
@@ -315,10 +353,24 @@ export const streamUpdater = (() => {
     }
 
     return {
-        go(newHTML, shouldContinue) {
+        go(newHTML, shouldContinue, lastInContextMessageID = null) {
+            // Only mark the context boundary once per streaming session
+            console.warn('markContextBoundary called with ID:', lastInContextMessageID, 'haveUpdatedContextLine=', haveUpdatedContextLine);
+            if (lastInContextMessageID !== null && haveUpdatedContextLine === false) {
+                markContextBoundary(lastInContextMessageID);
+                haveUpdatedContextLine = true;
+            }
             pendingHTML = newHTML;
             isContinue = shouldContinue;
             requestAnimationFrame(update);
+        },
+        // Public helper: mark boundary without invoking streaming HTML updates
+        markContextBoundary(id) {
+            markContextBoundary(id);
+        },
+        // Public helper: clear previous boundary/fades and reset one-shot guard
+        resetContextBoundary() {
+            resetContextBoundary();
         }
     };
 })();

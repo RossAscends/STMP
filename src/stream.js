@@ -59,7 +59,6 @@ function autoMendMarkdown(text) {
     if (strikePairCount % 2 === 1) out += '~~';
 
     // 6) Italic: single * (exclude ** and list bullets "* ")
-    // Only mend if there are unmatched OPENING italic markers ("*word" or "word*" logic favors closing when possible)
     const s = out;
     let openItalics = 0, closeItalics = 0;
     for (let i = 0; i < s.length; i++) {
@@ -85,15 +84,13 @@ function autoMendMarkdown(text) {
     }
     const unmatchedOpens = Math.max(0, openItalics - closeItalics);
     if (unmatchedOpens > 0) out += '*'.repeat(unmatchedOpens);
-
     return out;
 }
 
-const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, user, sessionID, messageID, shouldContinue) => {
-    //logger.warn('createTextListener activated');
-    let currentlyStreaming
-    //logger.warn(parsedMessage)
-    let contentBeforeContinue
+// Text listener that emits streamed token messages and finalizes at end
+const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, user, sessionID, messageID, shouldContinue, lastInContextMessageID) => {
+    let currentlyStreaming;
+    let contentBeforeContinue;
     // Track mid-stream fenced code block state for stable rendering
     let streamIsInsideFencedCodeblock = false;
     let haveInsertedPrefillForDisplayYet = false;
@@ -130,8 +127,23 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
         // If we end while a temporary fence was being used, do nothing special here; the
         // accumulatedStreamOutput already contains the true raw content without the temp fence.
         // The purifier will render correctly based on the true final fences.
+        // Persist final text to DB (continue edits vs new AI message)
+        try {
+            const trimmed = api.trimIncompleteSentences(accumulatedStreamOutput);
+            if (shouldContinue) {
+                const targetSessionID = parsedMessage?.continueTarget?.sessionID || sessionID;
+                const targetMessageID = parsedMessage?.continueTarget?.mesID || (messageID - 1);
+                logger.warn('Editing message ID at end of stream: ', targetMessageID, ' in session ', targetSessionID);
+                await db.editMessage(targetSessionID, targetMessageID, trimmed);
+            } else {
+                await db.writeAIChatMessage(liveConfig.promptConfig.selectedCharacterDisplayName, 'AI', trimmed, 'AI');
+            }
+        } catch (e) {
+            logger.warn('Failed to persist streamed response to DB:', e?.message || e);
+        }
+
         textEmitter.removeAllListeners('text');
-            const streamEndToken = {
+        const streamEndToken = {
             chatID: parsedMessage.chatID,
             AIChatUserList: AIChatUserList,
             userColor: parsedMessage.userColor || parsedMessage.color || 'white',
@@ -148,6 +160,7 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
                 // preserve targeting so client can finalize the correct node
                 sessionID: parsedMessage?.continueTarget?.sessionID || sessionID,
                 messageID: parsedMessage?.continueTarget?.mesID || messageID,
+                    timestamp: new Date().toISOString()
         };
         //logger.warn('sending stream end')
         broadcast(streamEndToken); // Emit the event to clients
@@ -165,25 +178,31 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
 
         //add the newest token to the accumulated variable for later chat saving. 
         //logger.log(text);
-        // Check if the response stream has ended
-        if (currentlyStreaming) {
-            if (text === 'END_OF_RESPONSE' || text === null || text === undefined) {
-                endResponse();
-                return
-            }
-            //logger.debug('saw end of stream or invalid token')
-        } else if (text === 'END_OF_RESPONSE' || text === null || text === undefined) {
-            return
+        // Immediate end-of-stream handling (works even if no tokens arrived)
+        if (text === 'END_OF_RESPONSE' || text === null || text === undefined) {
+            await endResponse();
+            return;
         }
 
-        if (haveInsertedPrefillForDisplayYet === false && !shouldContinue && liveConfig.promptConfig.responsePrefill.length > 0) {
+        const isPrefillDisabled = liveConfig.promptConfig.killResponsePrefill === true;
+
+        if (!isPrefillDisabled && !haveInsertedPrefillForDisplayYet && !shouldContinue && liveConfig.promptConfig.responsePrefill.length > 0) {
             //logger.error('TEXTLISTENER: inserting prefill for display:', liveConfig.promptConfig.responsePrefill)
             //this just adds the prefill into the displayed output.
             accumulatedStreamOutput += liveConfig.promptConfig.responsePrefill;
             haveInsertedPrefillForDisplayYet = true;
         }
 
-        accumulatedStreamOutput += text
+        if (typeof text === 'string' && text.length > 0) {
+            if (typeof text !== 'string' || text.length === 0) {
+                // Ignore non-string/empty tokens
+                return;
+            }
+            accumulatedStreamOutput += text;
+        } else {
+            // Ignore non-string or empty tokens
+            return;
+        }
         //logger.warn(accumulatedStreamOutput)
         // logger.warn(purify.partialMarkdownToHTML(purifier.makeHtml((accumulatedStreamOutput))))
 
@@ -200,12 +219,16 @@ const createTextListener = async (parsedMessage, liveConfig, AIChatUserList, use
             color: user?.color || 'red', //if red, then we have a problem somewhere. AI dont have colors atm, defaulting to white in frontend.
             sessionID: parsedMessage?.continueTarget?.sessionID || sessionID,
             messageID: parsedMessage?.continueTarget?.mesID || messageID,
+            lastInContextMessageID: lastInContextMessageID,
+            timestamp: new Date().toISOString()
         };
         await broadcast(streamedTokenMessage);
         currentlyStreaming = true;
     };
 };
 
+//this is the serverjs entrypoint for getting responses from the AI.
+//it handles both streaming and non-streaming responses.
 async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, user, liveConfig, shouldContinue, sessionID = null) {
     // logger.warn('handleResponse liveConfig.promptConfig.stream:', liveConfig.promptConfig.isStreaming)
     isStreaming = liveConfig.promptConfig.isStreaming;
@@ -217,54 +240,49 @@ async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, 
     // logger.warn(`isStreaming: ${isStreaming}, engineMode: ${engineMode}, selectedAPI: ${selectedAPI}`);
 
     if (isStreaming) {
-        logger.warn('Preparing to stream response...');
-        const [activeChatJSON, foundSessionID] = await db.readAIChat(sessionID);
-        //const activeChat = JSON.parse(activeChatJSON);
+        logger.warn('Preparing to stream response (single-pass)...');
+    const [activeChatJSON, foundSessionID] = await db.readAIChat(sessionID);
         const newMessageID = await db.getNextMessageID();
 
-        //this is a dry run to get the AIChatUserList, so we can create the listener EARLY.
-        logger.warn('>>> DRY RUN to get userlist<<<')
-        const AIChatUserList = await api.getAIResponse(
-            isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, true, parsedMessage, false
-        );
-        // Create listener EARLY
-        const textListener = await createTextListener(parsedMessage, liveConfig, AIChatUserList, user, foundSessionID, newMessageID, shouldContinue);
-
-        textEmitter.removeAllListeners('text'); // Prevent multiple listeners
-        textEmitter.on('text', textListener); // 🔁 NOW the emitter is hooked
-
-        //this is the actual call to the API, which will start streaming.
-        logger.warn('>>> REAL RUN to get response<<<')
-        const [AIResponse, uselessAIChatUserList] = await api.getAIResponse(
-            isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage, shouldContinue
-        );
-
-        if (!AIResponse || !AIResponse[0]) {
-            logger.warn('[handleResponse] null or empty response received for streaming.');
-
-            textListener('END_OF_RESPONSE');
-            const trimmed = await api.trimIncompleteSentences(accumulatedStreamOutput);
-            if (shouldContinue) {
-                const targetSessionID = parsedMessage?.continueTarget?.sessionID || sessionID;
-                const targetMessageID = parsedMessage?.continueTarget?.mesID || (newMessageID - 1);
-                logger.warn('Editing message ID after got no response content: ', targetMessageID, ' in session ', targetSessionID);
-                await db.editMessage(targetSessionID, targetMessageID, trimmed)
-            } else {
-                await db.writeAIChatMessage(liveConfig.promptConfig.selectedCharacterDisplayName, 'AI', trimmed, 'AI');
-            }
-
+        // Pre-initialize listener using a callback invoked by getAIResponse before the network request
+        let textListener = null;
+        const preInit = async ({ AIChatUserList, lastInContextMessageID }) => {
+            // Reset accumulator for this new stream just before attaching listener
             accumulatedStreamOutput = '';
-        } else {
-            logger.info('streaming started successfully.');
-        }
+            textListener = await createTextListener(
+                parsedMessage,
+                liveConfig,
+                AIChatUserList,
+                user,
+                foundSessionID,
+                newMessageID,
+                shouldContinue,
+                lastInContextMessageID
+            );
+            textEmitter.removeAllListeners('text');
+            textEmitter.on('text', textListener);
+        };
 
-    } else {
-        const [AIResponse, AIChatUserList] = await api.getAIResponse(
-            isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, false, parsedMessage
+        const [AIResponse] = await api.getAIResponse(
+            isStreaming,
+            hordeKey,
+            engineMode,
+            user,
+            liveConfig,
+            liveConfig.APIConfig,
+            preInit,
+            parsedMessage,
+            shouldContinue
+        );
+        // Streaming completes within getAIResponse via stream events; no further action here.
+        logger.info('Streaming request completed.');
+
+    } else { //non-streaming response
+        const [AIResponse, AIChatUserList, lastInContextMessageID] = await api.getAIResponse(
+            isStreaming, hordeKey, engineMode, user, liveConfig, liveConfig.APIConfig, null, parsedMessage
         );
 
         //const [AIResponse, AIChatUserList] = response;
-
         //logger.warn('not streaming, AIChatUserList:', AIChatUserList);
 
         const AIResponseMessage = {
@@ -273,13 +291,20 @@ async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, 
             username: liveConfig.promptConfig.selectedCharacterDisplayName,
             type: 'AIResponse',
             color: user?.color || 'red',
-            AIChatUserList
+            AIChatUserList,
+            lastInContextMessageID
         };
 
-        const trimmed = await api.trimIncompleteSentences(AIResponse);
-        await db.writeAIChatMessage(
+        const trimmed = api.trimIncompleteSentences(AIResponse);
+        // Persist and capture DB-assigned message_id and timestamp
+        const writeMeta = await db.writeAIChatMessage(
             liveConfig.promptConfig.selectedCharacterDisplayName, 'AI', trimmed, 'AI'
         );
+        if (writeMeta) {
+            AIResponseMessage.sessionID = writeMeta.sessionId;
+            AIResponseMessage.messageID = writeMeta.message_id;
+            AIResponseMessage.timestamp = writeMeta.timestamp;
+        }
         await broadcast(AIResponseMessage);
         // Non-streamed completion notification
         responseLifecycleEmitter.emit('responseComplete', {
@@ -292,10 +317,17 @@ async function handleResponse(parsedMessage, selectedAPI, hordeKey, engineMode, 
 }
 
 
-async function processStreamedResponse(response, isCCSelected, isTest, isClaude) {
+async function processStreamedResponse(response, isCCSelected, isTest, isClaude, lastInContextMessageID = null) {
     let stream = response.body;
     let data = '';
     let text;
+    let emittedEnd = false;
+
+    const emitEndOnce = () => {
+        if (emittedEnd) return;
+        emittedEnd = true;
+        try { textEmitter.emit('text', 'END_OF_RESPONSE'); } catch (_) { /* noop */ }
+    };
 
     // Initialize StringDecoder
     const decoder = new StringDecoder('utf8');
@@ -332,6 +364,7 @@ async function processStreamedResponse(response, isCCSelected, isTest, isClaude)
             // Check if it's the final object
             if (jsonChunk === '[DONE]') {
                 logger.debug('[DONE] seen before "data:" removal. End of stream. Closing the stream.');
+                emitEndOnce();
                 stream.destroy();
                 break;
             }
@@ -345,6 +378,7 @@ async function processStreamedResponse(response, isCCSelected, isTest, isClaude)
             // Check if it's the final object (again)
             if (trimmedJsonChunk === '[DONE]') {
                 logger.debug('[DONE] seen after "data:" removal. End of stream. Closing the stream.');
+                emitEndOnce();
                 stream.destroy();
                 break;
             }
@@ -371,6 +405,7 @@ async function processStreamedResponse(response, isCCSelected, isTest, isClaude)
             } else {
                 if (isClaude) {
                     if (jsonData.type === 'message_stop') {
+                        emitEndOnce();
                         stream.destroy();
                         break;
                     } else if (jsonData.type === 'content_block_start' ||
@@ -397,8 +432,8 @@ async function processStreamedResponse(response, isCCSelected, isTest, isClaude)
         }
     });
 
-    stream.on('end', () => { logger.debug('All data entries processed.'); });
-    stream.on('error', (error) => { logger.warn('Error while streaming data:', error); });
+    stream.on('end', () => { logger.debug('All data entries processed.'); emitEndOnce(); });
+    stream.on('error', (error) => { logger.warn('Error while streaming data:', error); emitEndOnce(); });
 
     // Start reading the chunks
     return await readStreamChunks(stream);

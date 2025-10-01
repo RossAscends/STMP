@@ -521,11 +521,16 @@ async function initFiles() {
             instructList: {},
             selectedInstruct: "public/instructFormats/None.json",
             systemPrompt: '',
+            killSystemPrompt: false,
             D4AN: '',
             D4CharDefs: false,
+            killD4AN: false,
             D1JB: '',
+            killD1JB: false,
             D0PostHistory: '',
+            killD0PH: false,
             responsePrefill: '',
+            killResponsePrefill: false,
             APIList: {},
             selectedAPI: "Default",
         },
@@ -762,7 +767,7 @@ async function removeLastAIChatMessage() {
         chatHistory: markdownifyChatHistoriesArray(jsonArray),
         sessionID: sessionID
     }
-    logger.info('sending AI Chat Update instruction to clients')
+    logger.info('sending AI Chat Update instruction to clients at the end of removeLastAIChatMessage')
     broadcast(chatUpdateMessage);
     return activeSessionID
 }
@@ -778,7 +783,7 @@ async function removeAnyAIChatMessage(parsedMessage) {
             chatHistory: markdownifyChatHistoriesArray(jsonArray),
             sessionID
         }
-        logger.info('sending AI Chat Update instruction to clients')
+        logger.info('sending AI Chat Update instruction to clients at the end of removeAnyAIChatMessage')
         broadcast(chatUpdateMessage);
     }
 }
@@ -991,7 +996,9 @@ async function handleConnections(ws, type, request) {
             }
         }
 
-        await fio.writeConfig(liveConfig);
+    // Keep in-memory APIConfig synchronized with DB result (ensures fields like useTokenizer are present)
+    liveConfig.APIConfig = APIConfig;
+    await fio.writeConfig(liveConfig);
 
         baseMessage.liveConfig = {
             promptConfig: {
@@ -1060,6 +1067,17 @@ async function handleConnections(ws, type, request) {
 
                     logger.info('writing liveConfig to file')
                     liveConfig = parsedMessage.value
+                    // After processing API list changes, refresh APIConfig and APIList from DB to avoid dropping fields (e.g., useTokenizer)
+                    try {
+                        const selected = liveConfig?.promptConfig?.selectedAPI || 'Default';
+                        const refreshed = await db.getAPI(selected);
+                        if (refreshed) {
+                            liveConfig.APIConfig = refreshed;
+                        }
+                        liveConfig.promptConfig.APIList = await db.getAPIs();
+                    } catch (e) {
+                        logger.warn('Failed to refresh APIConfig/APIList after clientStateChange:', e.message);
+                    }
                     // Migrate / validate multi-character schema
                     migrateSelectedCharactersIfNeeded(liveConfig)
                     await fio.writeConfig(liveConfig)
@@ -1126,10 +1144,15 @@ async function handleConnections(ws, type, request) {
                         let modelListResult = {};
 
                         if (typeof modelList === 'object') {
+                            const prevCfg = liveConfig.APIConfig || {};
                             liveConfig.APIConfig = {
+                                ...prevCfg,
                                 ...parsedMessage.api,
                                 modelList: modelList,
-                                selectedModel: modelList[0]
+                                selectedModel: modelList[0],
+                                // Preserve tokenizer/claude flags if client payload omitted them
+                                useTokenizer: (typeof parsedMessage.api?.useTokenizer === 'boolean') ? parsedMessage.api.useTokenizer : !!prevCfg.useTokenizer,
+                                claude: (typeof parsedMessage.api?.claude === 'boolean') ? parsedMessage.api.claude : !!prevCfg.claude,
                             };
 
                             await db.upsertAPI(liveConfig.APIConfig);
@@ -1890,12 +1913,14 @@ function markdownifyChatHistoriesArray(chatMessagesArray) {
 
 //checks an incoming liveConfig from client for changes to the APIList, and adjust server's list and db-registered APIs to match it.
 async function checkAPIListChanges(liveConfig, parsedMessage) {
-    const serverAPIs = liveConfig.promptConfig.APIList;
-    const clientAPIs = parsedMessage.value.promptConfig.APIList;
+    // Defensively coerce to arrays to avoid null/undefined issues
+    const serverAPIs = Array.isArray(liveConfig?.promptConfig?.APIList) ? liveConfig.promptConfig.APIList : [];
+    const clientAPIs = Array.isArray(parsedMessage?.value?.promptConfig?.APIList) ? parsedMessage.value.promptConfig.APIList : [];
 
     // Quick check for identical lists
     if (serverAPIs.length === clientAPIs.length &&
         serverAPIs.every((sAPI, i) => isAPIEqual(sAPI, clientAPIs[i]))) {
+        logger.info('No changes detected in API lists; skipping update.');
         return; // No changes
     }
 
@@ -1943,10 +1968,19 @@ async function checkAPIListChanges(liveConfig, parsedMessage) {
             logger.info(`Upserting ${changedAPIs.length} APIs: ${changedAPIs.map(a => a.name).join(', ')}`);
             for (const api of changedAPIs) {
                 try {
-                    await db.upsertAPI({
+                    // Enrich with existing server-side fields so required DB columns are present
+                    const existing = serverAPIMap.get(api.name) || {};
+                    const enriched = {
+                        ...existing,
                         ...api,
-                        created_at: serverAPIMap.has(api.name) ? serverAPIMap.get(api.name).created_at : new Date().toISOString()
-                    });
+                        // Preserve existing modelList/selectedModel if not provided by client
+                        modelList: api.modelList !== undefined ? api.modelList : (existing.modelList || []),
+                        selectedModel: api.selectedModel !== undefined ? api.selectedModel : (existing.selectedModel || ''),
+                        claude: api.claude !== undefined ? api.claude : !!existing.claude,
+                        useTokenizer: api.useTokenizer !== undefined ? api.useTokenizer : !!existing.useTokenizer,
+                        created_at: existing.created_at || new Date().toISOString(),
+                    };
+                    await db.upsertAPI(enriched);
                 } catch (err) {
                     logger.error(`Failed to upsert API ${api.name}:`, err);
                 }
@@ -1960,14 +1994,28 @@ async function checkAPIListChanges(liveConfig, parsedMessage) {
 
 // Helper function to compare APIs
 function isAPIEqual(api1, api2) {
+    if (!api1 || !api2) return false;
     if (api1.name !== api2.name) return false;
-    for (const key of Object.keys(api1)) {
-        if (key === 'created_at' || key === 'last_used') continue; // Skip timestamps
+    // Compare over the union of keys to detect newly added fields (e.g., useTokenizer)
+    const skip = new Set(['created_at', 'last_used']);
+    const keys = new Set([...Object.keys(api1 || {}), ...Object.keys(api2 || {})]);
+    for (const key of keys) {
+        if (skip.has(key)) continue;
         if (key === 'modelList') {
-            if (JSON.stringify(api1[key]) !== JSON.stringify(api2[key])) return false;
-        } else if (api1[key] !== api2[key]) {
-            return false;
+            const a = JSON.stringify(api1.modelList || []);
+            const b = JSON.stringify(api2.modelList || []);
+            if (a !== b) return false;
+            continue;
         }
+        const aVal = api1[key];
+        const bVal = api2[key];
+        // Normalize booleans potentially undefined
+        if (key === 'claude' || key === 'useTokenizer') {
+            const aBool = !!aVal; const bBool = !!bVal;
+            if (aBool !== bBool) return false;
+            continue;
+        }
+        if (aVal !== bVal) return false;
     }
     return true;
 }
